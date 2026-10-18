@@ -326,29 +326,53 @@ public final class UpdateManager: NSObject, URLSessionDownloadDelegate {
         downloadTask: URLSessionDownloadTask,
         didFinishDownloadingTo location: URL
     ) {
-        Task { @MainActor in
-            let name = self.activeDownloadAsset?.name ?? "Gestione-Corsi-Update.pkg"
-            let tempDir = FileManager.default.temporaryDirectory
-            let targetUrl = tempDir.appendingPathComponent(name)
+        // IMPORTANT: The temporary file at `location` is deleted by URLSession as soon as this method returns.
+        // Therefore, we MUST synchronously move it before dispatching to the main actor!
+        let rawName = downloadTask.response?.suggestedFilename
+            ?? downloadTask.originalRequest?.url?.lastPathComponent
+            ?? "Gestione-Corsi-Update.pkg"
+        let fileName = rawName.isEmpty ? "Gestione-Corsi-Update.pkg" : rawName
+        let downloadsFolder = FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first
+        let targetFolder = downloadsFolder ?? FileManager.default.temporaryDirectory
+        var destinationUrl = targetFolder.appendingPathComponent(fileName)
 
+        var copyError: Error? = nil
+        do {
+            if FileManager.default.fileExists(atPath: destinationUrl.path) {
+                try FileManager.default.removeItem(at: destinationUrl)
+            }
+            try FileManager.default.moveItem(at: location, to: destinationUrl)
+        } catch {
+            // Fallback to temporary directory if primary location failed
+            let fallbackUrl = FileManager.default.temporaryDirectory.appendingPathComponent(fileName)
             do {
-                if FileManager.default.fileExists(atPath: targetUrl.path) {
-                    try FileManager.default.removeItem(at: targetUrl)
+                if FileManager.default.fileExists(atPath: fallbackUrl.path) {
+                    try FileManager.default.removeItem(at: fallbackUrl)
                 }
-                try FileManager.default.moveItem(at: location, to: targetUrl)
+                try FileManager.default.moveItem(at: location, to: fallbackUrl)
+                destinationUrl = fallbackUrl
+            } catch let fallbackErr {
+                copyError = fallbackErr
+            }
+        }
 
+        Task { @MainActor in
+            if let err = copyError {
+                self.isDownloading = false
+                self.errorMessage = "Errore durante il salvataggio dell'aggiornamento: \(err.localizedDescription)"
+                self.statusMessage = self.errorMessage ?? ""
+            } else {
                 self.isDownloading = false
                 self.downloadProgress = 1.0
                 self.statusMessage = "Installer scaricato con successo. Avvio dell'installazione..."
 
-                // Launch macOS Installer
-                NSWorkspace.shared.open(targetUrl)
-
-                self.statusMessage = "Installer avviato. Segui le istruzioni a schermo per completare l'aggiornamento."
-            } catch {
-                self.isDownloading = false
-                self.errorMessage = "Errore durante il salvataggio dell'aggiornamento: \(error.localizedDescription)"
-                self.statusMessage = self.errorMessage ?? ""
+                let launched = NSWorkspace.shared.open(destinationUrl)
+                if launched {
+                    self.statusMessage = "Installer avviato (\(destinationUrl.lastPathComponent)). Segui le istruzioni a schermo per completare l'aggiornamento."
+                } else {
+                    self.errorMessage = "Impossibile avviare automaticamente l'installer. Trovi il file in: \(destinationUrl.path)"
+                    self.statusMessage = self.errorMessage ?? ""
+                }
             }
         }
     }
