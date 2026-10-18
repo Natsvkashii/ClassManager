@@ -204,6 +204,25 @@ def build_macos(package: bool = True):
             f.write('#!/bin/sh\nrm -rf "/Applications/Gestione Corsi.app"\nexit 0\n')
         os.chmod(preinstall, 0o755)
 
+        postinstall = os.path.join(scripts_dir, "postinstall")
+        with open(postinstall, "w") as f:
+            f.write('''#!/bin/sh
+# Terminate old instance
+killall "GestioneCorsi" 2>/dev/null || true
+pkill -f "Gestione Corsi.app" 2>/dev/null || true
+sleep 1
+
+# Launch newly installed application for current console user
+CONSOLE_USER=$(stat -f "%Su" /dev/console 2>/dev/null)
+if [ -n "$CONSOLE_USER" ] && [ "$CONSOLE_USER" != "root" ]; then
+    sudo -u "$CONSOLE_USER" open "/Applications/Gestione Corsi.app"
+else
+    open "/Applications/Gestione Corsi.app"
+fi
+exit 0
+''')
+        os.chmod(postinstall, 0o755)
+
         cmd_pkg = [
             "pkgbuild",
             "--root", staging_dir,

@@ -17,7 +17,7 @@ import AppKit
 public enum AuthorAttribution {
     public static let authorName = "Guaira Jaramillo Nitoglia"
     public static let authorEmail = "guaira.jaramillo.nitoglia@gmail.com"
-    public static let appVersion = "2.1.1-004b"
+    public static let appVersion = "2.1.1-005b"
 }
 
 public enum NavigationTab: String, CaseIterable, Identifiable {
@@ -312,11 +312,13 @@ public struct AppSettings: Codable, Equatable {
     public var iCloudSyncEnabled: Bool = true
     public var checkForUpdatesAutomatically: Bool = true
     public var includeBetaUpdates: Bool = false
+    public var updateCheckFrequency: String = "startup" // "startup", "daily", "weekly", "manual"
+    public var lastUpdateCheckDate: Double = 0.0
 
     public init() {}
 
     enum CodingKeys: String, CodingKey {
-        case language, theme, sidebarMini, firstDayOfWeek, dateFormat, timeFormat, currency, passThreshold, defaultLessonDuration, autoSyncAppleCalendar, calendarSyncMode, iCloudSyncEnabled, checkForUpdatesAutomatically, includeBetaUpdates
+        case language, theme, sidebarMini, firstDayOfWeek, dateFormat, timeFormat, currency, passThreshold, defaultLessonDuration, autoSyncAppleCalendar, calendarSyncMode, iCloudSyncEnabled, checkForUpdatesAutomatically, includeBetaUpdates, updateCheckFrequency, lastUpdateCheckDate
     }
 
     public init(from decoder: Decoder) throws {
@@ -336,6 +338,8 @@ public struct AppSettings: Codable, Equatable {
         iCloudSyncEnabled = c.flexBool(.iCloudSyncEnabled, default: true)
         checkForUpdatesAutomatically = c.flexBool(.checkForUpdatesAutomatically, default: true)
         includeBetaUpdates = c.flexBool(.includeBetaUpdates, default: false)
+        updateCheckFrequency = c.flexString(.updateCheckFrequency, default: "startup")
+        lastUpdateCheckDate = c.flexDouble(.lastUpdateCheckDate, default: 0.0)
     }
 
     public init(dict: [String: Any]) {
@@ -354,6 +358,8 @@ public struct AppSettings: Codable, Equatable {
         iCloudSyncEnabled = JSONDictHelper.bool(dict["iCloudSyncEnabled"], default: true)
         checkForUpdatesAutomatically = JSONDictHelper.bool(dict["checkForUpdatesAutomatically"], default: true)
         includeBetaUpdates = JSONDictHelper.bool(dict["includeBetaUpdates"], default: false)
+        updateCheckFrequency = JSONDictHelper.str(dict["updateCheckFrequency"], default: "startup")
+        lastUpdateCheckDate = JSONDictHelper.dbl(dict["lastUpdateCheckDate"], default: 0.0)
     }
 }
 
@@ -1425,6 +1431,14 @@ public struct AppState: Codable, Equatable {
     ]
 
     public static let defaultChangelog: [ChangelogEntry] = [
+        ChangelogEntry(version: "2.1.1-005b", date: "2026-10-18", changes: [
+            "Corretto l'allineamento della colonna 'Studente' nel registro Presenze: allineamento e altezza perfettamente coordinati con tutte le colonne delle lezioni, senza gradini o spazi vuoti.",
+            "Ampliata la colonna nome studente a 260-280pt in Iscritti e Anagrafica con supporto per andare a capo su due righe, evitando qualsiasi troncamento dei nomi lunghi.",
+            "Riallineate e armonizzate le due schede della sezione Fatturazione (Costi del modulo e Dati fiscali) con altezze coordinate e pulsanti Salva Dati allineati in basso.",
+            "Riavvio automatico post-aggiornamento: al termine dell'installazione del pacchetto, la nuova versione si riavvia da sola in background senza richiedere azioni manuali.",
+            "Possibilità di ripetere la ricerca degli aggiornamenti in qualsiasi momento anche se una nuova versione è già stata rilevata.",
+            "Aggiunta nelle Impostazioni l'opzione per scegliere la frequenza di verifica aggiornamenti (Ad ogni avvio, Giornaliero, Settimanale, Manuale) con finestra modale all'avvio e backup preventivo automatico dei dati prima di ogni aggiornamento."
+        ]),
         ChangelogEntry(version: "2.1.1-004b", date: "2026-10-18", changes: [
             "Spostamento dinamico delle lezioni nel calendario del modulo tramite trascinamento con il mouse (Drag & Drop) su qualsiasi giorno desiderato.",
             "Visualizzazione multi-mese dinamica nel Programma Modulo per consultare e riprogrammare le lezioni liberamente attraverso tutti i mesi successivi.",

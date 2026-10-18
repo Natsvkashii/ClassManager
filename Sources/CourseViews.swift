@@ -385,12 +385,13 @@ public struct AttendanceView: View {
                 // Attendance Table
                 ScrollView([.horizontal, .vertical]) {
                     Grid(alignment: .leading, horizontalSpacing: 2, verticalSpacing: 2) {
-                        // Header Row (Uniform Height: 86pt across all columns)
+                        // Header Row (Uniform Height & Alignment across all columns)
                         GridRow {
                             Text("\(store.t("studentCol")) (\(students.count))")
                                 .font(.caption.bold())
                                 .padding(.horizontal, 12)
-                                .frame(width: 210, height: 86, alignment: .leading)
+                                .frame(width: 210, alignment: .leading)
+                                .frame(minHeight: 86, maxHeight: .infinity)
                                 .background(
                                     RoundedRectangle(cornerRadius: 8)
                                         .fill(tableHeaderCellFill(colorScheme))
@@ -425,7 +426,8 @@ public struct AttendanceView: View {
                                                 Text(t)
                                                     .font(.system(size: 10, weight: .bold))
                                                     .foregroundStyle(.green)
-                                                    .lineLimit(1)
+                                                    .lineLimit(2)
+                                                    .multilineTextAlignment(.center)
                                             } else {
                                                 Text(" ")
                                                     .font(.system(size: 10, weight: .bold))
@@ -449,7 +451,8 @@ public struct AttendanceView: View {
                                 }
                                 .padding(.vertical, 8)
                                 .padding(.horizontal, 4)
-                                .frame(width: 124, height: 86, alignment: .top)
+                                .frame(width: 124, alignment: .top)
+                                .frame(minHeight: 86, maxHeight: .infinity)
                                 .background(
                                     RoundedRectangle(cornerRadius: 8)
                                         .fill(tableHeaderCellFill(colorScheme))
@@ -673,7 +676,8 @@ public struct GradesView: View {
                             }
                             .font(.caption.bold())
                             .padding(.horizontal, 12)
-                            .frame(width: 260, height: 56)
+                            .frame(width: 260)
+                            .frame(minHeight: 56, maxHeight: .infinity)
                             .background(
                                 RoundedRectangle(cornerRadius: 8)
                                     .fill(tableHeaderCellFill(colorScheme))
@@ -686,7 +690,8 @@ public struct GradesView: View {
                                     Text("\(String(format: "%.0f", attWeight))%").font(.caption2.bold()).foregroundStyle(.green)
                                 }
                                 .padding(.horizontal, 8)
-                                .frame(width: 110, height: 56)
+                                .frame(width: 110)
+                                .frame(minHeight: 56, maxHeight: .infinity)
                                 .background(
                                     RoundedRectangle(cornerRadius: 8)
                                         .fill(Color.green.opacity(0.12))
@@ -723,7 +728,8 @@ public struct GradesView: View {
                                     }
                                 }
                                 .padding(.horizontal, 8)
-                                .frame(width: 150, height: 56)
+                                .frame(width: 150)
+                                .frame(minHeight: 56, maxHeight: .infinity)
                                 .background(
                                     RoundedRectangle(cornerRadius: 8)
                                         .fill(tableHeaderCellFill(colorScheme))
@@ -2431,7 +2437,7 @@ public struct RosterView: View {
                     // Table Header Row
                     HStack(spacing: 12) {
                         Text(store.t("studentCol"))
-                            .frame(width: 230, alignment: .leading)
+                            .frame(width: 280, alignment: .leading)
                         Text(store.t("studentPhoneLabel"))
                             .frame(width: 155, alignment: .leading)
                         Text(store.t("emailBillingLabel"))
@@ -2468,11 +2474,12 @@ public struct RosterView: View {
                                                     .foregroundStyle(store.activeCoursePalette.color)
                                                 Text(st.fullName)
                                                     .font(.body.weight(.semibold))
-                                                    .lineLimit(1)
+                                                    .lineLimit(2)
+                                                    .multilineTextAlignment(.leading)
                                             }
                                         }
                                         .buttonStyle(.plain)
-                                        .frame(width: 230, alignment: .leading)
+                                        .frame(width: 280, alignment: .leading)
 
                                         // Column 2: Phone
                                         HStack(spacing: 5) {

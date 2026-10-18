@@ -84,6 +84,7 @@ public struct ContentView: View {
     @Environment(AppStore.self) private var store
     @Environment(\.colorScheme) private var colorScheme
     @State private var activeSheet: ActiveModalSheet? = nil
+    @State private var updateManager = UpdateManager.shared
 
     public init() {}
 
@@ -162,6 +163,40 @@ public struct ContentView: View {
         .sheet(item: $activeSheet) { sheet in
             sheetView(for: sheet)
                 .environment(store)
+        }
+        .sheet(isPresented: $updateManager.showStartupUpdatePrompt) {
+            StartupUpdatePromptSheet()
+                .environment(store)
+        }
+        .onAppear {
+            checkUpdatesOnStartupIfNeeded()
+        }
+    }
+
+    private func checkUpdatesOnStartupIfNeeded() {
+        guard store.state.settings.checkForUpdatesAutomatically else { return }
+        let freq = store.state.settings.updateCheckFrequency
+        let now = Date().timeIntervalSince1970
+        let lastCheck = store.state.settings.lastUpdateCheckDate
+
+        var shouldCheck = false
+        switch freq {
+        case "startup":
+            shouldCheck = true
+        case "daily":
+            shouldCheck = (now - lastCheck) > 86400
+        case "weekly":
+            shouldCheck = (now - lastCheck) > 604800
+        case "manual":
+            shouldCheck = false
+        default:
+            shouldCheck = true
+        }
+
+        if shouldCheck {
+            store.state.settings.lastUpdateCheckDate = now
+            store.persist()
+            updateManager.checkForUpdates(includeBeta: store.state.settings.includeBetaUpdates, silent: true)
         }
     }
 
@@ -753,7 +788,7 @@ public struct UpdateNotificationBanner: View {
                 .controlSize(.small)
             } else {
                 Button {
-                    UpdateManager.shared.downloadAndInstall(release: release)
+                    UpdateManager.shared.downloadAndInstall(release: release, store: store)
                 } label: {
                     Label(store.t("downloadAndInstallBtn"), systemImage: "arrow.down.circle.fill")
                 }
@@ -783,6 +818,101 @@ public struct UpdateNotificationBanner: View {
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
         .background(Color.purple.opacity(0.10))
+    }
+}
+
+// MARK: - Startup Update Prompt Sheet
+
+private struct StartupUpdatePromptSheet: View {
+    @Environment(AppStore.self) private var store
+    @State private var updateManager = UpdateManager.shared
+
+    var body: some View {
+        VStack(spacing: 18) {
+            if let rel = updateManager.latestRelease {
+                HStack(spacing: 12) {
+                    AppLogoImageView(size: 46)
+                    VStack(alignment: .leading, spacing: 3) {
+                        HStack {
+                            Text(store.t("updateAvailableTitle"))
+                                .font(.title3.bold())
+                            Text(rel.tag_name)
+                                .font(.subheadline.bold())
+                                .foregroundStyle(.purple)
+                            Text(rel.prerelease ? store.t("betaBadge") : store.t("stableBadge"))
+                                .font(.caption2.bold())
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(Capsule().fill(rel.prerelease ? Color.orange.opacity(0.2) : Color.green.opacity(0.2)))
+                                .foregroundStyle(rel.prerelease ? .orange : .green)
+                        }
+                        Text("Versione installata: \(AuthorAttribution.appVersion)")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                }
+
+                if let body = rel.body, !body.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Novità in questo aggiornamento:")
+                            .font(.caption.bold())
+                            .foregroundStyle(.secondary)
+                        ScrollView {
+                            Text(body)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(8)
+                        }
+                        .frame(maxHeight: 140)
+                        .background(RoundedRectangle(cornerRadius: 8).fill(Color.secondary.opacity(0.06)))
+                    }
+                }
+
+                HStack(spacing: 8) {
+                    Image(systemName: "shield.checkmark.fill")
+                        .foregroundStyle(.green)
+                    Text(store.t("autoBackupPreUpdateHint"))
+                        .font(.caption.bold())
+                        .foregroundStyle(.green)
+                    Spacer()
+                }
+                .padding(10)
+                .background(RoundedRectangle(cornerRadius: 8).fill(Color.green.opacity(0.10)))
+
+                if updateManager.isDownloading {
+                    VStack(alignment: .leading, spacing: 6) {
+                        ProgressView(value: updateManager.downloadProgress)
+                        Text(updateManager.statusMessage)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                } else {
+                    HStack(spacing: 12) {
+                        Button(store.t("updateLaterBtn")) {
+                            updateManager.showStartupUpdatePrompt = false
+                        }
+                        .buttonStyle(.bordered)
+
+                        Spacer()
+
+                        Button {
+                            updateManager.downloadAndInstall(release: rel, store: store)
+                            updateManager.showStartupUpdatePrompt = false
+                        } label: {
+                            Label(store.t("updateNowBtn"), systemImage: "arrow.down.circle.fill")
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(.purple)
+                    }
+                }
+            } else {
+                Text(store.t("closeBtn"))
+            }
+        }
+        .padding(24)
+        .frame(width: 480)
     }
 }
 

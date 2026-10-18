@@ -271,17 +271,17 @@ public struct StudentsDirectoryView: View {
                 // Table Header Row
                 HStack(spacing: 12) {
                     Text("\(store.t("studentCol")) (\(filtered.count))")
-                        .frame(width: 200, alignment: .leading)
+                        .frame(width: 260, alignment: .leading)
                     Text(store.t("studentGroupsCol"))
-                        .frame(width: 200, alignment: .leading)
+                        .frame(width: 185, alignment: .leading)
                     Text(store.t("studentLatestLevelCol"))
-                        .frame(width: 75, alignment: .center)
+                        .frame(width: 70, alignment: .center)
                     Text(store.t("studentPhoneLabel"))
                         .frame(width: 135, alignment: .leading)
                     Text(store.t("emailCol"))
                         .frame(maxWidth: .infinity, alignment: .leading)
                     Text(store.t("cityCol"))
-                        .frame(width: 140, alignment: .leading)
+                        .frame(width: 125, alignment: .leading)
                     Text(store.t("actionsCol"))
                         .frame(width: 125, alignment: .trailing)
                 }
@@ -318,11 +318,12 @@ public struct StudentsDirectoryView: View {
                                                 .foregroundStyle(store.activeCoursePalette.color)
                                             Text(st.fullName)
                                                 .font(.body.weight(.semibold))
-                                                .lineLimit(1)
+                                                .lineLimit(2)
+                                                .multilineTextAlignment(.leading)
                                         }
                                     }
                                     .buttonStyle(.plain)
-                                    .frame(width: 200, alignment: .leading)
+                                    .frame(width: 260, alignment: .leading)
 
                                     // Column 2: Attended Courses Badges
                                     ScrollView(.horizontal, showsIndicators: false) {
@@ -754,7 +755,7 @@ public struct BillingView: View {
                     HStack(alignment: .top, spacing: 18) {
                         // Module Pricing Card
                         VStack(alignment: .leading, spacing: 14) {
-                            HStack {
+                            HStack(alignment: .center) {
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text("\(course.name) — \(store.formatLevelModuleBadge(course: course, level: lvl, module: mod))")
                                         .font(.headline)
@@ -767,6 +768,8 @@ public struct BillingView: View {
                                     .font(.title2.bold())
                                     .foregroundStyle(.green)
                             }
+                            .frame(minHeight: 38)
+
                             Divider()
 
                             ModuleBillingEditor(
@@ -779,13 +782,20 @@ public struct BillingView: View {
                             }
                         }
                         .padding(18)
-                        .frame(maxWidth: .infinity)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                         .appCardStyle(cornerRadius: 16)
 
                         // Fiscal / Tax Info Card (Cédula / RUC)
                         VStack(alignment: .leading, spacing: 14) {
-                            Text(store.t("ecuadorBillingHeader")).font(.headline)
+                            HStack(alignment: .center) {
+                                Text(store.t("ecuadorBillingHeader"))
+                                    .font(.headline)
+                                Spacer()
+                            }
+                            .frame(minHeight: 38)
+
                             Divider()
+
                             FiscalInfoEditor(info: course.billingConfig.billingInfo) { updatedInfo in
                                 store.recordUndoSnapshot()
                                 store.state.courses[cIdx].billingConfig.billingInfo = updatedInfo
@@ -794,7 +804,7 @@ public struct BillingView: View {
                             }
                         }
                         .padding(18)
-                        .frame(maxWidth: .infinity)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                         .appCardStyle(cornerRadius: 16)
                     }
                 }
@@ -838,7 +848,7 @@ private struct ModuleBillingEditor: View {
     let onSave: (ModuleBilling, String) -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 14) {
             HStack(spacing: 12) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Tariffa Oraria (\(currency))").font(.caption.bold())
@@ -879,6 +889,8 @@ private struct ModuleBillingEditor: View {
                 .labelsHidden()
             }
 
+            Spacer(minLength: 12)
+
             HStack {
                 Spacer()
                 Button(store.t("saveBillingBtn")) {
@@ -887,6 +899,7 @@ private struct ModuleBillingEditor: View {
                 .buttonStyle(.borderedProminent)
             }
         }
+        .frame(maxHeight: .infinity)
         .onChange(of: moduleName) { _, _ in
             if let c = store.activeCourse, let m = store.getActiveModule(for: c), let b = m.billing {
                 billing = b
@@ -901,7 +914,7 @@ private struct FiscalInfoEditor: View {
     let onSave: (BillingInfo) -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 14) {
             HStack(spacing: 12) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(store.t("idTypeLabel")).font(.caption.bold())
@@ -912,6 +925,8 @@ private struct FiscalInfoEditor: View {
                     }
                     .labelsHidden()
                 }
+                .frame(width: 140)
+
                 VStack(alignment: .leading, spacing: 4) {
                     Text(store.t("idNumberLabel")).font(.caption.bold())
                     TextField("", text: $info.idNumber).textFieldStyle(.roundedBorder)
@@ -941,12 +956,16 @@ private struct FiscalInfoEditor: View {
                     TextField("", text: $info.email).textFieldStyle(.roundedBorder)
                 }
             }
+
+            Spacer(minLength: 12)
+
             HStack {
                 Spacer()
                 Button(store.t("saveBillingBtn")) { onSave(info) }
                     .buttonStyle(.borderedProminent)
             }
         }
+        .frame(maxHeight: .infinity)
     }
 }
 
@@ -1154,6 +1173,22 @@ public struct SettingsView: View {
                             set: { store.state.settings.includeBetaUpdates = $0; store.persist() }
                         ))
 
+                        HStack {
+                            Text(store.t("updateFrequencyLabel")).font(.caption.bold())
+                            Spacer()
+                            Picker("", selection: Binding(
+                                get: { store.state.settings.updateCheckFrequency },
+                                set: { store.state.settings.updateCheckFrequency = $0; store.persist() }
+                            )) {
+                                Text(store.t("updateFreqStartup")).tag("startup")
+                                Text(store.t("updateFreqDaily")).tag("daily")
+                                Text(store.t("updateFreqWeekly")).tag("weekly")
+                                Text(store.t("updateFreqManual")).tag("manual")
+                            }
+                            .labelsHidden()
+                            .frame(width: 220)
+                        }
+
                         if UpdateManager.shared.updateAvailable, let release = UpdateManager.shared.latestRelease {
                             VStack(alignment: .leading, spacing: 10) {
                                 HStack {
@@ -1182,6 +1217,10 @@ public struct SettingsView: View {
                                         .lineLimit(4)
                                 }
 
+                                Label(store.t("autoBackupPreUpdateHint"), systemImage: "shield.checkmark.fill")
+                                    .font(.caption2.bold())
+                                    .foregroundStyle(.green)
+
                                 if UpdateManager.shared.isDownloading {
                                     VStack(alignment: .leading, spacing: 4) {
                                         ProgressView(value: UpdateManager.shared.downloadProgress)
@@ -1192,7 +1231,7 @@ public struct SettingsView: View {
                                 } else {
                                     HStack {
                                         Button {
-                                            UpdateManager.shared.downloadAndInstall(release: release)
+                                            UpdateManager.shared.downloadAndInstall(release: release, store: store)
                                         } label: {
                                             Label(store.t("downloadAndInstallBtn"), systemImage: "arrow.down.circle.fill")
                                         }
@@ -1213,28 +1252,31 @@ public struct SettingsView: View {
                                     .fill(Color.purple.opacity(0.10))
                                     .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Color.purple.opacity(0.35)))
                             )
-                        } else {
-                            HStack {
-                                if !UpdateManager.shared.statusMessage.isEmpty {
-                                    Text(UpdateManager.shared.statusMessage)
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                }
-                                Spacer()
-                                Button {
-                                    UpdateManager.shared.checkForUpdates(includeBeta: store.state.settings.includeBetaUpdates, silent: false)
-                                } label: {
-                                    if UpdateManager.shared.isChecking {
-                                        ProgressView()
-                                            .controlSize(.small)
-                                            .padding(.trailing, 4)
-                                    }
-                                    Label(store.t("checkUpdatesNowBtn"), systemImage: "arrow.triangle.2.circlepath")
-                                }
-                                .disabled(UpdateManager.shared.isChecking)
-                                .buttonStyle(.borderedProminent)
-                                .tint(.purple)
+                        }
+
+                        // Always available Check for Updates button
+                        HStack {
+                            if !UpdateManager.shared.statusMessage.isEmpty {
+                                Text(UpdateManager.shared.statusMessage)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
                             }
+                            Spacer()
+                            Button {
+                                store.state.settings.lastUpdateCheckDate = Date().timeIntervalSince1970
+                                store.persist()
+                                UpdateManager.shared.checkForUpdates(includeBeta: store.state.settings.includeBetaUpdates, silent: false)
+                            } label: {
+                                if UpdateManager.shared.isChecking {
+                                    ProgressView()
+                                        .controlSize(.small)
+                                        .padding(.trailing, 4)
+                                }
+                                Label(store.t("checkUpdatesNowBtn"), systemImage: "arrow.triangle.2.circlepath")
+                            }
+                            .disabled(UpdateManager.shared.isChecking)
+                            .buttonStyle(.borderedProminent)
+                            .tint(.purple)
                         }
                     }
                     .padding(14)

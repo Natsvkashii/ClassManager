@@ -254,7 +254,15 @@ public struct L10n {
             "dragScrollDownPrompt": "Trascina qui per scorrere verso i mesi successivi",
             "dragScrollUpPrompt": "Trascina qui per scorrere verso i mesi precedenti",
             "dragDropHereToMove": "Sposta qui",
-            "loadMoreMonthsBtn": "Mostra altri 6 mesi"
+            "loadMoreMonthsBtn": "Mostra altri 6 mesi",
+            "updateFrequencyLabel": "Frequenza verifica aggiornamenti",
+            "updateFreqStartup": "Ad ogni avvio dell'applicazione",
+            "updateFreqDaily": "Una volta al giorno",
+            "updateFreqWeekly": "Una volta alla settimana",
+            "updateFreqManual": "Solo manuale",
+            "updateNowBtn": "Aggiorna Ora",
+            "updateLaterBtn": "Più tardi",
+            "autoBackupPreUpdateHint": "Prima di installare verrà eseguito un backup automatico di sicurezza dei tuoi dati."
         ],
         "en": [
             "appTitle": "Course Manager",
@@ -502,7 +510,15 @@ public struct L10n {
             "dragScrollDownPrompt": "Drag here to scroll down to subsequent months",
             "dragScrollUpPrompt": "Drag here to scroll up to previous months",
             "dragDropHereToMove": "Move here",
-            "loadMoreMonthsBtn": "Show 6 more months"
+            "loadMoreMonthsBtn": "Show 6 more months",
+            "updateFrequencyLabel": "Update check frequency",
+            "updateFreqStartup": "At every application startup",
+            "updateFreqDaily": "Once a day",
+            "updateFreqWeekly": "Once a week",
+            "updateFreqManual": "Manual only",
+            "updateNowBtn": "Update Now",
+            "updateLaterBtn": "Later",
+            "autoBackupPreUpdateHint": "An automatic safety backup of your data will be created before installing."
         ],
         "es": [
             "appTitle": "Gestión de Cursos",
@@ -750,7 +766,15 @@ public struct L10n {
             "dragScrollDownPrompt": "Arrastra aquí para desplazarte a los meses siguientes",
             "dragScrollUpPrompt": "Arrastra aquí para desplazarte a los meses anteriores",
             "dragDropHereToMove": "Mover aquí",
-            "loadMoreMonthsBtn": "Mostrar 6 meses más"
+            "loadMoreMonthsBtn": "Mostrar 6 meses más",
+            "updateFrequencyLabel": "Frecuencia de comprobación de actualizaciones",
+            "updateFreqStartup": "En cada inicio de la aplicación",
+            "updateFreqDaily": "Una vez al día",
+            "updateFreqWeekly": "Una vez por semana",
+            "updateFreqManual": "Solo manual",
+            "updateNowBtn": "Actualizar Ahora",
+            "updateLaterBtn": "Más tarde",
+            "autoBackupPreUpdateHint": "Se creará una copia de seguridad automática de seguridad antes de instalar."
         ]
     ]
 
