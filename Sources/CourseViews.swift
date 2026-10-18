@@ -54,6 +54,33 @@ extension View {
     }
 }
 
+public func tableHeaderCellFill(_ scheme: ColorScheme) -> Color {
+    scheme == .dark
+        ? Color(red: 0.08, green: 0.12, blue: 0.20)
+        : Color(red: 0.94, green: 0.96, blue: 0.985)
+}
+
+public func tableHeaderCellStroke(_ scheme: ColorScheme) -> Color {
+    scheme == .dark
+        ? Color.white.opacity(0.10)
+        : Color(red: 0.80, green: 0.85, blue: 0.91)
+}
+
+public func tableRowCellFill(_ scheme: ColorScheme, isAlt: Bool = false) -> Color {
+    if scheme == .dark {
+        return isAlt ? Color(red: 0.07, green: 0.105, blue: 0.175) : Color(red: 0.09, green: 0.13, blue: 0.21)
+    } else {
+        return isAlt ? Color(red: 0.965, green: 0.978, blue: 0.992) : Color.white
+    }
+}
+
+public func tableRowCellStroke(_ scheme: ColorScheme) -> Color {
+    scheme == .dark
+        ? Color.white.opacity(0.06)
+        : Color(red: 0.86, green: 0.89, blue: 0.93)
+}
+
+
 // MARK: - Home View
 
 public struct HomeView: View {
@@ -250,6 +277,7 @@ public struct HomeView: View {
 
 public struct AttendanceView: View {
     @Environment(AppStore.self) private var store
+    @Environment(\.colorScheme) private var colorScheme
     @Binding var activeSheet: ActiveModalSheet?
 
     public var body: some View {
@@ -356,14 +384,19 @@ public struct AttendanceView: View {
 
                 // Attendance Table
                 ScrollView([.horizontal, .vertical]) {
-                    Grid(alignment: .leading, horizontalSpacing: 1, verticalSpacing: 1) {
-                        // Header Row
+                    Grid(alignment: .leading, horizontalSpacing: 2, verticalSpacing: 2) {
+                        // Header Row (Uniform Height & Alignment across all columns)
                         GridRow {
                             Text("\(store.t("studentCol")) (\(students.count))")
                                 .font(.caption.bold())
-                                .padding(10)
+                                .padding(.horizontal, 12)
                                 .frame(width: 210, alignment: .leading)
-                                .background(Color.secondary.opacity(0.14))
+                                .frame(minHeight: 86, maxHeight: .infinity)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 8)
+                                        .fill(tableHeaderCellFill(colorScheme))
+                                        .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(tableHeaderCellStroke(colorScheme)))
+                                )
 
                             ForEach(Array(slots.enumerated()), id: \.element) { idx, slotKey in
                                 let les = store.findLesson(in: course, sectionId: mod.id, slotKey: slotKey)
@@ -393,7 +426,12 @@ public struct AttendanceView: View {
                                                 Text(t)
                                                     .font(.system(size: 10, weight: .bold))
                                                     .foregroundStyle(.green)
-                                                    .lineLimit(1)
+                                                    .lineLimit(2)
+                                                    .multilineTextAlignment(.center)
+                                            } else {
+                                                Text(" ")
+                                                    .font(.system(size: 10, weight: .bold))
+                                                    .opacity(0)
                                             }
                                         }
                                         .frame(width: 118)
@@ -411,9 +449,15 @@ public struct AttendanceView: View {
                                         .labelsHidden()
                                     }
                                 }
-                                .padding(8)
+                                .padding(.vertical, 8)
+                                .padding(.horizontal, 4)
                                 .frame(width: 124, alignment: .top)
-                                .background(Color.secondary.opacity(0.10))
+                                .frame(minHeight: 86, maxHeight: .infinity)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 8)
+                                        .fill(tableHeaderCellFill(colorScheme))
+                                        .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(tableHeaderCellStroke(colorScheme)))
+                                )
                             }
                         }
 
@@ -427,8 +471,9 @@ public struct AttendanceView: View {
                                     .gridCellColumns(max(1, slots.count + 1))
                             }
                         } else {
-                            ForEach(students) { st in
+                            ForEach(Array(students.enumerated()), id: \.element.id) { sIdx, st in
                                 let stAtt = mod.attendance[st.id] ?? [:]
+                                let isAlt = sIdx % 2 == 1
                                 GridRow {
                                     Button {
                                         activeSheet = .studentDetail(st.id)
@@ -436,11 +481,15 @@ public struct AttendanceView: View {
                                         Text(st.fullName)
                                             .font(.caption.bold())
                                             .lineLimit(1)
-                                            .frame(width: 210, alignment: .leading)
-                                            .padding(10)
+                                            .frame(width: 210, height: 42, alignment: .leading)
+                                            .padding(.horizontal, 10)
                                     }
                                     .buttonStyle(.plain)
-                                    .background(Color.secondary.opacity(0.04))
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 6)
+                                            .fill(tableRowCellFill(colorScheme, isAlt: isAlt))
+                                            .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(tableRowCellStroke(colorScheme)))
+                                    )
 
                                     ForEach(slots, id: \.self) { slotKey in
                                         let val = stAtt[slotKey] ?? ""
@@ -449,7 +498,7 @@ public struct AttendanceView: View {
                                         } label: {
                                             Text(val.isEmpty ? "·" : val)
                                                 .font(.caption.bold())
-                                                .frame(width: 36, height: 28)
+                                                .frame(width: 38, height: 28)
                                                 .background(
                                                     RoundedRectangle(cornerRadius: 7)
                                                         .fill(attendanceColor(for: val))
@@ -457,14 +506,18 @@ public struct AttendanceView: View {
                                                 .foregroundStyle(val.isEmpty ? Color.secondary : Color.white)
                                         }
                                         .buttonStyle(.plain)
-                                        .frame(width: 124, height: 38)
-                                        .background(Color.secondary.opacity(0.02))
+                                        .frame(width: 124, height: 42)
+                                        .background(
+                                            RoundedRectangle(cornerRadius: 6)
+                                                .fill(tableRowCellFill(colorScheme, isAlt: isAlt))
+                                                .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(tableRowCellStroke(colorScheme)))
+                                        )
                                     }
                                 }
                             }
                         }
                     }
-                    .background(Color.secondary.opacity(0.18))
+                    .background(Color.clear)
                 }
                 .clipShape(RoundedRectangle(cornerRadius: 14))
                 .appCardStyle(cornerRadius: 14)
@@ -527,6 +580,7 @@ public struct AttendanceView: View {
 
 public struct GradesView: View {
     @Environment(AppStore.self) private var store
+    @Environment(\.colorScheme) private var colorScheme
     @Binding var activeSheet: ActiveModalSheet?
 
     public var body: some View {
@@ -613,7 +667,7 @@ public struct GradesView: View {
 
                 // Grades Table
                 ScrollView([.horizontal, .vertical]) {
-                    Grid(alignment: .leading, horizontalSpacing: 1, verticalSpacing: 1) {
+                    Grid(alignment: .leading, horizontalSpacing: 2, verticalSpacing: 2) {
                         GridRow {
                             HStack {
                                 Text("\(store.t("statusCol")) & \(store.t("studentCol"))")
@@ -621,22 +675,32 @@ public struct GradesView: View {
                                 Text(store.t("finalAvgCol")).foregroundStyle(store.activeCoursePalette.color)
                             }
                             .font(.caption.bold())
-                            .padding(10)
+                            .padding(.horizontal, 12)
                             .frame(width: 260)
-                            .background(Color.secondary.opacity(0.14))
+                            .frame(minHeight: 56, maxHeight: .infinity)
+                            .background(
+                                RoundedRectangle(cornerRadius: 8)
+                                    .fill(tableHeaderCellFill(colorScheme))
+                                    .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(tableHeaderCellStroke(colorScheme)))
+                            )
 
                             if evalAtt {
-                                VStack(spacing: 2) {
+                                VStack(spacing: 3) {
                                     Text(store.t("navAttendance")).font(.caption.bold()).foregroundStyle(.green)
                                     Text("\(String(format: "%.0f", attWeight))%").font(.caption2.bold()).foregroundStyle(.green)
                                 }
-                                .padding(8)
+                                .padding(.horizontal, 8)
                                 .frame(width: 110)
-                                .background(Color.green.opacity(0.10))
+                                .frame(minHeight: 56, maxHeight: .infinity)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 8)
+                                        .fill(Color.green.opacity(0.12))
+                                        .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color.green.opacity(0.35)))
+                                )
                             }
 
                             ForEach(activities) { act in
-                                VStack(spacing: 2) {
+                                VStack(spacing: 3) {
                                     Button {
                                         activeSheet = .activityForm(act)
                                     } label: {
@@ -650,7 +714,7 @@ public struct GradesView: View {
                                     HStack(spacing: 4) {
                                         if course.gradeConfig.calcMethod == "weighted" {
                                             Text("\(String(format: "%.0f", act.weight))%")
-                                                .font(.caption2)
+                                                .font(.caption2.bold())
                                                 .foregroundStyle(store.activeCoursePalette.color)
                                         }
                                         if act.useRubric {
@@ -663,13 +727,19 @@ public struct GradesView: View {
                                         }
                                     }
                                 }
-                                .padding(8)
+                                .padding(.horizontal, 8)
                                 .frame(width: 150)
-                                .background(Color.secondary.opacity(0.10))
+                                .frame(minHeight: 56, maxHeight: .infinity)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 8)
+                                        .fill(tableHeaderCellFill(colorScheme))
+                                        .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(tableHeaderCellStroke(colorScheme)))
+                                )
                             }
                         }
 
-                        ForEach(students) { st in
+                        ForEach(Array(students.enumerated()), id: \.element.id) { sIdx, st in
+                            let isAlt = sIdx % 2 == 1
                             let avg = store.calculateStudentCourseAverage(course: course, studentId: st.id, module: mod)
                             let allPresent = store.areAllStudentGradesPresent(course: course, studentId: st.id, module: mod)
                             let passed = allPresent && (avg ?? 0) >= course.gradeConfig.minPass
@@ -705,9 +775,13 @@ public struct GradesView: View {
                                                 .fill(avg == nil ? Color.secondary.opacity(0.1) : (!allPresent ? Color.secondary.opacity(0.15) : (passed ? Color.green.opacity(0.18) : Color.red.opacity(0.18))))
                                         )
                                 }
-                                .padding(10)
-                                .frame(width: 260)
-                                .background(Color.secondary.opacity(0.03))
+                                .padding(.horizontal, 10)
+                                .frame(width: 260, height: 44)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 6)
+                                        .fill(tableRowCellFill(colorScheme, isAlt: isAlt))
+                                        .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(tableRowCellStroke(colorScheme)))
+                                )
 
                                 if evalAtt {
                                     HStack {
@@ -726,8 +800,12 @@ public struct GradesView: View {
                                             Text("—").foregroundStyle(.secondary)
                                         }
                                     }
-                                    .frame(width: 110, height: 42)
-                                    .background(Color.secondary.opacity(0.02))
+                                    .frame(width: 110, height: 44)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 6)
+                                            .fill(tableRowCellFill(colorScheme, isAlt: isAlt))
+                                            .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(tableRowCellStroke(colorScheme)))
+                                    )
                                 }
 
                                 ForEach(activities) { act in
@@ -737,13 +815,17 @@ public struct GradesView: View {
                                         activity: act,
                                         activeSheet: $activeSheet
                                     )
-                                    .frame(width: 150, height: 42)
-                                    .background(Color.secondary.opacity(0.02))
+                                    .frame(width: 150, height: 44)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 6)
+                                            .fill(tableRowCellFill(colorScheme, isAlt: isAlt))
+                                            .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(tableRowCellStroke(colorScheme)))
+                                    )
                                 }
                             }
                         }
                     }
-                    .background(Color.secondary.opacity(0.18))
+                    .background(Color.clear)
                 }
                 .clipShape(RoundedRectangle(cornerRadius: 14))
                 .appCardStyle(cornerRadius: 14)
@@ -877,100 +959,86 @@ public struct ActivitiesView: View {
                             .appCardStyle(cornerRadius: 16)
                     } else {
                         LazyVGrid(columns: [GridItem(.adaptive(minimum: 300, maximum: 420), spacing: 16)], spacing: 16) {
-                            ForEach(Array(activities.enumerated()), id: \.element.id) { aIdx, act in
-                                VStack(alignment: .leading, spacing: 10) {
-                                    HStack {
-                                        Text(act.name).font(.headline)
-                                        Spacer()
-                                        if act.useRubric {
-                                            Text(store.t("rubricBadgeShort"))
-                                                .font(.caption2.bold())
-                                                .padding(.horizontal, 7)
-                                                .padding(.vertical, 2)
-                                                .background(Capsule().fill(Color.green.opacity(0.2)))
-                                                .foregroundStyle(.green)
-                                        }
-                                        if course.gradeConfig.calcMethod == "weighted" {
-                                            Text("\(String(format: "%.0f", act.weight))%")
-                                                .font(.caption2.bold())
-                                                .padding(.horizontal, 7)
-                                                .padding(.vertical, 2)
-                                                .background(Capsule().fill(store.activeCoursePalette.color.opacity(0.18)))
-                                        }
-                                    }
-
-                                    if !act.startDate.isEmpty || !act.endDate.isEmpty {
-                                        HStack(spacing: 6) {
-                                            Image(systemName: "calendar")
-                                            if !act.startDate.isEmpty { Text(store.formatDateDisplay(act.startDate)) }
-                                            if !act.endDate.isEmpty && act.endDate != act.startDate {
-                                                Text("→ \(store.formatDateDisplay(act.endDate))")
-                                            }
-                                        }
-                                        .font(.caption)
-                                        .foregroundStyle(store.activeCoursePalette.color)
-                                    }
-
-                                    if !act.objectives.isEmpty {
-                                        Text(act.objectives)
-                                            .font(.caption)
-                                            .foregroundStyle(.secondary)
-                                            .lineLimit(2)
-                                    }
-
-                                    // Quick Rubric Association Bar inside each Activity card
-                                    HStack(spacing: 8) {
-                                        Image(systemName: "tablecells")
-                                            .font(.caption)
-                                            .foregroundStyle(act.useRubric ? .green : .secondary)
-
-                                        Picker("", selection: Binding(
-                                            get: { act.useRubric ? (act.rubricId.isEmpty ? (store.state.rubrics.first?.id ?? "") : act.rubricId) : "NONE" },
-                                            set: { newVal in
-                                                store.recordUndoSnapshot()
-                                                if newVal == "NONE" {
-                                                    store.state.courses[cIdx].gradeConfig.activities[aIdx].useRubric = false
-                                                    store.state.courses[cIdx].gradeConfig.activities[aIdx].rubricId = ""
-                                                } else {
-                                                    store.state.courses[cIdx].gradeConfig.activities[aIdx].useRubric = true
-                                                    store.state.courses[cIdx].gradeConfig.activities[aIdx].rubricId = newVal
+                            ForEach(activities) { act in
+                                Button {
+                                    activeSheet = .activityForm(act)
+                                } label: {
+                                    VStack(alignment: .leading, spacing: 12) {
+                                        HStack(alignment: .center) {
+                                            Text(act.name)
+                                                .font(.headline)
+                                                .foregroundStyle(.primary)
+                                            Spacer()
+                                            if act.useRubric {
+                                                let rName = store.state.rubrics.first(where: { $0.id == act.rubricId })?.name ?? store.t("rubricBadgeShort")
+                                                HStack(spacing: 4) {
+                                                    Image(systemName: "tablecells.fill")
+                                                    Text(rName)
                                                 }
-                                                store.persist()
+                                                .font(.caption2.bold())
+                                                .padding(.horizontal, 8)
+                                                .padding(.vertical, 3)
+                                                .background(Capsule().fill(Color.green.opacity(0.18)))
+                                                .foregroundStyle(.green)
                                             }
-                                        )) {
-                                            Text("Senza griglia").tag("NONE")
-                                            ForEach(store.state.rubrics) { rub in
-                                                Text(rub.name).tag(rub.id)
+                                            if course.gradeConfig.calcMethod == "weighted" {
+                                                Text("\(String(format: "%.0f", act.weight))%")
+                                                    .font(.caption2.bold())
+                                                    .padding(.horizontal, 8)
+                                                    .padding(.vertical, 3)
+                                                    .background(Capsule().fill(store.activeCoursePalette.color.opacity(0.18)))
+                                                    .foregroundStyle(store.activeCoursePalette.color)
                                             }
                                         }
-                                        .labelsHidden()
-                                    }
-                                    .padding(8)
-                                    .background(
-                                        RoundedRectangle(cornerRadius: 8)
-                                            .fill(Color.secondary.opacity(0.06))
-                                            .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color.secondary.opacity(0.20)))
-                                    )
 
-                                    Divider()
-                                    HStack {
-                                        Button {
-                                            activeSheet = .activityForm(act)
-                                        } label: {
-                                            Label(store.t("editBtn"), systemImage: "pencil")
-                                                .font(.caption.bold())
+                                        if !act.startDate.isEmpty || !act.endDate.isEmpty {
+                                            HStack(spacing: 6) {
+                                                Image(systemName: "calendar")
+                                                if !act.startDate.isEmpty { Text(store.formatDateDisplay(act.startDate)) }
+                                                if !act.endDate.isEmpty && act.endDate != act.startDate {
+                                                    Text("→ \(store.formatDateDisplay(act.endDate))")
+                                                }
+                                            }
+                                            .font(.caption)
+                                            .foregroundStyle(store.activeCoursePalette.color)
                                         }
-                                        Spacer()
-                                        Button(role: .destructive) {
-                                            store.moveActivityToTrash(courseIndex: cIdx, activity: act)
-                                        } label: {
-                                            Label(store.t("deleteBtn"), systemImage: "trash")
+
+                                        if !act.objectives.isEmpty {
+                                            Text(act.objectives)
                                                 .font(.caption)
+                                                .foregroundStyle(.secondary)
+                                                .lineLimit(2)
+                                        } else if !act.contents.isEmpty {
+                                            Text(act.contents)
+                                                .font(.caption)
+                                                .foregroundStyle(.secondary)
+                                                .lineLimit(2)
                                         }
+
+                                        HStack {
+                                            Text("Tocca per aprire scheda")
+                                                .font(.caption2)
+                                                .foregroundStyle(.secondary)
+                                            Spacer()
+                                            Image(systemName: "chevron.right")
+                                                .font(.caption2.bold())
+                                                .foregroundStyle(.secondary)
+                                        }
+                                        .padding(.top, 2)
+                                    }
+                                    .padding(16)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .appCardStyle(cornerRadius: 14)
+                                    .contentShape(RoundedRectangle(cornerRadius: 14))
+                                }
+                                .buttonStyle(.plain)
+                                .contextMenu {
+                                    Button(role: .destructive) {
+                                        store.moveActivityToTrash(courseIndex: cIdx, activity: act)
+                                    } label: {
+                                        Label(store.t("deleteBtn"), systemImage: "trash")
                                     }
                                 }
-                                .padding(16)
-                                .appCardStyle(cornerRadius: 14)
                             }
                         }
                     }
@@ -1308,6 +1376,13 @@ public struct ModuleCalendarView: View {
     @Environment(AppStore.self) private var store
     @Binding var activeSheet: ActiveModalSheet?
 
+    @State private var hoveredDayIso: String? = nil
+    @State private var currentMonthScrollIndex: Int = 0
+    @State private var additionalMonths: Int = 0
+    @State private var isAutoScrollingDown: Bool = false
+    @State private var isAutoScrollingUp: Bool = false
+    @State private var autoScrollTimer: Timer? = nil
+
     public var body: some View {
         guard let course = store.activeCourse,
               let mod = store.getActiveModule(for: course) else {
@@ -1337,13 +1412,20 @@ public struct ModuleCalendarView: View {
             )
         }
 
-        let weeks = buildContinuousWeeks(course: course, module: mod, slots: slots)
+        let posterWeeks = buildContinuousWeeks(course: course, module: mod, slots: slots)
+        let monthSections = buildMultiMonthSections(course: course, module: mod, slots: slots, additionalMonths: additionalMonths)
 
         return AnyView(
             VStack(alignment: .leading, spacing: 14) {
-                HStack(spacing: 10) {
-                    Label("\(store.t("totalLabel")): \(slots.count) \(store.t("lessonsLower")) • \(weeks.count) \(weeks.count == 1 ? store.t("weekSingular") : store.t("weekPlural"))", systemImage: "calendar.badge.clock")
-                        .font(.subheadline.bold())
+                // Top Header Toolbar with Actions and Drag Hint
+                HStack(spacing: 12) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Label("\(store.t("totalLabel")): \(slots.count) \(store.t("lessonsLower")) • \(posterWeeks.count) \(posterWeeks.count == 1 ? store.t("weekSingular") : store.t("weekPlural"))", systemImage: "calendar.badge.clock")
+                            .font(.subheadline.bold())
+                        Text(store.t("dragLessonHint"))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
 
                     Spacer()
 
@@ -1358,7 +1440,7 @@ public struct ModuleCalendarView: View {
 
                     // Download 1:1 Square PNG Image of the Module Calendar
                     Button {
-                        exportSquareCalendarPNG(course: course, module: mod, slots: slots, weeks: weeks, palette: pal)
+                        exportSquareCalendarPNG(course: course, module: mod, slots: slots, weeks: posterWeeks, palette: pal)
                     } label: {
                         Label(store.t("downloadPngBtn"), systemImage: "photo.badge.arrow.down")
                     }
@@ -1376,77 +1458,345 @@ public struct ModuleCalendarView: View {
                 .padding(12)
                 .appCardStyle(cornerRadius: 12)
 
-                ScrollView {
-                    VStack(spacing: 8) {
-                        HStack(spacing: 8) {
-                            ForEach(store.daysShortList, id: \.self) { d in
-                                Text(d)
-                                    .font(.caption.bold())
-                                    .foregroundStyle(.secondary)
-                                    .frame(maxWidth: .infinity)
+                // Quick Month Navigation Strip
+                if monthSections.count > 1 {
+                    ScrollViewReader { pillScrollProxy in
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 8) {
+                                ForEach(Array(monthSections.enumerated()), id: \.element.id) { idx, sec in
+                                    Button {
+                                        currentMonthScrollIndex = idx
+                                    } label: {
+                                        HStack(spacing: 6) {
+                                            Text(sec.title)
+                                                .font(.caption.bold())
+                                            if sec.totalSessionsInMonth > 0 {
+                                                Text("\(sec.totalSessionsInMonth)")
+                                                    .font(.system(size: 9, weight: .bold))
+                                                    .padding(.horizontal, 5)
+                                                    .padding(.vertical, 1)
+                                                    .background(Capsule().fill(pal.color))
+                                                    .foregroundStyle(.white)
+                                            }
+                                        }
+                                        .padding(.horizontal, 10)
+                                        .padding(.vertical, 5)
+                                        .background(
+                                            Capsule()
+                                                .fill(currentMonthScrollIndex == idx ? pal.color.opacity(0.18) : Color.secondary.opacity(0.08))
+                                        )
+                                        .overlay(
+                                            Capsule()
+                                                .strokeBorder(currentMonthScrollIndex == idx ? pal.color : Color.clear, lineWidth: 1.5)
+                                        )
+                                    }
+                                    .buttonStyle(.plain)
+                                }
+                            }
+                            .padding(.horizontal, 4)
+                            .padding(.vertical, 2)
+                        }
+                    }
+                }
+
+                // Interactive Multi-Month Calendar View with Drag & Drop and Auto-Scroll
+                ScrollViewReader { scrollProxy in
+                    ZStack(alignment: .bottom) {
+                        ScrollView {
+                            LazyVStack(spacing: 22) {
+                                ForEach(Array(monthSections.enumerated()), id: \.element.id) { mIdx, section in
+                                    VStack(alignment: .leading, spacing: 10) {
+                                        // Month Header Banner
+                                        HStack(spacing: 10) {
+                                            Text(section.title)
+                                                .font(.headline.bold())
+                                                .foregroundStyle(.primary)
+
+                                            if section.totalSessionsInMonth > 0 {
+                                                Text("\(section.totalSessionsInMonth) \(store.t("lessonsLower"))")
+                                                    .font(.caption2.bold())
+                                                    .padding(.horizontal, 8)
+                                                    .padding(.vertical, 2)
+                                                    .background(Capsule().fill(pal.color.opacity(0.15)))
+                                                    .foregroundStyle(pal.color)
+                                            }
+
+                                            Spacer()
+                                        }
+                                        .padding(.horizontal, 4)
+
+                                        // Weekday Headers
+                                        HStack(spacing: 8) {
+                                            ForEach(store.daysShortList, id: \.self) { d in
+                                                Text(d)
+                                                    .font(.caption.bold())
+                                                    .foregroundStyle(.secondary)
+                                                    .frame(maxWidth: .infinity)
+                                            }
+                                        }
+
+                                        // Month Grid (Weeks & Days)
+                                        VStack(spacing: 8) {
+                                            ForEach(Array(section.weeks.enumerated()), id: \.offset) { _, week in
+                                                HStack(spacing: 8) {
+                                                    ForEach(week) { day in
+                                                        if !day.isCurrentMonth {
+                                                            RoundedRectangle(cornerRadius: 10)
+                                                                .fill(Color.secondary.opacity(0.02))
+                                                                .frame(maxWidth: .infinity, minHeight: 90)
+                                                                .overlay(
+                                                                    RoundedRectangle(cornerRadius: 10)
+                                                                        .strokeBorder(Color.secondary.opacity(0.06), lineWidth: 1)
+                                                                )
+                                                        } else {
+                                                            let isHovered = hoveredDayIso == day.iso
+                                                            let hasLesson = !day.sessions.isEmpty
+
+                                                            VStack(alignment: .leading, spacing: 6) {
+                                                                HStack {
+                                                                    if day.isToday {
+                                                                        Text("\(day.dayNum)")
+                                                                            .font(.caption.bold())
+                                                                            .foregroundStyle(.white)
+                                                                            .frame(width: 22, height: 22)
+                                                                            .background(Circle().fill(pal.color))
+                                                                    } else {
+                                                                        Text("\(day.dayNum)")
+                                                                            .font(.caption.bold())
+                                                                            .foregroundStyle(hasLesson ? .primary : .secondary)
+                                                                    }
+
+                                                                    Spacer()
+
+                                                                    if isHovered {
+                                                                        Label(store.t("dragDropHereToMove"), systemImage: "arrow.down.circle.fill")
+                                                                            .font(.system(size: 9, weight: .bold))
+                                                                            .foregroundStyle(pal.color)
+                                                                    }
+                                                                }
+
+                                                                ForEach(day.sessions) { sess in
+                                                                    Button {
+                                                                        activeSheet = .lessonPlan(courseId: course.id, sectionId: mod.id, slotKey: sess.slotKey)
+                                                                    } label: {
+                                                                        VStack(alignment: .leading, spacing: 2) {
+                                                                            HStack {
+                                                                                Text("\(sess.lessonNum)")
+                                                                                    .font(.caption2.bold())
+                                                                                    .padding(.horizontal, 5)
+                                                                                    .padding(.vertical, 1)
+                                                                                    .background(RoundedRectangle(cornerRadius: 4).fill(Color.white.opacity(0.25)))
+                                                                                Spacer()
+                                                                                Text("\(store.formatTimeDisplay(sess.time))-\(store.formatTimeDisplay(sess.endTime))")
+                                                                                    .font(.system(size: 9, weight: .bold))
+                                                                            }
+                                                                            if !sess.title.isEmpty {
+                                                                                Text(sess.title)
+                                                                                    .font(.system(size: 10, weight: .semibold))
+                                                                                    .lineLimit(1)
+                                                                            }
+                                                                        }
+                                                                        .padding(6)
+                                                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                                                        .background(RoundedRectangle(cornerRadius: 7).fill(pal.color))
+                                                                        .foregroundStyle(.white)
+                                                                    }
+                                                                    .buttonStyle(.plain)
+                                                                    .draggable(sess.slotKey) {
+                                                                        HStack(spacing: 8) {
+                                                                            Image(systemName: "calendar.badge.clock")
+                                                                                .font(.system(size: 13, weight: .bold))
+                                                                            VStack(alignment: .leading, spacing: 2) {
+                                                                                Text("\(store.t("navHome")) • Lez. \(sess.lessonNum)")
+                                                                                    .font(.caption.bold())
+                                                                                if !sess.title.isEmpty {
+                                                                                    Text(sess.title)
+                                                                                        .font(.system(size: 10, weight: .medium))
+                                                                                        .lineLimit(1)
+                                                                                }
+                                                                                Text("\(store.formatTimeDisplay(sess.time)) - \(store.formatTimeDisplay(sess.endTime))")
+                                                                                    .font(.system(size: 9))
+                                                                                    .opacity(0.85)
+                                                                            }
+                                                                        }
+                                                                        .padding(.horizontal, 10)
+                                                                        .padding(.vertical, 6)
+                                                                        .background(
+                                                                            RoundedRectangle(cornerRadius: 8)
+                                                                                .fill(pal.color)
+                                                                                .shadow(color: .black.opacity(0.25), radius: 6, y: 3)
+                                                                        )
+                                                                        .foregroundStyle(.white)
+                                                                    }
+                                                                }
+
+                                                                Spacer(minLength: 0)
+                                                            }
+                                                            .padding(8)
+                                                            .frame(maxWidth: .infinity, minHeight: 92, alignment: .topLeading)
+                                                            .background(
+                                                                RoundedRectangle(cornerRadius: 10)
+                                                                    .fill(
+                                                                        isHovered
+                                                                            ? pal.color.opacity(0.20)
+                                                                            : (hasLesson ? pal.color.opacity(0.10) : Color.secondary.opacity(0.04))
+                                                                    )
+                                                            )
+                                                            .overlay(
+                                                                RoundedRectangle(cornerRadius: 10)
+                                                                    .strokeBorder(
+                                                                        isHovered
+                                                                            ? pal.color
+                                                                            : (hasLesson ? pal.color : Color.secondary.opacity(0.22)),
+                                                                        lineWidth: isHovered ? 2.5 : (hasLesson ? 2 : 1)
+                                                                    )
+                                                            )
+                                                            .shadow(color: isHovered ? pal.color.opacity(0.3) : Color.clear, radius: 4)
+                                                            .dropDestination(for: String.self) { items, _ in
+                                                                guard let draggedKey = items.first else { return false }
+                                                                return store.moveLesson(
+                                                                    courseId: course.id,
+                                                                    moduleId: mod.id,
+                                                                    slotKey: draggedKey,
+                                                                    toDate: day.iso
+                                                                )
+                                                            } isTargeted: { targeted in
+                                                                if targeted {
+                                                                    hoveredDayIso = day.iso
+                                                                } else if hoveredDayIso == day.iso {
+                                                                    hoveredDayIso = nil
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                    .id("month-\(mIdx)")
+                                    .padding(.bottom, 6)
+                                }
+
+                                // Button to load more future months dynamically
+                                Button {
+                                    additionalMonths += 6
+                                } label: {
+                                    Label(store.t("loadMoreMonthsBtn"), systemImage: "plus.circle")
+                                        .font(.subheadline.bold())
+                                        .padding(.vertical, 6)
+                                }
+                                .buttonStyle(.bordered)
+                                .tint(pal.color)
+                                .padding(.top, 8)
+                                .padding(.bottom, 20)
+                            }
+                            .padding(14)
+                        }
+                        .onChange(of: currentMonthScrollIndex) { _, newIdx in
+                            withAnimation(.easeInOut(duration: 0.3)) {
+                                scrollProxy.scrollTo("month-\(newIdx)", anchor: .top)
                             }
                         }
 
-                        ForEach(Array(weeks.enumerated()), id: \.offset) { _, week in
-                            HStack(spacing: 8) {
-                                ForEach(week, id: \.iso) { day in
-                                    let hasLesson = !day.sessions.isEmpty
-                                    VStack(alignment: .leading, spacing: 6) {
-                                        Text("\(day.dayNum) \(day.monthShort)")
-                                            .font(.caption.bold())
-                                            .foregroundStyle(hasLesson ? .primary : .secondary)
-
-                                        ForEach(day.sessions, id: \.slotKey) { sess in
-                                            Button {
-                                                activeSheet = .lessonPlan(courseId: course.id, sectionId: mod.id, slotKey: sess.slotKey)
-                                            } label: {
-                                                VStack(alignment: .leading, spacing: 2) {
-                                                    HStack {
-                                                        Text("\(sess.lessonNum)")
-                                                            .font(.caption2.bold())
-                                                            .padding(.horizontal, 5)
-                                                            .padding(.vertical, 1)
-                                                            .background(RoundedRectangle(cornerRadius: 4).fill(Color.white.opacity(0.25)))
-                                                        Spacer()
-                                                        Text("\(store.formatTimeDisplay(sess.time))-\(store.formatTimeDisplay(sess.endTime))")
-                                                            .font(.system(size: 9, weight: .bold))
-                                                    }
-                                                    if !sess.title.isEmpty {
-                                                        Text(sess.title).font(.system(size: 10, weight: .semibold)).lineLimit(1)
-                                                    }
-                                                }
-                                                .padding(6)
-                                                .frame(maxWidth: .infinity, alignment: .leading)
-                                                .background(RoundedRectangle(cornerRadius: 7).fill(pal.color))
-                                                .foregroundStyle(.white)
-                                            }
-                                            .buttonStyle(.plain)
-                                        }
-                                        Spacer(minLength: 0)
+                        // Top Auto-Scroll Sensor Bar (Triggered when user drags a lesson towards the upper zone)
+                        if currentMonthScrollIndex > 0 {
+                            VStack {
+                                HStack(spacing: 8) {
+                                    Image(systemName: "arrow.up.circle.fill")
+                                        .font(.system(size: 14, weight: .bold))
+                                    Text(isAutoScrollingUp ? "Scorrimento verso l'alto..." : store.t("dragScrollUpPrompt"))
+                                        .font(.caption.bold())
+                                    Image(systemName: "chevron.compact.up")
+                                        .font(.system(size: 14, weight: .bold))
+                                }
+                                .foregroundStyle(isAutoScrollingUp ? pal.color : Color.secondary)
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 8)
+                                .background(
+                                    Capsule()
+                                        .fill(.ultraThinMaterial)
+                                        .shadow(color: .black.opacity(0.12), radius: 6, y: 2)
+                                )
+                                .overlay(
+                                    Capsule()
+                                        .strokeBorder(isAutoScrollingUp ? pal.color : Color.secondary.opacity(0.2), lineWidth: 1.5)
+                                )
+                                .padding(.top, 6)
+                                .frame(maxWidth: .infinity)
+                                .frame(height: 48)
+                                .background(
+                                    LinearGradient(
+                                        colors: [Color(NSColor.windowBackgroundColor).opacity(0.92), Color.clear],
+                                        startPoint: .top,
+                                        endPoint: .bottom
+                                    )
+                                )
+                                .dropDestination(for: String.self) { _, _ in false } isTargeted: { targeted in
+                                    if targeted {
+                                        startAutoScroll(direction: -1, proxy: scrollProxy, totalMonths: monthSections.count)
+                                    } else {
+                                        stopAutoScroll()
                                     }
-                                    .padding(8)
-                                    .frame(maxWidth: .infinity, minHeight: 92, alignment: .topLeading)
-                                    .background(
-                                        RoundedRectangle(cornerRadius: 10)
-                                            .fill(hasLesson ? pal.color.opacity(0.10) : Color.secondary.opacity(0.04))
-                                    )
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 10)
-                                            .strokeBorder(hasLesson ? pal.color : Color.secondary.opacity(0.22), lineWidth: hasLesson ? 2 : 1)
-                                    )
+                                }
+                                Spacer()
+                            }
+                            .transition(.opacity)
+                        }
+
+                        // Bottom Auto-Scroll Sensor Bar (Triggered when user drags a lesson towards the lower zone)
+                        VStack {
+                            Spacer()
+                            HStack(spacing: 8) {
+                                Image(systemName: "arrow.down.circle.fill")
+                                    .font(.system(size: 14, weight: .bold))
+                                Text(isAutoScrollingDown ? "Scorrimento verso il basso..." : store.t("dragScrollDownPrompt"))
+                                    .font(.caption.bold())
+                                Image(systemName: "chevron.compact.down")
+                                    .font(.system(size: 14, weight: .bold))
+                            }
+                            .foregroundStyle(isAutoScrollingDown ? pal.color : Color.secondary)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 8)
+                            .background(
+                                Capsule()
+                                    .fill(.ultraThinMaterial)
+                                    .shadow(color: .black.opacity(0.12), radius: 6, y: 2)
+                            )
+                            .overlay(
+                                Capsule()
+                                    .strokeBorder(isAutoScrollingDown ? pal.color : Color.secondary.opacity(0.2), lineWidth: 1.5)
+                            )
+                            .padding(.bottom, 6)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 52)
+                            .background(
+                                LinearGradient(
+                                    colors: [Color.clear, Color(NSColor.windowBackgroundColor).opacity(0.92)],
+                                    startPoint: .top,
+                                    endPoint: .bottom
+                                )
+                            )
+                            .dropDestination(for: String.self) { _, _ in false } isTargeted: { targeted in
+                                if targeted {
+                                    startAutoScroll(direction: 1, proxy: scrollProxy, totalMonths: monthSections.count)
+                                } else {
+                                    stopAutoScroll()
                                 }
                             }
                         }
                     }
-                    .padding(14)
+                    .appCardStyle(cornerRadius: 14)
                 }
-                .appCardStyle(cornerRadius: 14)
             }
             .padding(20)
+            .onDisappear {
+                stopAutoScroll()
+            }
         )
     }
 
-    fileprivate struct DaySession {
+    fileprivate struct DaySession: Identifiable {
+        var id: String { slotKey }
         let slotKey: String
         let lessonNum: Int
         let time: String
@@ -1454,11 +1804,225 @@ public struct ModuleCalendarView: View {
         let title: String
     }
 
-    fileprivate struct CalendarDayCell {
+    fileprivate struct CalendarDayCell: Identifiable {
+        var id: String { iso }
         let iso: String
         let dayNum: Int
         let monthShort: String
+        var isCurrentMonth: Bool = true
+        var isToday: Bool = false
         let sessions: [DaySession]
+    }
+
+    fileprivate struct CalendarMonthSection: Identifiable {
+        var id: String { "\(year)-\(String(format: "%02d", month))" }
+        let title: String
+        let year: Int
+        let month: Int
+        let weeks: [[CalendarDayCell]]
+        let totalSessionsInMonth: Int
+    }
+
+    private func startAutoScroll(direction: Int, proxy: ScrollViewProxy, totalMonths: Int) {
+        stopAutoScroll()
+        if direction > 0 {
+            isAutoScrollingDown = true
+        } else {
+            isAutoScrollingUp = true
+        }
+        performScrollStep(direction: direction, proxy: proxy, totalMonths: totalMonths)
+        let t = Timer(timeInterval: 0.35, repeats: true) { _ in
+            DispatchQueue.main.async {
+                performScrollStep(direction: direction, proxy: proxy, totalMonths: totalMonths)
+            }
+        }
+        RunLoop.main.add(t, forMode: .common)
+        self.autoScrollTimer = t
+    }
+
+    private func performScrollStep(direction: Int, proxy: ScrollViewProxy, totalMonths: Int) {
+        if direction > 0 {
+            if currentMonthScrollIndex < totalMonths - 1 {
+                currentMonthScrollIndex += 1
+                withAnimation(.easeInOut(duration: 0.28)) {
+                    proxy.scrollTo("month-\(currentMonthScrollIndex)", anchor: .top)
+                }
+            }
+        } else {
+            if currentMonthScrollIndex > 0 {
+                currentMonthScrollIndex -= 1
+                withAnimation(.easeInOut(duration: 0.28)) {
+                    proxy.scrollTo("month-\(currentMonthScrollIndex)", anchor: .top)
+                }
+            }
+        }
+    }
+
+    private func stopAutoScroll() {
+        autoScrollTimer?.invalidate()
+        autoScrollTimer = nil
+        isAutoScrollingDown = false
+        isAutoScrollingUp = false
+    }
+
+    private func buildMultiMonthSections(
+        course: Course,
+        module: CourseModule,
+        slots: [String],
+        additionalMonths: Int
+    ) -> [CalendarMonthSection] {
+        let df = DateFormatter()
+        df.dateFormat = "yyyy-MM-dd"
+        df.locale = Locale(identifier: "en_US_POSIX")
+
+        var byDate: [String: [DaySession]] = [:]
+        for (idx, sk) in slots.enumerated() {
+            let dOnly = store.extractDate(from: sk)
+            let les = store.findLesson(in: course, sectionId: module.id, slotKey: sk)
+            let sess = DaySession(
+                slotKey: sk,
+                lessonNum: idx + 1,
+                time: les?.time ?? module.startTime,
+                endTime: les?.endTime ?? module.endTime,
+                title: les?.title ?? ""
+            )
+            byDate[dOnly, default: []].append(sess)
+        }
+
+        let cal = Calendar.current
+        let today = Date()
+        let todayIso = df.string(from: today)
+
+        // Find earliest reference date (first lesson or today, whichever is earlier)
+        var refDate = today
+        if let firstStr = slots.first.map({ store.extractDate(from: $0) }),
+           let firstDate = df.date(from: firstStr) {
+            if firstDate < today {
+                refDate = firstDate
+            }
+        }
+
+        let startYear = cal.component(.year, from: refDate)
+        let startMonth = cal.component(.month, from: refDate)
+        guard let startMonthDate = cal.date(from: DateComponents(year: startYear, month: startMonth, day: 1)) else {
+            return []
+        }
+
+        var baseMonthsCount = 12
+        if let lastStr = slots.last.map({ store.extractDate(from: $0) }),
+           let lastDate = df.date(from: lastStr) {
+            let diff = cal.dateComponents([.month], from: startMonthDate, to: lastDate).month ?? 0
+            if diff + 4 > baseMonthsCount {
+                baseMonthsCount = diff + 4
+            }
+        }
+        let totalMonths = max(1, baseMonthsCount + additionalMonths)
+
+        let startMon = store.state.settings.firstDayOfWeek != "sunday"
+        var sections: [CalendarMonthSection] = []
+
+        for mOffset in 0..<totalMonths {
+            guard let curMonthDate = cal.date(byAdding: .month, value: mOffset, to: startMonthDate) else {
+                continue
+            }
+            let y = cal.component(.year, from: curMonthDate)
+            let mNum = cal.component(.month, from: curMonthDate)
+            let mName = store.monthsList[safe: mNum - 1] ?? ""
+            let sectionTitle = "\(mName) \(y)"
+
+            guard let daysRange = cal.range(of: .day, in: .month, for: curMonthDate),
+                  let firstDayOfThisMonth = cal.date(from: DateComponents(year: y, month: mNum, day: 1)) else {
+                continue
+            }
+            let daysInMonth = daysRange.count
+
+            let weekday = cal.component(.weekday, from: firstDayOfThisMonth) // 1=Sun, 2=Mon...
+            let leadingBlanks = startMon ? (weekday == 1 ? 6 : weekday - 2) : (weekday - 1)
+
+            var allCells: [CalendarDayCell] = []
+
+            for b in 0..<leadingBlanks {
+                let padOffset = -(leadingBlanks - b)
+                if let padDate = cal.date(byAdding: .day, value: padOffset, to: firstDayOfThisMonth) {
+                    let padIso = df.string(from: padDate)
+                    let padDayNum = cal.component(.day, from: padDate)
+                    let padMonthIdx = cal.component(.month, from: padDate) - 1
+                    let padMonthShort = String((store.monthsList[safe: padMonthIdx] ?? "").prefix(3))
+                    allCells.append(
+                        CalendarDayCell(
+                            iso: padIso,
+                            dayNum: padDayNum,
+                            monthShort: padMonthShort,
+                            isCurrentMonth: false,
+                            isToday: false,
+                            sessions: []
+                        )
+                    )
+                }
+            }
+
+            var monthSessionCount = 0
+            for d in 1...daysInMonth {
+                let cellIso = String(format: "%04d-%02d-%02d", y, mNum, d)
+                let isToday = (cellIso == todayIso)
+                let sessList = byDate[cellIso] ?? []
+                monthSessionCount += sessList.count
+                let mShort = String(mName.prefix(3))
+                allCells.append(
+                    CalendarDayCell(
+                        iso: cellIso,
+                        dayNum: d,
+                        monthShort: mShort,
+                        isCurrentMonth: true,
+                        isToday: isToday,
+                        sessions: sessList
+                    )
+                )
+            }
+
+            let remainder = allCells.count % 7
+            if remainder != 0 {
+                let trailingCount = 7 - remainder
+                if let lastDayOfThisMonth = cal.date(from: DateComponents(year: y, month: mNum, day: daysInMonth)) {
+                    for t in 1...trailingCount {
+                        if let trailDate = cal.date(byAdding: .day, value: t, to: lastDayOfThisMonth) {
+                            let trailIso = df.string(from: trailDate)
+                            let trailDayNum = cal.component(.day, from: trailDate)
+                            let trailMonthIdx = cal.component(.month, from: trailDate) - 1
+                            let trailMonthShort = String((store.monthsList[safe: trailMonthIdx] ?? "").prefix(3))
+                            allCells.append(
+                                CalendarDayCell(
+                                    iso: trailIso,
+                                    dayNum: trailDayNum,
+                                    monthShort: trailMonthShort,
+                                    isCurrentMonth: false,
+                                    isToday: false,
+                                    sessions: []
+                                )
+                            )
+                        }
+                    }
+                }
+            }
+
+            var weeks: [[CalendarDayCell]] = []
+            for i in stride(from: 0, to: allCells.count, by: 7) {
+                let end = min(i + 7, allCells.count)
+                weeks.append(Array(allCells[i..<end]))
+            }
+
+            sections.append(
+                CalendarMonthSection(
+                    title: sectionTitle,
+                    year: y,
+                    month: mNum,
+                    weeks: weeks,
+                    totalSessionsInMonth: monthSessionCount
+                )
+            )
+        }
+
+        return sections
     }
 
     private func buildContinuousWeeks(course: Course, module: CourseModule, slots: [String]) -> [[CalendarDayCell]] {
@@ -1873,7 +2437,7 @@ public struct RosterView: View {
                     // Table Header Row
                     HStack(spacing: 12) {
                         Text(store.t("studentCol"))
-                            .frame(width: 230, alignment: .leading)
+                            .frame(width: 280, alignment: .leading)
                         Text(store.t("studentPhoneLabel"))
                             .frame(width: 155, alignment: .leading)
                         Text(store.t("emailBillingLabel"))
@@ -1910,11 +2474,12 @@ public struct RosterView: View {
                                                     .foregroundStyle(store.activeCoursePalette.color)
                                                 Text(st.fullName)
                                                     .font(.body.weight(.semibold))
-                                                    .lineLimit(1)
+                                                    .lineLimit(2)
+                                                    .multilineTextAlignment(.leading)
                                             }
                                         }
                                         .buttonStyle(.plain)
-                                        .frame(width: 230, alignment: .leading)
+                                        .frame(width: 280, alignment: .leading)
 
                                         // Column 2: Phone
                                         HStack(spacing: 5) {

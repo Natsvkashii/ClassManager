@@ -17,7 +17,7 @@ import AppKit
 public enum AuthorAttribution {
     public static let authorName = "Guaira Jaramillo Nitoglia"
     public static let authorEmail = "guaira.jaramillo.nitoglia@gmail.com"
-    public static let appVersion = "2.1.1-001b"
+    public static let appVersion = "2.2.0"
 }
 
 public enum NavigationTab: String, CaseIterable, Identifiable {
@@ -312,11 +312,13 @@ public struct AppSettings: Codable, Equatable {
     public var iCloudSyncEnabled: Bool = true
     public var checkForUpdatesAutomatically: Bool = true
     public var includeBetaUpdates: Bool = false
+    public var updateCheckFrequency: String = "startup" // "startup", "daily", "weekly", "manual"
+    public var lastUpdateCheckDate: Double = 0.0
 
     public init() {}
 
     enum CodingKeys: String, CodingKey {
-        case language, theme, sidebarMini, firstDayOfWeek, dateFormat, timeFormat, currency, passThreshold, defaultLessonDuration, autoSyncAppleCalendar, calendarSyncMode, iCloudSyncEnabled, checkForUpdatesAutomatically, includeBetaUpdates
+        case language, theme, sidebarMini, firstDayOfWeek, dateFormat, timeFormat, currency, passThreshold, defaultLessonDuration, autoSyncAppleCalendar, calendarSyncMode, iCloudSyncEnabled, checkForUpdatesAutomatically, includeBetaUpdates, updateCheckFrequency, lastUpdateCheckDate
     }
 
     public init(from decoder: Decoder) throws {
@@ -336,6 +338,8 @@ public struct AppSettings: Codable, Equatable {
         iCloudSyncEnabled = c.flexBool(.iCloudSyncEnabled, default: true)
         checkForUpdatesAutomatically = c.flexBool(.checkForUpdatesAutomatically, default: true)
         includeBetaUpdates = c.flexBool(.includeBetaUpdates, default: false)
+        updateCheckFrequency = c.flexString(.updateCheckFrequency, default: "startup")
+        lastUpdateCheckDate = c.flexDouble(.lastUpdateCheckDate, default: 0.0)
     }
 
     public init(dict: [String: Any]) {
@@ -354,6 +358,8 @@ public struct AppSettings: Codable, Equatable {
         iCloudSyncEnabled = JSONDictHelper.bool(dict["iCloudSyncEnabled"], default: true)
         checkForUpdatesAutomatically = JSONDictHelper.bool(dict["checkForUpdatesAutomatically"], default: true)
         includeBetaUpdates = JSONDictHelper.bool(dict["includeBetaUpdates"], default: false)
+        updateCheckFrequency = JSONDictHelper.str(dict["updateCheckFrequency"], default: "startup")
+        lastUpdateCheckDate = JSONDictHelper.dbl(dict["lastUpdateCheckDate"], default: 0.0)
     }
 }
 
@@ -1425,6 +1431,42 @@ public struct AppState: Codable, Equatable {
     ]
 
     public static let defaultChangelog: [ChangelogEntry] = [
+        ChangelogEntry(version: "2.2.0", date: "2026-10-18", changes: [
+            "Rilascio Ufficiale della Versione Stabile 2.2.0 per macOS e Windows.",
+            "Risolta l'anomalia nel Calendario Modulo: lo spostamento o trascinamento di una lezione preserva la posizione di scorrimento della pagina senza tornare in cima.",
+            "Perfezionata l'icona applicazione in alto a sinistra: eliminato il riquadro con bordi e introdotto il logo trasparente ad alta definizione in tutti i componenti grafici.",
+            "Aggiornato il motore di verifica aggiornamenti con rilevamento continuo da repository GitHub e parità completa tra canale Stabile e canale Beta.",
+            "Ottimizzazione generale del codice, pulizia delle ridondanze e armonizzazione multipiattaforma."
+        ]),
+        ChangelogEntry(version: "2.1.1-005b", date: "2026-10-18", changes: [
+            "Corretto l'allineamento della colonna 'Studente' nel registro Presenze: allineamento e altezza perfettamente coordinati con tutte le colonne delle lezioni, senza gradini o spazi vuoti.",
+            "Ampliata la colonna nome studente a 260-280pt in Iscritti e Anagrafica con supporto per andare a capo su due righe, evitando qualsiasi troncamento dei nomi lunghi.",
+            "Riallineate e armonizzate le due schede della sezione Fatturazione (Costi del modulo e Dati fiscali) con altezze coordinate e pulsanti Salva Dati allineati in basso.",
+            "Riavvio automatico post-aggiornamento: al termine dell'installazione del pacchetto, la nuova versione si riavvia da sola in background senza richiedere azioni manuali.",
+            "Possibilità di ripetere la ricerca degli aggiornamenti in qualsiasi momento anche se una nuova versione è già stata rilevata.",
+            "Aggiunta nelle Impostazioni l'opzione per scegliere la frequenza di verifica aggiornamenti (Ad ogni avvio, Giornaliero, Settimanale, Manuale) con finestra modale all'avvio e backup preventivo automatico dei dati prima di ogni aggiornamento."
+        ]),
+        ChangelogEntry(version: "2.1.1-004b", date: "2026-10-18", changes: [
+            "Spostamento dinamico delle lezioni nel calendario del modulo tramite trascinamento con il mouse (Drag & Drop) su qualsiasi giorno desiderato.",
+            "Visualizzazione multi-mese dinamica nel Programma Modulo per consultare e riprogrammare le lezioni liberamente attraverso tutti i mesi successivi.",
+            "Sensori di scorrimento automatico intelligente: trascinando una lezione verso la zona inferiore dello schermo il calendario scorre fluidamente rivelando i mesi successivi nascosti in fondo (e viceversa verso l'alto).",
+            "Barra orizzontale a scorrimento rapido per saltare istantaneamente con un clic a qualsiasi mese con conteggio delle lezioni programmate.",
+            "Aggiornamento immediato e sincronizzato della nuova data della lezione in tutte le sezioni: registro Presenze, Calendario Generale e calendario nativo di macOS (Apple Calendar)."
+        ]),
+        ChangelogEntry(version: "2.1.1-003b", date: "2026-10-18", changes: [
+            "Riprogettata la schermata dell'Archivio corsi: rimosso il riquadro grigio centrale a favore di uno stato vuoto coerente con il Cestino, con icona e spiegazione a tutto schermo.",
+            "Scheda Attività con apertura in modalità statica e pulsante di modifica interno: rimosso il selettore grigio dalla vista a elenco, abilitazione griglie con opzione a comparsa e salvataggio in formato bozza (draft) prima del passaggio alle Griglie.",
+            "Integrato selettore date nativo con mini-calendario popover di macOS per la scelta rapida delle date di inizio e consegna delle attività.",
+            "Eliminate ridondanze nel nome dell'applicazione, autore e dati di contatto: informazioni di contatto spostate esclusivamente nella sezione Crediti.",
+            "Rimossa la linea di demarcazione disallineata sotto la barra superiore ed armonizzata l'altezza di tutti i controlli (selettori corso, livello, modulo e pulsante Nuovo Corso) a 36pt uniformi."
+        ]),
+        ChangelogEntry(version: "2.1.1-002b", date: "2026-10-18", changes: [
+            "Uniformata l'altezza delle intestazioni delle lezioni nella schermata Presenze, garantendo allineamento perfetto indipendentemente dalla presenza del titolo della lezione.",
+            "Eliminato il colore grigiastro dalle tabelle di Presenze e Voti, sostituito con superfici card ad alto contrasto e bordi definiti conformi al tema dell'applicazione.",
+            "Riprogettata la schermata del Cestino: eliminati i doppi riquadri grigi e introdotta una grafica naturale con icona e spiegazione a tutto schermo visibili solo a cestino vuoto.",
+            "Separata la colonna 'Città' in una colonna autonoma e dedicata nell'Anagrafica studenti, distinguendola chiaramente dall'indirizzo Email.",
+            "Integrato il sistema di aggiornamento automatico nativo da GitHub Releases con gestione canali Stabile e Beta."
+        ]),
         ChangelogEntry(version: "2.1.0", date: "2026-10-18", changes: [
             "Nuova sezione dedicata 'Griglie & Criteri' nella barra laterale: creazione, modifica ed eliminazione di schede di valutazione e criteri, associazione rapida alle attività e nuova finestra dedicata per modificare ciascun criterio con campi descrittori multilinea estesi.",
             "Nuovo Cestino (Trash Bin) con auto-eliminazione definitiva dopo 30 giorni e possibilità di ripristinare qualsiasi elemento (studenti, corsi, attività, griglie, lezioni).",

@@ -1,0 +1,57 @@
+{
+  "name": "gestione-corsi",
+  "version": "2.2.0",
+  "description": "Gestione Corsi v2.2.0 — Piattaforma Accademica Multi-Livello QCER (Presenze, Piano Lezioni, Voti, Attività, Griglie di Valutazione, Calendario Modulo Drag & Drop, Cestino 30gg, Anagrafica, Fatturazione)",
+  "author": {
+    "name": "Guaira Jaramillo Nitoglia",
+    "email": "guaira.jaramillo.nitoglia@gmail.com"
+  },
+  "license": "Proprietary",
+  "main": "electron/main.js",
+  "scripts": {
+    "start": "electron .",
+    "build:win": "electron-builder --win"
+  },
+  "build": {
+    "appId": "com.guairajaramillonitoglia.gestionecorsi",
+    "productName": "Gestione Corsi",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "electron/**/*",
+      "src/**/*",
+      "assets/**/*",
+      "package.json"
+    ],
+    "win": {
+      "icon": "assets/AppIcon.ico",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        },
+        {
+          "target": "portable",
+          "arch": ["x64"]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Gestione Corsi",
+      "uninstallDisplayName": "Gestione Corsi",
+      "artifactName": "Gestione-Corsi-2.2.0-Setup.${ext}"
+    },
+    "portable": {
+      "artifactName": "Gestione-Corsi-2.2.0-Portable.${ext}"
+    }
+  },
+  "devDependencies": {
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.8"
+  }
+}

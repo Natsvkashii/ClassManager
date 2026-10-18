@@ -204,6 +204,25 @@ def build_macos(package: bool = True):
             f.write('#!/bin/sh\nrm -rf "/Applications/Gestione Corsi.app"\nexit 0\n')
         os.chmod(preinstall, 0o755)
 
+        postinstall = os.path.join(scripts_dir, "postinstall")
+        with open(postinstall, "w") as f:
+            f.write('''#!/bin/sh
+# Terminate old instance
+killall "GestioneCorsi" 2>/dev/null || true
+pkill -f "Gestione Corsi.app" 2>/dev/null || true
+sleep 1
+
+# Launch newly installed application for current console user
+CONSOLE_USER=$(stat -f "%Su" /dev/console 2>/dev/null)
+if [ -n "$CONSOLE_USER" ] && [ "$CONSOLE_USER" != "root" ]; then
+    sudo -u "$CONSOLE_USER" open "/Applications/Gestione Corsi.app"
+else
+    open "/Applications/Gestione Corsi.app"
+fi
+exit 0
+''')
+        os.chmod(postinstall, 0o755)
+
         cmd_pkg = [
             "pkgbuild",
             "--root", staging_dir,
@@ -224,7 +243,9 @@ def build_macos(package: bool = True):
 
 def publish_release(is_beta: bool = False):
     cur_ver = get_swift_version() or "2.1.0"
-    if is_beta and "-" not in cur_ver:
+    if "-" in cur_ver:
+        is_beta = True
+    elif is_beta and "-" not in cur_ver:
         cur_ver = bump_beta()
 
     expected_branch = "unstable" if is_beta else "stable"
@@ -244,7 +265,7 @@ def publish_release(is_beta: bool = False):
     commit_msg = f"Release {tag_name} ({'Beta' if is_beta else 'Stable'})"
 
     try:
-        subprocess.run(["git", "add", "Sources/", "Gestione Corsi.app/Contents/Info.plist", "manage_version.py", ".gitignore"], cwd=PROJECT_ROOT, check=True)
+        subprocess.run(["git", "add", "-A"], cwd=PROJECT_ROOT, check=True)
         subprocess.run(["git", "commit", "-m", commit_msg], cwd=PROJECT_ROOT)
     except Exception as e:
         print(f"Commit note: {e}")

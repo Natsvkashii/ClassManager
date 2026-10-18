@@ -746,6 +746,66 @@ public final class AppStore {
         persist()
     }
 
+    /// Moves a lesson to a new date, updating the module schedule, attendance records, lesson plan, and Apple Calendar.
+    @discardableResult
+    public func moveLesson(courseId: String, moduleId: String, slotKey: String, toDate newDateStr: String) -> Bool {
+        guard let cIdx = state.courses.firstIndex(where: { $0.id == courseId }) else { return false }
+        var lIdxFound: Int? = nil
+        var mIdxFound: Int? = nil
+        for (li, l) in state.courses[cIdx].levels.enumerated() {
+            if let mi = l.modules.firstIndex(where: { $0.id == moduleId }) {
+                lIdxFound = li
+                mIdxFound = mi
+                break
+            }
+        }
+        guard let lIdx = lIdxFound, let mIdx = mIdxFound else { return false }
+
+        let oldDateOnly = extractDate(from: slotKey)
+        if oldDateOnly == newDateStr {
+            return false
+        }
+
+        recordUndoSnapshot()
+
+        let existingDates = state.courses[cIdx].levels[lIdx].modules[mIdx].dates
+        let candidate = existingDates.contains(newDateStr)
+            ? "\(newDateStr)__\(UUID().uuidString.prefix(5).lowercased())"
+            : newDateStr
+
+        if let dIdx = state.courses[cIdx].levels[lIdx].modules[mIdx].dates.firstIndex(of: slotKey) {
+            state.courses[cIdx].levels[lIdx].modules[mIdx].dates[dIdx] = candidate
+        }
+
+        for stId in Array(state.courses[cIdx].levels[lIdx].modules[mIdx].attendance.keys) {
+            if let val = state.courses[cIdx].levels[lIdx].modules[mIdx].attendance[stId]?[slotKey] {
+                state.courses[cIdx].levels[lIdx].modules[mIdx].attendance[stId]?[candidate] = val
+                state.courses[cIdx].levels[lIdx].modules[mIdx].attendance[stId]?.removeValue(forKey: slotKey)
+            }
+        }
+
+        if let lesIdx = state.courses[cIdx].lessons.firstIndex(where: {
+            $0.slotKey == slotKey && ($0.sectionId == nil || $0.sectionId == moduleId)
+        }) {
+            state.courses[cIdx].lessons[lesIdx].date = newDateStr
+            state.courses[cIdx].lessons[lesIdx].slotKey = candidate
+        }
+
+        state.courses[cIdx].levels[lIdx].modules[mIdx].dates = sortedSlots(
+            for: state.courses[cIdx],
+            module: state.courses[cIdx].levels[lIdx].modules[mIdx]
+        )
+
+        persist()
+
+        if state.settings.autoSyncAppleCalendar {
+            syncCourseToAppleCalendar(state.courses[cIdx], showNotification: false)
+        }
+
+        showToast("📅 Lezione spostata al \(formatDateDisplay(newDateStr))")
+        return true
+    }
+
     // MARK: - Grades, Rubrics & Attendance Evaluation
 
     public func getStudentAttendanceEvalInfo(course: Course, studentId: String, module: CourseModule? = nil) -> AttendanceEvalInfo {

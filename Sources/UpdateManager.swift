@@ -143,6 +143,7 @@ public final class UpdateManager: NSObject, URLSessionDownloadDelegate {
     public var errorMessage: String? = nil
     public var lastCheckDate: Date? = nil
     public var bannerDismissed: Bool = false
+    public var showStartupUpdatePrompt: Bool = false
 
     @ObservationIgnored private var downloadTask: URLSessionDownloadTask? = nil
     @ObservationIgnored private var activeDownloadAsset: GitHubAsset? = nil
@@ -234,10 +235,12 @@ public final class UpdateManager: NSObject, URLSessionDownloadDelegate {
             self.updateAvailable = true
             self.latestRelease = candidate.release
             self.bannerDismissed = false
+            self.showStartupUpdatePrompt = true
             self.statusMessage = "Nuova versione disponibile: \(candidate.release.tag_name) (\(candidate.release.prerelease ? "Beta" : "Stabile"))"
         } else {
             self.updateAvailable = false
             self.latestRelease = nil
+            self.showStartupUpdatePrompt = false
             if !silent {
                 self.statusMessage = "Gestione Corsi è aggiornato all'ultima versione (\(AuthorAttribution.appVersion))."
             }
@@ -259,8 +262,38 @@ public final class UpdateManager: NSObject, URLSessionDownloadDelegate {
         }
     }
 
-    /// Downloads the `.pkg` installer from the release assets and opens it with macOS Installer.
-    public func downloadAndInstall(release: GitHubRelease) {
+    /// Automatically creates a timestamped JSON backup in the user Documents directory before updating.
+    @discardableResult
+    public func performPreUpdateBackup(store: AppStore) -> Bool {
+        let df = DateFormatter()
+        df.dateFormat = "yyyyMMdd_HHmmss"
+        let timestamp = df.string(from: Date())
+        let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first
+            ?? FileManager.default.temporaryDirectory
+        let backupsDir = docs.appendingPathComponent("GestioneCorsi_Backups")
+        try? FileManager.default.createDirectory(at: backupsDir, withIntermediateDirectories: true)
+        let backupUrl = backupsDir.appendingPathComponent("AutoBackup_pre_update_\(AuthorAttribution.appVersion)_\(timestamp).json")
+
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        if let data = try? encoder.encode(store.state) {
+            do {
+                try data.write(to: backupUrl, options: .atomic)
+                store.showToast("💾 Backup automatico salvato in Documenti/GestioneCorsi_Backups")
+                return true
+            } catch {
+                return false
+            }
+        }
+        return false
+    }
+
+    /// Downloads the `.pkg` installer from the release assets, performs an automatic backup, and opens the installer.
+    public func downloadAndInstall(release: GitHubRelease, store: AppStore? = nil) {
+        if let st = store {
+            performPreUpdateBackup(store: st)
+        }
+
         guard let asset = release.pkgAsset else {
             // If no pkg asset, open release page on GitHub
             openInBrowser(release: release)
@@ -326,29 +359,53 @@ public final class UpdateManager: NSObject, URLSessionDownloadDelegate {
         downloadTask: URLSessionDownloadTask,
         didFinishDownloadingTo location: URL
     ) {
-        Task { @MainActor in
-            let name = self.activeDownloadAsset?.name ?? "Gestione-Corsi-Update.pkg"
-            let tempDir = FileManager.default.temporaryDirectory
-            let targetUrl = tempDir.appendingPathComponent(name)
+        // IMPORTANT: The temporary file at `location` is deleted by URLSession as soon as this method returns.
+        // Therefore, we MUST synchronously move it before dispatching to the main actor!
+        let rawName = downloadTask.response?.suggestedFilename
+            ?? downloadTask.originalRequest?.url?.lastPathComponent
+            ?? "Gestione-Corsi-Update.pkg"
+        let fileName = rawName.isEmpty ? "Gestione-Corsi-Update.pkg" : rawName
+        let downloadsFolder = FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first
+        let targetFolder = downloadsFolder ?? FileManager.default.temporaryDirectory
+        var destinationUrl = targetFolder.appendingPathComponent(fileName)
 
+        var copyError: Error? = nil
+        do {
+            if FileManager.default.fileExists(atPath: destinationUrl.path) {
+                try FileManager.default.removeItem(at: destinationUrl)
+            }
+            try FileManager.default.moveItem(at: location, to: destinationUrl)
+        } catch {
+            // Fallback to temporary directory if primary location failed
+            let fallbackUrl = FileManager.default.temporaryDirectory.appendingPathComponent(fileName)
             do {
-                if FileManager.default.fileExists(atPath: targetUrl.path) {
-                    try FileManager.default.removeItem(at: targetUrl)
+                if FileManager.default.fileExists(atPath: fallbackUrl.path) {
+                    try FileManager.default.removeItem(at: fallbackUrl)
                 }
-                try FileManager.default.moveItem(at: location, to: targetUrl)
+                try FileManager.default.moveItem(at: location, to: fallbackUrl)
+                destinationUrl = fallbackUrl
+            } catch let fallbackErr {
+                copyError = fallbackErr
+            }
+        }
 
+        Task { @MainActor in
+            if let err = copyError {
+                self.isDownloading = false
+                self.errorMessage = "Errore durante il salvataggio dell'aggiornamento: \(err.localizedDescription)"
+                self.statusMessage = self.errorMessage ?? ""
+            } else {
                 self.isDownloading = false
                 self.downloadProgress = 1.0
                 self.statusMessage = "Installer scaricato con successo. Avvio dell'installazione..."
 
-                // Launch macOS Installer
-                NSWorkspace.shared.open(targetUrl)
-
-                self.statusMessage = "Installer avviato. Segui le istruzioni a schermo per completare l'aggiornamento."
-            } catch {
-                self.isDownloading = false
-                self.errorMessage = "Errore durante il salvataggio dell'aggiornamento: \(error.localizedDescription)"
-                self.statusMessage = self.errorMessage ?? ""
+                let launched = NSWorkspace.shared.open(destinationUrl)
+                if launched {
+                    self.statusMessage = "Installer avviato (\(destinationUrl.lastPathComponent)). Segui le istruzioni a schermo per completare l'aggiornamento."
+                } else {
+                    self.errorMessage = "Impossibile avviare automaticamente l'installer. Trovi il file in: \(destinationUrl.path)"
+                    self.statusMessage = self.errorMessage ?? ""
+                }
             }
         }
     }

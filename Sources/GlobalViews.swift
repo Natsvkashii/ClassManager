@@ -209,6 +209,7 @@ public struct GlobalCalendarView: View {
 
 public struct StudentsDirectoryView: View {
     @Environment(AppStore.self) private var store
+    @Environment(\.colorScheme) private var colorScheme
     @Binding var activeSheet: ActiveModalSheet?
     @State private var studentToDelete: Student? = nil
 
@@ -270,23 +271,29 @@ public struct StudentsDirectoryView: View {
                 // Table Header Row
                 HStack(spacing: 12) {
                     Text("\(store.t("studentCol")) (\(filtered.count))")
-                        .frame(width: 215, alignment: .leading)
+                        .frame(width: 260, alignment: .leading)
                     Text(store.t("studentGroupsCol"))
-                        .frame(width: 225, alignment: .leading)
+                        .frame(width: 185, alignment: .leading)
                     Text(store.t("studentLatestLevelCol"))
-                        .frame(width: 80, alignment: .center)
+                        .frame(width: 70, alignment: .center)
                     Text(store.t("studentPhoneLabel"))
-                        .frame(width: 145, alignment: .leading)
-                    Text(store.t("contactsAndCityCol"))
+                        .frame(width: 135, alignment: .leading)
+                    Text(store.t("emailCol"))
                         .frame(maxWidth: .infinity, alignment: .leading)
+                    Text(store.t("cityCol"))
+                        .frame(width: 125, alignment: .leading)
                     Text(store.t("actionsCol"))
-                        .frame(width: 135, alignment: .trailing)
+                        .frame(width: 125, alignment: .trailing)
                 }
                 .font(.caption.bold())
                 .foregroundStyle(.secondary)
                 .padding(.horizontal, 16)
                 .padding(.vertical, 10)
-                .background(Color.secondary.opacity(0.10))
+                .background(
+                    colorScheme == .dark
+                        ? Color(red: 0.08, green: 0.12, blue: 0.20)
+                        : Color(red: 0.94, green: 0.96, blue: 0.98)
+                )
 
                 Divider()
 
@@ -311,11 +318,12 @@ public struct StudentsDirectoryView: View {
                                                 .foregroundStyle(store.activeCoursePalette.color)
                                             Text(st.fullName)
                                                 .font(.body.weight(.semibold))
-                                                .lineLimit(1)
+                                                .lineLimit(2)
+                                                .multilineTextAlignment(.leading)
                                         }
                                     }
                                     .buttonStyle(.plain)
-                                    .frame(width: 215, alignment: .leading)
+                                    .frame(width: 260, alignment: .leading)
 
                                     // Column 2: Attended Courses Badges
                                     ScrollView(.horizontal, showsIndicators: false) {
@@ -338,14 +346,14 @@ public struct StudentsDirectoryView: View {
                                                     .padding(.vertical, 3)
                                                     .background(
                                                         RoundedRectangle(cornerRadius: 6)
-                                                            .fill(Color.secondary.opacity(0.10))
-                                                            .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(Color.secondary.opacity(0.22)))
+                                                            .fill(store.palette(for: c.color).color.opacity(0.12))
+                                                            .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(store.palette(for: c.color).color.opacity(0.28)))
                                                     )
                                                 }
                                             }
                                         }
                                     }
-                                    .frame(width: 225, alignment: .leading)
+                                    .frame(width: 200, alignment: .leading)
 
                                     // Column 3: Level Badge
                                     Text(st.lastFollowedLevel ?? st.currentLevel)
@@ -354,7 +362,7 @@ public struct StudentsDirectoryView: View {
                                         .padding(.vertical, 3)
                                         .background(Capsule().fill(Color.blue.opacity(0.15)))
                                         .foregroundStyle(.blue)
-                                        .frame(width: 80, alignment: .center)
+                                        .frame(width: 75, alignment: .center)
 
                                     // Column 4: Phone
                                     HStack(spacing: 5) {
@@ -367,17 +375,16 @@ public struct StudentsDirectoryView: View {
                                     }
                                     .font(.caption)
                                     .blur(radius: store.showSensitiveDirectoryData ? 0 : 5)
-                                    .frame(width: 145, alignment: .leading)
+                                    .frame(width: 135, alignment: .leading)
 
-                                    // Column 5: Email & City
-                                    HStack(spacing: 10) {
+                                    // Column 5: Email (Dedicated Column)
+                                    HStack(spacing: 6) {
                                         if !st.email.isEmpty {
-                                            Label(st.email, systemImage: "envelope.fill").lineLimit(1)
-                                        }
-                                        if !st.city.isEmpty {
-                                            Label(st.city, systemImage: "location.fill").lineLimit(1)
-                                        }
-                                        if st.email.isEmpty && st.city.isEmpty {
+                                            Image(systemName: "envelope.fill")
+                                                .font(.caption2)
+                                                .foregroundStyle(.secondary)
+                                            Text(st.email).lineLimit(1)
+                                        } else {
                                             Text("—").foregroundStyle(.tertiary)
                                         }
                                     }
@@ -386,7 +393,23 @@ public struct StudentsDirectoryView: View {
                                     .blur(radius: store.showSensitiveDirectoryData ? 0 : 5)
                                     .frame(maxWidth: .infinity, alignment: .leading)
 
-                                    // Column 6: Actions (Scheda + Delete with Confirmation)
+                                    // Column 6: City (Dedicated Column)
+                                    HStack(spacing: 6) {
+                                        if !st.city.isEmpty {
+                                            Image(systemName: "location.fill")
+                                                .font(.caption2)
+                                                .foregroundStyle(.cyan)
+                                            Text(st.city).lineLimit(1)
+                                        } else {
+                                            Text("—").foregroundStyle(.tertiary)
+                                        }
+                                    }
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                    .blur(radius: store.showSensitiveDirectoryData ? 0 : 5)
+                                    .frame(width: 140, alignment: .leading)
+
+                                    // Column 7: Actions (Scheda + Delete with Confirmation)
                                     HStack(spacing: 8) {
                                         Button(store.t("profileCardBtn")) {
                                             activeSheet = .studentDetail(st.id)
@@ -405,7 +428,7 @@ public struct StudentsDirectoryView: View {
                                         .buttonStyle(.plain)
                                         .help(store.t("deleteBtn"))
                                     }
-                                    .frame(width: 135, alignment: .trailing)
+                                    .frame(width: 125, alignment: .trailing)
                                 }
                                 .padding(.horizontal, 16)
                                 .padding(.vertical, 10)
@@ -451,51 +474,69 @@ public struct ArchiveView: View {
     @Environment(AppStore.self) private var store
 
     public var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                if store.archivedCourses.isEmpty {
-                    Text(store.t("noArchivedCoursesMsg"))
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                        .frame(maxWidth: .infinity, minHeight: 180)
-                        .appCardStyle(cornerRadius: 16)
-                } else {
-                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 280, maximum: 380), spacing: 14)], spacing: 14) {
-                        ForEach(store.archivedCourses) { course in
-                            let pal = store.palette(for: course.color)
-                            VStack(alignment: .leading, spacing: 12) {
-                                Text(store.formatLevelModuleBadge(course: course))
-                                    .font(.caption.bold())
-                                    .foregroundStyle(.white)
-                                    .padding(.horizontal, 8)
-                                    .padding(.vertical, 3)
-                                    .background(RoundedRectangle(cornerRadius: 6).fill(pal.color))
-                                Text(course.name).font(.headline)
-                                Divider()
-                                HStack {
-                                    Button(store.t("restoreCourseBtn")) {
-                                        if let idx = store.state.courses.firstIndex(where: { $0.id == course.id }) {
-                                            store.recordUndoSnapshot()
-                                            store.state.courses[idx].archived = false
-                                            store.state.activeCourseId = course.id
-                                            store.persist()
+        VStack(alignment: .leading, spacing: 16) {
+            if store.archivedCourses.isEmpty {
+                VStack(spacing: 16) {
+                    Spacer()
+                    Image(systemName: "archivebox")
+                        .font(.system(size: 72, weight: .light))
+                        .foregroundStyle(Color.secondary.opacity(0.35))
+
+                    VStack(spacing: 8) {
+                        Text(store.t("noArchivedCoursesMsg"))
+                            .font(.title2.bold())
+                            .foregroundStyle(.primary)
+
+                        Text(store.t("archiveSubtitle"))
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
+                            .frame(maxWidth: 480)
+                    }
+                    Spacer()
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .padding(32)
+            } else {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 16) {
+                        LazyVGrid(columns: [GridItem(.adaptive(minimum: 280, maximum: 380), spacing: 14)], spacing: 14) {
+                            ForEach(store.archivedCourses) { course in
+                                let pal = store.palette(for: course.color)
+                                VStack(alignment: .leading, spacing: 12) {
+                                    Text(store.formatLevelModuleBadge(course: course))
+                                        .font(.caption.bold())
+                                        .foregroundStyle(.white)
+                                        .padding(.horizontal, 8)
+                                        .padding(.vertical, 3)
+                                        .background(RoundedRectangle(cornerRadius: 6).fill(pal.color))
+                                    Text(course.name).font(.headline)
+                                    Divider()
+                                    HStack {
+                                        Button(store.t("restoreCourseBtn")) {
+                                            if let idx = store.state.courses.firstIndex(where: { $0.id == course.id }) {
+                                                store.recordUndoSnapshot()
+                                                store.state.courses[idx].archived = false
+                                                store.state.activeCourseId = course.id
+                                                store.persist()
+                                            }
+                                        }
+                                        .buttonStyle(.borderedProminent)
+                                        .tint(.green)
+                                        Spacer()
+                                        Button(store.t("deleteBtn"), role: .destructive) {
+                                            store.moveCourseToTrash(course.id)
                                         }
                                     }
-                                    .buttonStyle(.borderedProminent)
-                                    .tint(.green)
-                                    Spacer()
-                                    Button(store.t("deleteBtn"), role: .destructive) {
-                                        store.moveCourseToTrash(course.id)
-                                    }
                                 }
+                                .padding(16)
+                                .appCardStyle(cornerRadius: 14)
                             }
-                            .padding(16)
-                            .appCardStyle(cornerRadius: 14)
                         }
                     }
+                    .padding(22)
                 }
             }
-            .padding(22)
         }
     }
 }
@@ -508,17 +549,36 @@ public struct TrashBinView: View {
 
     public var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            // Header Card
-            HStack {
-                VStack(alignment: .leading, spacing: 4) {
-                    Label("\(store.t("navTrashBin")) (\(store.state.deletedItems.count))", systemImage: "trash.fill")
-                        .font(.title3.bold())
-                    Text(store.t("trashBinSubtitle"))
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+            if store.state.deletedItems.isEmpty {
+                VStack(spacing: 16) {
+                    Spacer()
+                    Image(systemName: "trash")
+                        .font(.system(size: 72, weight: .light))
+                        .foregroundStyle(Color.secondary.opacity(0.35))
+
+                    VStack(spacing: 8) {
+                        Text(store.t("trashEmptyMsg"))
+                            .font(.title2.bold())
+                            .foregroundStyle(.primary)
+
+                        Text(store.t("trashBinSubtitle"))
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
+                            .frame(maxWidth: 480)
+                    }
+                    Spacer()
                 }
-                Spacer()
-                if !store.state.deletedItems.isEmpty {
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .padding(32)
+            } else {
+                // Header Card shown only when items exist
+                HStack {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Label("\(store.t("navTrashBin")) (\(store.state.deletedItems.count))", systemImage: "trash.fill")
+                            .font(.title3.bold())
+                    }
+                    Spacer()
                     Button(role: .destructive) {
                         showEmptyTrashConfirm = true
                     } label: {
@@ -527,22 +587,9 @@ public struct TrashBinView: View {
                     .buttonStyle(.borderedProminent)
                     .tint(.red)
                 }
-            }
-            .padding(16)
-            .appCardStyle(cornerRadius: 14)
+                .padding(16)
+                .appCardStyle(cornerRadius: 14)
 
-            if store.state.deletedItems.isEmpty {
-                VStack(spacing: 12) {
-                    Image(systemName: "trash.circle")
-                        .font(.system(size: 44))
-                        .foregroundStyle(.secondary)
-                    Text(store.t("trashEmptyMsg"))
-                        .font(.headline)
-                        .foregroundStyle(.secondary)
-                }
-                .frame(maxWidth: .infinity, minHeight: 240)
-                .appCardStyle(cornerRadius: 16)
-            } else {
                 ScrollView {
                     VStack(spacing: 10) {
                         ForEach(store.state.deletedItems) { item in
@@ -708,7 +755,7 @@ public struct BillingView: View {
                     HStack(alignment: .top, spacing: 18) {
                         // Module Pricing Card
                         VStack(alignment: .leading, spacing: 14) {
-                            HStack {
+                            HStack(alignment: .center) {
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text("\(course.name) — \(store.formatLevelModuleBadge(course: course, level: lvl, module: mod))")
                                         .font(.headline)
@@ -721,6 +768,8 @@ public struct BillingView: View {
                                     .font(.title2.bold())
                                     .foregroundStyle(.green)
                             }
+                            .frame(minHeight: 38)
+
                             Divider()
 
                             ModuleBillingEditor(
@@ -733,13 +782,20 @@ public struct BillingView: View {
                             }
                         }
                         .padding(18)
-                        .frame(maxWidth: .infinity)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                         .appCardStyle(cornerRadius: 16)
 
                         // Fiscal / Tax Info Card (Cédula / RUC)
                         VStack(alignment: .leading, spacing: 14) {
-                            Text(store.t("ecuadorBillingHeader")).font(.headline)
+                            HStack(alignment: .center) {
+                                Text(store.t("ecuadorBillingHeader"))
+                                    .font(.headline)
+                                Spacer()
+                            }
+                            .frame(minHeight: 38)
+
                             Divider()
+
                             FiscalInfoEditor(info: course.billingConfig.billingInfo) { updatedInfo in
                                 store.recordUndoSnapshot()
                                 store.state.courses[cIdx].billingConfig.billingInfo = updatedInfo
@@ -748,7 +804,7 @@ public struct BillingView: View {
                             }
                         }
                         .padding(18)
-                        .frame(maxWidth: .infinity)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                         .appCardStyle(cornerRadius: 16)
                     }
                 }
@@ -792,7 +848,7 @@ private struct ModuleBillingEditor: View {
     let onSave: (ModuleBilling, String) -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 14) {
             HStack(spacing: 12) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Tariffa Oraria (\(currency))").font(.caption.bold())
@@ -833,6 +889,8 @@ private struct ModuleBillingEditor: View {
                 .labelsHidden()
             }
 
+            Spacer(minLength: 12)
+
             HStack {
                 Spacer()
                 Button(store.t("saveBillingBtn")) {
@@ -841,6 +899,7 @@ private struct ModuleBillingEditor: View {
                 .buttonStyle(.borderedProminent)
             }
         }
+        .frame(maxHeight: .infinity)
         .onChange(of: moduleName) { _, _ in
             if let c = store.activeCourse, let m = store.getActiveModule(for: c), let b = m.billing {
                 billing = b
@@ -855,7 +914,7 @@ private struct FiscalInfoEditor: View {
     let onSave: (BillingInfo) -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 14) {
             HStack(spacing: 12) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(store.t("idTypeLabel")).font(.caption.bold())
@@ -866,6 +925,8 @@ private struct FiscalInfoEditor: View {
                     }
                     .labelsHidden()
                 }
+                .frame(width: 140)
+
                 VStack(alignment: .leading, spacing: 4) {
                     Text(store.t("idNumberLabel")).font(.caption.bold())
                     TextField("", text: $info.idNumber).textFieldStyle(.roundedBorder)
@@ -895,12 +956,16 @@ private struct FiscalInfoEditor: View {
                     TextField("", text: $info.email).textFieldStyle(.roundedBorder)
                 }
             }
+
+            Spacer(minLength: 12)
+
             HStack {
                 Spacer()
                 Button(store.t("saveBillingBtn")) { onSave(info) }
                     .buttonStyle(.borderedProminent)
             }
         }
+        .frame(maxHeight: .infinity)
     }
 }
 
@@ -1108,6 +1173,22 @@ public struct SettingsView: View {
                             set: { store.state.settings.includeBetaUpdates = $0; store.persist() }
                         ))
 
+                        HStack {
+                            Text(store.t("updateFrequencyLabel")).font(.caption.bold())
+                            Spacer()
+                            Picker("", selection: Binding(
+                                get: { store.state.settings.updateCheckFrequency },
+                                set: { store.state.settings.updateCheckFrequency = $0; store.persist() }
+                            )) {
+                                Text(store.t("updateFreqStartup")).tag("startup")
+                                Text(store.t("updateFreqDaily")).tag("daily")
+                                Text(store.t("updateFreqWeekly")).tag("weekly")
+                                Text(store.t("updateFreqManual")).tag("manual")
+                            }
+                            .labelsHidden()
+                            .frame(width: 220)
+                        }
+
                         if UpdateManager.shared.updateAvailable, let release = UpdateManager.shared.latestRelease {
                             VStack(alignment: .leading, spacing: 10) {
                                 HStack {
@@ -1136,6 +1217,10 @@ public struct SettingsView: View {
                                         .lineLimit(4)
                                 }
 
+                                Label(store.t("autoBackupPreUpdateHint"), systemImage: "shield.checkmark.fill")
+                                    .font(.caption2.bold())
+                                    .foregroundStyle(.green)
+
                                 if UpdateManager.shared.isDownloading {
                                     VStack(alignment: .leading, spacing: 4) {
                                         ProgressView(value: UpdateManager.shared.downloadProgress)
@@ -1146,7 +1231,7 @@ public struct SettingsView: View {
                                 } else {
                                     HStack {
                                         Button {
-                                            UpdateManager.shared.downloadAndInstall(release: release)
+                                            UpdateManager.shared.downloadAndInstall(release: release, store: store)
                                         } label: {
                                             Label(store.t("downloadAndInstallBtn"), systemImage: "arrow.down.circle.fill")
                                         }
@@ -1167,28 +1252,31 @@ public struct SettingsView: View {
                                     .fill(Color.purple.opacity(0.10))
                                     .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Color.purple.opacity(0.35)))
                             )
-                        } else {
-                            HStack {
-                                if !UpdateManager.shared.statusMessage.isEmpty {
-                                    Text(UpdateManager.shared.statusMessage)
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                }
-                                Spacer()
-                                Button {
-                                    UpdateManager.shared.checkForUpdates(includeBeta: store.state.settings.includeBetaUpdates, silent: false)
-                                } label: {
-                                    if UpdateManager.shared.isChecking {
-                                        ProgressView()
-                                            .controlSize(.small)
-                                            .padding(.trailing, 4)
-                                    }
-                                    Label(store.t("checkUpdatesNowBtn"), systemImage: "arrow.triangle.2.circlepath")
-                                }
-                                .disabled(UpdateManager.shared.isChecking)
-                                .buttonStyle(.borderedProminent)
-                                .tint(.purple)
+                        }
+
+                        // Always available Check for Updates button
+                        HStack {
+                            if !UpdateManager.shared.statusMessage.isEmpty {
+                                Text(UpdateManager.shared.statusMessage)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
                             }
+                            Spacer()
+                            Button {
+                                store.state.settings.lastUpdateCheckDate = Date().timeIntervalSince1970
+                                store.persist()
+                                UpdateManager.shared.checkForUpdates(includeBeta: store.state.settings.includeBetaUpdates, silent: false)
+                            } label: {
+                                if UpdateManager.shared.isChecking {
+                                    ProgressView()
+                                        .controlSize(.small)
+                                        .padding(.trailing, 4)
+                                }
+                                Label(store.t("checkUpdatesNowBtn"), systemImage: "arrow.triangle.2.circlepath")
+                            }
+                            .disabled(UpdateManager.shared.isChecking)
+                            .buttonStyle(.borderedProminent)
+                            .tint(.purple)
                         }
                     }
                     .padding(14)
@@ -1346,8 +1434,5 @@ public struct AppLogoImageView: View {
             }
         }
         .frame(width: size, height: size)
-        .padding(3)
-        .background(RoundedRectangle(cornerRadius: size * 0.26).fill(Color.white))
-        .overlay(RoundedRectangle(cornerRadius: size * 0.26).strokeBorder(Color.secondary.opacity(0.25)))
     }
 }

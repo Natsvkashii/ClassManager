@@ -14,7 +14,11 @@ Gestione Corsi.app/Contents/MacOS/GestioneCorsi
 Gestione Corsi.app/Contents/_CodeSignature/
 /tmp/swift-module-cache
 
-# Temporary & Swap files
-*.tmp
-*.swp
-*~
+# Node & Electron Build Outputs
+node_modules/
+Windows-Version/node_modules/
+Windows-Version/dist/
+Windows-Version/*.exe
+dist/
+*.log
+

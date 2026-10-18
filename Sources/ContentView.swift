@@ -84,6 +84,7 @@ public struct ContentView: View {
     @Environment(AppStore.self) private var store
     @Environment(\.colorScheme) private var colorScheme
     @State private var activeSheet: ActiveModalSheet? = nil
+    @State private var updateManager = UpdateManager.shared
 
     public init() {}
 
@@ -120,11 +121,8 @@ public struct ContentView: View {
                     }
                 )
 
-                Divider()
-
                 if UpdateManager.shared.updateAvailable && !UpdateManager.shared.bannerDismissed, let rel = UpdateManager.shared.latestRelease {
                     UpdateNotificationBanner(release: rel)
-                    Divider()
                 }
 
                 // Main Content Workspace with high-contrast Light/Dark canvas background
@@ -156,11 +154,6 @@ public struct ContentView: View {
                         .transition(.move(edge: .bottom).combined(with: .opacity))
                     }
                 }
-
-                Divider()
-
-                // Strictly Preserved Authorship Footer
-                FooterAttributionBar()
             }
         }
         .tint(palette.color)
@@ -170,6 +163,40 @@ public struct ContentView: View {
         .sheet(item: $activeSheet) { sheet in
             sheetView(for: sheet)
                 .environment(store)
+        }
+        .sheet(isPresented: $updateManager.showStartupUpdatePrompt) {
+            StartupUpdatePromptSheet()
+                .environment(store)
+        }
+        .onAppear {
+            checkUpdatesOnStartupIfNeeded()
+        }
+    }
+
+    private func checkUpdatesOnStartupIfNeeded() {
+        guard store.state.settings.checkForUpdatesAutomatically else { return }
+        let freq = store.state.settings.updateCheckFrequency
+        let now = Date().timeIntervalSince1970
+        let lastCheck = store.state.settings.lastUpdateCheckDate
+
+        var shouldCheck = false
+        switch freq {
+        case "startup":
+            shouldCheck = true
+        case "daily":
+            shouldCheck = (now - lastCheck) > 86400
+        case "weekly":
+            shouldCheck = (now - lastCheck) > 604800
+        case "manual":
+            shouldCheck = false
+        default:
+            shouldCheck = true
+        }
+
+        if shouldCheck {
+            store.state.settings.lastUpdateCheckDate = now
+            store.persist()
+            updateManager.checkForUpdates(includeBeta: store.state.settings.includeBetaUpdates, silent: true)
         }
     }
 
@@ -333,33 +360,6 @@ private struct SidebarView: View {
                 }
                 .padding(10)
             }
-
-            Spacer(minLength: 0)
-
-            Divider()
-
-            // Bottom Author Badge (Strictly Preserved)
-            VStack(alignment: .leading, spacing: 3) {
-                Text(AuthorAttribution.authorName)
-                    .font(.caption.bold())
-                    .foregroundStyle(.primary)
-                    .lineLimit(1)
-                Link(AuthorAttribution.authorEmail, destination: URL(string: "mailto:\(AuthorAttribution.authorEmail)")!)
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(palette.color)
-                    .lineLimit(1)
-            }
-            .padding(10)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(
-                RoundedRectangle(cornerRadius: 10)
-                    .fill(palette.color.opacity(0.08))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 10)
-                            .strokeBorder(palette.color.opacity(0.22), lineWidth: 1)
-                    )
-            )
-            .padding(10)
         }
         .background(colorScheme == .dark ? Color(nsColor: .windowBackgroundColor) : Color.white)
     }
@@ -493,7 +493,7 @@ private struct TopUnifiedHeaderBar: View {
                     .help(store.t("editBtn"))
                 }
                 .padding(.horizontal, 10)
-                .padding(.vertical, 5)
+                .frame(height: 36)
                 .background(
                     RoundedRectangle(cornerRadius: 10)
                         .fill(palette.color.opacity(0.09))
@@ -519,6 +519,7 @@ private struct TopUnifiedHeaderBar: View {
                                 .font(.caption.bold())
                                 .padding(.horizontal, 8)
                                 .padding(.vertical, 4)
+                                .frame(height: 28)
                                 .background(
                                     RoundedRectangle(cornerRadius: 7)
                                         .fill(isSelected ? palette.color : Color.clear)
@@ -534,8 +535,9 @@ private struct TopUnifiedHeaderBar: View {
                         } label: {
                             Image(systemName: "pencil")
                                 .font(.system(size: 10, weight: .bold))
-                                .padding(4)
-                                .foregroundStyle(.secondary)
+                                .padding(5)
+                                .background(RoundedRectangle(cornerRadius: 6).fill(palette.color.opacity(0.15)))
+                                .foregroundStyle(palette.color)
                         }
                         .buttonStyle(.plain)
                         .help("\(store.t("editBtn")) \(store.t("levelShort"))")
@@ -546,17 +548,19 @@ private struct TopUnifiedHeaderBar: View {
                     } label: {
                         Image(systemName: "plus")
                             .font(.caption.bold())
-                            .padding(4)
+                            .padding(5)
+                            .background(RoundedRectangle(cornerRadius: 6).fill(palette.color.opacity(0.15)))
                             .foregroundStyle(palette.color)
                     }
                     .buttonStyle(.plain)
                     .help(store.t("addLevelBtn"))
                 }
-                .padding(4)
+                .padding(.horizontal, 6)
+                .frame(height: 36)
                 .background(
                     RoundedRectangle(cornerRadius: 10)
-                        .fill(Color(nsColor: .controlBackgroundColor))
-                        .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Color.primary.opacity(0.10)))
+                        .fill(palette.color.opacity(0.09))
+                        .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(palette.color.opacity(0.28)))
                 )
 
                 // Module Selector Pills
@@ -577,6 +581,7 @@ private struct TopUnifiedHeaderBar: View {
                                     .font(.caption.bold())
                                     .padding(.horizontal, 8)
                                     .padding(.vertical, 4)
+                                    .frame(height: 28)
                                     .background(
                                         RoundedRectangle(cornerRadius: 7)
                                             .fill(isSelected ? palette.color : Color.clear)
@@ -593,8 +598,9 @@ private struct TopUnifiedHeaderBar: View {
                             } label: {
                                 Image(systemName: "pencil")
                                     .font(.system(size: 10, weight: .bold))
-                                    .padding(4)
-                                    .foregroundStyle(.secondary)
+                                    .padding(5)
+                                    .background(RoundedRectangle(cornerRadius: 6).fill(palette.color.opacity(0.15)))
+                                    .foregroundStyle(palette.color)
                             }
                             .buttonStyle(.plain)
                             .help("\(store.t("editBtn")) \(store.t("moduleShort"))")
@@ -605,17 +611,19 @@ private struct TopUnifiedHeaderBar: View {
                         } label: {
                             Image(systemName: "plus")
                                 .font(.caption.bold())
-                                .padding(4)
+                                .padding(5)
+                                .background(RoundedRectangle(cornerRadius: 6).fill(palette.color.opacity(0.15)))
                                 .foregroundStyle(palette.color)
                         }
                         .buttonStyle(.plain)
                         .help(store.t("addModuleBtn"))
                     }
-                    .padding(4)
+                    .padding(.horizontal, 6)
+                    .frame(height: 36)
                     .background(
                         RoundedRectangle(cornerRadius: 10)
-                            .fill(Color(nsColor: .controlBackgroundColor))
-                            .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Color.primary.opacity(0.10)))
+                            .fill(palette.color.opacity(0.09))
+                            .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(palette.color.opacity(0.28)))
                     )
                 }
             }
@@ -628,10 +636,12 @@ private struct TopUnifiedHeaderBar: View {
                     store.undoLastAction()
                 } label: {
                     Image(systemName: "arrow.uturn.backward")
-                        .font(.subheadline.bold())
-                        .frame(width: 28, height: 28)
+                        .font(.system(size: 12, weight: .bold))
+                        .frame(width: 36, height: 36)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.bordered)
+                .controlSize(.regular)
                 .disabled(!store.canUndo)
                 .help(store.t("undoActionBtn"))
 
@@ -639,19 +649,25 @@ private struct TopUnifiedHeaderBar: View {
                     onNewCourse()
                 } label: {
                     Label(store.t("newCourseBtn"), systemImage: "plus")
-                        .font(.caption.bold())
+                        .font(.system(size: 12, weight: .bold))
+                        .padding(.horizontal, 10)
+                        .frame(height: 36)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(palette.color)
+                .controlSize(.regular)
 
                 Button {
                     cycleThemeMode()
                 } label: {
                     Image(systemName: themeIconName)
-                        .font(.subheadline.bold())
-                        .frame(width: 28, height: 28)
+                        .font(.system(size: 12, weight: .bold))
+                        .frame(width: 36, height: 36)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.bordered)
+                .controlSize(.regular)
                 .help("\(store.t("visualThemeLabel")): \(themeLabel)")
             }
         }
@@ -772,7 +788,7 @@ public struct UpdateNotificationBanner: View {
                 .controlSize(.small)
             } else {
                 Button {
-                    UpdateManager.shared.downloadAndInstall(release: release)
+                    UpdateManager.shared.downloadAndInstall(release: release, store: store)
                 } label: {
                     Label(store.t("downloadAndInstallBtn"), systemImage: "arrow.down.circle.fill")
                 }
@@ -802,6 +818,101 @@ public struct UpdateNotificationBanner: View {
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
         .background(Color.purple.opacity(0.10))
+    }
+}
+
+// MARK: - Startup Update Prompt Sheet
+
+private struct StartupUpdatePromptSheet: View {
+    @Environment(AppStore.self) private var store
+    @State private var updateManager = UpdateManager.shared
+
+    var body: some View {
+        VStack(spacing: 18) {
+            if let rel = updateManager.latestRelease {
+                HStack(spacing: 12) {
+                    AppLogoImageView(size: 46)
+                    VStack(alignment: .leading, spacing: 3) {
+                        HStack {
+                            Text(store.t("updateAvailableTitle"))
+                                .font(.title3.bold())
+                            Text(rel.tag_name)
+                                .font(.subheadline.bold())
+                                .foregroundStyle(.purple)
+                            Text(rel.prerelease ? store.t("betaBadge") : store.t("stableBadge"))
+                                .font(.caption2.bold())
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(Capsule().fill(rel.prerelease ? Color.orange.opacity(0.2) : Color.green.opacity(0.2)))
+                                .foregroundStyle(rel.prerelease ? .orange : .green)
+                        }
+                        Text("Versione installata: \(AuthorAttribution.appVersion)")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                }
+
+                if let body = rel.body, !body.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Novità in questo aggiornamento:")
+                            .font(.caption.bold())
+                            .foregroundStyle(.secondary)
+                        ScrollView {
+                            Text(body)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(8)
+                        }
+                        .frame(maxHeight: 140)
+                        .background(RoundedRectangle(cornerRadius: 8).fill(Color.secondary.opacity(0.06)))
+                    }
+                }
+
+                HStack(spacing: 8) {
+                    Image(systemName: "shield.checkmark.fill")
+                        .foregroundStyle(.green)
+                    Text(store.t("autoBackupPreUpdateHint"))
+                        .font(.caption.bold())
+                        .foregroundStyle(.green)
+                    Spacer()
+                }
+                .padding(10)
+                .background(RoundedRectangle(cornerRadius: 8).fill(Color.green.opacity(0.10)))
+
+                if updateManager.isDownloading {
+                    VStack(alignment: .leading, spacing: 6) {
+                        ProgressView(value: updateManager.downloadProgress)
+                        Text(updateManager.statusMessage)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                } else {
+                    HStack(spacing: 12) {
+                        Button(store.t("updateLaterBtn")) {
+                            updateManager.showStartupUpdatePrompt = false
+                        }
+                        .buttonStyle(.bordered)
+
+                        Spacer()
+
+                        Button {
+                            updateManager.downloadAndInstall(release: rel, store: store)
+                            updateManager.showStartupUpdatePrompt = false
+                        } label: {
+                            Label(store.t("updateNowBtn"), systemImage: "arrow.down.circle.fill")
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(.purple)
+                    }
+                }
+            } else {
+                Text(store.t("closeBtn"))
+            }
+        }
+        .padding(24)
+        .frame(width: 480)
     }
 }
 

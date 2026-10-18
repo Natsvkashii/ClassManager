@@ -808,17 +808,22 @@ public struct ManageModuleStudentsSheet: View {
     }
 }
 
-// MARK: - Activity Create / Edit Sheet (with Rubric Association)
+// MARK: - Activity Create / Edit Sheet (with Read-Only View, Rubric Association & DatePicker)
 
 public struct ActivityFormSheet: View {
     @Environment(AppStore.self) private var store
     @Environment(\.dismiss) private var dismiss
     let editingActivity: ActivityItem?
 
+    @State private var isEditing: Bool = false
     @State private var name: String = ""
     @State private var weight: Double = 25.0
     @State private var startDate: String = ""
     @State private var endDate: String = ""
+    @State private var startDateValue: Date = Date()
+    @State private var endDateValue: Date = Date()
+    @State private var hasStartDate: Bool = false
+    @State private var hasEndDate: Bool = false
     @State private var useRubric: Bool = false
     @State private var rubricId: String = ""
     @State private var objectives: String = ""
@@ -826,17 +831,50 @@ public struct ActivityFormSheet: View {
     @State private var instructions: String = ""
     @State private var materials: String = ""
     @State private var criteriaNotes: String = ""
+    @State private var showDraftPrompt: Bool = false
+
+    private static let ymdFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "yyyy-MM-dd"
+        f.calendar = Calendar(identifier: .gregorian)
+        return f
+    }()
 
     public init(editingActivity: ActivityItem?) {
         self.editingActivity = editingActivity
+        _isEditing = State(initialValue: editingActivity == nil)
     }
 
     public var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            HStack {
-                Text(editingActivity == nil ? store.t("activityModalNewTitle") : store.t("activityModalEditTitle"))
-                    .font(.title3.bold())
+            // Header Bar
+            HStack(alignment: .center) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(isEditing ? (editingActivity == nil ? store.t("activityModalNewTitle") : store.t("activityModalEditTitle")) : (name.isEmpty ? store.t("activityModalEditTitle") : name))
+                        .font(.title3.bold())
+                    if !isEditing {
+                        Text(store.activeCourse?.name ?? "")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
                 Spacer()
+
+                if editingActivity != nil {
+                    Button {
+                        if isEditing {
+                            saveActivity()
+                        } else {
+                            isEditing = true
+                        }
+                    } label: {
+                        Label(isEditing ? store.t("saveBtn") : store.t("modifyBtn"), systemImage: isEditing ? "checkmark.circle.fill" : "pencil")
+                            .font(.caption.bold())
+                    }
+                    .buttonStyle(.bordered)
+                    .tint(isEditing ? .green : store.activeCoursePalette.color)
+                }
+
                 Button { dismiss() } label: {
                     Image(systemName: "xmark.circle.fill").font(.title3).foregroundStyle(.secondary)
                 }
@@ -844,93 +882,238 @@ public struct ActivityFormSheet: View {
             }
             Divider()
 
-            HStack(spacing: 12) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("\(store.t("activityTitleLabel")) *").font(.caption.bold())
-                    TextField("Es. Esame Orale Modulo 1", text: $name).textFieldStyle(.roundedBorder)
-                }
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(store.t("weightPctLabel")).font(.caption.bold())
-                    TextField("25", value: $weight, format: .number)
-                        .textFieldStyle(.roundedBorder)
-                        .frame(width: 90)
-                }
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(store.t("startLabel")).font(.caption.bold())
-                    TextField("YYYY-MM-DD", text: $startDate).textFieldStyle(.roundedBorder).frame(width: 110)
-                }
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(store.t("endDeadlineLabel")).font(.caption.bold())
-                    TextField("YYYY-MM-DD", text: $endDate).textFieldStyle(.roundedBorder).frame(width: 110)
-                }
-            }
+            if isEditing {
+                // EDIT MODE
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 14) {
+                        HStack(spacing: 12) {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("\(store.t("activityTitleLabel")) *").font(.caption.bold())
+                                TextField("Es. Esame Orale Modulo 1", text: $name).textFieldStyle(.roundedBorder)
+                            }
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(store.t("weightPctLabel")).font(.caption.bold())
+                                TextField("25", value: $weight, format: .number)
+                                    .textFieldStyle(.roundedBorder)
+                                    .frame(width: 90)
+                            }
+                        }
 
-            VStack(alignment: .leading, spacing: 8) {
+                        // Native macOS Date Picker Popovers
+                        HStack(spacing: 16) {
+                            VStack(alignment: .leading, spacing: 4) {
+                                HStack {
+                                    Text(store.t("startLabel")).font(.caption.bold())
+                                    if hasStartDate {
+                                        Button {
+                                            hasStartDate = false
+                                            startDate = ""
+                                        } label: {
+                                            Image(systemName: "xmark.circle.fill").font(.caption2).foregroundStyle(.secondary)
+                                        }
+                                        .buttonStyle(.plain)
+                                    }
+                                }
+                                if hasStartDate {
+                                    DatePicker("", selection: $startDateValue, displayedComponents: .date)
+                                        .labelsHidden()
+                                        .datePickerStyle(.compact)
+                                        .onChange(of: startDateValue) { _, nv in
+                                            startDate = Self.ymdFormatter.string(from: nv)
+                                        }
+                                } else {
+                                    Button("+ \(store.t("startLabel"))") {
+                                        hasStartDate = true
+                                        startDate = Self.ymdFormatter.string(from: startDateValue)
+                                    }
+                                    .buttonStyle(.bordered)
+                                    .controlSize(.small)
+                                }
+                            }
+
+                            VStack(alignment: .leading, spacing: 4) {
+                                HStack {
+                                    Text(store.t("endDeadlineLabel")).font(.caption.bold())
+                                    if hasEndDate {
+                                        Button {
+                                            hasEndDate = false
+                                            endDate = ""
+                                        } label: {
+                                            Image(systemName: "xmark.circle.fill").font(.caption2).foregroundStyle(.secondary)
+                                        }
+                                        .buttonStyle(.plain)
+                                    }
+                                }
+                                if hasEndDate {
+                                    DatePicker("", selection: $endDateValue, displayedComponents: .date)
+                                        .labelsHidden()
+                                        .datePickerStyle(.compact)
+                                        .onChange(of: endDateValue) { _, nv in
+                                            endDate = Self.ymdFormatter.string(from: nv)
+                                        }
+                                } else {
+                                    Button("+ \(store.t("endDeadlineLabel"))") {
+                                        hasEndDate = true
+                                        endDate = Self.ymdFormatter.string(from: endDateValue)
+                                    }
+                                    .buttonStyle(.bordered)
+                                    .controlSize(.small)
+                                }
+                            }
+                            Spacer()
+                        }
+
+                        // Rubric section: Only toggle shown initially, jump button + picker shown only when active
+                        VStack(alignment: .leading, spacing: 8) {
+                            Toggle(store.t("enableRubricForActLabel"), isOn: $useRubric)
+                                .font(.subheadline.bold())
+
+                            if useRubric {
+                                HStack(spacing: 12) {
+                                    Picker(store.t("rubricsLabel"), selection: $rubricId) {
+                                        ForEach(store.state.rubrics) { rub in
+                                            Text("\(rub.name) (\(rub.criteria.count) criteri • Max \(String(format: "%.0f", store.calculateRubricMaxPoints(rub))) pt)").tag(rub.id)
+                                        }
+                                    }
+
+                                    Button {
+                                        showDraftPrompt = true
+                                    } label: {
+                                        Label(store.t("navRubrics"), systemImage: "slider.horizontal.below.rectangle")
+                                            .font(.caption.bold())
+                                    }
+                                    .buttonStyle(.bordered)
+                                    .tint(.green)
+                                }
+                            }
+                        }
+                        .padding(12)
+                        .background(
+                            RoundedRectangle(cornerRadius: 10)
+                                .fill(Color.green.opacity(0.08))
+                                .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Color.green.opacity(0.25), lineWidth: 1))
+                        )
+
+                        Grid(horizontalSpacing: 12, verticalSpacing: 10) {
+                            GridRow {
+                                smallEditor(store.t("objectivesLabel"), text: $objectives)
+                                smallEditor(store.t("contentsLabel"), text: $contents)
+                            }
+                            GridRow {
+                                smallEditor(store.t("instructionsLabel"), text: $instructions)
+                                smallEditor(store.t("materialsLinksLabel"), text: $materials)
+                            }
+                        }
+
+                        smallEditor(store.t("evalCriteriaNotesLabel"), text: $criteriaNotes)
+                    }
+                }
+
+                Divider()
                 HStack {
-                    Toggle(store.t("enableRubricForActLabel"), isOn: $useRubric)
-                        .font(.subheadline.bold())
+                    if let act = editingActivity {
+                        Button(role: .destructive) {
+                            if let cIdx = store.activeCourseIndex {
+                                store.moveActivityToTrash(courseIndex: cIdx, activity: act)
+                            }
+                            dismiss()
+                        } label: {
+                            Label(store.t("deleteBtn"), systemImage: "trash")
+                        }
+                    }
                     Spacer()
-                    Button {
-                        dismiss()
-                        store.currentTab = .rubrics
-                    } label: {
-                        Label(store.t("navRubrics"), systemImage: "slider.horizontal.below.rectangle")
-                            .font(.caption.bold())
-                    }
-                    .buttonStyle(.bordered)
-                }
-                Text(store.t("enableRubricHint"))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                if useRubric {
-                    Picker(store.t("rubricsLabel"), selection: $rubricId) {
-                        ForEach(store.state.rubrics) { rub in
-                            Text("\(rub.name) (\(rub.criteria.count) criteri • Max \(String(format: "%.0f", store.calculateRubricMaxPoints(rub))) pt)").tag(rub.id)
+                    Button(store.t("cancelBtn")) {
+                        if editingActivity != nil {
+                            isEditing = false
+                        } else {
+                            dismiss()
                         }
                     }
+                    Button(store.t("saveBtn")) { saveActivity() }
+                        .buttonStyle(.borderedProminent)
+                        .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty)
                 }
-            }
-            .padding(12)
-            .background(
-                RoundedRectangle(cornerRadius: 10)
-                    .fill(Color.green.opacity(0.09))
-                    .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Color.green.opacity(0.3), lineWidth: 1))
-            )
+            } else {
+                // STATIC READ-ONLY MODE
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 14) {
+                        HStack(spacing: 12) {
+                            statBox(label: store.t("weightPctLabel"), value: "\(String(format: "%.0f", weight))%", color: store.activeCoursePalette.color)
 
-            Grid(horizontalSpacing: 12, verticalSpacing: 10) {
-                GridRow {
-                    smallEditor(store.t("objectivesLabel"), text: $objectives)
-                    smallEditor(store.t("contentsLabel"), text: $contents)
-                }
-                GridRow {
-                    smallEditor(store.t("instructionsLabel"), text: $instructions)
-                    smallEditor(store.t("materialsLinksLabel"), text: $materials)
-                }
-            }
+                            let rubricTitle: String = {
+                                if useRubric {
+                                    return store.state.rubrics.first(where: { $0.id == rubricId })?.name ?? "Griglia attiva"
+                                } else {
+                                    return "Nessuna griglia"
+                                }
+                            }()
+                            statBox(label: store.t("rubricsLabel"), value: rubricTitle, color: useRubric ? .green : .secondary)
 
-            smallEditor(store.t("evalCriteriaNotesLabel"), text: $criteriaNotes)
-
-            Divider()
-            HStack {
-                if let act = editingActivity {
-                    Button(role: .destructive) {
-                        if let cIdx = store.activeCourseIndex {
-                            store.moveActivityToTrash(courseIndex: cIdx, activity: act)
+                            if !startDate.isEmpty || !endDate.isEmpty {
+                                let dRange: String = {
+                                    if !startDate.isEmpty && !endDate.isEmpty {
+                                        return "\(store.formatDateDisplay(startDate)) → \(store.formatDateDisplay(endDate))"
+                                    } else if !startDate.isEmpty {
+                                        return "\(store.t("startLabel")): \(store.formatDateDisplay(startDate))"
+                                    } else {
+                                        return "\(store.t("endDeadlineLabel")): \(store.formatDateDisplay(endDate))"
+                                    }
+                                }()
+                                statBox(label: "Periodo / Scadenza", value: dRange, color: .blue)
+                            }
                         }
-                        dismiss()
-                    } label: {
-                        Label(store.t("deleteBtn"), systemImage: "trash")
+
+                        if !objectives.isEmpty {
+                            staticFieldBox(store.t("objectivesLabel"), value: objectives)
+                        }
+                        if !contents.isEmpty {
+                            staticFieldBox(store.t("contentsLabel"), value: contents)
+                        }
+                        if !instructions.isEmpty {
+                            staticFieldBox(store.t("instructionsLabel"), value: instructions)
+                        }
+                        if !materials.isEmpty {
+                            staticFieldBox(store.t("materialsLinksLabel"), value: materials)
+                        }
+                        if !criteriaNotes.isEmpty {
+                            staticFieldBox(store.t("evalCriteriaNotesLabel"), value: criteriaNotes)
+                        }
                     }
+                    .padding(.vertical, 4)
                 }
-                Spacer()
-                Button(store.t("cancelBtn")) { dismiss() }
-                Button(store.t("saveBtn")) { saveActivity() }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty)
+
+                Divider()
+                HStack {
+                    if let act = editingActivity {
+                        Button(role: .destructive) {
+                            if let cIdx = store.activeCourseIndex {
+                                store.moveActivityToTrash(courseIndex: cIdx, activity: act)
+                            }
+                            dismiss()
+                        } label: {
+                            Label(store.t("deleteBtn"), systemImage: "trash")
+                        }
+                    }
+                    Spacer()
+                    Button(store.t("closeBtn")) { dismiss() }
+                        .buttonStyle(.borderedProminent)
+                }
             }
         }
         .padding(22)
-        .frame(width: 700, height: 570)
+        .frame(width: 700, height: 580)
+        .alert(store.t("draftSaveAlertTitle"), isPresented: $showDraftPrompt) {
+            Button(store.t("saveDraftBtn")) {
+                saveDraftAndGoToRubrics()
+            }
+            Button(store.t("discardAndLeaveBtn"), role: .destructive) {
+                dismiss()
+                store.currentTab = .rubrics
+            }
+            Button(store.t("cancelBtn"), role: .cancel) { }
+        } message: {
+            Text(store.t("draftSaveAlertMsg"))
+        }
         .onAppear {
             if let a = editingActivity {
                 name = a.name
@@ -944,6 +1127,15 @@ public struct ActivityFormSheet: View {
                 instructions = a.instructions
                 materials = a.materials
                 criteriaNotes = a.criteriaNotes
+
+                if let d = Self.ymdFormatter.date(from: a.startDate) {
+                    startDateValue = d
+                    hasStartDate = true
+                }
+                if let d = Self.ymdFormatter.date(from: a.endDate) {
+                    endDateValue = d
+                    hasEndDate = true
+                }
             } else {
                 rubricId = store.state.rubrics.first?.id ?? ""
             }
@@ -959,6 +1151,36 @@ public struct ActivityFormSheet: View {
                 .padding(4)
                 .background(RoundedRectangle(cornerRadius: 8).strokeBorder(Color.secondary.opacity(0.32)))
         }
+    }
+
+    private func statBox(label: String, value: String, color: Color) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(label).font(.caption2.bold()).foregroundStyle(.secondary)
+            Text(value).font(.headline.bold()).foregroundStyle(color)
+        }
+        .padding(10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 9)
+                .fill(color.opacity(0.08))
+                .overlay(RoundedRectangle(cornerRadius: 9).strokeBorder(color.opacity(0.20)))
+        )
+    }
+
+    private func staticFieldBox(_ label: String, value: String) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(label).font(.caption.bold()).foregroundStyle(.secondary)
+            Text(value.isEmpty ? "—" : value)
+                .font(.subheadline)
+                .foregroundStyle(value.isEmpty ? .secondary : .primary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .padding(10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 8)
+                .fill(Color.secondary.opacity(0.06))
+        )
     }
 
     private func saveActivity() {
@@ -992,6 +1214,40 @@ public struct ActivityFormSheet: View {
         }
         store.persist()
         dismiss()
+    }
+
+    private func saveDraftAndGoToRubrics() {
+        guard let cIdx = store.activeCourseIndex else { return }
+        let rawTitle = name.trimmingCharacters(in: .whitespaces)
+        let finalTitle = rawTitle.isEmpty ? "Nuova Attività (Bozza)" : rawTitle
+
+        store.recordUndoSnapshot()
+
+        let item = ActivityItem(
+            id: editingActivity?.id ?? ("act-" + UUID().uuidString.prefix(6).lowercased()),
+            name: finalTitle,
+            weight: weight,
+            startDate: startDate,
+            endDate: endDate,
+            useRubric: useRubric,
+            rubricId: useRubric ? rubricId : "",
+            objectives: objectives,
+            contents: contents,
+            instructions: instructions,
+            materials: materials,
+            criteriaNotes: criteriaNotes,
+            createdAt: editingActivity?.createdAt ?? ISO8601DateFormatter().string(from: Date())
+        )
+
+        if let existing = editingActivity,
+           let aIdx = store.state.courses[cIdx].gradeConfig.activities.firstIndex(where: { $0.id == existing.id }) {
+            store.state.courses[cIdx].gradeConfig.activities[aIdx] = item
+        } else {
+            store.state.courses[cIdx].gradeConfig.activities.append(item)
+        }
+        store.persist()
+        dismiss()
+        store.currentTab = .rubrics
     }
 }
 
