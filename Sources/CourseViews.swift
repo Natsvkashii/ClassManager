@@ -953,100 +953,86 @@ public struct ActivitiesView: View {
                             .appCardStyle(cornerRadius: 16)
                     } else {
                         LazyVGrid(columns: [GridItem(.adaptive(minimum: 300, maximum: 420), spacing: 16)], spacing: 16) {
-                            ForEach(Array(activities.enumerated()), id: \.element.id) { aIdx, act in
-                                VStack(alignment: .leading, spacing: 10) {
-                                    HStack {
-                                        Text(act.name).font(.headline)
-                                        Spacer()
-                                        if act.useRubric {
-                                            Text(store.t("rubricBadgeShort"))
-                                                .font(.caption2.bold())
-                                                .padding(.horizontal, 7)
-                                                .padding(.vertical, 2)
-                                                .background(Capsule().fill(Color.green.opacity(0.2)))
-                                                .foregroundStyle(.green)
-                                        }
-                                        if course.gradeConfig.calcMethod == "weighted" {
-                                            Text("\(String(format: "%.0f", act.weight))%")
-                                                .font(.caption2.bold())
-                                                .padding(.horizontal, 7)
-                                                .padding(.vertical, 2)
-                                                .background(Capsule().fill(store.activeCoursePalette.color.opacity(0.18)))
-                                        }
-                                    }
-
-                                    if !act.startDate.isEmpty || !act.endDate.isEmpty {
-                                        HStack(spacing: 6) {
-                                            Image(systemName: "calendar")
-                                            if !act.startDate.isEmpty { Text(store.formatDateDisplay(act.startDate)) }
-                                            if !act.endDate.isEmpty && act.endDate != act.startDate {
-                                                Text("→ \(store.formatDateDisplay(act.endDate))")
-                                            }
-                                        }
-                                        .font(.caption)
-                                        .foregroundStyle(store.activeCoursePalette.color)
-                                    }
-
-                                    if !act.objectives.isEmpty {
-                                        Text(act.objectives)
-                                            .font(.caption)
-                                            .foregroundStyle(.secondary)
-                                            .lineLimit(2)
-                                    }
-
-                                    // Quick Rubric Association Bar inside each Activity card
-                                    HStack(spacing: 8) {
-                                        Image(systemName: "tablecells")
-                                            .font(.caption)
-                                            .foregroundStyle(act.useRubric ? .green : .secondary)
-
-                                        Picker("", selection: Binding(
-                                            get: { act.useRubric ? (act.rubricId.isEmpty ? (store.state.rubrics.first?.id ?? "") : act.rubricId) : "NONE" },
-                                            set: { newVal in
-                                                store.recordUndoSnapshot()
-                                                if newVal == "NONE" {
-                                                    store.state.courses[cIdx].gradeConfig.activities[aIdx].useRubric = false
-                                                    store.state.courses[cIdx].gradeConfig.activities[aIdx].rubricId = ""
-                                                } else {
-                                                    store.state.courses[cIdx].gradeConfig.activities[aIdx].useRubric = true
-                                                    store.state.courses[cIdx].gradeConfig.activities[aIdx].rubricId = newVal
+                            ForEach(activities) { act in
+                                Button {
+                                    activeSheet = .activityForm(act)
+                                } label: {
+                                    VStack(alignment: .leading, spacing: 12) {
+                                        HStack(alignment: .center) {
+                                            Text(act.name)
+                                                .font(.headline)
+                                                .foregroundStyle(.primary)
+                                            Spacer()
+                                            if act.useRubric {
+                                                let rName = store.state.rubrics.first(where: { $0.id == act.rubricId })?.name ?? store.t("rubricBadgeShort")
+                                                HStack(spacing: 4) {
+                                                    Image(systemName: "tablecells.fill")
+                                                    Text(rName)
                                                 }
-                                                store.persist()
+                                                .font(.caption2.bold())
+                                                .padding(.horizontal, 8)
+                                                .padding(.vertical, 3)
+                                                .background(Capsule().fill(Color.green.opacity(0.18)))
+                                                .foregroundStyle(.green)
                                             }
-                                        )) {
-                                            Text("Senza griglia").tag("NONE")
-                                            ForEach(store.state.rubrics) { rub in
-                                                Text(rub.name).tag(rub.id)
+                                            if course.gradeConfig.calcMethod == "weighted" {
+                                                Text("\(String(format: "%.0f", act.weight))%")
+                                                    .font(.caption2.bold())
+                                                    .padding(.horizontal, 8)
+                                                    .padding(.vertical, 3)
+                                                    .background(Capsule().fill(store.activeCoursePalette.color.opacity(0.18)))
+                                                    .foregroundStyle(store.activeCoursePalette.color)
                                             }
                                         }
-                                        .labelsHidden()
-                                    }
-                                    .padding(8)
-                                    .background(
-                                        RoundedRectangle(cornerRadius: 8)
-                                            .fill(Color.secondary.opacity(0.06))
-                                            .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color.secondary.opacity(0.20)))
-                                    )
 
-                                    Divider()
-                                    HStack {
-                                        Button {
-                                            activeSheet = .activityForm(act)
-                                        } label: {
-                                            Label(store.t("editBtn"), systemImage: "pencil")
-                                                .font(.caption.bold())
+                                        if !act.startDate.isEmpty || !act.endDate.isEmpty {
+                                            HStack(spacing: 6) {
+                                                Image(systemName: "calendar")
+                                                if !act.startDate.isEmpty { Text(store.formatDateDisplay(act.startDate)) }
+                                                if !act.endDate.isEmpty && act.endDate != act.startDate {
+                                                    Text("→ \(store.formatDateDisplay(act.endDate))")
+                                                }
+                                            }
+                                            .font(.caption)
+                                            .foregroundStyle(store.activeCoursePalette.color)
                                         }
-                                        Spacer()
-                                        Button(role: .destructive) {
-                                            store.moveActivityToTrash(courseIndex: cIdx, activity: act)
-                                        } label: {
-                                            Label(store.t("deleteBtn"), systemImage: "trash")
+
+                                        if !act.objectives.isEmpty {
+                                            Text(act.objectives)
                                                 .font(.caption)
+                                                .foregroundStyle(.secondary)
+                                                .lineLimit(2)
+                                        } else if !act.contents.isEmpty {
+                                            Text(act.contents)
+                                                .font(.caption)
+                                                .foregroundStyle(.secondary)
+                                                .lineLimit(2)
                                         }
+
+                                        HStack {
+                                            Text("Tocca per aprire scheda")
+                                                .font(.caption2)
+                                                .foregroundStyle(.secondary)
+                                            Spacer()
+                                            Image(systemName: "chevron.right")
+                                                .font(.caption2.bold())
+                                                .foregroundStyle(.secondary)
+                                        }
+                                        .padding(.top, 2)
+                                    }
+                                    .padding(16)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .appCardStyle(cornerRadius: 14)
+                                    .contentShape(RoundedRectangle(cornerRadius: 14))
+                                }
+                                .buttonStyle(.plain)
+                                .contextMenu {
+                                    Button(role: .destructive) {
+                                        store.moveActivityToTrash(courseIndex: cIdx, activity: act)
+                                    } label: {
+                                        Label(store.t("deleteBtn"), systemImage: "trash")
                                     }
                                 }
-                                .padding(16)
-                                .appCardStyle(cornerRadius: 14)
                             }
                         }
                     }

@@ -244,7 +244,7 @@ def publish_release(is_beta: bool = False):
     commit_msg = f"Release {tag_name} ({'Beta' if is_beta else 'Stable'})"
 
     try:
-        subprocess.run(["git", "add", "Sources/", "Gestione Corsi.app/Contents/Info.plist", "manage_version.py", ".gitignore"], cwd=PROJECT_ROOT, check=True)
+        subprocess.run(["git", "add", "-A"], cwd=PROJECT_ROOT, check=True)
         subprocess.run(["git", "commit", "-m", commit_msg], cwd=PROJECT_ROOT)
     except Exception as e:
         print(f"Commit note: {e}")

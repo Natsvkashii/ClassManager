@@ -473,51 +473,69 @@ public struct ArchiveView: View {
     @Environment(AppStore.self) private var store
 
     public var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                if store.archivedCourses.isEmpty {
-                    Text(store.t("noArchivedCoursesMsg"))
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                        .frame(maxWidth: .infinity, minHeight: 180)
-                        .appCardStyle(cornerRadius: 16)
-                } else {
-                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 280, maximum: 380), spacing: 14)], spacing: 14) {
-                        ForEach(store.archivedCourses) { course in
-                            let pal = store.palette(for: course.color)
-                            VStack(alignment: .leading, spacing: 12) {
-                                Text(store.formatLevelModuleBadge(course: course))
-                                    .font(.caption.bold())
-                                    .foregroundStyle(.white)
-                                    .padding(.horizontal, 8)
-                                    .padding(.vertical, 3)
-                                    .background(RoundedRectangle(cornerRadius: 6).fill(pal.color))
-                                Text(course.name).font(.headline)
-                                Divider()
-                                HStack {
-                                    Button(store.t("restoreCourseBtn")) {
-                                        if let idx = store.state.courses.firstIndex(where: { $0.id == course.id }) {
-                                            store.recordUndoSnapshot()
-                                            store.state.courses[idx].archived = false
-                                            store.state.activeCourseId = course.id
-                                            store.persist()
+        VStack(alignment: .leading, spacing: 16) {
+            if store.archivedCourses.isEmpty {
+                VStack(spacing: 16) {
+                    Spacer()
+                    Image(systemName: "archivebox")
+                        .font(.system(size: 72, weight: .light))
+                        .foregroundStyle(Color.secondary.opacity(0.35))
+
+                    VStack(spacing: 8) {
+                        Text(store.t("noArchivedCoursesMsg"))
+                            .font(.title2.bold())
+                            .foregroundStyle(.primary)
+
+                        Text(store.t("archiveSubtitle"))
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
+                            .frame(maxWidth: 480)
+                    }
+                    Spacer()
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .padding(32)
+            } else {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 16) {
+                        LazyVGrid(columns: [GridItem(.adaptive(minimum: 280, maximum: 380), spacing: 14)], spacing: 14) {
+                            ForEach(store.archivedCourses) { course in
+                                let pal = store.palette(for: course.color)
+                                VStack(alignment: .leading, spacing: 12) {
+                                    Text(store.formatLevelModuleBadge(course: course))
+                                        .font(.caption.bold())
+                                        .foregroundStyle(.white)
+                                        .padding(.horizontal, 8)
+                                        .padding(.vertical, 3)
+                                        .background(RoundedRectangle(cornerRadius: 6).fill(pal.color))
+                                    Text(course.name).font(.headline)
+                                    Divider()
+                                    HStack {
+                                        Button(store.t("restoreCourseBtn")) {
+                                            if let idx = store.state.courses.firstIndex(where: { $0.id == course.id }) {
+                                                store.recordUndoSnapshot()
+                                                store.state.courses[idx].archived = false
+                                                store.state.activeCourseId = course.id
+                                                store.persist()
+                                            }
+                                        }
+                                        .buttonStyle(.borderedProminent)
+                                        .tint(.green)
+                                        Spacer()
+                                        Button(store.t("deleteBtn"), role: .destructive) {
+                                            store.moveCourseToTrash(course.id)
                                         }
                                     }
-                                    .buttonStyle(.borderedProminent)
-                                    .tint(.green)
-                                    Spacer()
-                                    Button(store.t("deleteBtn"), role: .destructive) {
-                                        store.moveCourseToTrash(course.id)
-                                    }
                                 }
+                                .padding(16)
+                                .appCardStyle(cornerRadius: 14)
                             }
-                            .padding(16)
-                            .appCardStyle(cornerRadius: 14)
                         }
                     }
+                    .padding(22)
                 }
             }
-            .padding(22)
         }
     }
 }

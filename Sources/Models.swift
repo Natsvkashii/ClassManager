@@ -17,7 +17,7 @@ import AppKit
 public enum AuthorAttribution {
     public static let authorName = "Guaira Jaramillo Nitoglia"
     public static let authorEmail = "guaira.jaramillo.nitoglia@gmail.com"
-    public static let appVersion = "2.1.1-002b"
+    public static let appVersion = "2.1.1-003b"
 }
 
 public enum NavigationTab: String, CaseIterable, Identifiable {
@@ -1425,6 +1425,13 @@ public struct AppState: Codable, Equatable {
     ]
 
     public static let defaultChangelog: [ChangelogEntry] = [
+        ChangelogEntry(version: "2.1.1-003b", date: "2026-10-18", changes: [
+            "Riprogettata la schermata dell'Archivio corsi: rimosso il riquadro grigio centrale a favore di uno stato vuoto coerente con il Cestino, con icona e spiegazione a tutto schermo.",
+            "Scheda Attività con apertura in modalità statica e pulsante di modifica interno: rimosso il selettore grigio dalla vista a elenco, abilitazione griglie con opzione a comparsa e salvataggio in formato bozza (draft) prima del passaggio alle Griglie.",
+            "Integrato selettore date nativo con mini-calendario popover di macOS per la scelta rapida delle date di inizio e consegna delle attività.",
+            "Eliminate ridondanze nel nome dell'applicazione, autore e dati di contatto: informazioni di contatto spostate esclusivamente nella sezione Crediti.",
+            "Rimossa la linea di demarcazione disallineata sotto la barra superiore ed armonizzata l'altezza di tutti i controlli (selettori corso, livello, modulo e pulsante Nuovo Corso) a 36pt uniformi."
+        ]),
         ChangelogEntry(version: "2.1.1-002b", date: "2026-10-18", changes: [
             "Uniformata l'altezza delle intestazioni delle lezioni nella schermata Presenze, garantendo allineamento perfetto indipendentemente dalla presenza del titolo della lezione.",
             "Eliminato il colore grigiastro dalle tabelle di Presenze e Voti, sostituito con superfici card ad alto contrasto e bordi definiti conformi al tema dell'applicazione.",
