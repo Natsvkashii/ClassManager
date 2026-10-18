@@ -1,1 +1,46 @@
-# ClassManager
+# Gestione Corsi v1.0.0 — Native macOS 27 Swift / SwiftUI Application
+
+> **Author & Creator:** **Guaira Jaramillo Nitoglia**  
+> **Contact:** [guaira.jaramillo.nitoglia@gmail.com](mailto:guaira.jaramillo.nitoglia@gmail.com)
+
+---
+
+## Overview
+
+**Gestione Corsi v1.0.0** has been completely rewritten in **pure native Swift 6.4 and SwiftUI for macOS 27 (`arm64-apple-macosx27.0.0`)** with native **EventKit (`Apple Calendar`)** integration and a native macOS user interface (`NavigationSplitView`, unified toolbar, native `NSOpenPanel`/`NSSavePanel` dialogs, and `@Observable` state management).
+
+All authorship watermarks, metadata, sidebar attribution badge, footer attribution, and the **Credits (`Crediti` / `Credits` / `Créditos`)** section attributing **Guaira Jaramillo Nitoglia** (`guaira.jaramillo.nitoglia@gmail.com`) are strictly preserved.
+
+---
+
+## Installable Packages Ready to Use
+
+- **Native macOS Application Bundle:** [`Gestione Corsi.app`](file:///Users/guaira/Documents/Project%200/Gestione%20Corsi.app)
+- **macOS Standard Installer Package (`.pkg`):** [`Gestione-Corsi-1.0.0-Installer.pkg`](file:///Users/guaira/Documents/Project%200/Gestione-Corsi-1.0.0-Installer.pkg) (installs directly to `/Applications/Gestione Corsi.app`)
+- **Compressed macOS App Archive (`.zip`):** [`Gestione-Corsi-1.0.0-macOS.zip`](file:///Users/guaira/Documents/Project%200/Gestione-Corsi-1.0.0-macOS.zip)
+
+---
+
+## Native Swift Architecture (`Sources/`)
+
+- [`Sources/ContentView.swift`](file:///Users/guaira/Documents/Project%200/Sources/ContentView.swift): Main `@main struct GestioneCorsiApp: App` entry point, native `NavigationSplitView` sidebar (with custom uploaded logo and bottom author card), unified top header bar (Active Course selector + Level pills + Module pills + theme switcher), toast overlay, and bottom authorship footer.
+- [`Sources/Models.swift`](file:///Users/guaira/Documents/Project%200/Sources/Models.swift): All `Codable` data structures (`AppState`, `Course`, `CourseLevel`, `CourseModule`, `Student`, `ActivityItem`, `Rubric`, `LessonPlan`, `BillingInfo`, `ModuleBilling`), the 10-color course palette (`COURSE_COLOR_PALETTE`), 21 international WhatsApp dial prefixes (`COUNTRY_DIAL_PREFIXES`), and `AuthorAttribution`.
+- [`Sources/AppStore.swift`](file:///Users/guaira/Documents/Project%200/Sources/AppStore.swift): Native `@Observable @MainActor final class AppStore` managing state persistence in `~/Library/Application Support/GestioneCorsi/gestione_corsi_state_v1.json` (100% compatible with `gestione_corsi_backup_*.json`), progressive attendance evaluation, weighted grades, rubric scoring, WhatsApp international phone detection, and native `NSSavePanel`/`NSOpenPanel` JSON import/export.
+- [`Sources/AppleCalendarManager.swift`](file:///Users/guaira/Documents/Project%200/Sources/AppleCalendarManager.swift): Native macOS **EventKit (`EKEventStore`)** integration that creates, updates, and removes lesson events in the macOS **Calendar** app (`Calendario`), supporting either a dedicated calendar per Course (matching the course's color) or a single `"Gestione Corsi"` calendar, with automatic duplicate prevention via `[GestioneCorsiSlot:...]` tags.
+- [`Sources/CourseViews.swift`](file:///Users/guaira/Documents/Project%200/Sources/CourseViews.swift): Native SwiftUI views for Course Dashboard (`HomeView`), Attendance Register (`AttendanceView`), Final Grades (`GradesView`), Graded Activities (`ActivitiesView`), Module Calendar (`ModuleCalendarView`), Course Structure (`CourseStructureView`), and Group Roster (`RosterView`).
+- [`Sources/GlobalViews.swift`](file:///Users/guaira/Documents/Project%200/Sources/GlobalViews.swift): Native SwiftUI views for General Calendar (`GlobalCalendarView`), Global Students Directory (`StudentsDirectoryView`), Archived Courses (`ArchiveView`), Billing & Invoicing (`BillingView`), Settings (`SettingsView`), and Credits (`CreditsView`).
+- [`Sources/ModalsAndSheets.swift`](file:///Users/guaira/Documents/Project%200/Sources/ModalsAndSheets.swift): All native SwiftUI modal sheets (`CourseFormSheet`, `LevelFormSheet`, `ModuleFormSheet`, `LessonPlanSheet`, `RecurringLessonsSheet`, `ManageModuleStudentsSheet`, `ActivityFormSheet`, `StudentRubricEvalSheet`, `StudentDetailSheet`, `NewGlobalStudentSheet`, `RubricsManagerSheet`).
+- [`Sources/Localization.swift`](file:///Users/guaira/Documents/Project%200/Sources/Localization.swift): Complete trilingual localization dictionary (`Italiano`, `English`, `Español`).
+
+---
+
+## Building from Source
+
+```bash
+swiftc -disable-sandbox -module-cache-path /tmp/swift-module-cache \
+  Sources/*.swift \
+  -framework SwiftUI -framework AppKit -framework EventKit -framework UniformTypeIdentifiers \
+  -O -o "Gestione Corsi.app/Contents/MacOS/GestioneCorsi"
+
+codesign --force --deep --sign - "Gestione Corsi.app"
+```

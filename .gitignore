@@ -1,0 +1,20 @@
+# macOS & System
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Python & Environment
+.venv/
+__pycache__/
+*.pyc
+
+# Swift Build Outputs (binaries can be rebuilt via manage_version.py build)
+Gestione Corsi.app/Contents/MacOS/GestioneCorsi
+Gestione Corsi.app/Contents/_CodeSignature/
+/tmp/swift-module-cache
+
+# Temporary & Swap files
+*.tmp
+*.swp
+*~

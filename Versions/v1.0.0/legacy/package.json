@@ -1,0 +1,58 @@
+{
+  "name": "gestione-corsi-desktop",
+  "version": "1.0.0",
+  "description": "Gestione Corsi v1.0.0 — Piattaforma Accademica Multi-Livello QCER (Presenze, Piano Lezioni, Voti, Attività, Schede di Valutazione e Costi)",
+  "author": {
+    "name": "Guaira Jaramillo Nitoglia",
+    "email": "guaira.jaramillo.nitoglia@gmail.com"
+  },
+  "license": "Proprietary",
+  "main": "electron/main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron .",
+    "build": "electron-builder",
+    "build:mac": "electron-builder --mac",
+    "build:win": "electron-builder --win",
+    "build:linux": "electron-builder --linux",
+    "tauri:dev": "tauri dev",
+    "tauri:build": "tauri build"
+  },
+  "build": {
+    "appId": "com.guairajaramillonitoglia.gestionecorsi",
+    "productName": "Gestione Corsi",
+    "files": [
+      "electron/**/*",
+      "src/**/*",
+      "index.html",
+      "logo.png",
+      "package.json"
+    ],
+    "mac": {
+      "icon": "src/AppIcon.icns",
+      "category": "public.app-category.education",
+      "target": [
+        "dmg",
+        "pkg",
+        "zip"
+      ]
+    },
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ]
+    },
+    "linux": {
+      "category": "Education",
+      "target": [
+        "AppImage",
+        "deb"
+      ]
+    }
+  },
+  "devDependencies": {
+    "electron": "^33.0.0",
+    "electron-builder": "^25.1.8"
+  }
+}

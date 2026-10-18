@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleDevelopmentRegion</key>
+    <string>it</string>
+    <key>CFBundleDisplayName</key>
+    <string>Gestione Corsi</string>
+    <key>CFBundleExecutable</key>
+    <string>GestioneCorsi</string>
+    <key>CFBundleIconFile</key>
+    <string>AppIcon</string>
+    <key>CFBundleIconName</key>
+    <string>AppIcon</string>
+    <key>CFBundleIdentifier</key>
+    <string>com.guairajaramillonitoglia.gestionecorsi</string>
+    <key>CFBundleInfoDictionaryVersion</key>
+    <string>6.0</string>
+    <key>CFBundleName</key>
+    <string>Gestione Corsi</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <key>CFBundleShortVersionString</key>
+    <string>2.1.0</string>
+    <key>CFBundleVersion</key>
+    <string>2.1.0</string>
+    <key>LSApplicationCategoryType</key>
+    <string>public.app-category.education</string>
+    <key>LSMinimumSystemVersion</key>
+    <string>14.0</string>
+    <key>NSHighResolutionCapable</key>
+    <true/>
+    <key>NSPrincipalClass</key>
+    <string>NSApplication</string>
+    <key>NSCalendarsFullAccessUsageDescription</key>
+    <string>Gestione Corsi utilizza Apple Calendar per sincronizzare e creare automaticamente gli eventi delle lezioni programmate sul tuo Mac.</string>
+    <key>NSCalendarsUsageDescription</key>
+    <string>Gestione Corsi utilizza Apple Calendar per sincronizzare e creare automaticamente gli eventi delle lezioni programmate sul tuo Mac.</string>
+    <key>NSHumanReadableCopyright</key>
+    <string>Concepito e Sviluppato da Guaira Jaramillo Nitoglia (guaira.jaramillo.nitoglia@gmail.com)</string>
+</dict>
+</plist>
