@@ -1,4 +1,4 @@
-# Gestione Corsi v1.0.0 — Native macOS 27 Swift / SwiftUI Application
+# Gestione Corsi v2.2.0 — Cross-Platform Suite (macOS Native & Windows Edition)
 
 > **Author & Creator:** **Guaira Jaramillo Nitoglia**  
 > **Contact:** [guaira.jaramillo.nitoglia@gmail.com](mailto:guaira.jaramillo.nitoglia@gmail.com)
@@ -7,17 +7,20 @@
 
 ## Overview
 
-**Gestione Corsi v1.0.0** has been completely rewritten in **pure native Swift 6.4 and SwiftUI for macOS 27 (`arm64-apple-macosx27.0.0`)** with native **EventKit (`Apple Calendar`)** integration and a native macOS user interface (`NavigationSplitView`, unified toolbar, native `NSOpenPanel`/`NSSavePanel` dialogs, and `@Observable` state management).
+**Gestione Corsi v2.2.0** is the official stable release of the comprehensive academic platform for course management, attendance tracking, QCER CEFR criteria, and scheduling across macOS and Windows:
 
-All authorship watermarks, metadata, sidebar attribution badge, footer attribution, and the **Credits (`Crediti` / `Credits` / `Créditos`)** section attributing **Guaira Jaramillo Nitoglia** (`guaira.jaramillo.nitoglia@gmail.com`) are strictly preserved.
+- **macOS Edition:** Written in **pure native Swift 6.4 and SwiftUI for macOS 27** with native **EventKit (`Apple Calendar`)** integration, modern toolbar navigation, and automated updates.
+- **Windows Edition:** Built on **Electron + HTML5/CSS/JavaScript (Tailwind CSS)** with full feature parity, including installer (`Setup .exe`) and portable single-file binary (`Portable .exe`).
+
+All authorship watermarks, metadata, sidebar attribution badges, footer attributions, and the **Credits (`Crediti` / `Credits` / `Créditos`)** section attributing **Guaira Jaramillo Nitoglia** (`guaira.jaramillo.nitoglia@gmail.com`) are strictly preserved.
 
 ---
 
-## Installable Packages Ready to Use
+## Installable Packages Ready to Use (v2.2.0 Stable)
 
-- **Native macOS Application Bundle:** [`Gestione Corsi.app`](file:///Users/guaira/Documents/Project%200/Gestione%20Corsi.app)
-- **macOS Standard Installer Package (`.pkg`):** [`Gestione-Corsi-1.0.0-Installer.pkg`](file:///Users/guaira/Documents/Project%200/Gestione-Corsi-1.0.0-Installer.pkg) (installs directly to `/Applications/Gestione Corsi.app`)
-- **Compressed macOS App Archive (`.zip`):** [`Gestione-Corsi-1.0.0-macOS.zip`](file:///Users/guaira/Documents/Project%200/Gestione-Corsi-1.0.0-macOS.zip)
+- **macOS Standard Installer Package (`.pkg`):** `Gestione-Corsi-2.2.0-Installer.pkg` (installs directly to `/Applications/Gestione Corsi.app`)
+- **Windows NSIS Installer (`.exe`):** `Gestione-Corsi-2.2.0-Setup.exe` (with automatic desktop & start menu shortcuts and clean uninstaller)
+- **Windows Portable Standalone (`.exe`):** `Gestione-Corsi-2.2.0-Portable.exe` (ready-to-run single executable without installation)
 
 ---
 

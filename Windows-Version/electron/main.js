@@ -26,7 +26,7 @@ function createMainWindow() {
         height: 900,
         minWidth: 980,
         minHeight: 650,
-        title: 'Gestione Corsi v2.1.1-005b',
+        title: 'Gestione Corsi v2.2.0',
         icon: getIconPath(),
         backgroundColor: '#090e1a',
         show: false,

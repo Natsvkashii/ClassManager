@@ -1,7 +1,7 @@
 {
   "name": "gestione-corsi",
-  "version": "2.1.1-005b",
-  "description": "Gestione Corsi v2.1.1 — Piattaforma Accademica Multi-Livello QCER (Presenze, Piano Lezioni, Voti, Attività, Griglie di Valutazione, Calendario Modulo Drag & Drop, Cestino 30gg, Anagrafica, Fatturazione)",
+  "version": "2.2.0",
+  "description": "Gestione Corsi v2.2.0 — Piattaforma Accademica Multi-Livello QCER (Presenze, Piano Lezioni, Voti, Attività, Griglie di Valutazione, Calendario Modulo Drag & Drop, Cestino 30gg, Anagrafica, Fatturazione)",
   "author": {
     "name": "Guaira Jaramillo Nitoglia",
     "email": "guaira.jaramillo.nitoglia@gmail.com"
@@ -44,10 +44,10 @@
       "createStartMenuShortcut": true,
       "shortcutName": "Gestione Corsi",
       "uninstallDisplayName": "Gestione Corsi",
-      "artifactName": "Gestione-Corsi-2.1.1-Setup.${ext}"
+      "artifactName": "Gestione-Corsi-2.2.0-Setup.${ext}"
     },
     "portable": {
-      "artifactName": "Gestione-Corsi-2.1.1-Portable.${ext}"
+      "artifactName": "Gestione-Corsi-2.2.0-Portable.${ext}"
     }
   },
   "devDependencies": {

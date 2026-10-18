@@ -1434,8 +1434,5 @@ public struct AppLogoImageView: View {
             }
         }
         .frame(width: size, height: size)
-        .padding(3)
-        .background(RoundedRectangle(cornerRadius: size * 0.26).fill(Color.white))
-        .overlay(RoundedRectangle(cornerRadius: size * 0.26).strokeBorder(Color.secondary.opacity(0.25)))
     }
 }

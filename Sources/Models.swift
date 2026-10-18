@@ -17,7 +17,7 @@ import AppKit
 public enum AuthorAttribution {
     public static let authorName = "Guaira Jaramillo Nitoglia"
     public static let authorEmail = "guaira.jaramillo.nitoglia@gmail.com"
-    public static let appVersion = "2.1.1-005b"
+    public static let appVersion = "2.2.0"
 }
 
 public enum NavigationTab: String, CaseIterable, Identifiable {
@@ -1431,6 +1431,13 @@ public struct AppState: Codable, Equatable {
     ]
 
     public static let defaultChangelog: [ChangelogEntry] = [
+        ChangelogEntry(version: "2.2.0", date: "2026-10-18", changes: [
+            "Rilascio Ufficiale della Versione Stabile 2.2.0 per macOS e Windows.",
+            "Risolta l'anomalia nel Calendario Modulo: lo spostamento o trascinamento di una lezione preserva la posizione di scorrimento della pagina senza tornare in cima.",
+            "Perfezionata l'icona applicazione in alto a sinistra: eliminato il riquadro con bordi e introdotto il logo trasparente ad alta definizione in tutti i componenti grafici.",
+            "Aggiornato il motore di verifica aggiornamenti con rilevamento continuo da repository GitHub e parità completa tra canale Stabile e canale Beta.",
+            "Ottimizzazione generale del codice, pulizia delle ridondanze e armonizzazione multipiattaforma."
+        ]),
         ChangelogEntry(version: "2.1.1-005b", date: "2026-10-18", changes: [
             "Corretto l'allineamento della colonna 'Studente' nel registro Presenze: allineamento e altezza perfettamente coordinati con tutte le colonne delle lezioni, senza gradini o spazi vuoti.",
             "Ampliata la colonna nome studente a 260-280pt in Iscritti e Anagrafica con supporto per andare a capo su due righe, evitando qualsiasi troncamento dei nomi lunghi.",
