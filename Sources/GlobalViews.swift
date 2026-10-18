@@ -1143,141 +1143,24 @@ public struct SettingsView: View {
                             .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color.blue.opacity(0.30)))
                     )
 
-                    // GitHub Software Updates Section
-                    VStack(alignment: .leading, spacing: 12) {
-                        HStack {
-                            Label(store.t("updatesSectionHeader"), systemImage: "arrow.triangle.2.circlepath.circle.fill")
+                    // GitHub Software Updates Section (Centralized in Informazioni e aggiornamenti)
+                    HStack {
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(store.t("updatesSectionHeader"))
                                 .font(.headline)
                                 .foregroundStyle(.purple)
-                            Spacer()
-                            HStack(spacing: 6) {
-                                Text("\(store.t("installedVersionLabel")): \(AuthorAttribution.appVersion)")
-                                    .font(.caption.bold())
-                                    .foregroundStyle(.secondary)
-                                Text(AuthorAttribution.appVersion.contains("-") ? store.t("betaBadge") : store.t("stableBadge"))
-                                    .font(.caption2.bold())
-                                    .padding(.horizontal, 6)
-                                    .padding(.vertical, 2)
-                                    .background(Capsule().fill(AuthorAttribution.appVersion.contains("-") ? Color.orange.opacity(0.18) : Color.green.opacity(0.18)))
-                                    .foregroundStyle(AuthorAttribution.appVersion.contains("-") ? .orange : .green)
-                            }
+                            Text("Il sistema di verifica, frequenza e installazione degli aggiornamenti è centralizzato nella sezione 'Informazioni e aggiornamenti'.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
                         }
-
-                        Toggle(store.t("autoCheckUpdatesLabel"), isOn: Binding(
-                            get: { store.state.settings.checkForUpdatesAutomatically },
-                            set: { store.state.settings.checkForUpdatesAutomatically = $0; store.persist() }
-                        ))
-
-                        Toggle(store.t("includeBetaUpdatesLabel"), isOn: Binding(
-                            get: { store.state.settings.includeBetaUpdates },
-                            set: { store.state.settings.includeBetaUpdates = $0; store.persist() }
-                        ))
-
-                        HStack {
-                            Text(store.t("updateFrequencyLabel")).font(.caption.bold())
-                            Spacer()
-                            Picker("", selection: Binding(
-                                get: { store.state.settings.updateCheckFrequency },
-                                set: { store.state.settings.updateCheckFrequency = $0; store.persist() }
-                            )) {
-                                Text(store.t("updateFreqStartup")).tag("startup")
-                                Text(store.t("updateFreqDaily")).tag("daily")
-                                Text(store.t("updateFreqWeekly")).tag("weekly")
-                                Text(store.t("updateFreqManual")).tag("manual")
-                            }
-                            .labelsHidden()
-                            .frame(width: 220)
+                        Spacer()
+                        Button {
+                            store.currentTab = .credits
+                        } label: {
+                            Label("Apri Aggiornamenti", systemImage: "arrow.triangle.2.circlepath")
                         }
-
-                        if UpdateManager.shared.updateAvailable, let release = UpdateManager.shared.latestRelease {
-                            VStack(alignment: .leading, spacing: 10) {
-                                HStack {
-                                    Image(systemName: "sparkles")
-                                        .foregroundStyle(.yellow)
-                                    Text("\(store.t("updateAvailableTitle")) \(release.tag_name)")
-                                        .font(.subheadline.bold())
-                                    Text(release.prerelease ? store.t("betaBadge") : store.t("stableBadge"))
-                                        .font(.caption2.bold())
-                                        .padding(.horizontal, 6)
-                                        .padding(.vertical, 2)
-                                        .background(Capsule().fill(release.prerelease ? Color.orange.opacity(0.2) : Color.green.opacity(0.2)))
-                                        .foregroundStyle(release.prerelease ? .orange : .green)
-                                    Spacer()
-                                    if let pkg = release.pkgAsset {
-                                        Text(pkg.formattedSize)
-                                            .font(.caption)
-                                            .foregroundStyle(.secondary)
-                                    }
-                                }
-
-                                if let body = release.body, !body.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                                    Text(body)
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                        .lineLimit(4)
-                                }
-
-                                Label(store.t("autoBackupPreUpdateHint"), systemImage: "shield.checkmark.fill")
-                                    .font(.caption2.bold())
-                                    .foregroundStyle(.green)
-
-                                if UpdateManager.shared.isDownloading {
-                                    VStack(alignment: .leading, spacing: 4) {
-                                        ProgressView(value: UpdateManager.shared.downloadProgress)
-                                        Text(UpdateManager.shared.statusMessage)
-                                            .font(.caption2)
-                                            .foregroundStyle(.secondary)
-                                    }
-                                } else {
-                                    HStack {
-                                        Button {
-                                            UpdateManager.shared.downloadAndInstall(release: release, store: store)
-                                        } label: {
-                                            Label(store.t("downloadAndInstallBtn"), systemImage: "arrow.down.circle.fill")
-                                        }
-                                        .buttonStyle(.borderedProminent)
-                                        .tint(.purple)
-
-                                        Button {
-                                            UpdateManager.shared.openInBrowser(release: release)
-                                        } label: {
-                                            Label(store.t("viewOnGitHubBtn"), systemImage: "safari")
-                                        }
-                                    }
-                                }
-                            }
-                            .padding(12)
-                            .background(
-                                RoundedRectangle(cornerRadius: 10)
-                                    .fill(Color.purple.opacity(0.10))
-                                    .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Color.purple.opacity(0.35)))
-                            )
-                        }
-
-                        // Always available Check for Updates button
-                        HStack {
-                            if !UpdateManager.shared.statusMessage.isEmpty {
-                                Text(UpdateManager.shared.statusMessage)
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                            Spacer()
-                            Button {
-                                store.state.settings.lastUpdateCheckDate = Date().timeIntervalSince1970
-                                store.persist()
-                                UpdateManager.shared.checkForUpdates(includeBeta: store.state.settings.includeBetaUpdates, silent: false)
-                            } label: {
-                                if UpdateManager.shared.isChecking {
-                                    ProgressView()
-                                        .controlSize(.small)
-                                        .padding(.trailing, 4)
-                                }
-                                Label(store.t("checkUpdatesNowBtn"), systemImage: "arrow.triangle.2.circlepath")
-                            }
-                            .disabled(UpdateManager.shared.isChecking)
-                            .buttonStyle(.borderedProminent)
-                            .tint(.purple)
-                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(.purple)
                     }
                     .padding(14)
                     .background(
@@ -1328,20 +1211,251 @@ public struct SettingsView: View {
 
 // MARK: - Credits ("Crediti") View — Strictly preserves Guaira Jaramillo Nitoglia attribution
 
+// MARK: - Informazioni e Aggiornamenti View — Strictly preserves Guaira Jaramillo Nitoglia attribution
+
 public struct CreditsView: View {
     @Environment(AppStore.self) private var store
+    @State private var showInfoSheet: Bool = false
+    @State private var updateManager = UpdateManager.shared
 
     public var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
-                // Header card with custom logo and author attribution
-                VStack(alignment: .leading, spacing: 14) {
+            VStack(alignment: .leading, spacing: 20) {
+                // Top Header with Info 'i' Button
+                HStack(alignment: .center) {
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(store.t("navCredits"))
+                            .font(.title2.bold())
+                        Text("Gestione aggiornamenti, frequenza di verifica e dettagli applicazione")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+
+                    // Info button 'i' in macOS style
+                    Button {
+                        showInfoSheet = true
+                    } label: {
+                        Image(systemName: "info.circle")
+                            .font(.system(size: 20, weight: .semibold))
+                            .foregroundStyle(.blue)
+                            .padding(8)
+                            .background(Circle().fill(Color.blue.opacity(0.12)))
+                    }
+                    .buttonStyle(.plain)
+                    .help("Informazioni sull'applicazione e crediti")
+                }
+
+                // MAIN ELEMENT: Update System Card
+                VStack(alignment: .leading, spacing: 16) {
+                    HStack(spacing: 14) {
+                        AppLogoImageView(size: 48)
+                        VStack(alignment: .leading, spacing: 4) {
+                            HStack(spacing: 8) {
+                                Text(store.t("appTitle"))
+                                    .font(.title3.bold())
+                                Text("v\(AuthorAttribution.appVersion)")
+                                    .font(.caption.bold())
+                                    .padding(.horizontal, 8)
+                                    .padding(.vertical, 2)
+                                    .background(Capsule().fill(Color.blue.opacity(0.18)))
+                                    .foregroundStyle(.blue)
+                                Text("Versione installata")
+                                    .font(.caption2.bold())
+                                    .foregroundStyle(.secondary)
+                            }
+                            Text(updateManager.statusMessage.isEmpty
+                                 ? "\(AuthorAttribution.appName) è aggiornato all'ultima versione."
+                                 : updateManager.statusMessage)
+                                .font(.subheadline)
+                                .foregroundStyle(updateManager.errorMessage != nil ? .red : .secondary)
+                        }
+                        Spacer()
+
+                        Button {
+                            updateManager.checkForUpdates(includeBeta: store.state.settings.includeBetaUpdates, silent: false)
+                        } label: {
+                            if updateManager.isChecking {
+                                ProgressView()
+                                    .controlSize(.small)
+                                    .padding(.trailing, 4)
+                            }
+                            Label(updateManager.isChecking ? "Verifica in corso..." : "Verifica aggiornamenti", systemImage: "arrow.triangle.2.circlepath")
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(.blue)
+                        .disabled(updateManager.isChecking)
+                    }
+
+                    Divider()
+
+                    // Update Settings
+                    VStack(alignment: .leading, spacing: 12) {
+                        HStack {
+                            Text(store.t("updateFrequencyLabel")).font(.caption.bold())
+                            Spacer()
+                            Picker("", selection: Binding(
+                                get: { store.state.settings.updateCheckFrequency },
+                                set: { store.state.settings.updateCheckFrequency = $0; store.persist() }
+                            )) {
+                                Text(store.t("updateFreqStartup")).tag("startup")
+                                Text(store.t("updateFreqDaily")).tag("daily")
+                                Text(store.t("updateFreqWeekly")).tag("weekly")
+                                Text(store.t("updateFreqManual")).tag("manual")
+                            }
+                            .labelsHidden()
+                            .frame(width: 220)
+                        }
+
+                        Toggle(store.t("includeBetaUpdatesLabel"), isOn: Binding(
+                            get: { store.state.settings.includeBetaUpdates },
+                            set: { store.state.settings.includeBetaUpdates = $0; store.persist() }
+                        ))
+
+                        HStack {
+                            Label(store.t("autoBackupPreUpdateHint"), systemImage: "shield.checkmark.fill")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                            Spacer()
+                            Button("Esegui backup ora") {
+                                updateManager.performPreUpdateBackup(store: store)
+                            }
+                            .buttonStyle(.bordered)
+                            .controlSize(.small)
+                        }
+                    }
+
+                    // Available Update Banner (if found)
+                    if updateManager.updateAvailable, let release = updateManager.latestRelease {
+                        VStack(alignment: .leading, spacing: 10) {
+                            HStack {
+                                Image(systemName: "sparkles")
+                                    .foregroundStyle(.yellow)
+                                Text("\(store.t("updateAvailableTitle")) \(release.tag_name)")
+                                    .font(.subheadline.bold())
+                                Text(release.prerelease ? store.t("betaBadge") : store.t("stableBadge"))
+                                    .font(.caption2.bold())
+                                    .padding(.horizontal, 6)
+                                    .padding(.vertical, 2)
+                                    .background(Capsule().fill(release.prerelease ? Color.orange.opacity(0.2) : Color.green.opacity(0.2)))
+                                    .foregroundStyle(release.prerelease ? .orange : .green)
+                                Spacer()
+                                if let pkg = release.pkgAsset {
+                                    Text(pkg.formattedSize)
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+
+                            if let body = release.body, !body.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                                Text(body)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                    .lineLimit(4)
+                            }
+
+                            if updateManager.isDownloading {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    ProgressView(value: updateManager.downloadProgress)
+                                    Text(updateManager.statusMessage)
+                                        .font(.caption2)
+                                        .foregroundStyle(.secondary)
+                                }
+                            } else {
+                                HStack {
+                                    Button {
+                                        updateManager.downloadAndInstall(release: release, store: store)
+                                    } label: {
+                                        Label(store.t("downloadAndInstallBtn"), systemImage: "arrow.down.circle.fill")
+                                    }
+                                    .buttonStyle(.borderedProminent)
+                                    .tint(.purple)
+
+                                    Button {
+                                        updateManager.openInBrowser(release: release)
+                                    } label: {
+                                        Label(store.t("viewOnGitHubBtn"), systemImage: "safari")
+                                    }
+                                }
+                            }
+                        }
+                        .padding(14)
+                        .background(
+                            RoundedRectangle(cornerRadius: 12)
+                                .fill(Color.purple.opacity(0.08))
+                                .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color.purple.opacity(0.35)))
+                        )
+                    }
+                }
+                .padding(20)
+                .appCardStyle(cornerRadius: 16)
+
+                // ONLY Latest Version Changelog
+                if let latestChangelog = store.state.changelog.first {
+                    VStack(alignment: .leading, spacing: 12) {
+                        HStack {
+                            Text("Novità della Versione \(latestChangelog.version)")
+                                .font(.headline)
+                            Spacer()
+                            Text(latestChangelog.date)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+
+                        ForEach(latestChangelog.changes, id: \.self) { ch in
+                            HStack(alignment: .top, spacing: 6) {
+                                Text("•").bold().foregroundStyle(.blue)
+                                Text(ch).font(.caption)
+                            }
+                        }
+                    }
+                    .padding(20)
+                    .appCardStyle(cornerRadius: 16)
+                }
+            }
+            .padding(24)
+            .frame(maxWidth: 840)
+        }
+        .sheet(isPresented: $showInfoSheet) {
+            AppInfoAndCreditsSheet()
+                .environment(store)
+        }
+    }
+}
+
+// MARK: - App Info & Credits Popover/Sheet (opened via 'i' button)
+
+public struct AppInfoAndCreditsSheet: View {
+    @Environment(AppStore.self) private var store
+    @Environment(\.dismiss) private var dismiss
+
+    public var body: some View {
+        VStack(spacing: 0) {
+            HStack {
+                Text("Informazioni sull'applicazione")
+                    .font(.headline)
+                Spacer()
+                Button {
+                    dismiss()
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundStyle(.secondary)
+                        .font(.title3)
+                }
+                .buttonStyle(.plain)
+            }
+            .padding()
+
+            Divider()
+
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
                     HStack(spacing: 14) {
                         AppLogoImageView(size: 56)
                         VStack(alignment: .leading, spacing: 3) {
                             HStack(spacing: 8) {
                                 Text(store.t("appTitle")).font(.title2.bold())
-                                Text("v\(store.state.version)")
+                                Text("v\(AuthorAttribution.appVersion)")
                                     .font(.caption.bold())
                                     .padding(.horizontal, 8)
                                     .padding(.vertical, 2)
@@ -1390,28 +1504,17 @@ public struct CreditsView: View {
                             .fill(Color.green.opacity(0.08))
                             .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color.green.opacity(0.28)))
                     )
-                }
-                .padding(20)
-                .appCardStyle(cornerRadius: 16)
 
-                // Changelog Card
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("Changelog").font(.headline)
-                    ForEach(store.state.changelog) { entry in
+                    if let curEntry = store.state.changelog.first(where: { $0.version == AuthorAttribution.appVersion }) ?? store.state.changelog.first {
                         VStack(alignment: .leading, spacing: 8) {
                             HStack {
-                                Text("v\(entry.version)")
-                                    .font(.caption.bold())
-                                    .foregroundStyle(.white)
-                                    .padding(.horizontal, 8)
-                                    .padding(.vertical, 3)
-                                    .background(RoundedRectangle(cornerRadius: 6).fill(Color.blue))
+                                Text("Changelog v\(curEntry.version)").font(.caption.bold())
                                 Spacer()
-                                Text(entry.date).font(.caption).foregroundStyle(.secondary)
+                                Text(curEntry.date).font(.caption2).foregroundStyle(.secondary)
                             }
-                            ForEach(entry.changes, id: \.self) { ch in
+                            ForEach(curEntry.changes, id: \.self) { ch in
                                 HStack(alignment: .top, spacing: 6) {
-                                    Text("•").bold()
+                                    Text("•").bold().foregroundStyle(.blue)
                                     Text(ch).font(.caption)
                                 }
                             }
@@ -1419,17 +1522,15 @@ public struct CreditsView: View {
                         .padding(14)
                         .background(
                             RoundedRectangle(cornerRadius: 12)
-                                .fill(Color.secondary.opacity(0.05))
-                                .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color.secondary.opacity(0.20)))
+                                .fill(Color.secondary.opacity(0.06))
+                                .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color.secondary.opacity(0.2)))
                         )
                     }
                 }
                 .padding(20)
-                .appCardStyle(cornerRadius: 16)
             }
-            .padding(24)
-            .frame(maxWidth: 840)
         }
+        .frame(width: 520, height: 500)
     }
 }
 
