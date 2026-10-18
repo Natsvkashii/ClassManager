@@ -27,7 +27,7 @@ function createMainWindow() {
         height: 900,
         minWidth: 980,
         minHeight: 650,
-        title: 'Class Management v26.10.1-0',
+        title: 'Class Management v26.10.1-1',
         icon: getIconPath(),
         backgroundColor: '#090e1a',
         show: false,
@@ -182,6 +182,92 @@ ipcMain.handle('save-auto-backup', async (event, { filename, data }) => {
     }
 });
 
+function fetchJsonWithRedirects(targetUrl, timeoutMs = 8000) {
+    return new Promise((resolve, reject) => {
+        const fetchUrl = (currentUrl, redirectCount = 0) => {
+            if (redirectCount > 8) return reject(new Error('Troppi reindirizzamenti.'));
+            const protocol = currentUrl.startsWith('https') ? require('https') : require('http');
+            const req = protocol.get(currentUrl, {
+                headers: {
+                    'User-Agent': 'Class-Management-App/26.10',
+                    'Accept': 'application/json'
+                },
+                timeout: timeoutMs
+            }, (res) => {
+                if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+                    return fetchUrl(res.headers.location, redirectCount + 1);
+                }
+                if (res.statusCode !== 200) {
+                    return reject(new Error(`HTTP ${res.statusCode}`));
+                }
+                let data = '';
+                res.on('data', chunk => { data += chunk; });
+                res.on('end', () => {
+                    try {
+                        const parsed = JSON.parse(data);
+                        resolve(parsed);
+                    } catch (e) {
+                        reject(new Error('Invalid JSON'));
+                    }
+                });
+            });
+            req.on('timeout', () => {
+                req.destroy();
+                reject(new Error('Timeout richiesta aggiornamento'));
+            });
+            req.on('error', reject);
+        };
+        fetchUrl(targetUrl);
+    });
+}
+
+ipcMain.handle('check-for-updates-api', async () => {
+    try {
+        // 1. Try official GitHub releases API
+        try {
+            const releases = await fetchJsonWithRedirects('https://api.github.com/repos/Natsvkashii/ClassManager/releases', 7000);
+            if (Array.isArray(releases) && releases.length > 0) {
+                return { success: true, releases, source: 'github_api' };
+            }
+        } catch (apiErr) {
+            console.warn('GitHub Releases API check failed, trying manifest fallback:', apiErr.message);
+        }
+
+        // 2. Fallback to raw manifest on stable branch (never rate-limited)
+        try {
+            const manifest = await fetchJsonWithRedirects('https://raw.githubusercontent.com/Natsvkashii/ClassManager/stable/update-manifest.json', 7000);
+            if (manifest && manifest.version) {
+                const simulatedRelease = {
+                    tag_name: manifest.tag_name || `v${manifest.version}`,
+                    name: `Class Management v${manifest.version}`,
+                    prerelease: manifest.prerelease === true,
+                    published_at: manifest.published_at || new Date().toISOString(),
+                    body: manifest.body || '',
+                    html_url: `https://github.com/Natsvkashii/ClassManager/releases/tag/${manifest.tag_name || 'v' + manifest.version}`,
+                    assets: [
+                        {
+                            name: manifest.setupName || `Class-Management-${manifest.version}-Setup.exe`,
+                            browser_download_url: manifest.setupUrl
+                        },
+                        ...(manifest.portableUrl ? [{
+                            name: manifest.portableName || `Class-Management-${manifest.version}-Portable.exe`,
+                            browser_download_url: manifest.portableUrl
+                        }] : [])
+                    ]
+                };
+                return { success: true, releases: [simulatedRelease], source: 'raw_manifest' };
+            }
+        } catch (manifestErr) {
+            console.warn('Raw manifest check failed:', manifestErr.message);
+        }
+
+        return { error: 'Nessuna risposta disponibile dai server di aggiornamento.' };
+    } catch (err) {
+        console.error('Update check error in main process:', err);
+        return { error: err.message };
+    }
+});
+
 ipcMain.handle('download-update-asset', async (event, { url, filename }) => {
     try {
         const targetDir = app.getPath('temp');
@@ -206,18 +292,25 @@ ipcMain.handle('install-update-and-quit', async (event, { filePath }) => {
             return { error: 'File di aggiornamento non trovato: ' + filePath };
         }
 
-        // Spawn detached installer so it operates independently
-        const child = spawn(filePath, [], {
-            detached: true,
-            stdio: 'ignore'
-        });
-        child.unref();
+        console.log('Launching installer via shell.openPath:', filePath);
+        // Using Electron shell.openPath invokes Windows ShellExecuteEx with proper UAC elevation prompt
+        const openErr = await shell.openPath(filePath);
+        if (openErr) {
+            console.warn('shell.openPath returned error, attempting cmd start fallback:', openErr);
+            const { exec } = require('child_process');
+            exec(`start "" "${filePath}"`);
+        }
 
-        // Gracefully quit application immediately to release all file locks
+        // Cleanly exit application to release all file locks on the binaries
         setTimeout(() => {
             app.isQuitting = true;
-            app.quit();
-        }, 500);
+            try {
+                if (mainWindow && !mainWindow.isDestroyed()) {
+                    mainWindow.destroy();
+                }
+            } catch (e) {}
+            app.exit(0);
+        }, 800);
 
         return { success: true };
     } catch (err) {

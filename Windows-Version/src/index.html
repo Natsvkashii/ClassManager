@@ -16,7 +16,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Class Management v26.10.1-0 (Windows Edition)</title>
+    <title>Class Management v26.10.1-1 (Windows Edition)</title>
     <link rel="icon" type="image/png" href="logo.png">
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -166,7 +166,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
             <!-- Bottom App Badge -->
             <div class="p-3 border-t border-sky-100 dark:border-slate-800">
                 <div class="sidebar-footer-card p-2 rounded-xl bg-sky-50/70 dark:bg-navy-800/70 border border-sky-200/50 dark:border-slate-700/60 text-[10px] text-center text-slate-500 dark:text-slate-400 font-semibold">
-                    <span>Class Management v26.10.1-0</span>
+                    <span>Class Management v26.10.1-1</span>
                 </div>
             </div>
         </aside>
@@ -204,7 +204,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 <div class="w-full px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-2">
                     <p class="flex items-center gap-2">
                         <span id="footerPlatformDesc" class="text-slate-400 dark:text-slate-500">Piattaforma Accademica Multi-Livello QCER</span>
-                        <span id="footerVersionBadge" class="px-2 py-0.5 rounded-md bg-sky-100 dark:bg-navy-800 text-sky-700 dark:text-sky-300 text-[10px] font-bold">v26.10.1-0 (Windows Edition)</span>
+                        <span id="footerVersionBadge" class="px-2 py-0.5 rounded-md bg-sky-100 dark:bg-navy-800 text-sky-700 dark:text-sky-300 text-[10px] font-bold">v26.10.1-1 (Windows Edition)</span>
                     </p>
                     <p><span id="footerDevelopedBy">Concepito e Sviluppato da</span> <span class="font-semibold text-sky-700 dark:text-sky-400">Guaira Jaramillo Nitoglia</span> (<a href="mailto:guaira.jaramillo.nitoglia@gmail.com" class="underline hover:text-sky-600">guaira.jaramillo.nitoglia@gmail.com</a>)</p>
                 </div>
@@ -968,11 +968,22 @@ Removing, obfuscating, or altering these credits violates the author's attributi
         ];
 
         const INITIAL_DATA = {
-            version: "26.10.1-0",
+            version: "26.10.1-1",
             deletedItems: [],
             lastUpdated: new Date().toISOString(),
             activeCourseId: "",
             changelog: [
+                {
+                    version: "26.10.1-1",
+                    date: "2026-10-18",
+                    changes: [
+                        "Perfezionato il sistema di aggiornamento automatico per Windows con finestra interattiva dedicata per la verifica, visualizzazione dei dettagli e download.",
+                        "Visualizzazione della barra di avanzamento e percentuale di download in tempo reale direttamente nella finestra di aggiornamento.",
+                        "Gestione affidabile della richiesta di elevazione permessi (UAC) e chiusura pulita dell'app per consentire l'installazione immediata dei file.",
+                        "Aggiunto meccanismo di fallback con manifest di aggiornamento sicuro per garantire la verifica anche in caso di rate-limit delle API di GitHub.",
+                        "Mantenimento permanente di tutte le versioni e rilasci storici dei binari sul repository GitHub."
+                    ]
+                },
                 {
                     version: "26.10.1-0",
                     date: "2026-10-18",
@@ -5806,7 +5817,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 this.showToast("Backup preventivo salvato con successo!", "success");
             }
 
-            async startUpdateDownload(url, fileName) {
+            async startUpdateDownload(url, fileName, inModal = true) {
                 if (!window.electronAPI || typeof window.electronAPI.downloadUpdateAsset !== "function") {
                     if (window.electronAPI && typeof window.electronAPI.openExternal === "function") {
                         window.electronAPI.openExternal(url);
@@ -5824,6 +5835,38 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                     statusText: "Avvio download dell'aggiornamento...",
                     downloadedPath: null
                 };
+
+                if (inModal) {
+                    this.openModal(`
+                        <div class="p-6 space-y-5 text-xs max-w-md">
+                            <div class="flex items-center gap-3">
+                                <div class="w-11 h-11 rounded-xl bg-gradient-to-tr from-sky-500 to-indigo-600 text-white flex items-center justify-center text-xl shrink-0 shadow-sm">
+                                    <i class="fa-solid fa-cloud-arrow-down fa-bounce"></i>
+                                </div>
+                                <div>
+                                    <h4 class="text-sm font-extrabold text-slate-900 dark:text-white">Download Aggiornamento in Corso</h4>
+                                    <p class="text-slate-400 text-[11px] truncate max-w-[260px]">${this.escapeHtml(fileName || "Class-Management-Update.exe")}</p>
+                                </div>
+                            </div>
+
+                            <div class="space-y-2 pt-1">
+                                <div class="w-full bg-slate-200 dark:bg-navy-950 h-3.5 rounded-full overflow-hidden p-0.5 border border-sky-200/50 dark:border-slate-800">
+                                    <div id="modalUpdateProgressBar" class="bg-gradient-to-r from-sky-500 to-indigo-600 h-full rounded-full transition-all duration-150" style="width: 0%;"></div>
+                                </div>
+                                <div class="flex items-center justify-between text-[11px] text-slate-500">
+                                    <span id="modalUpdateProgressText">Connessione ai server di download...</span>
+                                    <span id="modalUpdatePercentText" class="font-extrabold text-sky-600 dark:text-sky-400">0%</span>
+                                </div>
+                            </div>
+
+                            <div class="p-3 rounded-xl bg-sky-50/70 dark:bg-navy-800/60 border border-sky-100 dark:border-slate-800 text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-2">
+                                <i class="fa-solid fa-info-circle text-sky-600 shrink-0"></i>
+                                <span>Al termine dello scaricamento, l'applicazione si chiuderà per consentire l'installazione automatica.</span>
+                            </div>
+                        </div>
+                    `, "max-w-md", true);
+                }
+
                 if (this.activeTab === "credits") {
                     this.renderCreditsView(document.getElementById("mainContentArea"));
                 }
@@ -5832,14 +5875,26 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                     const percent = data.percent || 0;
                     const recMB = (data.receivedBytes / (1024 * 1024)).toFixed(1);
                     const totMB = (data.totalBytes / (1024 * 1024)).toFixed(1);
+                    const msg = `Scaricamento: ${recMB} MB di ${totMB} MB (${percent}%)`;
+
                     if (this.updateState) {
                         this.updateState.downloadPercent = percent;
-                        this.updateState.statusText = `Scaricamento: ${recMB} MB / ${totMB} MB (${percent}%)`;
+                        this.updateState.statusText = msg;
                     }
+
+                    // Update modal UI
+                    const mBar = document.getElementById("modalUpdateProgressBar");
+                    const mText = document.getElementById("modalUpdateProgressText");
+                    const mPct = document.getElementById("modalUpdatePercentText");
+                    if (mBar) mBar.style.width = `${percent}%`;
+                    if (mText) mText.textContent = `Scaricamento: ${recMB} MB / ${totMB} MB`;
+                    if (mPct) mPct.textContent = `${percent}%`;
+
+                    // Update credits view card UI
                     const pBar = document.getElementById("updateProgressBar");
                     const pText = document.getElementById("updateProgressText");
                     if (pBar) pBar.style.width = `${percent}%`;
-                    if (pText) pText.textContent = `Scaricamento: ${recMB} MB / ${totMB} MB (${percent}%)`;
+                    if (pText) pText.textContent = msg;
                 });
 
                 try {
@@ -5851,10 +5906,22 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                             this.updateState.downloadedPath = res.filePath;
                             this.updateState.statusText = "Download completato! Avvio installazione e chiusura applicazione...";
                         }
-                        this.showToast("Download completato! Chiusura applicazione e avvio installer...", "success");
+
+                        const mBar = document.getElementById("modalUpdateProgressBar");
+                        const mText = document.getElementById("modalUpdateProgressText");
+                        const mPct = document.getElementById("modalUpdatePercentText");
+                        if (mBar) {
+                            mBar.style.width = "100%";
+                            mBar.className = "bg-emerald-500 h-full rounded-full transition-all";
+                        }
+                        if (mText) mText.textContent = "Download completato! Avvio dell'aggiornamento...";
+                        if (mPct) mPct.textContent = "100%";
+
+                        this.showToast("Download completato! Avvio installer...", "success");
                         if (this.activeTab === "credits") {
                             this.renderCreditsView(document.getElementById("mainContentArea"));
                         }
+
                         // Launch installer and quit app gracefully
                         setTimeout(async () => {
                             await window.electronAPI.installUpdateAndQuit(res.filePath);
@@ -5862,9 +5929,26 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                     } else {
                         if (this.updateState) {
                             this.updateState.isDownloading = false;
-                            this.updateState.statusText = "Errore durante il download: " + (res.error || "Sconosciuto");
+                            this.updateState.statusText = "Errore durante il download: " + (res?.error || "Sconosciuto");
                         }
-                        this.showToast("Errore durante il download dell'aggiornamento", "danger");
+                        this.showToast("Errore durante il download dell'aggiornamento", "error");
+                        if (inModal) {
+                            this.openModal(`
+                                <div class="p-6 space-y-4 text-xs max-w-md text-center">
+                                    <div class="w-12 h-12 mx-auto rounded-full bg-rose-100 dark:bg-rose-950 text-rose-600 dark:text-rose-400 flex items-center justify-center text-xl">
+                                        <i class="fa-solid fa-triangle-exclamation"></i>
+                                    </div>
+                                    <div>
+                                        <h4 class="text-sm font-extrabold text-slate-900 dark:text-white">Errore Download</h4>
+                                        <p class="text-slate-500 mt-1">${this.escapeHtml(res?.error || "Impossibile completare il download.")}</p>
+                                    </div>
+                                    <div class="flex items-center justify-center gap-2 pt-2">
+                                        <button type="button" onclick="app.closeModal()" class="px-4 py-2 rounded-xl border border-slate-300 dark:border-slate-700 font-bold">Chiudi</button>
+                                        <button type="button" onclick="if(window.electronAPI){window.electronAPI.openExternal('${url}');}else{window.open('${url}','_blank');}app.closeModal();" class="px-4 py-2 rounded-xl bg-sky-600 text-white font-extrabold">Scarica da Browser</button>
+                                    </div>
+                                </div>
+                            `, "max-w-md");
+                        }
                         if (this.activeTab === "credits") {
                             this.renderCreditsView(document.getElementById("mainContentArea"));
                         }
@@ -5875,7 +5959,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                         this.updateState.isDownloading = false;
                         this.updateState.statusText = "Errore: " + err.message;
                     }
-                    this.showToast("Errore: " + err.message, "danger");
+                    this.showToast("Errore: " + err.message, "error");
                     if (this.activeTab === "credits") {
                         this.renderCreditsView(document.getElementById("mainContentArea"));
                     }
@@ -5888,8 +5972,19 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                     if (this.activeTab === "credits") {
                         this.renderCreditsView(document.getElementById("mainContentArea"));
                     }
-                    this.showToast("Controllo aggiornamenti in corso...", "info");
+                    this.openModal(`
+                        <div class="p-6 space-y-4 text-xs max-w-md text-center">
+                            <div class="w-12 h-12 mx-auto rounded-full bg-sky-100 dark:bg-navy-800 text-sky-600 dark:text-sky-300 flex items-center justify-center text-xl">
+                                <i class="fa-solid fa-arrows-rotate fa-spin"></i>
+                            </div>
+                            <div>
+                                <h4 class="text-sm font-extrabold text-slate-900 dark:text-white">Verifica Aggiornamenti</h4>
+                                <p class="text-slate-500 mt-1">Controllo della disponibilità di nuove versioni su GitHub in corso...</p>
+                            </div>
+                        </div>
+                    `, "max-w-md");
                 }
+
                 const nowIso = new Date().toISOString();
                 if (this.state.settings) {
                     this.state.settings.lastUpdateCheckDate = nowIso;
@@ -5897,26 +5992,84 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 }
 
                 try {
-                    const res = await fetch("https://api.github.com/repos/Natsvkashii/ClassManager/releases");
-                    this.updateCheckInProgress = false;
-                    if (!res.ok) {
-                        if (manual) {
-                            this.showToast("Nessun aggiornamento o rete non disponibile", "info");
-                            if (this.activeTab === "credits") this.renderCreditsView(document.getElementById("mainContentArea"));
+                    let releases = null;
+
+                    // 1. Try Main process IPC (supports custom User-Agent and fallback to raw manifest)
+                    if (window.electronAPI && typeof window.electronAPI.checkForUpdatesAPI === "function") {
+                        try {
+                            const apiRes = await window.electronAPI.checkForUpdatesAPI();
+                            if (apiRes && apiRes.success && Array.isArray(apiRes.releases)) {
+                                releases = apiRes.releases;
+                            }
+                        } catch (apiErr) {
+                            console.warn("Main process update check error:", apiErr);
                         }
-                        return;
                     }
-                    const releases = await res.json();
-                    if (!Array.isArray(releases) || releases.length === 0) {
-                        this.availableUpdate = null;
-                        if (manual) {
-                            this.showToast("L'applicazione è già aggiornata all'ultima versione!", "success");
-                            if (this.activeTab === "credits") this.renderCreditsView(document.getElementById("mainContentArea"));
+
+                    // 2. Direct renderer fetch fallback
+                    if (!releases) {
+                        try {
+                            const controller = new AbortController();
+                            const timeoutId = setTimeout(() => controller.abort(), 6000);
+                            const res = await fetch("https://api.github.com/repos/Natsvkashii/ClassManager/releases", { signal: controller.signal });
+                            clearTimeout(timeoutId);
+                            if (res.ok) {
+                                releases = await res.json();
+                            }
+                        } catch (e) {
+                            console.warn("Renderer fetch releases error:", e);
                         }
+                    }
+
+                    // 3. Fallback to raw manifest on stable branch (never rate-limited)
+                    if (!releases) {
+                        try {
+                            const resM = await fetch("https://raw.githubusercontent.com/Natsvkashii/ClassManager/stable/update-manifest.json");
+                            if (resM.ok) {
+                                const m = await resM.json();
+                                if (m && m.version) {
+                                    releases = [{
+                                        tag_name: m.tag_name || `v${m.version}`,
+                                        name: `Class Management v${m.version}`,
+                                        prerelease: m.prerelease === true,
+                                        published_at: m.published_at || new Date().toISOString(),
+                                        body: m.body || '',
+                                        html_url: `https://github.com/Natsvkashii/ClassManager/releases/tag/${m.tag_name || 'v' + m.version}`,
+                                        assets: [
+                                            { name: m.setupName || `Class-Management-${m.version}-Setup.exe`, browser_download_url: m.setupUrl },
+                                            ...(m.portableUrl ? [{ name: m.portableName || `Class-Management-${m.version}-Portable.exe`, browser_download_url: m.portableUrl }] : [])
+                                        ]
+                                    }];
+                                }
+                            }
+                        } catch (e) {}
+                    }
+
+                    this.updateCheckInProgress = false;
+
+                    if (!Array.isArray(releases) || releases.length === 0) {
+                        if (manual) {
+                            this.openModal(`
+                                <div class="p-6 space-y-4 text-xs max-w-md text-center">
+                                    <div class="w-12 h-12 mx-auto rounded-full bg-rose-100 dark:bg-rose-950 text-rose-600 dark:text-rose-400 flex items-center justify-center text-xl">
+                                        <i class="fa-solid fa-triangle-exclamation"></i>
+                                    </div>
+                                    <div>
+                                        <h4 class="text-sm font-extrabold text-slate-900 dark:text-white">Verifica Non Riuscita</h4>
+                                        <p class="text-slate-500 mt-1">Impossibile verificare la presenza di aggiornamenti. Verifica la tua connessione Internet o riprova più tardi.</p>
+                                    </div>
+                                    <div class="flex items-center justify-center gap-2 pt-2">
+                                        <button type="button" onclick="app.closeModal()" class="px-4 py-2 rounded-xl border border-slate-300 dark:border-slate-700 font-bold">Chiudi</button>
+                                        <button type="button" onclick="app.checkForUpdates(true)" class="px-4 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-extrabold">Riprova</button>
+                                    </div>
+                                </div>
+                            `, "max-w-md");
+                        }
+                        if (this.activeTab === "credits") this.renderCreditsView(document.getElementById("mainContentArea"));
                         return;
                     }
 
-                    const currentVer = this.parseAppVersion(this.state.version || "26.10.1-0");
+                    const currentVer = this.parseAppVersion(this.state.version || "26.10.1-1");
                     const includeBeta = this.state.settings?.includeBetaUpdates === true;
                     let highestCandidate = null;
 
@@ -5954,51 +6107,98 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                         // Pre-update automatic backup
                         await this.performPreUpdateBackup();
 
-                        if (!manual) {
-                            // Show Startup/Detected Update Modal
-                            this.openModal(`
-                                <div class="p-6 space-y-4 text-xs max-w-md">
-                                    <div class="flex items-center gap-2.5 text-sky-600">
-                                        <i class="fa-solid fa-cloud-arrow-down text-xl"></i>
-                                        <h4 class="text-sm font-extrabold text-slate-900 dark:text-white">${this.t("startupUpdateTitle")}</h4>
+                        // Present update modal with direct action
+                        this.openModal(`
+                            <div class="p-6 space-y-4 text-xs max-w-md">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-11 h-11 rounded-xl bg-gradient-to-tr from-sky-500 to-indigo-600 text-white flex items-center justify-center text-xl shrink-0 shadow-sm">
+                                        <i class="fa-solid fa-cloud-arrow-down"></i>
                                     </div>
-                                    <p class="text-slate-600 dark:text-slate-300 leading-relaxed">
-                                        È disponibile la nuova versione <strong>${this.escapeHtml(rel.tag_name)}</strong> di ${this.t("appTitle")}.
-                                        È già stato creato un backup di sicurezza dei tuoi dati.
-                                    </p>
-                                    <div class="flex flex-wrap items-center justify-end gap-2 pt-2">
-                                        <button type="button" onclick="app.closeModal()" class="px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 font-bold">${this.t("updateLaterBtn")}</button>
-                                        ${portableUrl ? `
-                                            <button type="button" onclick="if(window.electronAPI){window.electronAPI.openExternal('${portableUrl}');}else{window.open('${portableUrl}','_blank');}app.closeModal();" class="px-3.5 py-2 rounded-xl border border-sky-300 dark:border-sky-700 bg-sky-50 dark:bg-navy-800 text-sky-700 dark:text-sky-300 font-bold hover:bg-sky-100 flex items-center gap-1.5">
-                                                <i class="fa-solid fa-box-archive"></i> Portable .exe
-                                            </button>
-                                        ` : ''}
-                                        <button type="button" onclick="app.closeModal(); app.startUpdateDownload('${primaryUrl}', '${primaryName}');" class="px-4 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-extrabold shadow-2xs inline-flex items-center gap-1.5">
-                                            <i class="fa-solid fa-download"></i> ${setupAsset ? 'Scarica Setup (.exe)' : this.t("updateNowBtn")}
-                                        </button>
+                                    <div>
+                                        <div class="flex items-center gap-2">
+                                            <h4 class="text-sm font-extrabold text-slate-900 dark:text-white">Nuova Versione Disponibile!</h4>
+                                            <span class="px-2 py-0.5 rounded-full ${rel.prerelease ? 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300' : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300'} text-[10px] font-extrabold">
+                                                ${rel.prerelease ? 'Beta' : 'Stabile'}
+                                            </span>
+                                        </div>
+                                        <p class="text-sky-600 font-extrabold text-xs mt-0.5">${this.escapeHtml(rel.tag_name || rel.name)}</p>
                                     </div>
                                 </div>
-                            `, "max-w-md");
-                        } else {
-                            this.showToast(`Aggiornamento trovato: ${rel.tag_name}`, "success");
-                        }
+
+                                <div class="p-3.5 rounded-xl bg-slate-50 dark:bg-navy-950/70 border border-sky-100 dark:border-slate-800 space-y-2">
+                                    <p class="text-slate-600 dark:text-slate-300 leading-relaxed text-[11px]">
+                                        È disponibile una nuova versione aggiornata di <strong>${this.t("appTitle")}</strong>.
+                                    </p>
+                                    ${rel.body ? `
+                                        <div class="text-[11px] text-slate-500 dark:text-slate-400 whitespace-pre-line max-h-32 overflow-y-auto custom-scrollbar border-t border-sky-100 dark:border-slate-800 pt-2">
+                                            ${this.escapeHtml(rel.body)}
+                                        </div>
+                                    ` : ''}
+                                </div>
+
+                                <div class="flex items-center gap-2 text-[11px] text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 p-2.5 rounded-xl border border-emerald-200/50">
+                                    <i class="fa-solid fa-shield-check text-sm shrink-0"></i>
+                                    <span>Un backup di sicurezza dei tuoi dati è già stato creato automaticamente.</span>
+                                </div>
+
+                                <div class="flex flex-wrap items-center justify-end gap-2 pt-1">
+                                    <button type="button" onclick="app.closeModal()" class="px-3.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 font-bold hover:bg-slate-100 dark:hover:bg-navy-800 transition">Più tardi</button>
+                                    ${portableUrl ? `
+                                        <button type="button" onclick="if(window.electronAPI){window.electronAPI.openExternal('${portableUrl}');}else{window.open('${portableUrl}','_blank');}app.closeModal();" class="px-3.5 py-2 rounded-xl border border-sky-300 dark:border-sky-700 bg-sky-50 dark:bg-navy-800 text-sky-700 dark:text-sky-300 font-bold hover:bg-sky-100 flex items-center gap-1.5 transition">
+                                            <i class="fa-solid fa-box-archive"></i> Portable (.exe)
+                                        </button>
+                                    ` : ''}
+                                    <button type="button" onclick="app.startUpdateDownload('${primaryUrl}', '${primaryName}', true)" class="px-4 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-extrabold shadow-md flex items-center gap-2 transition">
+                                        <i class="fa-solid fa-download"></i>
+                                        <span>Scarica e Aggiorna Ora</span>
+                                    </button>
+                                </div>
+                            </div>
+                        `, "max-w-md");
                     } else {
                         this.availableUpdate = null;
                         if (manual) {
-                            this.showToast("L'applicazione è già aggiornata all'ultima versione!", "success");
-                            if (this.activeTab === "credits") {
-                                this.renderCreditsView(document.getElementById("mainContentArea"));
-                            }
+                            this.openModal(`
+                                <div class="p-6 space-y-4 text-xs max-w-md text-center">
+                                    <div class="w-12 h-12 mx-auto rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 flex items-center justify-center text-2xl">
+                                        <i class="fa-solid fa-circle-check"></i>
+                                    </div>
+                                    <div>
+                                        <h4 class="text-sm font-extrabold text-slate-900 dark:text-white">Class Management è Aggiornato!</h4>
+                                        <p class="text-slate-500 mt-1">Stai già utilizzando l'ultima versione disponibile (<strong>v${this.escapeHtml(this.state.version || "26.10.1-1")}</strong>). Non sono necessari aggiornamenti.</p>
+                                    </div>
+                                    <div class="pt-2">
+                                        <button type="button" onclick="app.closeModal()" class="px-5 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-extrabold shadow-sm transition">OK</button>
+                                    </div>
+                                </div>
+                            `, "max-w-md");
+                        }
+                        if (this.activeTab === "credits") {
+                            this.renderCreditsView(document.getElementById("mainContentArea"));
                         }
                     }
                 } catch (e) {
                     console.error("Update check error:", e);
                     this.updateCheckInProgress = false;
                     if (manual) {
-                        this.showToast("Impossibile verificare gli aggiornamenti al momento", "info");
-                        if (this.activeTab === "credits") {
-                            this.renderCreditsView(document.getElementById("mainContentArea"));
-                        }
+                        this.openModal(`
+                            <div class="p-6 space-y-4 text-xs max-w-md text-center">
+                                <div class="w-12 h-12 mx-auto rounded-full bg-rose-100 dark:bg-rose-950 text-rose-600 dark:text-rose-400 flex items-center justify-center text-xl">
+                                    <i class="fa-solid fa-triangle-exclamation"></i>
+                                </div>
+                                <div>
+                                    <h4 class="text-sm font-extrabold text-slate-900 dark:text-white">Errore Controllo Aggiornamenti</h4>
+                                    <p class="text-slate-500 mt-1">${this.escapeHtml(e.message || "Impossibile contattare il server.")}</p>
+                                </div>
+                                <div class="flex items-center justify-center gap-2 pt-2">
+                                    <button type="button" onclick="app.closeModal()" class="px-4 py-2 rounded-xl border border-slate-300 dark:border-slate-700 font-bold">Chiudi</button>
+                                    <button type="button" onclick="app.checkForUpdates(true)" class="px-4 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-extrabold">Riprova</button>
+                                </div>
+                            </div>
+                        `, "max-w-md");
+                    }
+                    if (this.activeTab === "credits") {
+                        this.renderCreditsView(document.getElementById("mainContentArea"));
                     }
                 }
             }
@@ -6128,7 +6328,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
              */
             renderCreditsView(container) {
                 const s = this.state.settings || {};
-                const currentVer = this.state.version || "26.10.1-0";
+                const currentVer = this.state.version || "26.10.1-1";
                 const latestChangelog = (this.state.changelog && this.state.changelog.length > 0) ? this.state.changelog[0] : null;
                 const update = this.availableUpdate;
                 const isDownloading = this.updateState?.isDownloading;
@@ -6235,7 +6435,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                                         </div>
                                     ` : `
                                         <div class="flex flex-wrap items-center gap-2 pt-2">
-                                            <button type="button" onclick="app.startUpdateDownload('${update.primaryUrl}', '${update.primaryName}')" class="px-4 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-extrabold shadow-2xs flex items-center gap-2 transition">
+                                            <button type="button" onclick="app.startUpdateDownload('${update.primaryUrl}', '${update.primaryName}', true)" class="px-4 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-extrabold shadow-2xs flex items-center gap-2 transition">
                                                 <i class="fa-solid fa-cloud-arrow-down"></i>
                                                 <span>Scarica e Installa Aggiornamento</span>
                                             </button>
@@ -6278,7 +6478,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
             }
 
             openInfoAndCreditsModal() {
-                const curVer = this.state.version || "26.10.1-0";
+                const curVer = this.state.version || "26.10.1-1";
                 const latestChangelog = (this.state.changelog && this.state.changelog.length > 0) ? this.state.changelog[0] : null;
 
                 this.openModal(`
