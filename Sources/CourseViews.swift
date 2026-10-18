@@ -2242,7 +2242,7 @@ private struct ModuleSquareCalendarPosterView: View {
 
             // Footer
             HStack {
-                Text("\(AuthorAttribution.appName) • Programma Modulo")
+                Text("\(AuthorAttribution.appName) • Piano lezioni")
                     .font(.system(size: 12, weight: .bold))
                     .foregroundStyle(Color(red: 0.35, green: 0.42, blue: 0.52))
                 Spacer()

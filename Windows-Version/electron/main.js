@@ -27,7 +27,7 @@ function createMainWindow() {
         height: 900,
         minWidth: 980,
         minHeight: 650,
-        title: 'Class Management v26.10.0-2',
+        title: 'Class Management v26.10.1-0',
         icon: getIconPath(),
         backgroundColor: '#090e1a',
         show: false,
@@ -287,7 +287,7 @@ function buildAppMenu() {
             label: 'Aiuto',
             submenu: [
                 {
-                    label: 'Informazioni e aggiornamenti',
+                    label: 'Informazioni',
                     click: () => {
                         if (mainWindow) {
                             mainWindow.webContents.executeJavaScript(`if (window.app) window.app.switchTab('credits');`);

@@ -1,7 +1,7 @@
 {
   "name": "class-management",
-  "version": "26.10.0-2",
-  "description": "Class Management v26.10.0-2 — Piattaforma Accademica Multi-Livello QCER (Presenze, Piano Lezioni, Voti, Attività, Griglie di Valutazione, Calendario Modulo Drag & Drop, Cestino 30gg, Anagrafica, Fatturazione)",
+  "version": "26.10.1-0",
+  "description": "Class Management v26.10.1-0 — Piattaforma Accademica Multi-Livello QCER (Presenze, Piano Lezioni, Voti, Attività, Criteri di Valutazione, Piano Lezioni Drag & Drop, Cestino 30gg, Anagrafica, Fatturazione)",
   "author": {
     "name": "Guaira Jaramillo Nitoglia",
     "email": "guaira.jaramillo.nitoglia@gmail.com"
@@ -44,10 +44,10 @@
       "createStartMenuShortcut": true,
       "shortcutName": "Class Management",
       "uninstallDisplayName": "Class Management",
-      "artifactName": "Class-Management-26.10.0-2-Setup.${ext}"
+      "artifactName": "Class-Management-26.10.1-0-Setup.${ext}"
     },
     "portable": {
-      "artifactName": "Class-Management-26.10.0-2-Portable.${ext}"
+      "artifactName": "Class-Management-26.10.1-0-Portable.${ext}"
     }
   },
   "devDependencies": {

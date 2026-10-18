@@ -16,7 +16,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Class Management v26.10.0-2 (Windows Edition)</title>
+    <title>Class Management v26.10.1-0 (Windows Edition)</title>
     <link rel="icon" type="image/png" href="logo.png">
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -166,7 +166,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
             <!-- Bottom App Badge -->
             <div class="p-3 border-t border-sky-100 dark:border-slate-800">
                 <div class="sidebar-footer-card p-2 rounded-xl bg-sky-50/70 dark:bg-navy-800/70 border border-sky-200/50 dark:border-slate-700/60 text-[10px] text-center text-slate-500 dark:text-slate-400 font-semibold">
-                    <span>Class Management v26.10.0-2</span>
+                    <span>Class Management v26.10.1-0</span>
                 </div>
             </div>
         </aside>
@@ -204,7 +204,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 <div class="w-full px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-2">
                     <p class="flex items-center gap-2">
                         <span id="footerPlatformDesc" class="text-slate-400 dark:text-slate-500">Piattaforma Accademica Multi-Livello QCER</span>
-                        <span id="footerVersionBadge" class="px-2 py-0.5 rounded-md bg-sky-100 dark:bg-navy-800 text-sky-700 dark:text-sky-300 text-[10px] font-bold">v26.10.0-2 (Windows Edition)</span>
+                        <span id="footerVersionBadge" class="px-2 py-0.5 rounded-md bg-sky-100 dark:bg-navy-800 text-sky-700 dark:text-sky-300 text-[10px] font-bold">v26.10.1-0 (Windows Edition)</span>
                     </p>
                     <p><span id="footerDevelopedBy">Concepito e Sviluppato da</span> <span class="font-semibold text-sky-700 dark:text-sky-400">Guaira Jaramillo Nitoglia</span> (<a href="mailto:guaira.jaramillo.nitoglia@gmail.com" class="underline hover:text-sky-600">guaira.jaramillo.nitoglia@gmail.com</a>)</p>
                 </div>
@@ -263,13 +263,13 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 navActivities: "Attività",
                 navCourseConfig: "Struttura",
                 navGroupStudents: "Iscritti",
-                navModuleStudentCalendar: "Calendario Modulo",
+                navModuleStudentCalendar: "Piano lezioni",
                 navCalendar: "Calendario",
                 navStudents: "Anagrafica",
                 navArchived: "Archivio",
                 navSettings: "Opzioni",
-                navCredits: "Informazioni e aggiornamenti",
-                navRubrics: "Griglie & Criteri",
+                navCredits: "Informazioni",
+                navRubrics: "Criteri di valutazione",
                 navTrashBin: "Cestino",
                 trashEmptyMsg: "Il cestino è vuoto",
                 trashBinSubtitle: "Gli elementi eliminati restano qui per 30 giorni prima di essere rimossi definitivamente.",
@@ -490,13 +490,13 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 navActivities: "Activities",
                 navCourseConfig: "Structure",
                 navGroupStudents: "Roster",
-                navModuleStudentCalendar: "Module Calendar",
+                navModuleStudentCalendar: "Lesson Plan",
                 navCalendar: "Calendar",
                 navStudents: "Directory",
                 navArchived: "Archive",
                 navSettings: "Settings",
-                navCredits: "About & Updates",
-                navRubrics: "Rubrics & Criteria",
+                navCredits: "About",
+                navRubrics: "Evaluation Criteria",
                 navTrashBin: "Trash Bin",
                 trashEmptyMsg: "The trash is empty",
                 trashBinSubtitle: "Deleted items remain here for 30 days before being permanently removed.",
@@ -717,13 +717,13 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 navActivities: "Actividades",
                 navCourseConfig: "Estructura",
                 navGroupStudents: "Inscritos",
-                navModuleStudentCalendar: "Calendario Módulo",
+                navModuleStudentCalendar: "Plan de clases",
                 navCalendar: "Calendario",
                 navStudents: "Directorio",
                 navArchived: "Archivo",
                 navSettings: "Ajustes",
-                navCredits: "Información y actualizaciones",
-                navRubrics: "Rúbricas & Criterios",
+                navCredits: "Información",
+                navRubrics: "Criterios de evaluación",
                 navTrashBin: "Papelera",
                 trashEmptyMsg: "La papelera está vacía",
                 trashBinSubtitle: "Los elementos eliminados permanecen aquí durante 30 días antes de ser eliminados permanentemente.",
@@ -968,11 +968,21 @@ Removing, obfuscating, or altering these credits violates the author's attributi
         ];
 
         const INITIAL_DATA = {
-            version: "26.10.0-2",
+            version: "26.10.1-0",
             deletedItems: [],
             lastUpdated: new Date().toISOString(),
             activeCourseId: "",
             changelog: [
+                {
+                    version: "26.10.1-0",
+                    date: "2026-10-18",
+                    changes: [
+                        "Rinominata la scheda 'Informazioni e aggiornamenti' semplicemente in 'Informazioni', con il sistema di aggiornamento come card principale.",
+                        "Rinominata la sezione 'Griglie & Criteri' in 'Criteri di valutazione'.",
+                        "Rinominata la sezione 'Programma Modulo' in 'Piano lezioni'.",
+                        "Semplificata la gestione del repository con consolidamento definitivo sui due canali ufficiali: stable e unstable."
+                    ]
+                },
                 {
                     version: "26.10.0-2",
                     date: "2026-10-18",
@@ -5906,7 +5916,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                         return;
                     }
 
-                    const currentVer = this.parseAppVersion(this.state.version || "26.10.0-2");
+                    const currentVer = this.parseAppVersion(this.state.version || "26.10.1-0");
                     const includeBeta = this.state.settings?.includeBetaUpdates === true;
                     let highestCandidate = null;
 
@@ -6118,7 +6128,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
              */
             renderCreditsView(container) {
                 const s = this.state.settings || {};
-                const currentVer = this.state.version || "26.10.0-2";
+                const currentVer = this.state.version || "26.10.1-0";
                 const latestChangelog = (this.state.changelog && this.state.changelog.length > 0) ? this.state.changelog[0] : null;
                 const update = this.availableUpdate;
                 const isDownloading = this.updateState?.isDownloading;
@@ -6268,7 +6278,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
             }
 
             openInfoAndCreditsModal() {
-                const curVer = this.state.version || "26.10.0-2";
+                const curVer = this.state.version || "26.10.1-0";
                 const latestChangelog = (this.state.changelog && this.state.changelog.length > 0) ? this.state.changelog[0] : null;
 
                 this.openModal(`

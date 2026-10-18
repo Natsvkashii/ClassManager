@@ -18,7 +18,7 @@ public enum AuthorAttribution {
     public static let authorName = "Guaira Jaramillo Nitoglia"
     public static let authorEmail = "guaira.jaramillo.nitoglia@gmail.com"
     public static let appName = "Class Management"
-    public static let appVersion = "26.10.0-2"
+    public static let appVersion = "26.10.1-0"
     public static let licenseName = "GNU General Public License v3.0 (GPL-3.0)"
 }
 
@@ -1433,6 +1433,12 @@ public struct AppState: Codable, Equatable {
     ]
 
     public static let defaultChangelog: [ChangelogEntry] = [
+        ChangelogEntry(version: "26.10.1-0", date: "2026-10-18", changes: [
+            "Rinominata la scheda 'Informazioni e aggiornamenti' semplicemente in 'Informazioni', con il sistema di aggiornamento come card principale.",
+            "Rinominata la sezione 'Griglie & Criteri' in 'Criteri di valutazione'.",
+            "Rinominata la sezione 'Programma Modulo' in 'Piano lezioni'.",
+            "Semplificata la gestione del repository con consolidamento definitivo sui due canali ufficiali: stable e unstable."
+        ]),
         ChangelogEntry(version: "26.10.0-2", date: "2026-10-18", changes: [
             "Risolta l'anomalia di blocco dell'applicazione su Windows durante l'aggiornamento automatico e il salvataggio del backup preventivo con architettura asincrona non bloccante.",
             "Integrato in-app il download e l'avvio guidato dell'installer per Windows con chiusura pulita dell'app per sbloccare i file di sistema durante l'installazione.",

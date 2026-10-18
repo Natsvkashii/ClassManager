@@ -1149,7 +1149,7 @@ public struct SettingsView: View {
                             Text(store.t("updatesSectionHeader"))
                                 .font(.headline)
                                 .foregroundStyle(.purple)
-                            Text("Il sistema di verifica, frequenza e installazione degli aggiornamenti è centralizzato nella sezione 'Informazioni e aggiornamenti'.")
+                            Text("Il sistema di verifica, frequenza e installazione degli aggiornamenti è centralizzato nella sezione 'Informazioni'.")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
