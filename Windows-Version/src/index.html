@@ -5767,8 +5767,11 @@ Removing, obfuscating, or altering these credits violates the author's attributi
 
                         const rel = highestCandidate.release;
                         const assets = rel.assets || [];
-                        const exeAsset = assets.find(a => (a.name || "").toLowerCase().endsWith(".exe"));
-                        const downloadUrl = exeAsset ? exeAsset.browser_download_url : (rel.html_url || "https://github.com/Natsvkashii/ClassManager/releases");
+                        const setupAsset = assets.find(a => (a.name || "").toLowerCase().includes("setup") && (a.name || "").toLowerCase().endsWith(".exe"));
+                        const portableAsset = assets.find(a => (a.name || "").toLowerCase().includes("portable") && (a.name || "").toLowerCase().endsWith(".exe"));
+                        const anyExe = setupAsset || portableAsset || assets.find(a => (a.name || "").toLowerCase().endsWith(".exe"));
+                        const primaryUrl = setupAsset ? setupAsset.browser_download_url : (anyExe ? anyExe.browser_download_url : (rel.html_url || "https://github.com/Natsvkashii/ClassManager/releases"));
+                        const portableUrl = portableAsset ? portableAsset.browser_download_url : null;
 
                         // Show Startup/Detected Update Modal
                         this.openModal(`
@@ -5781,11 +5784,16 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                                     È disponibile la nuova versione <strong>${this.escapeHtml(rel.tag_name)}</strong> di Gestione Corsi.
                                     È già stato creato un backup di sicurezza dei tuoi dati.
                                 </p>
-                                <div class="flex justify-end gap-2 pt-2">
-                                    <button onclick="app.closeModal()" class="px-3.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 font-bold">${this.t("updateLaterBtn")}</button>
-                                    <a href="${downloadUrl}" target="_blank" onclick="app.closeModal()" class="px-4 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-extrabold shadow-2xs inline-flex items-center gap-1.5">
-                                        <i class="fa-solid fa-download"></i> ${this.t("updateNowBtn")}
-                                    </a>
+                                <div class="flex flex-wrap items-center justify-end gap-2 pt-2">
+                                    <button onclick="app.closeModal()" class="px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 font-bold">${this.t("updateLaterBtn")}</button>
+                                    ${portableUrl ? `
+                                        <button onclick="if(window.electronAPI){window.electronAPI.openExternal('${portableUrl}');}else{window.open('${portableUrl}','_blank');}app.closeModal();" class="px-3.5 py-2 rounded-xl border border-sky-300 dark:border-sky-700 bg-sky-50 dark:bg-navy-800 text-sky-700 dark:text-sky-300 font-bold hover:bg-sky-100 flex items-center gap-1.5">
+                                            <i class="fa-solid fa-box-archive"></i> Portable .exe
+                                        </button>
+                                    ` : ''}
+                                    <button onclick="if(window.electronAPI){window.electronAPI.openExternal('${primaryUrl}');}else{window.open('${primaryUrl}','_blank');}app.closeModal();" class="px-4 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-extrabold shadow-2xs inline-flex items-center gap-1.5">
+                                        <i class="fa-solid fa-download"></i> ${setupAsset ? 'Scarica Setup (.exe)' : this.t("updateNowBtn")}
+                                    </button>
                                 </div>
                             </div>
                         `, "max-w-md");
