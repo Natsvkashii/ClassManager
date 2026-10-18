@@ -5,37 +5,37 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>it</string>
 	<key>CFBundleDisplayName</key>
-	<string>Gestione Corsi</string>
+	<string>Class Management</string>
 	<key>CFBundleExecutable</key>
-	<string>GestioneCorsi</string>
+	<string>ClassManagement</string>
 	<key>CFBundleIconFile</key>
 	<string>AppIcon</string>
 	<key>CFBundleIconName</key>
 	<string>AppIcon</string>
 	<key>CFBundleIdentifier</key>
-	<string>com.guairajaramillonitoglia.gestionecorsi</string>
+	<string>com.guairajaramillonitoglia.classmanagement</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>Gestione Corsi</string>
+	<string>Class Management</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>2.2.0</string>
+	<string>26.10.0</string>
 	<key>CFBundleVersion</key>
-	<string>2.2.0</string>
+	<string>26.10.0</string>
 	<key>LSApplicationCategoryType</key>
 	<string>public.app-category.education</string>
 	<key>LSMinimumSystemVersion</key>
 	<string>14.0</string>
 	<key>NSCalendarsFullAccessUsageDescription</key>
-	<string>Gestione Corsi utilizza Apple Calendar per sincronizzare e creare automaticamente gli eventi delle lezioni programmate sul tuo Mac.</string>
+	<string>Class Management utilizza Apple Calendar per sincronizzare e creare automaticamente gli eventi delle lezioni programmate sul tuo Mac.</string>
 	<key>NSCalendarsUsageDescription</key>
-	<string>Gestione Corsi utilizza Apple Calendar per sincronizzare e creare automaticamente gli eventi delle lezioni programmate sul tuo Mac.</string>
+	<string>Class Management utilizza Apple Calendar per sincronizzare e creare automaticamente gli eventi delle lezioni programmate sul tuo Mac.</string>
 	<key>NSHighResolutionCapable</key>
 	<true/>
 	<key>NSHumanReadableCopyright</key>
-	<string>Concepito e Sviluppato da Guaira Jaramillo Nitoglia (guaira.jaramillo.nitoglia@gmail.com)</string>
+	<string>Copyright © 2026 Guaira Jaramillo Nitoglia (guaira.jaramillo.nitoglia@gmail.com). Rilasciato con licenza GNU GPLv3.</string>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
 </dict>

@@ -29,8 +29,8 @@ import json
 
 PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
 MODELS_SWIFT = os.path.join(PROJECT_ROOT, "Sources", "Models.swift")
-INFO_PLIST = os.path.join(PROJECT_ROOT, "Gestione Corsi.app", "Contents", "Info.plist")
-APP_BUNDLE = os.path.join(PROJECT_ROOT, "Gestione Corsi.app")
+INFO_PLIST = os.path.join(PROJECT_ROOT, "Class Management.app", "Contents", "Info.plist")
+APP_BUNDLE = os.path.join(PROJECT_ROOT, "Class Management.app")
 VERSIONS_DIR = os.path.join(PROJECT_ROOT, "Versions")
 
 REPO_OWNER = "Natsvkashii"
@@ -111,22 +111,18 @@ def set_version(version: str):
 
 
 def bump_beta():
-    cur = get_swift_version() or "2.1.0"
-    match = re.match(r"^(\d+\.\d+\.\d+)(?:-(\d{3})b)?$", cur)
-    if not match:
-        print(f"[!] Unrecognized version pattern '{cur}', defaulting to 2.1.1-001b")
-        new_ver = "2.1.1-001b"
-    else:
-        base, build = match.groups()
-        if build:
-            next_build = int(build) + 1
-            new_ver = f"{base}-{next_build:03d}b"
+    cur = get_swift_version() or "26.10.0"
+    match = re.match(r"^(\d+\.\d+)\.(\d+)(?:b(\d*))?$", cur)
+    if match:
+        ym, rel_num, b_sub = match.groups()
+        rel_int = int(rel_num)
+        if "b" in cur:
+            b_val = int(b_sub) + 1 if b_sub else 2
+            new_ver = f"{ym}.{rel_int}b{b_val}"
         else:
-            # Transitioning from stable to beta
-            parts = [int(p) for p in base.split(".")]
-            parts[-1] += 1
-            new_base = ".".join(str(p) for p in parts)
-            new_ver = f"{new_base}-001b"
+            new_ver = f"{ym}.{rel_int + 1}b"
+    else:
+        new_ver = "26.10.1b"
 
     set_version(new_ver)
     return new_ver
@@ -137,8 +133,8 @@ def archive_version_artifacts(version: str):
     os.makedirs(target_dir, exist_ok=True)
     count = 0
     patterns = [
-        f"Gestione-Corsi-{version}*.*",
-        f"Gestione-Corsi-*{version}*.*"
+        f"Class-Management-{version}*.*",
+        f"Class-Management-*{version}*.*"
     ]
     for pat in patterns:
         for f in glob.glob(os.path.join(PROJECT_ROOT, pat)):
@@ -150,8 +146,8 @@ def archive_version_artifacts(version: str):
 
 
 def build_macos(package: bool = True):
-    cur_ver = get_swift_version() or "2.1.0"
-    print(f"\n=== Building Gestione Corsi v{cur_ver} (macOS Native) ===")
+    cur_ver = get_swift_version() or "26.10.0"
+    print(f"\n=== Building Class Management v{cur_ver} (macOS Native) ===")
 
     # 1. Compile Swift sources
     swift_files = sorted(glob.glob(os.path.join(PROJECT_ROOT, "Sources", "*.swift")))
@@ -159,7 +155,7 @@ def build_macos(package: bool = True):
         print("[!] No Swift files found in Sources/")
         return False
 
-    binary_out = os.path.join(APP_BUNDLE, "Contents", "MacOS", "GestioneCorsi")
+    binary_out = os.path.join(APP_BUNDLE, "Contents", "MacOS", "ClassManagement")
     os.makedirs(os.path.dirname(binary_out), exist_ok=True)
 
     cmd_compile = [
@@ -189,35 +185,35 @@ def build_macos(package: bool = True):
     # 4. Optional pkg installer
     if package:
         print("  [4/4] Building macOS Installer (.pkg)...")
-        pkg_name = f"Gestione-Corsi-{cur_ver}-Installer.pkg"
+        pkg_name = f"Class-Management-{cur_ver}-Installer.pkg"
         pkg_out = os.path.join(PROJECT_ROOT, pkg_name)
         staging_dir = "/tmp/pkg_staging"
         shutil.rmtree(staging_dir, ignore_errors=True)
         os.makedirs(staging_dir, exist_ok=True)
-        shutil.copytree(APP_BUNDLE, os.path.join(staging_dir, "Gestione Corsi.app"))
+        shutil.copytree(APP_BUNDLE, os.path.join(staging_dir, "Class Management.app"))
 
         scripts_dir = "/tmp/pkg_scripts"
         shutil.rmtree(scripts_dir, ignore_errors=True)
         os.makedirs(scripts_dir, exist_ok=True)
         preinstall = os.path.join(scripts_dir, "preinstall")
         with open(preinstall, "w") as f:
-            f.write('#!/bin/sh\nrm -rf "/Applications/Gestione Corsi.app"\nexit 0\n')
+            f.write('#!/bin/sh\nrm -rf "/Applications/Class Management.app"\nexit 0\n')
         os.chmod(preinstall, 0o755)
 
         postinstall = os.path.join(scripts_dir, "postinstall")
         with open(postinstall, "w") as f:
             f.write('''#!/bin/sh
 # Terminate old instance
-killall "GestioneCorsi" 2>/dev/null || true
-pkill -f "Gestione Corsi.app" 2>/dev/null || true
+killall "ClassManagement" 2>/dev/null || true
+pkill -f "Class Management.app" 2>/dev/null || true
 sleep 1
 
 # Launch newly installed application for current console user
 CONSOLE_USER=$(stat -f "%Su" /dev/console 2>/dev/null)
 if [ -n "$CONSOLE_USER" ] && [ "$CONSOLE_USER" != "root" ]; then
-    sudo -u "$CONSOLE_USER" open "/Applications/Gestione Corsi.app"
+    sudo -u "$CONSOLE_USER" open "/Applications/Class Management.app"
 else
-    open "/Applications/Gestione Corsi.app"
+    open "/Applications/Class Management.app"
 fi
 exit 0
 ''')
@@ -227,7 +223,7 @@ exit 0
             "pkgbuild",
             "--root", staging_dir,
             "--scripts", scripts_dir,
-            "--identifier", "com.guairajaramillonitoglia.gestionecorsi",
+            "--identifier", "com.guairajaramillonitoglia.classmanagement",
             "--version", cur_ver,
             "--install-location", "/Applications",
             pkg_out
@@ -242,10 +238,10 @@ exit 0
 
 
 def publish_release(is_beta: bool = False):
-    cur_ver = get_swift_version() or "2.1.0"
-    if "-" in cur_ver:
+    cur_ver = get_swift_version() or "26.10.0"
+    if "b" in cur_ver or "-" in cur_ver:
         is_beta = True
-    elif is_beta and "-" not in cur_ver:
+    elif is_beta and not ("b" in cur_ver or "-" in cur_ver):
         cur_ver = bump_beta()
 
     expected_branch = "unstable" if is_beta else "stable"
@@ -257,7 +253,7 @@ def publish_release(is_beta: bool = False):
     # 1. Build and create package
     build_macos(package=True)
 
-    pkg_name = f"Gestione-Corsi-{cur_ver}-Installer.pkg"
+    pkg_name = f"Class-Management-{cur_ver}-Installer.pkg"
     pkg_path = os.path.join(PROJECT_ROOT, pkg_name)
 
     # 2. Git stage & commit
@@ -293,8 +289,8 @@ def publish_release(is_beta: bool = False):
         rel_data = {
             "tag_name": tag_name,
             "target_commitish": expected_branch,
-            "name": f"Gestione Corsi {tag_name}",
-            "body": f"Release di Gestione Corsi {tag_name}.\n\nAutore: Guaira Jaramillo Nitoglia (guaira.jaramillo.nitoglia@gmail.com)\nCanale: {'Beta / Unstable' if is_beta else 'Stabile'}.",
+            "name": f"Class Management {tag_name}",
+            "body": f"Release di Class Management {tag_name}.\n\nAutore: Guaira Jaramillo Nitoglia (guaira.jaramillo.nitoglia@gmail.com)\nLicenza: GNU General Public License v3.0 (GPL-3.0)\nCanale: {'Beta / Unstable' if is_beta else 'Stabile'}.",
             "draft": False,
             "prerelease": is_beta
         }
@@ -304,7 +300,7 @@ def publish_release(is_beta: bool = False):
             headers={
                 "Authorization": f"token {token}",
                 "Accept": "application/vnd.github.v3+json",
-                "User-Agent": "GestioneCorsi-ReleaseManager"
+                "User-Agent": "ClassManagement-ReleaseManager"
             },
             method="POST"
         )
@@ -326,7 +322,7 @@ def publish_release(is_beta: bool = False):
                         headers={
                             "Authorization": f"token {token}",
                             "Content-Type": "application/octet-stream",
-                            "User-Agent": "GestioneCorsi-ReleaseManager"
+                            "User-Agent": "ClassManagement-ReleaseManager"
                         },
                         method="POST"
                     )
@@ -335,7 +331,7 @@ def publish_release(is_beta: bool = False):
         except Exception as err:
             print(f"[!] GitHub API release creation failed: {err}")
     else:
-        release_web_url = f"https://github.com/{REPO_OWNER}/{REPO_NAME}/releases/new?tag={tag_name}&target={expected_branch}&title=Gestione+Corsi+{tag_name}&prerelease={1 if is_beta else 0}"
+        release_web_url = f"https://github.com/{REPO_OWNER}/{REPO_NAME}/releases/new?tag={tag_name}&target={expected_branch}&title=Class+Management+{tag_name}&prerelease={1 if is_beta else 0}"
         print("\n=======================================================")
         print(" GITHUB RELEASE PUBLISHING")
         print("=======================================================")
@@ -354,10 +350,10 @@ def print_status():
     branch = get_git_branch()
     ver_swift = get_swift_version()
     ver_plist = get_plist_version()
-    is_beta = "-" in (ver_swift or "")
+    is_beta = ("b" in (ver_swift or "") or "-" in (ver_swift or ""))
 
     print("\n=======================================================")
-    print(" GESTIONE CORSI — PROJECT STATUS")
+    print(" CLASS MANAGEMENT — PROJECT STATUS")
     print("=======================================================")
     print(f" GitHub Repo      : https://github.com/{REPO_OWNER}/{REPO_NAME}")
     print(f" Git Branch       : {branch} ({'UNSTABLE / BETA' if branch == 'unstable' else 'STABLE' if branch == 'stable' else 'CUSTOM'})")

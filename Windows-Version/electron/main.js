@@ -26,7 +26,7 @@ function createMainWindow() {
         height: 900,
         minWidth: 980,
         minHeight: 650,
-        title: 'Gestione Corsi v2.2.0',
+        title: 'Class Management v26.10.0',
         icon: getIconPath(),
         backgroundColor: '#090e1a',
         show: false,
@@ -80,7 +80,7 @@ ipcMain.handle('get-app-version', () => {
 ipcMain.handle('save-file', async (event, { defaultPath, data }) => {
     if (!mainWindow) return { canceled: true };
     const { canceled, filePath } = await dialog.showSaveDialog(mainWindow, {
-        defaultPath: defaultPath || 'gestione_corsi_backup.json',
+        defaultPath: defaultPath || 'class_management_backup.json',
         filters: [{ name: 'JSON Files', extensions: ['json'] }]
     });
     if (canceled || !filePath) return { canceled: true };
@@ -110,7 +110,7 @@ ipcMain.handle('load-file', async () => {
 ipcMain.handle('save-auto-backup', async (event, { filename, data }) => {
     try {
         const docsDir = app.getPath('documents');
-        const backupDir = path.join(docsDir, 'GestioneCorsi_Backups');
+        const backupDir = path.join(docsDir, 'ClassManagement_Backups');
         if (!fs.existsSync(backupDir)) {
             fs.mkdirSync(backupDir, { recursive: true });
         }
@@ -183,7 +183,7 @@ function buildAppMenu() {
             label: 'Aiuto',
             submenu: [
                 {
-                    label: 'Informazioni su Gestione Corsi',
+                    label: 'Informazioni su Class Management',
                     click: () => {
                         if (mainWindow) {
                             mainWindow.webContents.executeJavaScript(`if (window.app) window.app.switchTab('credits');`);

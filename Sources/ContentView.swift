@@ -14,7 +14,7 @@ import SwiftUI
 import AppKit
 
 @main
-struct GestioneCorsiApp: App {
+struct ClassManagementApp: App {
     @State private var store = AppStore()
 
     var body: some Scene {

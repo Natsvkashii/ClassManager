@@ -32,9 +32,13 @@ public final class AppleCalendarManager {
     }
 
     private func getOrCreateTargetCalendar(for course: Course, mode: String, palette: CourseColorInfo) -> EKCalendar? {
-        let calTitle = (mode == "perCourse") ? "Corso: \(course.name)" : "Gestione Corsi"
+        let calTitle = (mode == "perCourse") ? "Corso: \(course.name)" : "Class Management"
         let calendars = eventStore.calendars(for: .event)
-        if let existing = calendars.first(where: { $0.title == calTitle && $0.allowsContentModifications }) {
+        if let existing = calendars.first(where: { ($0.title == calTitle || (mode != "perCourse" && $0.title == "Gestione Corsi")) && $0.allowsContentModifications }) {
+            if mode != "perCourse" && existing.title == "Gestione Corsi" {
+                existing.title = "Class Management"
+                try? eventStore.saveCalendar(existing, commit: true)
+            }
             if mode == "perCourse" {
                 existing.cgColor = palette.nsColor.cgColor
                 try? eventStore.saveCalendar(existing, commit: true)
@@ -95,7 +99,8 @@ public final class AppleCalendarManager {
             endDate = startDate.addingTimeInterval(3600)
         }
 
-        let slotMarker = "[GestioneCorsiSlot:\(course.id):\(module.id):\(slotKey)]"
+        let slotMarker = "[ClassManagementSlot:\(course.id):\(module.id):\(slotKey)]"
+        let legacyMarker = "[GestioneCorsiSlot:\(course.id):\(module.id):\(slotKey)]"
         var event: EKEvent? = nil
 
         if let savedId = lessonPlan?.calendarEventIdentifier,
@@ -106,7 +111,10 @@ public final class AppleCalendarManager {
             let dayEnd = Calendar.current.date(byAdding: .day, value: 1, to: dayStart) ?? endDate
             let predicate = eventStore.predicateForEvents(withStart: dayStart, end: dayEnd, calendars: [targetCalendar])
             let matches = eventStore.events(matching: predicate)
-            event = matches.first(where: { ($0.notes ?? "").contains(slotMarker) })
+            event = matches.first(where: {
+                let n = $0.notes ?? ""
+                return n.contains(slotMarker) || n.contains(legacyMarker)
+            })
         }
 
         let ekEvent = event ?? EKEvent(eventStore: eventStore)
@@ -151,10 +159,14 @@ public final class AppleCalendarManager {
         let dateOnly = String(slotKey.prefix(10))
         guard let startDate = parseDateTime(dateStr: dateOnly, timeStr: "00:00") else { return }
         let dayEnd = Calendar.current.date(byAdding: .day, value: 2, to: startDate) ?? startDate
-        let slotMarker = "[GestioneCorsiSlot:\(course.id):\(module.id):\(slotKey)]"
+        let slotMarker = "[ClassManagementSlot:\(course.id):\(module.id):\(slotKey)]"
+        let legacyMarker = "[GestioneCorsiSlot:\(course.id):\(module.id):\(slotKey)]"
         let predicate = eventStore.predicateForEvents(withStart: startDate, end: dayEnd, calendars: nil)
-        for ev in eventStore.events(matching: predicate) where (ev.notes ?? "").contains(slotMarker) {
-            try? eventStore.remove(ev, span: .thisEvent, commit: true)
+        for ev in eventStore.events(matching: predicate) {
+            let n = ev.notes ?? ""
+            if n.contains(slotMarker) || n.contains(legacyMarker) {
+                try? eventStore.remove(ev, span: .thisEvent, commit: true)
+            }
         }
     }
 }

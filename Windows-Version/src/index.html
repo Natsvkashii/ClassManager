@@ -16,7 +16,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gestione Corsi v2.2.0 (Windows Edition)</title>
+    <title>Class Management v26.10.0 (Windows Edition)</title>
     <link rel="icon" type="image/png" href="logo.png">
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -145,10 +145,10 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 <div class="h-16 px-3.5 border-b border-sky-100 dark:border-slate-800 flex items-center justify-between gap-2 sidebar-brand-wrap">
                     <div class="flex items-center gap-2.5 overflow-hidden">
                         <div id="sidebarBrandLogoBox" class="w-9 h-9 flex items-center justify-center shrink-0">
-                            <img src="logo.png" alt="Gestione Corsi" class="w-8 h-8 object-contain">
+                            <img src="logo.png" alt="Class Management" class="w-8 h-8 object-contain">
                         </div>
                         <div class="sidebar-text truncate">
-                            <h2 id="sidebarBrandTitle" class="text-sm font-extrabold text-slate-900 dark:text-white leading-tight truncate">Gestione Corsi</h2>
+                            <h2 id="sidebarBrandTitle" class="text-sm font-extrabold text-slate-900 dark:text-white leading-tight truncate">Class Management</h2>
                         </div>
                     </div>
                     <button id="sidebarToggleMiniBtn" onclick="app.toggleSidebarMini()" class="hidden lg:flex w-8 h-8 rounded-lg hover:bg-sky-50 dark:hover:bg-navy-800 items-center justify-center text-slate-500 dark:text-slate-400 transition shrink-0" title="Espandi / Riduci">
@@ -166,7 +166,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
             <!-- Bottom App Badge -->
             <div class="p-3 border-t border-sky-100 dark:border-slate-800">
                 <div class="sidebar-footer-card p-2 rounded-xl bg-sky-50/70 dark:bg-navy-800/70 border border-sky-200/50 dark:border-slate-700/60 text-[10px] text-center text-slate-500 dark:text-slate-400 font-semibold">
-                    <span>Gestione Corsi v2.2.0</span>
+                    <span>Class Management v26.10.0</span>
                 </div>
             </div>
         </aside>
@@ -204,7 +204,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 <div class="w-full px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-2">
                     <p class="flex items-center gap-2">
                         <span id="footerPlatformDesc" class="text-slate-400 dark:text-slate-500">Piattaforma Accademica Multi-Livello QCER</span>
-                        <span id="footerVersionBadge" class="px-2 py-0.5 rounded-md bg-sky-100 dark:bg-navy-800 text-sky-700 dark:text-sky-300 text-[10px] font-bold">v2.2.0 (Windows Edition)</span>
+                        <span id="footerVersionBadge" class="px-2 py-0.5 rounded-md bg-sky-100 dark:bg-navy-800 text-sky-700 dark:text-sky-300 text-[10px] font-bold">v26.10.0 (Windows Edition)</span>
                     </p>
                     <p><span id="footerDevelopedBy">Concepito e Sviluppato da</span> <span class="font-semibold text-sky-700 dark:text-sky-400">Guaira Jaramillo Nitoglia</span> (<a href="mailto:guaira.jaramillo.nitoglia@gmail.com" class="underline hover:text-sky-600">guaira.jaramillo.nitoglia@gmail.com</a>)</p>
                 </div>
@@ -248,7 +248,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
 
         const I18N = {
             it: {
-                appTitle: "Gestione Corsi",
+                appTitle: "Class Management",
                 appSubtitle: "Presenze, Piano Lezioni, Voti, Attività, Schede di Valutazione e Costi",
                 footerPlatformDesc: "Piattaforma Accademica Multi-Livello QCER",
                 footerDevelopedBy: "Concepito e Sviluppato da",
@@ -475,7 +475,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 daysShortSun: ["Dom", "Lun", "Mar", "Mer", "Gio", "Ven", "Sab"]
             },
             en: {
-                appTitle: "Course Manager",
+                appTitle: "Class Management",
                 appSubtitle: "Attendance, Lesson Planner, Grades, Activities, Rubrics & Billing",
                 footerPlatformDesc: "Multi-Level CEFR Academic Platform",
                 footerDevelopedBy: "Conceived and Developed by",
@@ -702,7 +702,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 daysShortSun: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
             },
             es: {
-                appTitle: "Gestión de Cursos",
+                appTitle: "Class Management",
                 appSubtitle: "Asistencia, Plan de Clases, Notas, Actividades, Rúbricas y Facturación",
                 footerPlatformDesc: "Plataforma Académica Multinivel MCER",
                 footerDevelopedBy: "Concebido y Desarrollado por",
@@ -968,11 +968,22 @@ Removing, obfuscating, or altering these credits violates the author's attributi
         ];
 
         const INITIAL_DATA = {
-            version: "2.2.0",
+            version: "26.10.0",
             deletedItems: [],
             lastUpdated: new Date().toISOString(),
             activeCourseId: "",
             changelog: [
+                {
+                    version: "26.10.0",
+                    date: "2026-10-18",
+                    changes: [
+                        "Rinominata l'applicazione in 'Class Management' con adozione della licenza GNU General Public License v3.0 (GPL-3.0).",
+                        "Introdotto il nuovo sistema di versionamento basato su anno e mese (26.10.0).",
+                        "Risolta l'anomalia nel Calendario Modulo: lo spostamento o trascinamento delle lezioni preserva la posizione di scorrimento.",
+                        "Integrata la nuova icona ufficiale in alta risoluzione con trasparenza nativa e design pulito senza cornici.",
+                        "Aggiornato il motore di verifica e download aggiornamenti con rilevamento istantaneo da GitHub Releases e backup automatico pre-aggiornamento."
+                    ]
+                },
                 {
                     version: "2.2.0",
                     date: "2026-10-18",
@@ -1167,7 +1178,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                     console.warn("IndexedDB load fallback:", e);
                 }
                 try {
-                    const raw = localStorage.getItem("gestione_corsi_state_v1");
+                    const raw = localStorage.getItem("class_management_state_v1") || localStorage.getItem("gestione_corsi_state_v1");
                     return raw ? JSON.parse(raw) : null;
                 } catch (e) {
                     return null;
@@ -1176,7 +1187,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
 
             async saveState(state) {
                 try {
-                    localStorage.setItem("gestione_corsi_state_v1", JSON.stringify(state));
+                    localStorage.setItem("class_management_state_v1", JSON.stringify(state));
                 } catch (e) {
                     console.warn("localStorage save warning:", e);
                 }
@@ -1196,6 +1207,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
 
             async clearAll() {
                 try {
+                    localStorage.removeItem("class_management_state_v1");
                     localStorage.removeItem("gestione_corsi_state_v1");
                 } catch (e) {}
                 if (!this.db) return;
@@ -4430,7 +4442,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 });
 
                 txt += `
-✨ *Gestione Corsi*`;
+✨ *Class Management*`;
                 navigator.clipboard.writeText(txt).then(() => {
                     this.showToast("📋 Testo copiato per WhatsApp con successo!", "success");
                 }).catch(() => {
@@ -4531,7 +4543,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 // Footer watermark
                 ctx.fillStyle = "#64748b";
                 ctx.font = "16px sans-serif";
-                ctx.fillText("Gestione Corsi • Concepito e Sviluppato da Guaira Jaramillo Nitoglia", 70, 1150);
+                ctx.fillText("Class Management • Concepito e Sviluppato da Guaira Jaramillo Nitoglia", 70, 1150);
 
                 const a = document.createElement("a");
                 a.download = `calendario_${course.name.replace(/\s+/g, "_")}.png`;
@@ -5704,28 +5716,50 @@ Removing, obfuscating, or altering these credits violates the author's attributi
             }
 
             parseAppVersion(str) {
-                const clean = (str || "").trim().replace(/^[vV\s]+/, "");
-                const parts = clean.split("-");
-                const semverParts = (parts[0] || "").split(".");
-                const major = semverParts.length > 0 ? (parseInt(semverParts[0], 10) || 0) : 0;
-                const minor = semverParts.length > 1 ? (parseInt(semverParts[1], 10) || 0) : 0;
-                const patch = semverParts.length > 2 ? (parseInt(semverParts[2], 10) || 0) : 0;
+                let clean = (str || "").trim().replace(/^[vV\s]+/, "");
                 let betaNum = null;
-                if (parts.length > 1) {
-                    const betaStr = String(parts[1]).toLowerCase().replace(/[^0-9]/g, "");
-                    betaNum = parseInt(betaStr, 10) || 1;
+                let isBeta = false;
+
+                if (clean.includes("-")) {
+                    const parts = clean.split("-");
+                    clean = parts[0];
+                    isBeta = true;
+                    const bDigits = String(parts[1]).replace(/[^0-9]/g, "");
+                    betaNum = parseInt(bDigits, 10) || 1;
                 }
-                return { major, minor, patch, betaNum, isBeta: betaNum !== null, raw: clean };
+
+                const dotParts = clean.split(".");
+                const major = dotParts.length > 0 ? (parseInt(dotParts[0], 10) || 0) : 0;
+                const minor = dotParts.length > 1 ? (parseInt(dotParts[1], 10) || 0) : 0;
+                let patch = 0;
+
+                if (dotParts.length > 2) {
+                    const patchPart = dotParts[2].toLowerCase();
+                    if (patchPart.includes("b")) {
+                        isBeta = true;
+                        const bIdx = patchPart.indexOf("b");
+                        const pDigits = patchPart.substring(0, bIdx).replace(/[^0-9]/g, "");
+                        patch = parseInt(pDigits, 10) || 0;
+                        const afterB = patchPart.substring(bIdx + 1).replace(/[^0-9]/g, "");
+                        betaNum = parseInt(afterB, 10) || 1;
+                    } else {
+                        const pDigits = patchPart.replace(/[^0-9]/g, "");
+                        patch = parseInt(pDigits, 10) || 0;
+                    }
+                }
+
+                return { major, minor, patch, betaNum, isBeta, raw: str };
             }
 
             compareAppVersions(lhs, rhs) {
                 if (lhs.major !== rhs.major) return lhs.major - rhs.major;
                 if (lhs.minor !== rhs.minor) return lhs.minor - rhs.minor;
                 if (lhs.patch !== rhs.patch) return lhs.patch - rhs.patch;
-                // Stable release (isBeta == false) is newer than any beta with same base
-                if (!lhs.isBeta && rhs.isBeta) return 1;
+                // Both have identical major.minor.patch:
+                // Beta is strictly an earlier pre-release of the same stable version:
                 if (lhs.isBeta && !rhs.isBeta) return -1;
-                if (lhs.isBeta && rhs.isBeta) return (lhs.betaNum || 0) - (rhs.betaNum || 0);
+                if (!lhs.isBeta && rhs.isBeta) return 1;
+                if (lhs.isBeta && rhs.isBeta) return (lhs.betaNum || 1) - (rhs.betaNum || 1);
                 return 0;
             }
 
@@ -5751,7 +5785,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                         return;
                     }
 
-                    const currentVer = this.parseAppVersion(this.state.version || "2.2.0");
+                    const currentVer = this.parseAppVersion(this.state.version || "26.10.0");
                     let highestCandidate = null;
 
                     for (const rel of releases) {
@@ -5781,7 +5815,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                                     <h4 class="text-sm font-extrabold text-slate-900 dark:text-white">${this.t("startupUpdateTitle")}</h4>
                                 </div>
                                 <p class="text-slate-600 dark:text-slate-300 leading-relaxed">
-                                    È disponibile la nuova versione <strong>${this.escapeHtml(rel.tag_name)}</strong> di Gestione Corsi.
+                                    È disponibile la nuova versione <strong>${this.escapeHtml(rel.tag_name)}</strong> di ${this.t("appTitle")}.
                                     È già stato creato un backup di sicurezza dei tuoi dati.
                                 </p>
                                 <div class="flex flex-wrap items-center justify-end gap-2 pt-2">
@@ -5944,18 +5978,23 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                         <div class="bg-white dark:bg-navy-900 rounded-2xl border border-sky-100 dark:border-slate-800 p-6 shadow-xs space-y-3">
                             <div class="flex items-center gap-3">
                                 <div class="w-14 h-14 flex items-center justify-center shrink-0">
-                                    <img src="logo.png" alt="Gestione Corsi" class="w-14 h-14 object-contain">
+                                    <img src="logo.png" alt="Class Management" class="w-14 h-14 object-contain">
                                 </div>
                                 <div>
-                                    <h2 class="text-lg font-extrabold text-slate-900 dark:text-white">${this.t("appTitle")} <span class="text-xs font-bold text-sky-600">v${this.escapeHtml(this.state.version || "2.2.0")} (Windows Edition)</span></h2>
+                                    <h2 class="text-lg font-extrabold text-slate-900 dark:text-white">${this.t("appTitle")} <span class="text-xs font-bold text-sky-600">v${this.escapeHtml(this.state.version || "26.10.0")} (Windows Edition)</span></h2>
                                     <p class="text-slate-500">${this.t("appSubtitle")}</p>
                                 </div>
                             </div>
                             <div class="p-4 rounded-xl bg-sky-50/70 dark:bg-navy-800 border border-sky-200/70 dark:border-slate-700 space-y-1">
-
                                 <p class="text-[11px] uppercase tracking-wider font-extrabold text-slate-400">${this.t("footerDevelopedBy")}</p>
                                 <p class="text-sm font-extrabold text-slate-900 dark:text-white">Guaira Jaramillo Nitoglia</p>
                                 <a href="mailto:guaira.jaramillo.nitoglia@gmail.com" class="text-sky-600 dark:text-sky-400 font-bold hover:underline">guaira.jaramillo.nitoglia@gmail.com</a>
+                            </div>
+
+                            <div class="p-4 rounded-xl bg-emerald-50/70 dark:bg-emerald-950/40 border border-emerald-200/70 dark:border-emerald-800 space-y-1">
+                                <p class="text-[11px] uppercase tracking-wider font-extrabold text-emerald-600 dark:text-emerald-400">Licenza d'uso</p>
+                                <p class="text-sm font-extrabold text-slate-900 dark:text-white">GNU General Public License v3.0 (GPL-3.0)</p>
+                                <p class="text-slate-600 dark:text-slate-300">Software libero e open-source con garanzia di attribuzione dell'autore originale, libertà di esecuzione, studio e modifica sotto la medesima licenza.</p>
                             </div>
                         </div>
 

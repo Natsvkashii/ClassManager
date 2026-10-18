@@ -1083,7 +1083,7 @@ public struct SettingsView: View {
                         ))
 
                         HStack {
-                            Text("Cartella: iCloud Drive / GestioneCorsi / gestione_corsi_state_v1.json")
+                            Text("Cartella: iCloud Drive / ClassManagement / class_management_state_v1.json")
                                 .font(.caption2)
                                 .foregroundStyle(.secondary)
                             Spacer()
@@ -1370,6 +1370,25 @@ public struct CreditsView: View {
                         RoundedRectangle(cornerRadius: 12)
                             .fill(Color.blue.opacity(0.08))
                             .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color.blue.opacity(0.28)))
+                    )
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Licenza / License")
+                            .font(.caption2.bold())
+                            .foregroundStyle(.secondary)
+                            .textCase(.uppercase)
+                        Text(AuthorAttribution.licenseName)
+                            .font(.subheadline.bold())
+                        Text("Class Management è software libero concesso sotto i termini della GNU General Public License v3.0.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(14)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(Color.green.opacity(0.08))
+                            .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color.green.opacity(0.28)))
                     )
                 }
                 .padding(20)

@@ -56,22 +56,19 @@ public struct GitHubRelease: Codable, Identifiable, Equatable {
         if let name = name, !name.trimmingCharacters(in: .whitespaces).isEmpty {
             return name
         }
-        return "Gestione Corsi \(tag_name)"
+        return "Class Management \(tag_name)"
     }
 }
 
-// MARK: - Semantic & Beta Version Comparator
+// MARK: - Semantic & YY.MM.R Version Comparator
 
 public struct AppVersion: Comparable, Equatable, CustomStringConvertible {
-    public let major: Int
-    public let minor: Int
-    public let patch: Int
+    public let major: Int // Year in YY.MM.R
+    public let minor: Int // Month in YY.MM.R
+    public let patch: Int // Release in YY.MM.R
+    public let isBeta: Bool
     public let betaNumber: Int?
     public let raw: String
-
-    public var isBeta: Bool {
-        betaNumber != nil
-    }
 
     public var description: String {
         raw
@@ -80,20 +77,41 @@ public struct AppVersion: Comparable, Equatable, CustomStringConvertible {
     public init(string: String) {
         let clean = string.trimmingCharacters(in: CharacterSet(charactersIn: "vV \t\n\r"))
         self.raw = clean
-        let parts = clean.split(separator: "-", maxSplits: 1)
-        let semverParts = parts[0].split(separator: ".")
 
-        self.major = semverParts.count > 0 ? (Int(semverParts[0]) ?? 0) : 0
-        self.minor = semverParts.count > 1 ? (Int(semverParts[1]) ?? 0) : 0
-        self.patch = semverParts.count > 2 ? (Int(semverParts[2]) ?? 0) : 0
+        var base = clean
+        var beta: Int? = nil
+        var detectedBeta = false
 
-        if parts.count > 1 {
-            // e.g. "001b", "002b", "b1", "beta"
-            let betaStr = String(parts[1]).lowercased().replacingOccurrences(of: "b", with: "")
-            self.betaNumber = Int(betaStr) ?? 1
-        } else {
-            self.betaNumber = nil
+        if let dashIdx = base.firstIndex(of: "-") {
+            let suffix = String(base[base.index(after: dashIdx)...]).lowercased()
+            base = String(base[..<dashIdx])
+            detectedBeta = true
+            let digits = suffix.filter { $0.isNumber }
+            beta = Int(digits) ?? 1
         }
+
+        let dotParts = base.split(separator: ".")
+        self.major = dotParts.count > 0 ? (Int(dotParts[0]) ?? 0) : 0
+        self.minor = dotParts.count > 1 ? (Int(dotParts[1]) ?? 0) : 0
+
+        if dotParts.count > 2 {
+            let patchPart = String(dotParts[2])
+            if let bIndex = patchPart.lowercased().firstIndex(of: "b") {
+                detectedBeta = true
+                let pDigits = String(patchPart[..<bIndex]).filter { $0.isNumber }
+                self.patch = Int(pDigits) ?? 0
+                let afterB = String(patchPart[patchPart.index(after: bIndex)...]).filter { $0.isNumber }
+                beta = Int(afterB) ?? 1
+            } else {
+                let pDigits = patchPart.filter { $0.isNumber }
+                self.patch = Int(pDigits) ?? 0
+            }
+        } else {
+            self.patch = 0
+        }
+
+        self.isBeta = detectedBeta
+        self.betaNumber = detectedBeta ? (beta ?? 1) : nil
     }
 
     public static func < (lhs: AppVersion, rhs: AppVersion) -> Bool {
@@ -101,16 +119,18 @@ public struct AppVersion: Comparable, Equatable, CustomStringConvertible {
         if lhs.minor != rhs.minor { return lhs.minor < rhs.minor }
         if lhs.patch != rhs.patch { return lhs.patch < rhs.patch }
 
-        // Both have identical semver base (e.g. 2.1.1 vs 2.1.1-001b)
-        // Stable release is always newer than any beta of the same version
-        if lhs.betaNumber == nil && rhs.betaNumber != nil {
-            return false // lhs is stable, rhs is beta -> lhs > rhs
+        // Both have identical major.minor.patch (e.g. 26.10.1 vs 26.10.1b)
+        // A beta is strictly an earlier pre-release of the same stable version:
+        // lhs is beta, rhs is stable -> lhs < rhs (true)
+        // lhs is stable, rhs is beta -> lhs > rhs (false)
+        if lhs.isBeta && !rhs.isBeta {
+            return true
         }
-        if lhs.betaNumber != nil && rhs.betaNumber == nil {
-            return true // lhs is beta, rhs is stable -> lhs < rhs
+        if !lhs.isBeta && rhs.isBeta {
+            return false
         }
-        if let lBeta = lhs.betaNumber, let rBeta = rhs.betaNumber {
-            return lBeta < rBeta
+        if lhs.isBeta && rhs.isBeta {
+            return (lhs.betaNumber ?? 1) < (rhs.betaNumber ?? 1)
         }
         return false
     }
@@ -119,6 +139,7 @@ public struct AppVersion: Comparable, Equatable, CustomStringConvertible {
         return lhs.major == rhs.major &&
                lhs.minor == rhs.minor &&
                lhs.patch == rhs.patch &&
+               lhs.isBeta == rhs.isBeta &&
                lhs.betaNumber == rhs.betaNumber
     }
 }
@@ -175,7 +196,7 @@ public final class UpdateManager: NSObject, URLSessionDownloadDelegate {
 
         var request = URLRequest(url: url)
         request.setValue("application/vnd.github.v3+json", forHTTPHeaderField: "Accept")
-        request.setValue("GestioneCorsi-App/\(AuthorAttribution.appVersion)", forHTTPHeaderField: "User-Agent")
+        request.setValue("ClassManagement-App/\(AuthorAttribution.appVersion)", forHTTPHeaderField: "User-Agent")
 
         Task {
             do {
@@ -242,7 +263,7 @@ public final class UpdateManager: NSObject, URLSessionDownloadDelegate {
             self.latestRelease = nil
             self.showStartupUpdatePrompt = false
             if !silent {
-                self.statusMessage = "Gestione Corsi è aggiornato all'ultima versione (\(AuthorAttribution.appVersion))."
+                self.statusMessage = "\(AuthorAttribution.appName) è aggiornato all'ultima versione (\(AuthorAttribution.appVersion))."
             }
         }
     }
@@ -270,7 +291,7 @@ public final class UpdateManager: NSObject, URLSessionDownloadDelegate {
         let timestamp = df.string(from: Date())
         let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first
             ?? FileManager.default.temporaryDirectory
-        let backupsDir = docs.appendingPathComponent("GestioneCorsi_Backups")
+        let backupsDir = docs.appendingPathComponent("ClassManagement_Backups")
         try? FileManager.default.createDirectory(at: backupsDir, withIntermediateDirectories: true)
         let backupUrl = backupsDir.appendingPathComponent("AutoBackup_pre_update_\(AuthorAttribution.appVersion)_\(timestamp).json")
 
@@ -279,7 +300,7 @@ public final class UpdateManager: NSObject, URLSessionDownloadDelegate {
         if let data = try? encoder.encode(store.state) {
             do {
                 try data.write(to: backupUrl, options: .atomic)
-                store.showToast("💾 Backup automatico salvato in Documenti/GestioneCorsi_Backups")
+                store.showToast("💾 Backup automatico salvato in Documenti/ClassManagement_Backups")
                 return true
             } catch {
                 return false
@@ -311,7 +332,7 @@ public final class UpdateManager: NSObject, URLSessionDownloadDelegate {
         self.activeDownloadAsset = asset
 
         var request = URLRequest(url: downloadUrl)
-        request.setValue("GestioneCorsi-App/\(AuthorAttribution.appVersion)", forHTTPHeaderField: "User-Agent")
+        request.setValue("ClassManagement-App/\(AuthorAttribution.appVersion)", forHTTPHeaderField: "User-Agent")
 
         self.downloadTask = session.downloadTask(with: request)
         self.downloadTask?.resume()
@@ -363,8 +384,8 @@ public final class UpdateManager: NSObject, URLSessionDownloadDelegate {
         // Therefore, we MUST synchronously move it before dispatching to the main actor!
         let rawName = downloadTask.response?.suggestedFilename
             ?? downloadTask.originalRequest?.url?.lastPathComponent
-            ?? "Gestione-Corsi-Update.pkg"
-        let fileName = rawName.isEmpty ? "Gestione-Corsi-Update.pkg" : rawName
+            ?? "Class-Management-Update.pkg"
+        let fileName = rawName.isEmpty ? "Class-Management-Update.pkg" : rawName
         let downloadsFolder = FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first
         let targetFolder = downloadsFolder ?? FileManager.default.temporaryDirectory
         var destinationUrl = targetFolder.appendingPathComponent(fileName)
