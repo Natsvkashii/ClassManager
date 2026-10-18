@@ -1,4 +1,4 @@
-# Class Management v26.10.0-2 — Cross-Platform Suite (macOS Native & Windows Edition)
+# Class Management v26.10.1-0 — Cross-Platform Suite (macOS Native & Windows Edition)
 
 > **Author & Creator:** **Guaira Jaramillo Nitoglia**  
 > **Contact:** [guaira.jaramillo.nitoglia@gmail.com](mailto:guaira.jaramillo.nitoglia@gmail.com)  
@@ -8,30 +8,30 @@
 
 ## Overview
 
-**Class Management v26.10.0-2** is the official stable release of the comprehensive academic platform for course management, attendance tracking, QCER/CEFR rubrics, and scheduling across macOS and Windows:
+**Class Management v26.10.1-0** is the official stable release of the comprehensive academic platform for course management, attendance tracking, QCER/CEFR rubrics, and scheduling across macOS and Windows:
 
 - **macOS Edition:** Written in **pure native Swift 6.4 and SwiftUI for macOS 27** with native **EventKit (`Apple Calendar`)** integration, modern toolbar navigation, and automated updates with pre-update backups.
 - **Windows Edition:** Built on **Electron + HTML5/CSS/JavaScript (Tailwind CSS)** with full feature parity, including installer (`Setup .exe`) and portable single-file binary (`Portable .exe`).
 
-All authorship watermarks, metadata, sidebar attribution badges, footer attributions, and the **Informazioni e aggiornamenti (`About & Updates`)** section attributing **Guaira Jaramillo Nitoglia** (`guaira.jaramillo.nitoglia@gmail.com`) are strictly preserved.
+All authorship watermarks, metadata, sidebar attribution badges, footer attributions, and the **Informazioni (`About`)** section attributing **Guaira Jaramillo Nitoglia** (`guaira.jaramillo.nitoglia@gmail.com`) are strictly preserved.
 
 ---
 
 ## Versioning System
 
 Class Management adopts a calendar-based release numbering scheme:
-- Format: `YY.MM.R` with sub-release/hotfix `-X` (e.g. `26.10.0-2`)
-- **Current Stable:** `26.10.0-2` (October 2026, Release 0, Revision 2)
-- **Next Beta:** `26.10.1b` (Release 1 Beta)
+- Format: `YY.MM.R` with sub-release/hotfix `-X` (e.g. `26.10.1-0`)
+- **Current Stable:** `26.10.1-0` (October 2026, Release 1, Revision 0)
+- **Next Beta:** `26.10.2b` (Release 2 Beta)
 - Release counter `R` scales beyond 9 as needed (`26.10.10`, etc.).
 
 ---
 
-## Ready-to-Use Packages (v26.10.0-2 Stable)
+## Ready-to-Use Packages (v26.10.1-0 Stable)
 
-- **macOS Standard Installer Package (`.pkg`):** `Class-Management-26.10.0-2-Installer.pkg` (installs directly to `/Applications/Class Management.app`)
-- **Windows NSIS Installer (`.exe`):** `Class-Management-26.10.0-2-Setup.exe` (with automatic desktop & start menu shortcuts and clean uninstaller)
-- **Windows Portable Standalone (`.exe`):** `Class-Management-26.10.0-2-Portable.exe` (ready-to-run single executable without installation)
+- **macOS Standard Installer Package (`.pkg`):** `Class-Management-26.10.1-0-Installer.pkg` (installs directly to `/Applications/Class Management.app`)
+- **Windows NSIS Installer (`.exe`):** `Class-Management-26.10.1-0-Setup.exe` (with automatic desktop & start menu shortcuts and clean uninstaller)
+- **Windows Portable Standalone (`.exe`):** `Class-Management-26.10.1-0-Portable.exe` (ready-to-run single executable without installation)
 
 ---
 
