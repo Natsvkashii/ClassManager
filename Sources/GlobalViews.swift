@@ -1078,6 +1078,126 @@ public struct SettingsView: View {
                             .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color.blue.opacity(0.30)))
                     )
 
+                    // GitHub Software Updates Section
+                    VStack(alignment: .leading, spacing: 12) {
+                        HStack {
+                            Label(store.t("updatesSectionHeader"), systemImage: "arrow.triangle.2.circlepath.circle.fill")
+                                .font(.headline)
+                                .foregroundStyle(.purple)
+                            Spacer()
+                            HStack(spacing: 6) {
+                                Text("\(store.t("installedVersionLabel")): \(AuthorAttribution.appVersion)")
+                                    .font(.caption.bold())
+                                    .foregroundStyle(.secondary)
+                                Text(AuthorAttribution.appVersion.contains("-") ? store.t("betaBadge") : store.t("stableBadge"))
+                                    .font(.caption2.bold())
+                                    .padding(.horizontal, 6)
+                                    .padding(.vertical, 2)
+                                    .background(Capsule().fill(AuthorAttribution.appVersion.contains("-") ? Color.orange.opacity(0.18) : Color.green.opacity(0.18)))
+                                    .foregroundStyle(AuthorAttribution.appVersion.contains("-") ? .orange : .green)
+                            }
+                        }
+
+                        Toggle(store.t("autoCheckUpdatesLabel"), isOn: Binding(
+                            get: { store.state.settings.checkForUpdatesAutomatically },
+                            set: { store.state.settings.checkForUpdatesAutomatically = $0; store.persist() }
+                        ))
+
+                        Toggle(store.t("includeBetaUpdatesLabel"), isOn: Binding(
+                            get: { store.state.settings.includeBetaUpdates },
+                            set: { store.state.settings.includeBetaUpdates = $0; store.persist() }
+                        ))
+
+                        if UpdateManager.shared.updateAvailable, let release = UpdateManager.shared.latestRelease {
+                            VStack(alignment: .leading, spacing: 10) {
+                                HStack {
+                                    Image(systemName: "sparkles")
+                                        .foregroundStyle(.yellow)
+                                    Text("\(store.t("updateAvailableTitle")) \(release.tag_name)")
+                                        .font(.subheadline.bold())
+                                    Text(release.prerelease ? store.t("betaBadge") : store.t("stableBadge"))
+                                        .font(.caption2.bold())
+                                        .padding(.horizontal, 6)
+                                        .padding(.vertical, 2)
+                                        .background(Capsule().fill(release.prerelease ? Color.orange.opacity(0.2) : Color.green.opacity(0.2)))
+                                        .foregroundStyle(release.prerelease ? .orange : .green)
+                                    Spacer()
+                                    if let pkg = release.pkgAsset {
+                                        Text(pkg.formattedSize)
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                    }
+                                }
+
+                                if let body = release.body, !body.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                                    Text(body)
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                        .lineLimit(4)
+                                }
+
+                                if UpdateManager.shared.isDownloading {
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        ProgressView(value: UpdateManager.shared.downloadProgress)
+                                        Text(UpdateManager.shared.statusMessage)
+                                            .font(.caption2)
+                                            .foregroundStyle(.secondary)
+                                    }
+                                } else {
+                                    HStack {
+                                        Button {
+                                            UpdateManager.shared.downloadAndInstall(release: release)
+                                        } label: {
+                                            Label(store.t("downloadAndInstallBtn"), systemImage: "arrow.down.circle.fill")
+                                        }
+                                        .buttonStyle(.borderedProminent)
+                                        .tint(.purple)
+
+                                        Button {
+                                            UpdateManager.shared.openInBrowser(release: release)
+                                        } label: {
+                                            Label(store.t("viewOnGitHubBtn"), systemImage: "safari")
+                                        }
+                                    }
+                                }
+                            }
+                            .padding(12)
+                            .background(
+                                RoundedRectangle(cornerRadius: 10)
+                                    .fill(Color.purple.opacity(0.10))
+                                    .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Color.purple.opacity(0.35)))
+                            )
+                        } else {
+                            HStack {
+                                if !UpdateManager.shared.statusMessage.isEmpty {
+                                    Text(UpdateManager.shared.statusMessage)
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                                Spacer()
+                                Button {
+                                    UpdateManager.shared.checkForUpdates(includeBeta: store.state.settings.includeBetaUpdates, silent: false)
+                                } label: {
+                                    if UpdateManager.shared.isChecking {
+                                        ProgressView()
+                                            .controlSize(.small)
+                                            .padding(.trailing, 4)
+                                    }
+                                    Label(store.t("checkUpdatesNowBtn"), systemImage: "arrow.triangle.2.circlepath")
+                                }
+                                .disabled(UpdateManager.shared.isChecking)
+                                .buttonStyle(.borderedProminent)
+                                .tint(.purple)
+                            }
+                        }
+                    }
+                    .padding(14)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(Color.purple.opacity(0.08))
+                            .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color.purple.opacity(0.30)))
+                    )
+
                     Divider()
 
                     HStack {

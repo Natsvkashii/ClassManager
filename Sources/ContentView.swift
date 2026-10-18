@@ -122,6 +122,11 @@ public struct ContentView: View {
 
                 Divider()
 
+                if UpdateManager.shared.updateAvailable && !UpdateManager.shared.bannerDismissed, let rel = UpdateManager.shared.latestRelease {
+                    UpdateNotificationBanner(release: rel)
+                    Divider()
+                }
+
                 // Main Content Workspace with high-contrast Light/Dark canvas background
                 ZStack(alignment: .bottomTrailing) {
                     mainWorkspaceView
@@ -717,3 +722,86 @@ private struct FooterAttributionBar: View {
         .background(colorScheme == .dark ? Color(nsColor: .windowBackgroundColor) : Color.white)
     }
 }
+
+// MARK: - Update Notification Banner
+
+public struct UpdateNotificationBanner: View {
+    @Environment(AppStore.self) private var store
+    let release: GitHubRelease
+
+    public var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "sparkles")
+                .font(.title3)
+                .foregroundStyle(.purple)
+
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 6) {
+                    Text("\(store.t("updateAvailableTitle")) \(release.tag_name)")
+                        .font(.subheadline.bold())
+                    Text(release.prerelease ? store.t("betaBadge") : store.t("stableBadge"))
+                        .font(.caption2.bold())
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 1)
+                        .background(Capsule().fill(release.prerelease ? Color.orange.opacity(0.2) : Color.green.opacity(0.2)))
+                        .foregroundStyle(release.prerelease ? .orange : .green)
+                }
+
+                if UpdateManager.shared.isDownloading {
+                    HStack(spacing: 8) {
+                        ProgressView(value: UpdateManager.shared.downloadProgress)
+                            .frame(width: 140)
+                        Text(UpdateManager.shared.statusMessage)
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                } else if !UpdateManager.shared.statusMessage.isEmpty {
+                    Text(UpdateManager.shared.statusMessage)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            Spacer()
+
+            if UpdateManager.shared.isDownloading {
+                Button(store.t("cancelBtn")) {
+                    UpdateManager.shared.cancelDownload()
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+            } else {
+                Button {
+                    UpdateManager.shared.downloadAndInstall(release: release)
+                } label: {
+                    Label(store.t("downloadAndInstallBtn"), systemImage: "arrow.down.circle.fill")
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(.purple)
+                .controlSize(.small)
+
+                Button {
+                    UpdateManager.shared.openInBrowser(release: release)
+                } label: {
+                    Label(store.t("viewOnGitHubBtn"), systemImage: "safari")
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+            }
+
+            Button {
+                UpdateManager.shared.bannerDismissed = true
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.caption.bold())
+                    .foregroundStyle(.secondary)
+            }
+            .buttonStyle(.plain)
+            .padding(.leading, 4)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+        .background(Color.purple.opacity(0.10))
+    }
+}
+

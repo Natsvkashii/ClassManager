@@ -17,7 +17,7 @@ import AppKit
 public enum AuthorAttribution {
     public static let authorName = "Guaira Jaramillo Nitoglia"
     public static let authorEmail = "guaira.jaramillo.nitoglia@gmail.com"
-    public static let appVersion = "2.1.0"
+    public static let appVersion = "2.1.1-001b"
 }
 
 public enum NavigationTab: String, CaseIterable, Identifiable {
@@ -310,11 +310,13 @@ public struct AppSettings: Codable, Equatable {
     public var autoSyncAppleCalendar: Bool = true
     public var calendarSyncMode: String = "perCourse" // "perCourse" or "single"
     public var iCloudSyncEnabled: Bool = true
+    public var checkForUpdatesAutomatically: Bool = true
+    public var includeBetaUpdates: Bool = false
 
     public init() {}
 
     enum CodingKeys: String, CodingKey {
-        case language, theme, sidebarMini, firstDayOfWeek, dateFormat, timeFormat, currency, passThreshold, defaultLessonDuration, autoSyncAppleCalendar, calendarSyncMode, iCloudSyncEnabled
+        case language, theme, sidebarMini, firstDayOfWeek, dateFormat, timeFormat, currency, passThreshold, defaultLessonDuration, autoSyncAppleCalendar, calendarSyncMode, iCloudSyncEnabled, checkForUpdatesAutomatically, includeBetaUpdates
     }
 
     public init(from decoder: Decoder) throws {
@@ -332,6 +334,8 @@ public struct AppSettings: Codable, Equatable {
         autoSyncAppleCalendar = c.flexBool(.autoSyncAppleCalendar, default: true)
         calendarSyncMode = c.flexString(.calendarSyncMode, default: "perCourse")
         iCloudSyncEnabled = c.flexBool(.iCloudSyncEnabled, default: true)
+        checkForUpdatesAutomatically = c.flexBool(.checkForUpdatesAutomatically, default: true)
+        includeBetaUpdates = c.flexBool(.includeBetaUpdates, default: false)
     }
 
     public init(dict: [String: Any]) {
@@ -348,6 +352,8 @@ public struct AppSettings: Codable, Equatable {
         autoSyncAppleCalendar = JSONDictHelper.bool(dict["autoSyncAppleCalendar"], default: true)
         calendarSyncMode = JSONDictHelper.str(dict["calendarSyncMode"], default: "perCourse")
         iCloudSyncEnabled = JSONDictHelper.bool(dict["iCloudSyncEnabled"], default: true)
+        checkForUpdatesAutomatically = JSONDictHelper.bool(dict["checkForUpdatesAutomatically"], default: true)
+        includeBetaUpdates = JSONDictHelper.bool(dict["includeBetaUpdates"], default: false)
     }
 }
 
