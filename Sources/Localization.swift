@@ -9,7 +9,7 @@ import Foundation
 public struct L10n {
     public static let translations: [String: [String: String]] = [
         "it": [
-            "appTitle": "Gestione Corsi",
+            "appTitle": "Class Management",
             "appSubtitle": "Presenze, Piano Lezioni, Voti, Attività, Schede di Valutazione e Costi",
             "footerPlatformDesc": "Piattaforma Accademica Multi-Livello QCER",
             "footerDevelopedBy": "Concepito e Sviluppato da",
@@ -217,7 +217,7 @@ public struct L10n {
             "autoSyncCalendarLabel": "Sincronizzazione automatica con Calendario macOS (EventKit)",
             "calendarModeLabel": "Organizzazione Calendario macOS",
             "calendarModePerCourse": "Un calendario per ogni Corso (con colore del gruppo)",
-            "calendarModeSingle": "Calendario unico 'Gestione Corsi'",
+            "calendarModeSingle": "Calendario unico 'Class Management'",
             "undoActionBtn": "Annulla Azione",
             "undoToastMsg": "Azione annullata (⌘Z)",
             "nothingToUndoMsg": "Nessuna azione da annullare",
@@ -265,7 +265,7 @@ public struct L10n {
             "autoBackupPreUpdateHint": "Prima di installare verrà eseguito un backup automatico di sicurezza dei tuoi dati."
         ],
         "en": [
-            "appTitle": "Course Manager",
+            "appTitle": "Class Management",
             "appSubtitle": "Attendance, Lesson Planner, Grades, Activities, Rubrics & Billing",
             "footerPlatformDesc": "Multi-Level CEFR Academic Platform",
             "footerDevelopedBy": "Conceived and Developed by",
@@ -473,7 +473,7 @@ public struct L10n {
             "autoSyncCalendarLabel": "Automatic sync with macOS Calendar (EventKit)",
             "calendarModeLabel": "macOS Calendar Organization",
             "calendarModePerCourse": "Separate calendar per Course (matching group color)",
-            "calendarModeSingle": "Single 'Gestione Corsi' calendar",
+            "calendarModeSingle": "Single 'Class Management' calendar",
             "undoActionBtn": "Undo Action",
             "undoToastMsg": "Action undone (⌘Z)",
             "nothingToUndoMsg": "Nothing to undo",
@@ -521,7 +521,7 @@ public struct L10n {
             "autoBackupPreUpdateHint": "An automatic safety backup of your data will be created before installing."
         ],
         "es": [
-            "appTitle": "Gestión de Cursos",
+            "appTitle": "Class Management",
             "appSubtitle": "Asistencia, Plan de Clases, Notas, Actividades, Rúbricas y Facturación",
             "footerPlatformDesc": "Plataforma Académica Multinivel MCER",
             "footerDevelopedBy": "Concebido y Desarrollado por",
@@ -729,7 +729,7 @@ public struct L10n {
             "autoSyncCalendarLabel": "Sincronización automática con Calendario macOS (EventKit)",
             "calendarModeLabel": "Organización de Calendario macOS",
             "calendarModePerCourse": "Un calendario por Curso (con color del grupo)",
-            "calendarModeSingle": "Calendario único 'Gestione Corsi'",
+            "calendarModeSingle": "Calendario único 'Class Management'",
             "undoActionBtn": "Deshacer Acción",
             "undoToastMsg": "Acción deshecha (⌘Z)",
             "nothingToUndoMsg": "Nada que deshacer",

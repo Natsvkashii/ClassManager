@@ -10,9 +10,16 @@ __pycache__/
 *.pyc
 
 # Swift Build Outputs (binaries can be rebuilt via manage_version.py build)
-Gestione Corsi.app/Contents/MacOS/GestioneCorsi
+Class Management.app/Contents/MacOS/
+Class Management.app/Contents/_CodeSignature/
+Gestione Corsi.app/Contents/MacOS/
 Gestione Corsi.app/Contents/_CodeSignature/
 /tmp/swift-module-cache
+
+# Release Artifacts (distributed via GitHub Releases)
+*.pkg
+*.exe
+*.zip
 
 # Node & Electron Build Outputs
 node_modules/

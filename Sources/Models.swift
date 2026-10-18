@@ -17,7 +17,9 @@ import AppKit
 public enum AuthorAttribution {
     public static let authorName = "Guaira Jaramillo Nitoglia"
     public static let authorEmail = "guaira.jaramillo.nitoglia@gmail.com"
-    public static let appVersion = "2.2.0"
+    public static let appName = "Class Management"
+    public static let appVersion = "26.10.0"
+    public static let licenseName = "GNU General Public License v3.0 (GPL-3.0)"
 }
 
 public enum NavigationTab: String, CaseIterable, Identifiable {
@@ -1431,6 +1433,13 @@ public struct AppState: Codable, Equatable {
     ]
 
     public static let defaultChangelog: [ChangelogEntry] = [
+        ChangelogEntry(version: "26.10.0", date: "2026-10-18", changes: [
+            "Rinominata l'applicazione in 'Class Management' con adozione della licenza GNU General Public License v3.0 (GPL-3.0).",
+            "Introdotto il nuovo sistema di versionamento basato su anno e mese (26.10.0).",
+            "Risolta l'anomalia nel Calendario Modulo: lo spostamento o trascinamento delle lezioni preserva la posizione di scorrimento.",
+            "Integrata la nuova icona ufficiale in alta risoluzione con trasparenza nativa e design pulito senza cornici.",
+            "Aggiornato il motore di verifica e download aggiornamenti con rilevamento istantaneo da GitHub Releases e backup automatico pre-aggiornamento."
+        ]),
         ChangelogEntry(version: "2.2.0", date: "2026-10-18", changes: [
             "Rilascio Ufficiale della Versione Stabile 2.2.0 per macOS e Windows.",
             "Risolta l'anomalia nel Calendario Modulo: lo spostamento o trascinamento di una lezione preserva la posizione di scorrimento della pagina senza tornare in cima.",

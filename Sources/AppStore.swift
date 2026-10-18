@@ -51,11 +51,18 @@ public final class AppStore {
     private var storageFileURL: URL {
         let fm = FileManager.default
         let appSupport = fm.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
-        let dir = appSupport.appendingPathComponent("GestioneCorsi", isDirectory: true)
+        let dir = appSupport.appendingPathComponent("ClassManagement", isDirectory: true)
+        let file = dir.appendingPathComponent("class_management_state_v1.json")
         if !fm.fileExists(atPath: dir.path) {
             try? fm.createDirectory(at: dir, withIntermediateDirectories: true)
         }
-        return dir.appendingPathComponent("gestione_corsi_state_v1.json")
+        // Seamless migration from legacy path
+        let legacyDir = appSupport.appendingPathComponent("GestioneCorsi", isDirectory: true)
+        let legacyFile = legacyDir.appendingPathComponent("gestione_corsi_state_v1.json")
+        if !fm.fileExists(atPath: file.path) && fm.fileExists(atPath: legacyFile.path) {
+            try? fm.copyItem(at: legacyFile, to: file)
+        }
+        return file
     }
 
     public var iCloudDriveDirectoryURL: URL? {
@@ -65,15 +72,22 @@ public final class AppStore {
         guard fm.fileExists(atPath: cloudDocs.path) else {
             return nil
         }
-        let appCloudDir = cloudDocs.appendingPathComponent("GestioneCorsi", isDirectory: true)
+        let appCloudDir = cloudDocs.appendingPathComponent("ClassManagement", isDirectory: true)
         if !fm.fileExists(atPath: appCloudDir.path) {
             try? fm.createDirectory(at: appCloudDir, withIntermediateDirectories: true)
+        }
+        // Seamless migration from legacy iCloud path
+        let legacyCloudDir = cloudDocs.appendingPathComponent("GestioneCorsi", isDirectory: true)
+        let legacyCloudFile = legacyCloudDir.appendingPathComponent("gestione_corsi_state_v1.json")
+        let targetFile = appCloudDir.appendingPathComponent("class_management_state_v1.json")
+        if !fm.fileExists(atPath: targetFile.path) && fm.fileExists(atPath: legacyCloudFile.path) {
+            try? fm.copyItem(at: legacyCloudFile, to: targetFile)
         }
         return appCloudDir
     }
 
     public var iCloudDriveFileURL: URL? {
-        iCloudDriveDirectoryURL?.appendingPathComponent("gestione_corsi_state_v1.json")
+        iCloudDriveDirectoryURL?.appendingPathComponent("class_management_state_v1.json")
     }
 
     public var isICloudDriveAvailable: Bool {
