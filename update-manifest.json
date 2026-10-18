@@ -1,0 +1,12 @@
+{
+  "version": "26.10.1-1",
+  "tag_name": "v26.10.1-1",
+  "prerelease": false,
+  "published_at": "2026-10-18T23:35:00Z",
+  "name": "Class Management v26.10.1-1",
+  "body": "Novità versione 26.10.1-1:\n- Sistema di aggiornamento automatico per Windows completamente integrato con finestra interattiva.\n- Download con barra di avanzamento e percentuale in tempo reale.\n- Avvio dell'installer NSIS con corretta elevazione permessi e chiusura pulita dell'app.\n- Mantenimento garantito di tutte le versioni precedenti su GitHub.",
+  "setupUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.10.1-1/Class-Management-26.10.1-1-Setup.exe",
+  "setupName": "Class-Management-26.10.1-1-Setup.exe",
+  "portableUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.10.1-1/Class-Management-26.10.1-1-Portable.exe",
+  "portableName": "Class-Management-26.10.1-1-Portable.exe"
+}

@@ -15,6 +15,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     loadFile: () => ipcRenderer.invoke('load-file'),
     saveAutoBackup: (filename, data) => ipcRenderer.invoke('save-auto-backup', { filename, data }),
     getAppVersion: () => ipcRenderer.invoke('get-app-version'),
+    checkForUpdatesAPI: () => ipcRenderer.invoke('check-for-updates-api'),
     downloadUpdateAsset: (url, filename) => ipcRenderer.invoke('download-update-asset', { url, filename }),
     installUpdateAndQuit: (filePath) => ipcRenderer.invoke('install-update-and-quit', { filePath }),
     onDownloadProgress: (callback) => {

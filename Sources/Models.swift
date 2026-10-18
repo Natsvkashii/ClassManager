@@ -18,7 +18,7 @@ public enum AuthorAttribution {
     public static let authorName = "Guaira Jaramillo Nitoglia"
     public static let authorEmail = "guaira.jaramillo.nitoglia@gmail.com"
     public static let appName = "Class Management"
-    public static let appVersion = "26.10.1-0"
+    public static let appVersion = "26.10.1-1"
     public static let licenseName = "GNU General Public License v3.0 (GPL-3.0)"
 }
 
@@ -1433,6 +1433,13 @@ public struct AppState: Codable, Equatable {
     ]
 
     public static let defaultChangelog: [ChangelogEntry] = [
+        ChangelogEntry(version: "26.10.1-1", date: "2026-10-18", changes: [
+            "Perfezionato il sistema di aggiornamento automatico per Windows con finestra interattiva dedicata per la verifica, visualizzazione dei dettagli e download.",
+            "Visualizzazione della barra di avanzamento e percentuale di download in tempo reale direttamente nella finestra di aggiornamento.",
+            "Gestione affidabile della richiesta di elevazione permessi (UAC) e chiusura pulita dell'app per consentire l'installazione immediata dei file.",
+            "Aggiunto meccanismo di fallback con manifest di aggiornamento sicuro per garantire la verifica anche in caso di rate-limit delle API di GitHub.",
+            "Mantenimento permanente di tutte le versioni e rilasci storici dei binari sul repository GitHub."
+        ]),
         ChangelogEntry(version: "26.10.1-0", date: "2026-10-18", changes: [
             "Rinominata la scheda 'Informazioni e aggiornamenti' semplicemente in 'Informazioni', con il sistema di aggiornamento come card principale.",
             "Rinominata la sezione 'Griglie & Criteri' in 'Criteri di valutazione'.",
