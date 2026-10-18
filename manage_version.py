@@ -12,8 +12,9 @@
 # =====================================================================================
 
 """
-Gestione Corsi — Automated Version & Branch Manager
+Gestione Corsi — Automated Version, Branch & GitHub Release Manager
 Collaboratively designed with Qwen 2.5 Coder & Gemini Flash.
+Repository: Natsvkashii/ClassManager
 """
 
 import os
@@ -23,12 +24,17 @@ import glob
 import shutil
 import plistlib
 import subprocess
+import urllib.request
+import json
 
 PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
 MODELS_SWIFT = os.path.join(PROJECT_ROOT, "Sources", "Models.swift")
 INFO_PLIST = os.path.join(PROJECT_ROOT, "Gestione Corsi.app", "Contents", "Info.plist")
 APP_BUNDLE = os.path.join(PROJECT_ROOT, "Gestione Corsi.app")
 VERSIONS_DIR = os.path.join(PROJECT_ROOT, "Versions")
+
+REPO_OWNER = "Natsvkashii"
+REPO_NAME = "ClassManager"
 
 
 def get_git_branch():
@@ -37,6 +43,17 @@ def get_git_branch():
         return res.decode("utf-8").strip()
     except Exception:
         return "not-a-git-repo"
+
+
+def git_switch_branch(branch_name: str, create: bool = False):
+    try:
+        if create:
+            subprocess.run(["git", "checkout", "-B", branch_name], cwd=PROJECT_ROOT, check=True)
+        else:
+            subprocess.run(["git", "checkout", branch_name], cwd=PROJECT_ROOT, check=True)
+        print(f"✓ Switched to git branch '{branch_name}'")
+    except Exception as e:
+        print(f"[!] Error switching branch: {e}")
 
 
 def get_swift_version():
@@ -119,7 +136,6 @@ def archive_version_artifacts(version: str):
     target_dir = os.path.join(VERSIONS_DIR, f"v{version}")
     os.makedirs(target_dir, exist_ok=True)
     count = 0
-    # Match artifacts with version in root
     patterns = [
         f"Gestione-Corsi-{version}*.*",
         f"Gestione-Corsi-*{version}*.*"
@@ -206,6 +222,113 @@ def build_macos(package: bool = True):
     return True
 
 
+def publish_release(is_beta: bool = False):
+    cur_ver = get_swift_version() or "2.1.0"
+    if is_beta and "-" not in cur_ver:
+        cur_ver = bump_beta()
+
+    expected_branch = "unstable" if is_beta else "stable"
+    current_branch = get_git_branch()
+    if current_branch != expected_branch:
+        print(f"Switching branch from '{current_branch}' to '{expected_branch}'...")
+        git_switch_branch(expected_branch, create=True)
+
+    # 1. Build and create package
+    build_macos(package=True)
+
+    pkg_name = f"Gestione-Corsi-{cur_ver}-Installer.pkg"
+    pkg_path = os.path.join(PROJECT_ROOT, pkg_name)
+
+    # 2. Git stage & commit
+    tag_name = f"v{cur_ver}"
+    commit_msg = f"Release {tag_name} ({'Beta' if is_beta else 'Stable'})"
+
+    try:
+        subprocess.run(["git", "add", "Sources/", "Gestione Corsi.app/Contents/Info.plist", "manage_version.py", ".gitignore"], cwd=PROJECT_ROOT, check=True)
+        subprocess.run(["git", "commit", "-m", commit_msg], cwd=PROJECT_ROOT)
+    except Exception as e:
+        print(f"Commit note: {e}")
+
+    # 3. Create Git tag
+    try:
+        subprocess.run(["git", "tag", "-a", tag_name, "-m", commit_msg], cwd=PROJECT_ROOT, check=True)
+        print(f"✓ Created git tag {tag_name}")
+    except Exception as e:
+        print(f"Tag note: {e}")
+
+    # 4. Push branch and tag to origin
+    print(f"\nPushing '{expected_branch}' and tag '{tag_name}' to GitHub origin...")
+    try:
+        subprocess.run(["git", "push", "-u", "origin", expected_branch], cwd=PROJECT_ROOT, check=True)
+        subprocess.run(["git", "push", "origin", tag_name], cwd=PROJECT_ROOT, check=True)
+        print(f"✓ Successfully pushed branch and tag to GitHub!")
+    except Exception as e:
+        print(f"[!] Git push warning: {e}")
+
+    # 5. Create GitHub Release
+    token = os.environ.get("GITHUB_TOKEN")
+    if token:
+        print("\n=== Publishing Release on GitHub via API ===")
+        rel_data = {
+            "tag_name": tag_name,
+            "target_commitish": expected_branch,
+            "name": f"Gestione Corsi {tag_name}",
+            "body": f"Release di Gestione Corsi {tag_name}.\n\nAutore: Guaira Jaramillo Nitoglia (guaira.jaramillo.nitoglia@gmail.com)\nCanale: {'Beta / Unstable' if is_beta else 'Stabile'}.",
+            "draft": False,
+            "prerelease": is_beta
+        }
+        req = urllib.request.Request(
+            f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}/releases",
+            data=json.dumps(rel_data).encode("utf-8"),
+            headers={
+                "Authorization": f"token {token}",
+                "Accept": "application/vnd.github.v3+json",
+                "User-Agent": "GestioneCorsi-ReleaseManager"
+            },
+            method="POST"
+        )
+        try:
+            with urllib.request.urlopen(req) as resp:
+                res_obj = json.loads(resp.read().decode("utf-8"))
+                upload_url = res_obj.get("upload_url", "").split("{")[0]
+                release_id = res_obj.get("id")
+                print(f"✓ Created GitHub release ID: {release_id}")
+
+                # Upload pkg asset
+                if os.path.exists(pkg_path) and upload_url:
+                    print(f"Uploading installer asset {pkg_name} ({os.path.getsize(pkg_path)} bytes)...")
+                    with open(pkg_path, "rb") as f:
+                        pkg_bytes = f.read()
+                    upload_req = urllib.request.Request(
+                        f"{upload_url}?name={pkg_name}",
+                        data=pkg_bytes,
+                        headers={
+                            "Authorization": f"token {token}",
+                            "Content-Type": "application/octet-stream",
+                            "User-Agent": "GestioneCorsi-ReleaseManager"
+                        },
+                        method="POST"
+                    )
+                    with urllib.request.urlopen(upload_req) as up_resp:
+                        print("✓ Installer .pkg uploaded successfully to GitHub Release!")
+        except Exception as err:
+            print(f"[!] GitHub API release creation failed: {err}")
+    else:
+        release_web_url = f"https://github.com/{REPO_OWNER}/{REPO_NAME}/releases/new?tag={tag_name}&target={expected_branch}&title=Gestione+Corsi+{tag_name}&prerelease={1 if is_beta else 0}"
+        print("\n=======================================================")
+        print(" GITHUB RELEASE PUBLISHING")
+        print("=======================================================")
+        print(f" Tag {tag_name} and branch '{expected_branch}' pushed to GitHub.")
+        print(f" Installer generated: {pkg_name}")
+        print("\n To publish the release on GitHub with 1 click:")
+        print(f" 🔗 {release_web_url}")
+        print("\n -> Drag and drop the installer into the release page:")
+        print(f"    {pkg_path}")
+        print("\n (Tip: To publish releases 100% automatically in the terminal,")
+        print("  set 'export GITHUB_TOKEN=ghp_your_token_here' in your environment)")
+        print("=======================================================\n")
+
+
 def print_status():
     branch = get_git_branch()
     ver_swift = get_swift_version()
@@ -215,6 +338,7 @@ def print_status():
     print("\n=======================================================")
     print(" GESTIONE CORSI — PROJECT STATUS")
     print("=======================================================")
+    print(f" GitHub Repo      : https://github.com/{REPO_OWNER}/{REPO_NAME}")
     print(f" Git Branch       : {branch} ({'UNSTABLE / BETA' if branch == 'unstable' else 'STABLE' if branch == 'stable' else 'CUSTOM'})")
     print(f" Swift AppVersion : {ver_swift}")
     print(f" Info.plist       : {ver_plist}")
@@ -236,8 +360,10 @@ Commands:
   status                   Show active branch, version, and archived releases
   set-version <version>    Set exact version string across Swift and Info.plist
   bump-beta                Increment beta build number (e.g. 2.1.1-001b -> 2.1.1-002b)
+  switch-branch <name>     Switch to branch (e.g. stable, unstable)
   archive-version <ver>    Move build files matching <ver> to Versions/v<ver>/
   build [--no-pkg]         Compile, codesign, and create .pkg installer
+  publish [--beta]         Build, commit, tag, push, and publish release to GitHub
 """)
 
 
@@ -257,6 +383,11 @@ if __name__ == "__main__":
         set_version(sys.argv[2])
     elif cmd == "bump-beta":
         bump_beta()
+    elif cmd == "switch-branch":
+        if len(sys.argv) < 3:
+            print("Error: specify branch, e.g. ./manage_version.py switch-branch stable")
+            sys.exit(1)
+        git_switch_branch(sys.argv[2])
     elif cmd == "archive-version":
         if len(sys.argv) < 3:
             print("Error: specify version, e.g. ./manage_version.py archive-version 2.1.0")
@@ -265,6 +396,9 @@ if __name__ == "__main__":
     elif cmd == "build":
         pkg = "--no-pkg" not in sys.argv
         build_macos(package=pkg)
+    elif cmd == "publish":
+        is_beta = "--beta" in sys.argv
+        publish_release(is_beta=is_beta)
     else:
         print(f"Unknown command '{cmd}'")
         print_help()

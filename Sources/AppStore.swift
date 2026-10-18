@@ -93,6 +93,9 @@ public final class AppStore {
         if selectedRubricId.isEmpty {
             selectedRubricId = state.rubrics.first?.id ?? ""
         }
+        if state.settings.checkForUpdatesAutomatically {
+            UpdateManager.shared.checkForUpdates(includeBeta: state.settings.includeBetaUpdates, silent: true)
+        }
     }
 
     public func t(_ key: String) -> String {

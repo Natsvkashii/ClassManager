@@ -232,7 +232,16 @@ public struct L10n {
             "iCloudSyncHeader": "Sincronizzazione iCloud Drive",
             "iCloudSyncToggleLabel": "Sincronizza automaticamente i dati su iCloud Drive tra i tuoi computer Mac",
             "iCloudSyncNowBtn": "Sincronizza ora con iCloud",
-            "iCloudSyncedToast": "Dati sincronizzati con iCloud Drive"
+            "iCloudSyncedToast": "Dati sincronizzati con iCloud Drive",
+            "updatesSectionHeader": "Aggiornamenti Software (GitHub)",
+            "autoCheckUpdatesLabel": "Verifica aggiornamenti automaticamente all'avvio",
+            "includeBetaUpdatesLabel": "Includi versioni beta / canale di anteprima (unstable)",
+            "checkUpdatesNowBtn": "Verifica Aggiornamenti Ora",
+            "installedVersionLabel": "Versione installata",
+            "downloadAndInstallBtn": "Scarica e Installa Aggiornamento",
+            "viewOnGitHubBtn": "Vedi su GitHub",
+            "stableBadge": "Stabile",
+            "betaBadge": "Beta"
         ],
         "en": [
             "appTitle": "Course Manager",
@@ -458,7 +467,16 @@ public struct L10n {
             "iCloudSyncHeader": "iCloud Drive Synchronization",
             "iCloudSyncToggleLabel": "Automatically sync data via iCloud Drive across your Mac computers",
             "iCloudSyncNowBtn": "Sync Now with iCloud",
-            "iCloudSyncedToast": "Data synced with iCloud Drive"
+            "iCloudSyncedToast": "Data synced with iCloud Drive",
+            "updatesSectionHeader": "Software Updates (GitHub)",
+            "autoCheckUpdatesLabel": "Automatically check for updates on startup",
+            "includeBetaUpdatesLabel": "Include beta / preview versions (unstable channel)",
+            "checkUpdatesNowBtn": "Check for Updates Now",
+            "installedVersionLabel": "Installed version",
+            "downloadAndInstallBtn": "Download & Install Update",
+            "viewOnGitHubBtn": "View on GitHub",
+            "stableBadge": "Stable",
+            "betaBadge": "Beta"
         ],
         "es": [
             "appTitle": "Gestión de Cursos",
@@ -684,7 +702,16 @@ public struct L10n {
             "iCloudSyncHeader": "Sincronización con iCloud Drive",
             "iCloudSyncToggleLabel": "Sincronizar datos automáticamente en iCloud Drive entre tus ordenadores Mac",
             "iCloudSyncNowBtn": "Sincronizar ahora con iCloud",
-            "iCloudSyncedToast": "Datos sincronizados con iCloud Drive"
+            "iCloudSyncedToast": "Datos sincronizados con iCloud Drive",
+            "updatesSectionHeader": "Actualizaciones de Software (GitHub)",
+            "autoCheckUpdatesLabel": "Buscar actualizaciones automáticamente al iniciar",
+            "includeBetaUpdatesLabel": "Incluir versiones beta / canal preliminar (unstable)",
+            "checkUpdatesNowBtn": "Buscar Actualizaciones Ahora",
+            "installedVersionLabel": "Versión instalada",
+            "downloadAndInstallBtn": "Descargar e Instalar Actualización",
+            "viewOnGitHubBtn": "Ver en GitHub",
+            "stableBadge": "Estable",
+            "betaBadge": "Beta"
         ]
     ]
 
