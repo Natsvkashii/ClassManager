@@ -17,7 +17,7 @@ import AppKit
 public enum AuthorAttribution {
     public static let authorName = "Guaira Jaramillo Nitoglia"
     public static let authorEmail = "guaira.jaramillo.nitoglia@gmail.com"
-    public static let appVersion = "2.1.0"
+    public static let appVersion = "2.1.1-001b"
 }
 
 public enum NavigationTab: String, CaseIterable, Identifiable {
