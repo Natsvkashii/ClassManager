@@ -16,7 +16,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Class Management v26.10.0 (Windows Edition)</title>
+    <title>Class Management v26.10.0-2 (Windows Edition)</title>
     <link rel="icon" type="image/png" href="logo.png">
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -166,7 +166,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
             <!-- Bottom App Badge -->
             <div class="p-3 border-t border-sky-100 dark:border-slate-800">
                 <div class="sidebar-footer-card p-2 rounded-xl bg-sky-50/70 dark:bg-navy-800/70 border border-sky-200/50 dark:border-slate-700/60 text-[10px] text-center text-slate-500 dark:text-slate-400 font-semibold">
-                    <span>Class Management v26.10.0</span>
+                    <span>Class Management v26.10.0-2</span>
                 </div>
             </div>
         </aside>
@@ -204,7 +204,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 <div class="w-full px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-2">
                     <p class="flex items-center gap-2">
                         <span id="footerPlatformDesc" class="text-slate-400 dark:text-slate-500">Piattaforma Accademica Multi-Livello QCER</span>
-                        <span id="footerVersionBadge" class="px-2 py-0.5 rounded-md bg-sky-100 dark:bg-navy-800 text-sky-700 dark:text-sky-300 text-[10px] font-bold">v26.10.0 (Windows Edition)</span>
+                        <span id="footerVersionBadge" class="px-2 py-0.5 rounded-md bg-sky-100 dark:bg-navy-800 text-sky-700 dark:text-sky-300 text-[10px] font-bold">v26.10.0-2 (Windows Edition)</span>
                     </p>
                     <p><span id="footerDevelopedBy">Concepito e Sviluppato da</span> <span class="font-semibold text-sky-700 dark:text-sky-400">Guaira Jaramillo Nitoglia</span> (<a href="mailto:guaira.jaramillo.nitoglia@gmail.com" class="underline hover:text-sky-600">guaira.jaramillo.nitoglia@gmail.com</a>)</p>
                 </div>
@@ -268,7 +268,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 navStudents: "Anagrafica",
                 navArchived: "Archivio",
                 navSettings: "Opzioni",
-                navCredits: "Crediti",
+                navCredits: "Informazioni e aggiornamenti",
                 navRubrics: "Griglie & Criteri",
                 navTrashBin: "Cestino",
                 trashEmptyMsg: "Il cestino è vuoto",
@@ -495,7 +495,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 navStudents: "Directory",
                 navArchived: "Archive",
                 navSettings: "Settings",
-                navCredits: "Credits",
+                navCredits: "About & Updates",
                 navRubrics: "Rubrics & Criteria",
                 navTrashBin: "Trash Bin",
                 trashEmptyMsg: "The trash is empty",
@@ -722,7 +722,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 navStudents: "Directorio",
                 navArchived: "Archivo",
                 navSettings: "Ajustes",
-                navCredits: "Créditos",
+                navCredits: "Información y actualizaciones",
                 navRubrics: "Rúbricas & Criterios",
                 navTrashBin: "Papelera",
                 trashEmptyMsg: "La papelera está vacía",
@@ -968,11 +968,22 @@ Removing, obfuscating, or altering these credits violates the author's attributi
         ];
 
         const INITIAL_DATA = {
-            version: "26.10.0",
+            version: "26.10.0-2",
             deletedItems: [],
             lastUpdated: new Date().toISOString(),
             activeCourseId: "",
             changelog: [
+                {
+                    version: "26.10.0-2",
+                    date: "2026-10-18",
+                    changes: [
+                        "Risolta l'anomalia di blocco dell'applicazione su Windows durante l'aggiornamento automatico e il salvataggio del backup preventivo con architettura asincrona non bloccante.",
+                        "Integrato in-app il download e l'avvio guidato dell'installer per Windows con chiusura pulita dell'app per sbloccare i file di sistema durante l'installazione.",
+                        "Riprogettata la sezione 'Informazioni e aggiornamenti': il sistema di verifica, download e installazione degli aggiornamenti è ora l'elemento principale della schermata.",
+                        "Riorganizzati i crediti d'autore e la licenza GPL-3.0 in un pulsante informativo dedicato 'i' in stile macOS.",
+                        "Ottimizzata la consultazione del changelog: visualizzazione mirata dell'ultima versione installata anziché l'intero storico cronologico."
+                    ]
+                },
                 {
                     version: "26.10.0",
                     date: "2026-10-18",
@@ -5717,54 +5728,156 @@ Removing, obfuscating, or altering these credits violates the author's attributi
 
             parseAppVersion(str) {
                 let clean = (str || "").trim().replace(/^[vV\s]+/, "");
-                let betaNum = null;
-                let isBeta = false;
+                const isBetaCandidate = clean.toLowerCase().includes("b") || clean.toLowerCase().includes("beta");
+                let base = clean;
+                let beta = null;
+                let rev = 0;
 
-                if (clean.includes("-")) {
-                    const parts = clean.split("-");
-                    clean = parts[0];
-                    isBeta = true;
-                    const bDigits = String(parts[1]).replace(/[^0-9]/g, "");
-                    betaNum = parseInt(bDigits, 10) || 1;
+                if (base.includes("-")) {
+                    const dashIdx = base.indexOf("-");
+                    const suffix = base.substring(dashIdx + 1);
+                    base = base.substring(0, dashIdx);
+                    const digits = suffix.replace(/[^0-9]/g, "");
+                    if (isBetaCandidate) {
+                        beta = parseInt(digits, 10) || 1;
+                    } else {
+                        rev = parseInt(digits, 10) || 0;
+                    }
                 }
 
-                const dotParts = clean.split(".");
+                const dotParts = base.split(".");
                 const major = dotParts.length > 0 ? (parseInt(dotParts[0], 10) || 0) : 0;
                 const minor = dotParts.length > 1 ? (parseInt(dotParts[1], 10) || 0) : 0;
                 let patch = 0;
 
                 if (dotParts.length > 2) {
-                    const patchPart = dotParts[2].toLowerCase();
-                    if (patchPart.includes("b")) {
-                        isBeta = true;
-                        const bIdx = patchPart.indexOf("b");
+                    const patchPart = dotParts[2];
+                    const bIdx = patchPart.toLowerCase().indexOf("b");
+                    if (bIdx >= 0) {
                         const pDigits = patchPart.substring(0, bIdx).replace(/[^0-9]/g, "");
                         patch = parseInt(pDigits, 10) || 0;
                         const afterB = patchPart.substring(bIdx + 1).replace(/[^0-9]/g, "");
-                        betaNum = parseInt(afterB, 10) || 1;
+                        beta = parseInt(afterB, 10) || (beta || 1);
                     } else {
                         const pDigits = patchPart.replace(/[^0-9]/g, "");
                         patch = parseInt(pDigits, 10) || 0;
                     }
                 }
 
-                return { major, minor, patch, betaNum, isBeta, raw: str };
+                return {
+                    major,
+                    minor,
+                    patch,
+                    revision: rev,
+                    isBeta: isBetaCandidate,
+                    betaNumber: isBetaCandidate ? (beta || 1) : null,
+                    raw: clean
+                };
             }
 
             compareAppVersions(lhs, rhs) {
                 if (lhs.major !== rhs.major) return lhs.major - rhs.major;
                 if (lhs.minor !== rhs.minor) return lhs.minor - rhs.minor;
                 if (lhs.patch !== rhs.patch) return lhs.patch - rhs.patch;
-                // Both have identical major.minor.patch:
-                // Beta is strictly an earlier pre-release of the same stable version:
+                if (lhs.revision !== rhs.revision) return lhs.revision - rhs.revision;
+
+                // Both have identical major.minor.patch.revision
+                // A beta is strictly an earlier pre-release of the same stable version:
                 if (lhs.isBeta && !rhs.isBeta) return -1;
                 if (!lhs.isBeta && rhs.isBeta) return 1;
-                if (lhs.isBeta && rhs.isBeta) return (lhs.betaNum || 1) - (rhs.betaNum || 1);
+                if (lhs.isBeta && rhs.isBeta) {
+                    return (lhs.betaNumber || 1) - (rhs.betaNumber || 1);
+                }
                 return 0;
+            }
+
+            async manualBackupNow() {
+                await this.performPreUpdateBackup();
+                this.showToast("Backup preventivo salvato con successo!", "success");
+            }
+
+            async startUpdateDownload(url, fileName) {
+                if (!window.electronAPI || typeof window.electronAPI.downloadUpdateAsset !== "function") {
+                    if (window.electronAPI && typeof window.electronAPI.openExternal === "function") {
+                        window.electronAPI.openExternal(url);
+                    } else {
+                        window.open(url, "_blank");
+                    }
+                    return;
+                }
+
+                // Automatic safety backup before downloading
+                await this.performPreUpdateBackup();
+                this.updateState = {
+                    isDownloading: true,
+                    downloadPercent: 0,
+                    statusText: "Avvio download dell'aggiornamento...",
+                    downloadedPath: null
+                };
+                if (this.activeTab === "credits") {
+                    this.renderCreditsView(document.getElementById("mainContentArea"));
+                }
+
+                const removeListener = window.electronAPI.onDownloadProgress((data) => {
+                    const percent = data.percent || 0;
+                    const recMB = (data.receivedBytes / (1024 * 1024)).toFixed(1);
+                    const totMB = (data.totalBytes / (1024 * 1024)).toFixed(1);
+                    if (this.updateState) {
+                        this.updateState.downloadPercent = percent;
+                        this.updateState.statusText = `Scaricamento: ${recMB} MB / ${totMB} MB (${percent}%)`;
+                    }
+                    const pBar = document.getElementById("updateProgressBar");
+                    const pText = document.getElementById("updateProgressText");
+                    if (pBar) pBar.style.width = `${percent}%`;
+                    if (pText) pText.textContent = `Scaricamento: ${recMB} MB / ${totMB} MB (${percent}%)`;
+                });
+
+                try {
+                    const res = await window.electronAPI.downloadUpdateAsset(url, fileName || "Class-Management-Update.exe");
+                    removeListener();
+                    if (res && res.success && res.filePath) {
+                        if (this.updateState) {
+                            this.updateState.isDownloading = false;
+                            this.updateState.downloadedPath = res.filePath;
+                            this.updateState.statusText = "Download completato! Avvio installazione e chiusura applicazione...";
+                        }
+                        this.showToast("Download completato! Chiusura applicazione e avvio installer...", "success");
+                        if (this.activeTab === "credits") {
+                            this.renderCreditsView(document.getElementById("mainContentArea"));
+                        }
+                        // Launch installer and quit app gracefully
+                        setTimeout(async () => {
+                            await window.electronAPI.installUpdateAndQuit(res.filePath);
+                        }, 1200);
+                    } else {
+                        if (this.updateState) {
+                            this.updateState.isDownloading = false;
+                            this.updateState.statusText = "Errore durante il download: " + (res.error || "Sconosciuto");
+                        }
+                        this.showToast("Errore durante il download dell'aggiornamento", "danger");
+                        if (this.activeTab === "credits") {
+                            this.renderCreditsView(document.getElementById("mainContentArea"));
+                        }
+                    }
+                } catch (err) {
+                    removeListener();
+                    if (this.updateState) {
+                        this.updateState.isDownloading = false;
+                        this.updateState.statusText = "Errore: " + err.message;
+                    }
+                    this.showToast("Errore: " + err.message, "danger");
+                    if (this.activeTab === "credits") {
+                        this.renderCreditsView(document.getElementById("mainContentArea"));
+                    }
+                }
             }
 
             async checkForUpdates(manual = false) {
                 if (manual) {
+                    this.updateCheckInProgress = true;
+                    if (this.activeTab === "credits") {
+                        this.renderCreditsView(document.getElementById("mainContentArea"));
+                    }
                     this.showToast("Controllo aggiornamenti in corso...", "info");
                 }
                 const nowIso = new Date().toISOString();
@@ -5775,68 +5888,108 @@ Removing, obfuscating, or altering these credits violates the author's attributi
 
                 try {
                     const res = await fetch("https://api.github.com/repos/Natsvkashii/ClassManager/releases");
+                    this.updateCheckInProgress = false;
                     if (!res.ok) {
-                        if (manual) this.showToast("Nessun aggiornamento o rete non disponibile", "info");
+                        if (manual) {
+                            this.showToast("Nessun aggiornamento o rete non disponibile", "info");
+                            if (this.activeTab === "credits") this.renderCreditsView(document.getElementById("mainContentArea"));
+                        }
                         return;
                     }
                     const releases = await res.json();
                     if (!Array.isArray(releases) || releases.length === 0) {
-                        if (manual) this.showToast("L'applicazione è già aggiornata all'ultima versione!", "success");
+                        this.availableUpdate = null;
+                        if (manual) {
+                            this.showToast("L'applicazione è già aggiornata all'ultima versione!", "success");
+                            if (this.activeTab === "credits") this.renderCreditsView(document.getElementById("mainContentArea"));
+                        }
                         return;
                     }
 
-                    const currentVer = this.parseAppVersion(this.state.version || "26.10.0");
+                    const currentVer = this.parseAppVersion(this.state.version || "26.10.0-2");
+                    const includeBeta = this.state.settings?.includeBetaUpdates === true;
                     let highestCandidate = null;
 
                     for (const rel of releases) {
+                        if (rel.prerelease && !includeBeta) continue;
                         const parsed = this.parseAppVersion(rel.tag_name || "");
+                        if (parsed.isBeta && !includeBeta) continue;
                         if (!highestCandidate || this.compareAppVersions(parsed, highestCandidate.parsed) > 0) {
                             highestCandidate = { release: rel, parsed };
                         }
                     }
 
                     if (highestCandidate && this.compareAppVersions(highestCandidate.parsed, currentVer) > 0) {
-                        // Pre-update automatic backup
-                        await this.performPreUpdateBackup();
-
                         const rel = highestCandidate.release;
                         const assets = rel.assets || [];
                         const setupAsset = assets.find(a => (a.name || "").toLowerCase().includes("setup") && (a.name || "").toLowerCase().endsWith(".exe"));
                         const portableAsset = assets.find(a => (a.name || "").toLowerCase().includes("portable") && (a.name || "").toLowerCase().endsWith(".exe"));
                         const anyExe = setupAsset || portableAsset || assets.find(a => (a.name || "").toLowerCase().endsWith(".exe"));
                         const primaryUrl = setupAsset ? setupAsset.browser_download_url : (anyExe ? anyExe.browser_download_url : (rel.html_url || "https://github.com/Natsvkashii/ClassManager/releases"));
+                        const primaryName = setupAsset ? setupAsset.name : (anyExe ? anyExe.name : "Class-Management-Update.exe");
                         const portableUrl = portableAsset ? portableAsset.browser_download_url : null;
 
-                        // Show Startup/Detected Update Modal
-                        this.openModal(`
-                            <div class="p-6 space-y-4 text-xs max-w-md">
-                                <div class="flex items-center gap-2.5 text-sky-600">
-                                    <i class="fa-solid fa-cloud-arrow-down text-xl"></i>
-                                    <h4 class="text-sm font-extrabold text-slate-900 dark:text-white">${this.t("startupUpdateTitle")}</h4>
-                                </div>
-                                <p class="text-slate-600 dark:text-slate-300 leading-relaxed">
-                                    È disponibile la nuova versione <strong>${this.escapeHtml(rel.tag_name)}</strong> di ${this.t("appTitle")}.
-                                    È già stato creato un backup di sicurezza dei tuoi dati.
-                                </p>
-                                <div class="flex flex-wrap items-center justify-end gap-2 pt-2">
-                                    <button onclick="app.closeModal()" class="px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 font-bold">${this.t("updateLaterBtn")}</button>
-                                    ${portableUrl ? `
-                                        <button onclick="if(window.electronAPI){window.electronAPI.openExternal('${portableUrl}');}else{window.open('${portableUrl}','_blank');}app.closeModal();" class="px-3.5 py-2 rounded-xl border border-sky-300 dark:border-sky-700 bg-sky-50 dark:bg-navy-800 text-sky-700 dark:text-sky-300 font-bold hover:bg-sky-100 flex items-center gap-1.5">
-                                            <i class="fa-solid fa-box-archive"></i> Portable .exe
+                        this.availableUpdate = {
+                            release: rel,
+                            parsed: highestCandidate.parsed,
+                            primaryUrl,
+                            primaryName,
+                            portableUrl
+                        };
+
+                        if (this.activeTab === "credits") {
+                            this.renderCreditsView(document.getElementById("mainContentArea"));
+                        }
+
+                        // Pre-update automatic backup
+                        await this.performPreUpdateBackup();
+
+                        if (!manual) {
+                            // Show Startup/Detected Update Modal
+                            this.openModal(`
+                                <div class="p-6 space-y-4 text-xs max-w-md">
+                                    <div class="flex items-center gap-2.5 text-sky-600">
+                                        <i class="fa-solid fa-cloud-arrow-down text-xl"></i>
+                                        <h4 class="text-sm font-extrabold text-slate-900 dark:text-white">${this.t("startupUpdateTitle")}</h4>
+                                    </div>
+                                    <p class="text-slate-600 dark:text-slate-300 leading-relaxed">
+                                        È disponibile la nuova versione <strong>${this.escapeHtml(rel.tag_name)}</strong> di ${this.t("appTitle")}.
+                                        È già stato creato un backup di sicurezza dei tuoi dati.
+                                    </p>
+                                    <div class="flex flex-wrap items-center justify-end gap-2 pt-2">
+                                        <button type="button" onclick="app.closeModal()" class="px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 font-bold">${this.t("updateLaterBtn")}</button>
+                                        ${portableUrl ? `
+                                            <button type="button" onclick="if(window.electronAPI){window.electronAPI.openExternal('${portableUrl}');}else{window.open('${portableUrl}','_blank');}app.closeModal();" class="px-3.5 py-2 rounded-xl border border-sky-300 dark:border-sky-700 bg-sky-50 dark:bg-navy-800 text-sky-700 dark:text-sky-300 font-bold hover:bg-sky-100 flex items-center gap-1.5">
+                                                <i class="fa-solid fa-box-archive"></i> Portable .exe
+                                            </button>
+                                        ` : ''}
+                                        <button type="button" onclick="app.closeModal(); app.startUpdateDownload('${primaryUrl}', '${primaryName}');" class="px-4 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-extrabold shadow-2xs inline-flex items-center gap-1.5">
+                                            <i class="fa-solid fa-download"></i> ${setupAsset ? 'Scarica Setup (.exe)' : this.t("updateNowBtn")}
                                         </button>
-                                    ` : ''}
-                                    <button onclick="if(window.electronAPI){window.electronAPI.openExternal('${primaryUrl}');}else{window.open('${primaryUrl}','_blank');}app.closeModal();" class="px-4 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-extrabold shadow-2xs inline-flex items-center gap-1.5">
-                                        <i class="fa-solid fa-download"></i> ${setupAsset ? 'Scarica Setup (.exe)' : this.t("updateNowBtn")}
-                                    </button>
+                                    </div>
                                 </div>
-                            </div>
-                        `, "max-w-md");
-                    } else if (manual) {
-                        this.showToast("L'applicazione è già aggiornata all'ultima versione!", "success");
+                            `, "max-w-md");
+                        } else {
+                            this.showToast(`Aggiornamento trovato: ${rel.tag_name}`, "success");
+                        }
+                    } else {
+                        this.availableUpdate = null;
+                        if (manual) {
+                            this.showToast("L'applicazione è già aggiornata all'ultima versione!", "success");
+                            if (this.activeTab === "credits") {
+                                this.renderCreditsView(document.getElementById("mainContentArea"));
+                            }
+                        }
                     }
                 } catch (e) {
                     console.error("Update check error:", e);
-                    if (manual) this.showToast("Impossibile verificare gli aggiornamenti al momento", "info");
+                    this.updateCheckInProgress = false;
+                    if (manual) {
+                        this.showToast("Impossibile verificare gli aggiornamenti al momento", "info");
+                        if (this.activeTab === "credits") {
+                            this.renderCreditsView(document.getElementById("mainContentArea"));
+                        }
+                    }
                 }
             }
 
@@ -5905,30 +6058,18 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                                 </div>
                             </div>
 
-                            <!-- Automatic Updates & Pre-Update Safety Backup -->
-                            <div class="pt-4 border-t border-sky-100 dark:border-slate-800 space-y-3">
-                                <div class="flex flex-wrap items-center justify-between gap-3">
-                                    <div>
-                                        <h4 class="font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
-                                            <i class="fa-solid fa-arrows-rotate text-sky-600"></i>
-                                            <span>Aggiornamenti & Backup Automatico</span>
-                                        </h4>
-                                        <p class="text-[11px] text-slate-400 mt-0.5">${this.t("autoBackupBeforeUpdateNote")}</p>
-                                    </div>
-                                    <button type="button" onclick="app.checkForUpdates(true)" class="px-3.5 py-1.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-bold flex items-center gap-1.5 shadow-2xs transition">
-                                        <i class="fa-solid fa-cloud-arrow-down"></i> ${this.t("checkUpdatesNowBtn")}
-                                    </button>
-                                </div>
-
+                            <!-- Link to Informazioni e aggiornamenti -->
+                            <div class="pt-4 border-t border-sky-100 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                                 <div>
-                                    <label class="block font-bold mb-1">${this.t("updateCheckFrequencyLabel")}</label>
-                                    <select onchange="app.updateSetting('updateCheckFrequency', this.value)" class="w-full rounded-xl border border-sky-200 dark:border-slate-700 bg-transparent px-3 py-2 font-bold">
-                                        <option value="startup" ${s.updateCheckFrequency === 'startup' ? 'selected' : ''}>${this.t("updateFreqStartup")}</option>
-                                        <option value="daily" ${s.updateCheckFrequency === 'daily' ? 'selected' : ''}>${this.t("updateFreqDaily")}</option>
-                                        <option value="weekly" ${s.updateCheckFrequency === 'weekly' ? 'selected' : ''}>${this.t("updateFreqWeekly")}</option>
-                                        <option value="manual" ${s.updateCheckFrequency === 'manual' ? 'selected' : ''}>${this.t("updateFreqManual")}</option>
-                                    </select>
+                                    <h4 class="font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
+                                        <i class="fa-solid fa-arrows-rotate text-sky-600"></i>
+                                        <span>${this.t("navCredits")}</span>
+                                    </h4>
+                                    <p class="text-[11px] text-slate-400 mt-0.5">Gestisci aggiornamenti, frequenza di verifica e dettagli applicazione nella schermata dedicata.</p>
                                 </div>
+                                <button type="button" onclick="app.switchTab('credits')" class="px-3.5 py-1.5 rounded-xl bg-sky-50 dark:bg-navy-800 text-sky-600 dark:text-sky-300 border border-sky-200 dark:border-slate-700 font-bold flex items-center gap-1.5 hover:bg-sky-100 dark:hover:bg-navy-700 transition shrink-0">
+                                    <i class="fa-solid fa-arrow-right"></i> Apri
+                                </button>
                             </div>
 
                             <div class="flex flex-wrap items-center justify-between gap-2 pt-4 border-t border-sky-100 dark:border-slate-800">
@@ -5970,52 +6111,224 @@ Removing, obfuscating, or altering these credits violates the author's attributi
             }
 
             /**
-             * Credits ("Crediti") View — Strictly preserves Guaira Jaramillo Nitoglia attribution
+             * "Informazioni e aggiornamenti" View
+             * The update system is the MAIN element of this view.
+             * Credits are moved into a dedicated 'i' (info) button popover/modal.
+             * Only the latest version changelog is shown in this view.
              */
             renderCreditsView(container) {
+                const s = this.state.settings || {};
+                const currentVer = this.state.version || "26.10.0-2";
+                const latestChangelog = (this.state.changelog && this.state.changelog.length > 0) ? this.state.changelog[0] : null;
+                const update = this.availableUpdate;
+                const isDownloading = this.updateState?.isDownloading;
+                const downloadPercent = this.updateState?.downloadPercent || 0;
+                const statusMsg = this.updateState?.statusText || (this.updateCheckInProgress ? "Verifica aggiornamenti in corso..." : (update ? `È disponibile una nuova versione: ${update.release.tag_name}` : "Class Management è aggiornato all'ultima versione."));
+
                 container.innerHTML = `
                     <div class="max-w-3xl mx-auto space-y-5 text-xs">
-                        <div class="bg-white dark:bg-navy-900 rounded-2xl border border-sky-100 dark:border-slate-800 p-6 shadow-xs space-y-3">
-                            <div class="flex items-center gap-3">
-                                <div class="w-14 h-14 flex items-center justify-center shrink-0">
-                                    <img src="logo.png" alt="Class Management" class="w-14 h-14 object-contain">
-                                </div>
-                                <div>
-                                    <h2 class="text-lg font-extrabold text-slate-900 dark:text-white">${this.t("appTitle")} <span class="text-xs font-bold text-sky-600">v${this.escapeHtml(this.state.version || "26.10.0")} (Windows Edition)</span></h2>
-                                    <p class="text-slate-500">${this.t("appSubtitle")}</p>
-                                </div>
+                        <!-- Top Header with 'i' Info Button -->
+                        <div class="flex items-center justify-between gap-4">
+                            <div>
+                                <h2 class="text-xl font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
+                                    <span>${this.t("navCredits")}</span>
+                                </h2>
+                                <p class="text-slate-500 mt-0.5">Gestione aggiornamenti, frequenza di verifica e dettagli applicazione</p>
                             </div>
-                            <div class="p-4 rounded-xl bg-sky-50/70 dark:bg-navy-800 border border-sky-200/70 dark:border-slate-700 space-y-1">
-                                <p class="text-[11px] uppercase tracking-wider font-extrabold text-slate-400">${this.t("footerDevelopedBy")}</p>
-                                <p class="text-sm font-extrabold text-slate-900 dark:text-white">Guaira Jaramillo Nitoglia</p>
-                                <a href="mailto:guaira.jaramillo.nitoglia@gmail.com" class="text-sky-600 dark:text-sky-400 font-bold hover:underline">guaira.jaramillo.nitoglia@gmail.com</a>
-                            </div>
-
-                            <div class="p-4 rounded-xl bg-emerald-50/70 dark:bg-emerald-950/40 border border-emerald-200/70 dark:border-emerald-800 space-y-1">
-                                <p class="text-[11px] uppercase tracking-wider font-extrabold text-emerald-600 dark:text-emerald-400">Licenza d'uso</p>
-                                <p class="text-sm font-extrabold text-slate-900 dark:text-white">GNU General Public License v3.0 (GPL-3.0)</p>
-                                <p class="text-slate-600 dark:text-slate-300">Software libero e open-source con garanzia di attribuzione dell'autore originale, libertà di esecuzione, studio e modifica sotto la medesima licenza.</p>
-                            </div>
+                            <button type="button" onclick="app.openInfoAndCreditsModal()" class="w-9 h-9 rounded-full bg-sky-100 dark:bg-navy-800 text-sky-600 dark:text-sky-300 border border-sky-200 dark:border-slate-700 hover:bg-sky-200 dark:hover:bg-navy-700 flex items-center justify-center font-bold text-sm shadow-2xs transition" title="Informazioni sull'applicazione e crediti">
+                                <i class="fa-solid fa-info"></i>
+                            </button>
                         </div>
 
-                        <div class="bg-white dark:bg-navy-900 rounded-2xl border border-sky-100 dark:border-slate-800 p-6 shadow-xs space-y-4">
-                            <h3 class="text-sm font-extrabold text-slate-900 dark:text-white">Changelog</h3>
-                            <div class="space-y-4">
-                                ${(this.state.changelog || []).map(entry => `
-                                    <div class="p-4 rounded-xl bg-slate-50 dark:bg-navy-800/60 border border-sky-100 dark:border-slate-800 space-y-2">
-                                        <div class="flex items-center justify-between">
-                                            <span class="px-2.5 py-0.5 rounded-lg bg-sky-600 text-white font-extrabold">v${this.escapeHtml(entry.version)}</span>
-                                            <span class="text-slate-400 font-semibold">${this.escapeHtml(entry.date)}</span>
-                                        </div>
-                                        <ul class="list-disc pl-5 space-y-1 text-slate-600 dark:text-slate-300">
-                                            ${(entry.changes || []).map(ch => `<li>${this.escapeHtml(ch)}</li>`).join("")}
-                                        </ul>
+                        <!-- MAIN ELEMENT: Update System Card -->
+                        <div class="bg-white dark:bg-navy-900 rounded-2xl border border-sky-100 dark:border-slate-800 p-6 shadow-xs space-y-5">
+                            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-sky-100 dark:border-slate-800">
+                                <div class="flex items-center gap-3.5">
+                                    <div class="w-12 h-12 flex items-center justify-center shrink-0">
+                                        <img src="logo.png" alt="Class Management" class="w-12 h-12 object-contain">
                                     </div>
-                                `).join("")}
+                                    <div>
+                                        <div class="flex items-center gap-2">
+                                            <h3 class="text-base font-extrabold text-slate-900 dark:text-white">${this.t("appTitle")}</h3>
+                                            <span class="px-2.5 py-0.5 rounded-full bg-sky-100 dark:bg-navy-800 text-sky-700 dark:text-sky-300 font-extrabold text-[11px]">v${this.escapeHtml(currentVer)}</span>
+                                            <span class="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Windows Edition</span>
+                                        </div>
+                                        <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5" id="updateStatusText">${this.escapeHtml(statusMsg)}</p>
+                                    </div>
+                                </div>
+                                <button type="button" onclick="app.checkForUpdates(true)" ${this.updateCheckInProgress ? 'disabled' : ''} class="px-4 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 disabled:opacity-50 text-white font-extrabold flex items-center gap-2 shadow-2xs transition shrink-0 self-start sm:self-auto">
+                                    <i class="fa-solid fa-arrows-rotate ${this.updateCheckInProgress ? 'fa-spin' : ''}"></i>
+                                    <span>${this.updateCheckInProgress ? 'Verifica in corso...' : 'Verifica aggiornamenti'}</span>
+                                </button>
                             </div>
+
+                            <!-- Update Settings -->
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block font-bold mb-1.5">${this.t("updateCheckFrequencyLabel")}</label>
+                                    <select onchange="app.updateSetting('updateCheckFrequency', this.value)" class="w-full rounded-xl border border-sky-200 dark:border-slate-700 bg-transparent px-3 py-2 font-bold">
+                                        <option value="startup" ${s.updateCheckFrequency === 'startup' ? 'selected' : ''}>${this.t("updateFreqStartup")}</option>
+                                        <option value="daily" ${s.updateCheckFrequency === 'daily' ? 'selected' : ''}>${this.t("updateFreqDaily")}</option>
+                                        <option value="weekly" ${s.updateCheckFrequency === 'weekly' ? 'selected' : ''}>${this.t("updateFreqWeekly")}</option>
+                                        <option value="manual" ${s.updateCheckFrequency === 'manual' ? 'selected' : ''}>${this.t("updateFreqManual")}</option>
+                                    </select>
+                                </div>
+                                <div class="flex items-center">
+                                    <label class="flex items-center gap-2.5 cursor-pointer pt-3 sm:pt-4">
+                                        <input type="checkbox" ${s.includeBetaUpdates ? 'checked' : ''} onchange="app.updateSetting('includeBetaUpdates', this.checked); app.checkForUpdates(false);" class="w-4 h-4 rounded border-sky-300 text-sky-600 focus:ring-sky-500">
+                                        <span class="font-bold text-slate-700 dark:text-slate-300">Includi versioni beta e anteprime</span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <!-- Pre-update backup info -->
+                            <div class="p-3.5 rounded-xl bg-sky-50/70 dark:bg-navy-800/60 border border-sky-200/60 dark:border-slate-700/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                <div class="flex items-center gap-2 text-slate-600 dark:text-slate-300">
+                                    <i class="fa-solid fa-shield-halved text-sky-600"></i>
+                                    <span>${this.t("autoBackupBeforeUpdateNote")}</span>
+                                </div>
+                                <button type="button" onclick="app.manualBackupNow()" class="px-3 py-1.5 rounded-lg border border-sky-300 dark:border-slate-600 bg-white dark:bg-navy-700 text-sky-700 dark:text-sky-300 font-bold hover:bg-sky-50 dark:hover:bg-navy-600 transition shrink-0">
+                                    Esegui backup ora
+                                </button>
+                            </div>
+
+                            <!-- If Update is Available Banner -->
+                            ${update ? `
+                                <div class="p-5 rounded-2xl bg-gradient-to-r from-sky-50 to-indigo-50 dark:from-navy-800 dark:to-navy-900 border border-sky-200 dark:border-sky-800 space-y-3">
+                                    <div class="flex flex-wrap items-center justify-between gap-2">
+                                        <div class="flex items-center gap-2">
+                                            <i class="fa-solid fa-sparkles text-amber-500 text-base"></i>
+                                            <h4 class="text-sm font-extrabold text-slate-900 dark:text-white">Nuova Versione ${this.escapeHtml(update.release.tag_name)} Disponibile!</h4>
+                                            <span class="px-2 py-0.5 rounded-md ${update.release.prerelease ? 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300' : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300'} text-[10px] font-extrabold">
+                                                ${update.release.prerelease ? 'Beta / Anteprima' : 'Stabile'}
+                                            </span>
+                                        </div>
+                                        <span class="text-slate-400 font-semibold">${new Date(update.release.published_at || Date.now()).toLocaleDateString()}</span>
+                                    </div>
+
+                                    ${update.release.body ? `
+                                        <div class="text-[11px] text-slate-600 dark:text-slate-300 whitespace-pre-line line-clamp-3 bg-white/60 dark:bg-navy-950/40 p-3 rounded-xl border border-sky-100 dark:border-slate-800">
+                                            ${this.escapeHtml(update.release.body)}
+                                        </div>
+                                    ` : ''}
+
+                                    <!-- Download Progress or Action Buttons -->
+                                    ${isDownloading ? `
+                                        <div class="space-y-2 pt-2">
+                                            <div class="w-full bg-slate-200 dark:bg-navy-950 h-3 rounded-full overflow-hidden">
+                                                <div id="updateProgressBar" class="bg-sky-600 h-3 transition-all duration-300" style="width: ${downloadPercent}%;"></div>
+                                            </div>
+                                            <div class="flex items-center justify-between text-[11px] text-slate-500">
+                                                <span id="updateProgressText">${this.escapeHtml(statusMsg)}</span>
+                                                <span class="font-bold text-sky-600">${downloadPercent}%</span>
+                                            </div>
+                                        </div>
+                                    ` : `
+                                        <div class="flex flex-wrap items-center gap-2 pt-2">
+                                            <button type="button" onclick="app.startUpdateDownload('${update.primaryUrl}', '${update.primaryName}')" class="px-4 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-extrabold shadow-2xs flex items-center gap-2 transition">
+                                                <i class="fa-solid fa-cloud-arrow-down"></i>
+                                                <span>Scarica e Installa Aggiornamento</span>
+                                            </button>
+                                            ${update.portableUrl ? `
+                                                <button type="button" onclick="if(window.electronAPI){window.electronAPI.openExternal('${update.portableUrl}');}else{window.open('${update.portableUrl}','_blank');}" class="px-3.5 py-2 rounded-xl border border-sky-300 dark:border-sky-700 bg-sky-50 dark:bg-navy-800 text-sky-700 dark:text-sky-300 font-bold hover:bg-sky-100 flex items-center gap-1.5 transition">
+                                                    <i class="fa-solid fa-box-archive"></i> Versione Portable (.exe)
+                                                </button>
+                                            ` : ''}
+                                            <button type="button" onclick="if(window.electronAPI){window.electronAPI.openExternal('${update.release.html_url}');}else{window.open('${update.release.html_url}','_blank');}" class="px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-bold hover:bg-slate-100 dark:hover:bg-navy-800 transition">
+                                                <i class="fa-brands fa-github"></i> Vedi su GitHub
+                                            </button>
+                                        </div>
+                                    `}
+                                </div>
+                            ` : ''}
                         </div>
+
+                        <!-- ONLY Latest Version Changelog (Not all historical versions) -->
+                        ${latestChangelog ? `
+                            <div class="bg-white dark:bg-navy-900 rounded-2xl border border-sky-100 dark:border-slate-800 p-6 shadow-xs space-y-3">
+                                <div class="flex items-center justify-between pb-2 border-b border-sky-100 dark:border-slate-800">
+                                    <div class="flex items-center gap-2">
+                                        <h3 class="text-sm font-extrabold text-slate-900 dark:text-white">Novità della Versione ${this.escapeHtml(latestChangelog.version)}</h3>
+                                        <span class="px-2 py-0.5 rounded-md bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 font-bold text-[10px]">Attuale</span>
+                                    </div>
+                                    <span class="text-slate-400 font-semibold">${this.escapeHtml(latestChangelog.date)}</span>
+                                </div>
+                                <ul class="space-y-1.5 text-slate-600 dark:text-slate-300 pl-2">
+                                    ${(latestChangelog.changes || []).map(ch => `
+                                        <li class="flex items-start gap-2">
+                                            <span class="text-sky-600 font-bold">•</span>
+                                            <span>${this.escapeHtml(ch)}</span>
+                                        </li>
+                                    `).join("")}
+                                </ul>
+                            </div>
+                        ` : ''}
                     </div>
                 `;
+            }
+
+            openInfoAndCreditsModal() {
+                const curVer = this.state.version || "26.10.0-2";
+                const latestChangelog = (this.state.changelog && this.state.changelog.length > 0) ? this.state.changelog[0] : null;
+
+                this.openModal(`
+                    <div class="p-6 space-y-4 text-xs max-w-lg">
+                        <div class="flex items-center justify-between border-b border-sky-100 dark:border-slate-800 pb-3">
+                            <h3 class="text-base font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
+                                <i class="fa-solid fa-circle-info text-sky-600"></i>
+                                <span>Informazioni sull'applicazione</span>
+                            </h3>
+                            <button type="button" onclick="app.closeModal()" class="w-8 h-8 rounded-lg hover:bg-slate-100 dark:hover:bg-navy-800 flex items-center justify-center text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark"></i></button>
+                        </div>
+
+                        <!-- Brand Header -->
+                        <div class="flex items-center gap-3.5">
+                            <div class="w-14 h-14 flex items-center justify-center shrink-0">
+                                <img src="logo.png" alt="Class Management" class="w-14 h-14 object-contain">
+                            </div>
+                            <div>
+                                <div class="flex items-center gap-2">
+                                    <h4 class="text-lg font-extrabold text-slate-900 dark:text-white">${this.t("appTitle")}</h4>
+                                    <span class="px-2 py-0.5 rounded-full bg-sky-100 dark:bg-navy-800 text-sky-700 dark:text-sky-300 font-bold text-xs">v${this.escapeHtml(curVer)}</span>
+                                </div>
+                                <p class="text-slate-500">${this.t("appSubtitle")}</p>
+                            </div>
+                        </div>
+
+                        <!-- Author Attribution (Strictly Preserved) -->
+                        <div class="p-4 rounded-xl bg-sky-50/70 dark:bg-navy-800 border border-sky-200/70 dark:border-slate-700 space-y-1">
+                            <p class="text-[10px] uppercase tracking-wider font-extrabold text-slate-400">${this.t("footerDevelopedBy")}</p>
+                            <p class="text-sm font-extrabold text-slate-900 dark:text-white">Guaira Jaramillo Nitoglia</p>
+                            <a href="mailto:guaira.jaramillo.nitoglia@gmail.com" class="text-sky-600 dark:text-sky-400 font-bold hover:underline">guaira.jaramillo.nitoglia@gmail.com</a>
+                        </div>
+
+                        <!-- License -->
+                        <div class="p-4 rounded-xl bg-emerald-50/70 dark:bg-emerald-950/40 border border-emerald-200/70 dark:border-emerald-800 space-y-1">
+                            <p class="text-[10px] uppercase tracking-wider font-extrabold text-emerald-600 dark:text-emerald-400">Licenza d'uso / License</p>
+                            <p class="text-sm font-extrabold text-slate-900 dark:text-white">GNU General Public License v3.0 (GPL-3.0)</p>
+                            <p class="text-slate-600 dark:text-slate-300">Class Management è software libero concesso sotto i termini della GNU General Public License v3.0 con piena libertà di esecuzione, studio e modifica sotto la medesima licenza.</p>
+                        </div>
+
+                        <!-- Installed Version Changelog -->
+                        ${latestChangelog ? `
+                            <div class="p-4 rounded-xl bg-slate-50 dark:bg-navy-800/60 border border-sky-100 dark:border-slate-800 space-y-2">
+                                <div class="flex items-center justify-between">
+                                    <span class="px-2.5 py-0.5 rounded-lg bg-sky-600 text-white font-extrabold">Changelog v${this.escapeHtml(latestChangelog.version)}</span>
+                                    <span class="text-slate-400 font-semibold">${this.escapeHtml(latestChangelog.date)}</span>
+                                </div>
+                                <ul class="list-disc pl-5 space-y-1 text-slate-600 dark:text-slate-300">
+                                    ${(latestChangelog.changes || []).map(ch => `<li>${this.escapeHtml(ch)}</li>`).join("")}
+                                </ul>
+                            </div>
+                        ` : ''}
+
+                        <div class="flex justify-end pt-2">
+                            <button type="button" onclick="app.closeModal()" class="px-4 py-2 rounded-xl bg-slate-200 dark:bg-navy-700 hover:bg-slate-300 dark:hover:bg-navy-600 font-bold text-slate-800 dark:text-white transition">
+                                Chiudi
+                            </button>
+                        </div>
+                    </div>
+                `, "max-w-lg");
             }
 
             /**

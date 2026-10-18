@@ -239,9 +239,10 @@ exit 0
 
 def publish_release(is_beta: bool = False):
     cur_ver = get_swift_version() or "26.10.0"
-    if "b" in cur_ver or "-" in cur_ver:
+    is_beta_candidate = "b" in cur_ver.lower()
+    if is_beta_candidate:
         is_beta = True
-    elif is_beta and not ("b" in cur_ver or "-" in cur_ver):
+    elif is_beta and not is_beta_candidate:
         cur_ver = bump_beta()
 
     expected_branch = "unstable" if is_beta else "stable"
@@ -350,7 +351,7 @@ def print_status():
     branch = get_git_branch()
     ver_swift = get_swift_version()
     ver_plist = get_plist_version()
-    is_beta = ("b" in (ver_swift or "") or "-" in (ver_swift or ""))
+    is_beta = ("b" in (ver_swift or "").lower())
 
     print("\n=======================================================")
     print(" CLASS MANAGEMENT — PROJECT STATUS")

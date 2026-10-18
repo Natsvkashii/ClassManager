@@ -66,6 +66,7 @@ public struct AppVersion: Comparable, Equatable, CustomStringConvertible {
     public let major: Int // Year in YY.MM.R
     public let minor: Int // Month in YY.MM.R
     public let patch: Int // Release in YY.MM.R
+    public let revision: Int // Sub-release/Hotfix (e.g. 2 in 26.10.0-2)
     public let isBeta: Bool
     public let betaNumber: Int?
     public let raw: String
@@ -78,16 +79,20 @@ public struct AppVersion: Comparable, Equatable, CustomStringConvertible {
         let clean = string.trimmingCharacters(in: CharacterSet(charactersIn: "vV \t\n\r"))
         self.raw = clean
 
+        let isBetaCandidate = clean.lowercased().contains("b") || clean.lowercased().contains("beta")
         var base = clean
         var beta: Int? = nil
-        var detectedBeta = false
+        var rev: Int = 0
 
         if let dashIdx = base.firstIndex(of: "-") {
-            let suffix = String(base[base.index(after: dashIdx)...]).lowercased()
+            let suffix = String(base[base.index(after: dashIdx)...])
             base = String(base[..<dashIdx])
-            detectedBeta = true
             let digits = suffix.filter { $0.isNumber }
-            beta = Int(digits) ?? 1
+            if isBetaCandidate {
+                beta = Int(digits) ?? 1
+            } else {
+                rev = Int(digits) ?? 0
+            }
         }
 
         let dotParts = base.split(separator: ".")
@@ -97,7 +102,6 @@ public struct AppVersion: Comparable, Equatable, CustomStringConvertible {
         if dotParts.count > 2 {
             let patchPart = String(dotParts[2])
             if let bIndex = patchPart.lowercased().firstIndex(of: "b") {
-                detectedBeta = true
                 let pDigits = String(patchPart[..<bIndex]).filter { $0.isNumber }
                 self.patch = Int(pDigits) ?? 0
                 let afterB = String(patchPart[patchPart.index(after: bIndex)...]).filter { $0.isNumber }
@@ -110,16 +114,18 @@ public struct AppVersion: Comparable, Equatable, CustomStringConvertible {
             self.patch = 0
         }
 
-        self.isBeta = detectedBeta
-        self.betaNumber = detectedBeta ? (beta ?? 1) : nil
+        self.revision = rev
+        self.isBeta = isBetaCandidate
+        self.betaNumber = isBetaCandidate ? (beta ?? 1) : nil
     }
 
     public static func < (lhs: AppVersion, rhs: AppVersion) -> Bool {
         if lhs.major != rhs.major { return lhs.major < rhs.major }
         if lhs.minor != rhs.minor { return lhs.minor < rhs.minor }
         if lhs.patch != rhs.patch { return lhs.patch < rhs.patch }
+        if lhs.revision != rhs.revision { return lhs.revision < rhs.revision }
 
-        // Both have identical major.minor.patch (e.g. 26.10.1 vs 26.10.1b)
+        // Both have identical major.minor.patch.revision
         // A beta is strictly an earlier pre-release of the same stable version:
         // lhs is beta, rhs is stable -> lhs < rhs (true)
         // lhs is stable, rhs is beta -> lhs > rhs (false)
@@ -139,6 +145,7 @@ public struct AppVersion: Comparable, Equatable, CustomStringConvertible {
         return lhs.major == rhs.major &&
                lhs.minor == rhs.minor &&
                lhs.patch == rhs.patch &&
+               lhs.revision == rhs.revision &&
                lhs.isBeta == rhs.isBeta &&
                lhs.betaNumber == rhs.betaNumber
     }
