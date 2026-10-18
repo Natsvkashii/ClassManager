@@ -17,7 +17,7 @@ import AppKit
 public enum AuthorAttribution {
     public static let authorName = "Guaira Jaramillo Nitoglia"
     public static let authorEmail = "guaira.jaramillo.nitoglia@gmail.com"
-    public static let appVersion = "2.1.1-001b"
+    public static let appVersion = "2.1.1-002b"
 }
 
 public enum NavigationTab: String, CaseIterable, Identifiable {
@@ -1425,6 +1425,13 @@ public struct AppState: Codable, Equatable {
     ]
 
     public static let defaultChangelog: [ChangelogEntry] = [
+        ChangelogEntry(version: "2.1.1-002b", date: "2026-10-18", changes: [
+            "Uniformata l'altezza delle intestazioni delle lezioni nella schermata Presenze, garantendo allineamento perfetto indipendentemente dalla presenza del titolo della lezione.",
+            "Eliminato il colore grigiastro dalle tabelle di Presenze e Voti, sostituito con superfici card ad alto contrasto e bordi definiti conformi al tema dell'applicazione.",
+            "Riprogettata la schermata del Cestino: eliminati i doppi riquadri grigi e introdotta una grafica naturale con icona e spiegazione a tutto schermo visibili solo a cestino vuoto.",
+            "Separata la colonna 'Città' in una colonna autonoma e dedicata nell'Anagrafica studenti, distinguendola chiaramente dall'indirizzo Email.",
+            "Integrato il sistema di aggiornamento automatico nativo da GitHub Releases con gestione canali Stabile e Beta."
+        ]),
         ChangelogEntry(version: "2.1.0", date: "2026-10-18", changes: [
             "Nuova sezione dedicata 'Griglie & Criteri' nella barra laterale: creazione, modifica ed eliminazione di schede di valutazione e criteri, associazione rapida alle attività e nuova finestra dedicata per modificare ciascun criterio con campi descrittori multilinea estesi.",
             "Nuovo Cestino (Trash Bin) con auto-eliminazione definitiva dopo 30 giorni e possibilità di ripristinare qualsiasi elemento (studenti, corsi, attività, griglie, lezioni).",

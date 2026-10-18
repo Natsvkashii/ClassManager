@@ -54,6 +54,33 @@ extension View {
     }
 }
 
+public func tableHeaderCellFill(_ scheme: ColorScheme) -> Color {
+    scheme == .dark
+        ? Color(red: 0.08, green: 0.12, blue: 0.20)
+        : Color(red: 0.94, green: 0.96, blue: 0.985)
+}
+
+public func tableHeaderCellStroke(_ scheme: ColorScheme) -> Color {
+    scheme == .dark
+        ? Color.white.opacity(0.10)
+        : Color(red: 0.80, green: 0.85, blue: 0.91)
+}
+
+public func tableRowCellFill(_ scheme: ColorScheme, isAlt: Bool = false) -> Color {
+    if scheme == .dark {
+        return isAlt ? Color(red: 0.07, green: 0.105, blue: 0.175) : Color(red: 0.09, green: 0.13, blue: 0.21)
+    } else {
+        return isAlt ? Color(red: 0.965, green: 0.978, blue: 0.992) : Color.white
+    }
+}
+
+public func tableRowCellStroke(_ scheme: ColorScheme) -> Color {
+    scheme == .dark
+        ? Color.white.opacity(0.06)
+        : Color(red: 0.86, green: 0.89, blue: 0.93)
+}
+
+
 // MARK: - Home View
 
 public struct HomeView: View {
@@ -250,6 +277,7 @@ public struct HomeView: View {
 
 public struct AttendanceView: View {
     @Environment(AppStore.self) private var store
+    @Environment(\.colorScheme) private var colorScheme
     @Binding var activeSheet: ActiveModalSheet?
 
     public var body: some View {
@@ -356,14 +384,18 @@ public struct AttendanceView: View {
 
                 // Attendance Table
                 ScrollView([.horizontal, .vertical]) {
-                    Grid(alignment: .leading, horizontalSpacing: 1, verticalSpacing: 1) {
-                        // Header Row
+                    Grid(alignment: .leading, horizontalSpacing: 2, verticalSpacing: 2) {
+                        // Header Row (Uniform Height: 86pt across all columns)
                         GridRow {
                             Text("\(store.t("studentCol")) (\(students.count))")
                                 .font(.caption.bold())
-                                .padding(10)
-                                .frame(width: 210, alignment: .leading)
-                                .background(Color.secondary.opacity(0.14))
+                                .padding(.horizontal, 12)
+                                .frame(width: 210, height: 86, alignment: .leading)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 8)
+                                        .fill(tableHeaderCellFill(colorScheme))
+                                        .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(tableHeaderCellStroke(colorScheme)))
+                                )
 
                             ForEach(Array(slots.enumerated()), id: \.element) { idx, slotKey in
                                 let les = store.findLesson(in: course, sectionId: mod.id, slotKey: slotKey)
@@ -394,6 +426,10 @@ public struct AttendanceView: View {
                                                     .font(.system(size: 10, weight: .bold))
                                                     .foregroundStyle(.green)
                                                     .lineLimit(1)
+                                            } else {
+                                                Text(" ")
+                                                    .font(.system(size: 10, weight: .bold))
+                                                    .opacity(0)
                                             }
                                         }
                                         .frame(width: 118)
@@ -411,9 +447,14 @@ public struct AttendanceView: View {
                                         .labelsHidden()
                                     }
                                 }
-                                .padding(8)
-                                .frame(width: 124, alignment: .top)
-                                .background(Color.secondary.opacity(0.10))
+                                .padding(.vertical, 8)
+                                .padding(.horizontal, 4)
+                                .frame(width: 124, height: 86, alignment: .top)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 8)
+                                        .fill(tableHeaderCellFill(colorScheme))
+                                        .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(tableHeaderCellStroke(colorScheme)))
+                                )
                             }
                         }
 
@@ -427,8 +468,9 @@ public struct AttendanceView: View {
                                     .gridCellColumns(max(1, slots.count + 1))
                             }
                         } else {
-                            ForEach(students) { st in
+                            ForEach(Array(students.enumerated()), id: \.element.id) { sIdx, st in
                                 let stAtt = mod.attendance[st.id] ?? [:]
+                                let isAlt = sIdx % 2 == 1
                                 GridRow {
                                     Button {
                                         activeSheet = .studentDetail(st.id)
@@ -436,11 +478,15 @@ public struct AttendanceView: View {
                                         Text(st.fullName)
                                             .font(.caption.bold())
                                             .lineLimit(1)
-                                            .frame(width: 210, alignment: .leading)
-                                            .padding(10)
+                                            .frame(width: 210, height: 42, alignment: .leading)
+                                            .padding(.horizontal, 10)
                                     }
                                     .buttonStyle(.plain)
-                                    .background(Color.secondary.opacity(0.04))
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 6)
+                                            .fill(tableRowCellFill(colorScheme, isAlt: isAlt))
+                                            .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(tableRowCellStroke(colorScheme)))
+                                    )
 
                                     ForEach(slots, id: \.self) { slotKey in
                                         let val = stAtt[slotKey] ?? ""
@@ -449,7 +495,7 @@ public struct AttendanceView: View {
                                         } label: {
                                             Text(val.isEmpty ? "·" : val)
                                                 .font(.caption.bold())
-                                                .frame(width: 36, height: 28)
+                                                .frame(width: 38, height: 28)
                                                 .background(
                                                     RoundedRectangle(cornerRadius: 7)
                                                         .fill(attendanceColor(for: val))
@@ -457,14 +503,18 @@ public struct AttendanceView: View {
                                                 .foregroundStyle(val.isEmpty ? Color.secondary : Color.white)
                                         }
                                         .buttonStyle(.plain)
-                                        .frame(width: 124, height: 38)
-                                        .background(Color.secondary.opacity(0.02))
+                                        .frame(width: 124, height: 42)
+                                        .background(
+                                            RoundedRectangle(cornerRadius: 6)
+                                                .fill(tableRowCellFill(colorScheme, isAlt: isAlt))
+                                                .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(tableRowCellStroke(colorScheme)))
+                                        )
                                     }
                                 }
                             }
                         }
                     }
-                    .background(Color.secondary.opacity(0.18))
+                    .background(Color.clear)
                 }
                 .clipShape(RoundedRectangle(cornerRadius: 14))
                 .appCardStyle(cornerRadius: 14)
@@ -527,6 +577,7 @@ public struct AttendanceView: View {
 
 public struct GradesView: View {
     @Environment(AppStore.self) private var store
+    @Environment(\.colorScheme) private var colorScheme
     @Binding var activeSheet: ActiveModalSheet?
 
     public var body: some View {
@@ -613,7 +664,7 @@ public struct GradesView: View {
 
                 // Grades Table
                 ScrollView([.horizontal, .vertical]) {
-                    Grid(alignment: .leading, horizontalSpacing: 1, verticalSpacing: 1) {
+                    Grid(alignment: .leading, horizontalSpacing: 2, verticalSpacing: 2) {
                         GridRow {
                             HStack {
                                 Text("\(store.t("statusCol")) & \(store.t("studentCol"))")
@@ -621,22 +672,30 @@ public struct GradesView: View {
                                 Text(store.t("finalAvgCol")).foregroundStyle(store.activeCoursePalette.color)
                             }
                             .font(.caption.bold())
-                            .padding(10)
-                            .frame(width: 260)
-                            .background(Color.secondary.opacity(0.14))
+                            .padding(.horizontal, 12)
+                            .frame(width: 260, height: 56)
+                            .background(
+                                RoundedRectangle(cornerRadius: 8)
+                                    .fill(tableHeaderCellFill(colorScheme))
+                                    .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(tableHeaderCellStroke(colorScheme)))
+                            )
 
                             if evalAtt {
-                                VStack(spacing: 2) {
+                                VStack(spacing: 3) {
                                     Text(store.t("navAttendance")).font(.caption.bold()).foregroundStyle(.green)
                                     Text("\(String(format: "%.0f", attWeight))%").font(.caption2.bold()).foregroundStyle(.green)
                                 }
-                                .padding(8)
-                                .frame(width: 110)
-                                .background(Color.green.opacity(0.10))
+                                .padding(.horizontal, 8)
+                                .frame(width: 110, height: 56)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 8)
+                                        .fill(Color.green.opacity(0.12))
+                                        .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color.green.opacity(0.35)))
+                                )
                             }
 
                             ForEach(activities) { act in
-                                VStack(spacing: 2) {
+                                VStack(spacing: 3) {
                                     Button {
                                         activeSheet = .activityForm(act)
                                     } label: {
@@ -650,7 +709,7 @@ public struct GradesView: View {
                                     HStack(spacing: 4) {
                                         if course.gradeConfig.calcMethod == "weighted" {
                                             Text("\(String(format: "%.0f", act.weight))%")
-                                                .font(.caption2)
+                                                .font(.caption2.bold())
                                                 .foregroundStyle(store.activeCoursePalette.color)
                                         }
                                         if act.useRubric {
@@ -663,13 +722,18 @@ public struct GradesView: View {
                                         }
                                     }
                                 }
-                                .padding(8)
-                                .frame(width: 150)
-                                .background(Color.secondary.opacity(0.10))
+                                .padding(.horizontal, 8)
+                                .frame(width: 150, height: 56)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 8)
+                                        .fill(tableHeaderCellFill(colorScheme))
+                                        .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(tableHeaderCellStroke(colorScheme)))
+                                )
                             }
                         }
 
-                        ForEach(students) { st in
+                        ForEach(Array(students.enumerated()), id: \.element.id) { sIdx, st in
+                            let isAlt = sIdx % 2 == 1
                             let avg = store.calculateStudentCourseAverage(course: course, studentId: st.id, module: mod)
                             let allPresent = store.areAllStudentGradesPresent(course: course, studentId: st.id, module: mod)
                             let passed = allPresent && (avg ?? 0) >= course.gradeConfig.minPass
@@ -705,9 +769,13 @@ public struct GradesView: View {
                                                 .fill(avg == nil ? Color.secondary.opacity(0.1) : (!allPresent ? Color.secondary.opacity(0.15) : (passed ? Color.green.opacity(0.18) : Color.red.opacity(0.18))))
                                         )
                                 }
-                                .padding(10)
-                                .frame(width: 260)
-                                .background(Color.secondary.opacity(0.03))
+                                .padding(.horizontal, 10)
+                                .frame(width: 260, height: 44)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 6)
+                                        .fill(tableRowCellFill(colorScheme, isAlt: isAlt))
+                                        .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(tableRowCellStroke(colorScheme)))
+                                )
 
                                 if evalAtt {
                                     HStack {
@@ -726,8 +794,12 @@ public struct GradesView: View {
                                             Text("—").foregroundStyle(.secondary)
                                         }
                                     }
-                                    .frame(width: 110, height: 42)
-                                    .background(Color.secondary.opacity(0.02))
+                                    .frame(width: 110, height: 44)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 6)
+                                            .fill(tableRowCellFill(colorScheme, isAlt: isAlt))
+                                            .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(tableRowCellStroke(colorScheme)))
+                                    )
                                 }
 
                                 ForEach(activities) { act in
@@ -737,13 +809,17 @@ public struct GradesView: View {
                                         activity: act,
                                         activeSheet: $activeSheet
                                     )
-                                    .frame(width: 150, height: 42)
-                                    .background(Color.secondary.opacity(0.02))
+                                    .frame(width: 150, height: 44)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 6)
+                                            .fill(tableRowCellFill(colorScheme, isAlt: isAlt))
+                                            .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(tableRowCellStroke(colorScheme)))
+                                    )
                                 }
                             }
                         }
                     }
-                    .background(Color.secondary.opacity(0.18))
+                    .background(Color.clear)
                 }
                 .clipShape(RoundedRectangle(cornerRadius: 14))
                 .appCardStyle(cornerRadius: 14)

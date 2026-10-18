@@ -209,6 +209,7 @@ public struct GlobalCalendarView: View {
 
 public struct StudentsDirectoryView: View {
     @Environment(AppStore.self) private var store
+    @Environment(\.colorScheme) private var colorScheme
     @Binding var activeSheet: ActiveModalSheet?
     @State private var studentToDelete: Student? = nil
 
@@ -270,23 +271,29 @@ public struct StudentsDirectoryView: View {
                 // Table Header Row
                 HStack(spacing: 12) {
                     Text("\(store.t("studentCol")) (\(filtered.count))")
-                        .frame(width: 215, alignment: .leading)
+                        .frame(width: 200, alignment: .leading)
                     Text(store.t("studentGroupsCol"))
-                        .frame(width: 225, alignment: .leading)
+                        .frame(width: 200, alignment: .leading)
                     Text(store.t("studentLatestLevelCol"))
-                        .frame(width: 80, alignment: .center)
+                        .frame(width: 75, alignment: .center)
                     Text(store.t("studentPhoneLabel"))
-                        .frame(width: 145, alignment: .leading)
-                    Text(store.t("contactsAndCityCol"))
+                        .frame(width: 135, alignment: .leading)
+                    Text(store.t("emailCol"))
                         .frame(maxWidth: .infinity, alignment: .leading)
+                    Text(store.t("cityCol"))
+                        .frame(width: 140, alignment: .leading)
                     Text(store.t("actionsCol"))
-                        .frame(width: 135, alignment: .trailing)
+                        .frame(width: 125, alignment: .trailing)
                 }
                 .font(.caption.bold())
                 .foregroundStyle(.secondary)
                 .padding(.horizontal, 16)
                 .padding(.vertical, 10)
-                .background(Color.secondary.opacity(0.10))
+                .background(
+                    colorScheme == .dark
+                        ? Color(red: 0.08, green: 0.12, blue: 0.20)
+                        : Color(red: 0.94, green: 0.96, blue: 0.98)
+                )
 
                 Divider()
 
@@ -315,7 +322,7 @@ public struct StudentsDirectoryView: View {
                                         }
                                     }
                                     .buttonStyle(.plain)
-                                    .frame(width: 215, alignment: .leading)
+                                    .frame(width: 200, alignment: .leading)
 
                                     // Column 2: Attended Courses Badges
                                     ScrollView(.horizontal, showsIndicators: false) {
@@ -338,14 +345,14 @@ public struct StudentsDirectoryView: View {
                                                     .padding(.vertical, 3)
                                                     .background(
                                                         RoundedRectangle(cornerRadius: 6)
-                                                            .fill(Color.secondary.opacity(0.10))
-                                                            .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(Color.secondary.opacity(0.22)))
+                                                            .fill(store.palette(for: c.color).color.opacity(0.12))
+                                                            .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(store.palette(for: c.color).color.opacity(0.28)))
                                                     )
                                                 }
                                             }
                                         }
                                     }
-                                    .frame(width: 225, alignment: .leading)
+                                    .frame(width: 200, alignment: .leading)
 
                                     // Column 3: Level Badge
                                     Text(st.lastFollowedLevel ?? st.currentLevel)
@@ -354,7 +361,7 @@ public struct StudentsDirectoryView: View {
                                         .padding(.vertical, 3)
                                         .background(Capsule().fill(Color.blue.opacity(0.15)))
                                         .foregroundStyle(.blue)
-                                        .frame(width: 80, alignment: .center)
+                                        .frame(width: 75, alignment: .center)
 
                                     // Column 4: Phone
                                     HStack(spacing: 5) {
@@ -367,17 +374,16 @@ public struct StudentsDirectoryView: View {
                                     }
                                     .font(.caption)
                                     .blur(radius: store.showSensitiveDirectoryData ? 0 : 5)
-                                    .frame(width: 145, alignment: .leading)
+                                    .frame(width: 135, alignment: .leading)
 
-                                    // Column 5: Email & City
-                                    HStack(spacing: 10) {
+                                    // Column 5: Email (Dedicated Column)
+                                    HStack(spacing: 6) {
                                         if !st.email.isEmpty {
-                                            Label(st.email, systemImage: "envelope.fill").lineLimit(1)
-                                        }
-                                        if !st.city.isEmpty {
-                                            Label(st.city, systemImage: "location.fill").lineLimit(1)
-                                        }
-                                        if st.email.isEmpty && st.city.isEmpty {
+                                            Image(systemName: "envelope.fill")
+                                                .font(.caption2)
+                                                .foregroundStyle(.secondary)
+                                            Text(st.email).lineLimit(1)
+                                        } else {
                                             Text("—").foregroundStyle(.tertiary)
                                         }
                                     }
@@ -386,7 +392,23 @@ public struct StudentsDirectoryView: View {
                                     .blur(radius: store.showSensitiveDirectoryData ? 0 : 5)
                                     .frame(maxWidth: .infinity, alignment: .leading)
 
-                                    // Column 6: Actions (Scheda + Delete with Confirmation)
+                                    // Column 6: City (Dedicated Column)
+                                    HStack(spacing: 6) {
+                                        if !st.city.isEmpty {
+                                            Image(systemName: "location.fill")
+                                                .font(.caption2)
+                                                .foregroundStyle(.cyan)
+                                            Text(st.city).lineLimit(1)
+                                        } else {
+                                            Text("—").foregroundStyle(.tertiary)
+                                        }
+                                    }
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                    .blur(radius: store.showSensitiveDirectoryData ? 0 : 5)
+                                    .frame(width: 140, alignment: .leading)
+
+                                    // Column 7: Actions (Scheda + Delete with Confirmation)
                                     HStack(spacing: 8) {
                                         Button(store.t("profileCardBtn")) {
                                             activeSheet = .studentDetail(st.id)
@@ -405,7 +427,7 @@ public struct StudentsDirectoryView: View {
                                         .buttonStyle(.plain)
                                         .help(store.t("deleteBtn"))
                                     }
-                                    .frame(width: 135, alignment: .trailing)
+                                    .frame(width: 125, alignment: .trailing)
                                 }
                                 .padding(.horizontal, 16)
                                 .padding(.vertical, 10)
@@ -508,17 +530,36 @@ public struct TrashBinView: View {
 
     public var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            // Header Card
-            HStack {
-                VStack(alignment: .leading, spacing: 4) {
-                    Label("\(store.t("navTrashBin")) (\(store.state.deletedItems.count))", systemImage: "trash.fill")
-                        .font(.title3.bold())
-                    Text(store.t("trashBinSubtitle"))
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+            if store.state.deletedItems.isEmpty {
+                VStack(spacing: 16) {
+                    Spacer()
+                    Image(systemName: "trash")
+                        .font(.system(size: 72, weight: .light))
+                        .foregroundStyle(Color.secondary.opacity(0.35))
+
+                    VStack(spacing: 8) {
+                        Text(store.t("trashEmptyMsg"))
+                            .font(.title2.bold())
+                            .foregroundStyle(.primary)
+
+                        Text(store.t("trashBinSubtitle"))
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
+                            .frame(maxWidth: 480)
+                    }
+                    Spacer()
                 }
-                Spacer()
-                if !store.state.deletedItems.isEmpty {
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .padding(32)
+            } else {
+                // Header Card shown only when items exist
+                HStack {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Label("\(store.t("navTrashBin")) (\(store.state.deletedItems.count))", systemImage: "trash.fill")
+                            .font(.title3.bold())
+                    }
+                    Spacer()
                     Button(role: .destructive) {
                         showEmptyTrashConfirm = true
                     } label: {
@@ -527,22 +568,9 @@ public struct TrashBinView: View {
                     .buttonStyle(.borderedProminent)
                     .tint(.red)
                 }
-            }
-            .padding(16)
-            .appCardStyle(cornerRadius: 14)
+                .padding(16)
+                .appCardStyle(cornerRadius: 14)
 
-            if store.state.deletedItems.isEmpty {
-                VStack(spacing: 12) {
-                    Image(systemName: "trash.circle")
-                        .font(.system(size: 44))
-                        .foregroundStyle(.secondary)
-                    Text(store.t("trashEmptyMsg"))
-                        .font(.headline)
-                        .foregroundStyle(.secondary)
-                }
-                .frame(maxWidth: .infinity, minHeight: 240)
-                .appCardStyle(cornerRadius: 16)
-            } else {
                 ScrollView {
                     VStack(spacing: 10) {
                         ForEach(store.state.deletedItems) { item in
