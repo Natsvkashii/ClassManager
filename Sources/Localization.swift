@@ -249,7 +249,12 @@ public struct L10n {
             "downloadAndInstallBtn": "Scarica e Installa Aggiornamento",
             "viewOnGitHubBtn": "Vedi su GitHub",
             "stableBadge": "Stabile",
-            "betaBadge": "Beta"
+            "betaBadge": "Beta",
+            "dragLessonHint": "Trascina una lezione su un qualsiasi giorno per spostarla di data",
+            "dragScrollDownPrompt": "Trascina qui per scorrere verso i mesi successivi",
+            "dragScrollUpPrompt": "Trascina qui per scorrere verso i mesi precedenti",
+            "dragDropHereToMove": "Sposta qui",
+            "loadMoreMonthsBtn": "Mostra altri 6 mesi"
         ],
         "en": [
             "appTitle": "Course Manager",
@@ -492,7 +497,12 @@ public struct L10n {
             "downloadAndInstallBtn": "Download & Install Update",
             "viewOnGitHubBtn": "View on GitHub",
             "stableBadge": "Stable",
-            "betaBadge": "Beta"
+            "betaBadge": "Beta",
+            "dragLessonHint": "Drag a lesson to any day to reschedule it",
+            "dragScrollDownPrompt": "Drag here to scroll down to subsequent months",
+            "dragScrollUpPrompt": "Drag here to scroll up to previous months",
+            "dragDropHereToMove": "Move here",
+            "loadMoreMonthsBtn": "Show 6 more months"
         ],
         "es": [
             "appTitle": "Gestión de Cursos",
@@ -735,7 +745,12 @@ public struct L10n {
             "downloadAndInstallBtn": "Descargar e Instalar Actualización",
             "viewOnGitHubBtn": "Ver en GitHub",
             "stableBadge": "Estable",
-            "betaBadge": "Beta"
+            "betaBadge": "Beta",
+            "dragLessonHint": "Arrastra una clase a cualquier día para moverla de fecha",
+            "dragScrollDownPrompt": "Arrastra aquí para desplazarte a los meses siguientes",
+            "dragScrollUpPrompt": "Arrastra aquí para desplazarte a los meses anteriores",
+            "dragDropHereToMove": "Mover aquí",
+            "loadMoreMonthsBtn": "Mostrar 6 meses más"
         ]
     ]
 

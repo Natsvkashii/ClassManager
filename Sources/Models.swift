@@ -17,7 +17,7 @@ import AppKit
 public enum AuthorAttribution {
     public static let authorName = "Guaira Jaramillo Nitoglia"
     public static let authorEmail = "guaira.jaramillo.nitoglia@gmail.com"
-    public static let appVersion = "2.1.1-003b"
+    public static let appVersion = "2.1.1-004b"
 }
 
 public enum NavigationTab: String, CaseIterable, Identifiable {
@@ -1425,6 +1425,13 @@ public struct AppState: Codable, Equatable {
     ]
 
     public static let defaultChangelog: [ChangelogEntry] = [
+        ChangelogEntry(version: "2.1.1-004b", date: "2026-10-18", changes: [
+            "Spostamento dinamico delle lezioni nel calendario del modulo tramite trascinamento con il mouse (Drag & Drop) su qualsiasi giorno desiderato.",
+            "Visualizzazione multi-mese dinamica nel Programma Modulo per consultare e riprogrammare le lezioni liberamente attraverso tutti i mesi successivi.",
+            "Sensori di scorrimento automatico intelligente: trascinando una lezione verso la zona inferiore dello schermo il calendario scorre fluidamente rivelando i mesi successivi nascosti in fondo (e viceversa verso l'alto).",
+            "Barra orizzontale a scorrimento rapido per saltare istantaneamente con un clic a qualsiasi mese con conteggio delle lezioni programmate.",
+            "Aggiornamento immediato e sincronizzato della nuova data della lezione in tutte le sezioni: registro Presenze, Calendario Generale e calendario nativo di macOS (Apple Calendar)."
+        ]),
         ChangelogEntry(version: "2.1.1-003b", date: "2026-10-18", changes: [
             "Riprogettata la schermata dell'Archivio corsi: rimosso il riquadro grigio centrale a favore di uno stato vuoto coerente con il Cestino, con icona e spiegazione a tutto schermo.",
             "Scheda Attività con apertura in modalità statica e pulsante di modifica interno: rimosso il selettore grigio dalla vista a elenco, abilitazione griglie con opzione a comparsa e salvataggio in formato bozza (draft) prima del passaggio alle Griglie.",
