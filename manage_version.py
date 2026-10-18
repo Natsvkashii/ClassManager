@@ -224,7 +224,9 @@ def build_macos(package: bool = True):
 
 def publish_release(is_beta: bool = False):
     cur_ver = get_swift_version() or "2.1.0"
-    if is_beta and "-" not in cur_ver:
+    if "-" in cur_ver:
+        is_beta = True
+    elif is_beta and "-" not in cur_ver:
         cur_ver = bump_beta()
 
     expected_branch = "unstable" if is_beta else "stable"
