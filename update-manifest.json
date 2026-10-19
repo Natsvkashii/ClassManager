@@ -1,12 +1,12 @@
 {
-  "version": "26.10.4-005(unstable)",
-  "tag_name": "v26.10.4-005(unstable)",
+  "version": "26.10.4-006(unstable)",
+  "tag_name": "v26.10.4-006(unstable)",
   "prerelease": true,
-  "published_at": "2026-10-19T05:20:00Z",
-  "name": "Class Management v26.10.4-005(unstable)",
-  "body": "Novità versione 26.10.4-005(unstable):\n- Risolto definitivamente il blocco del download degli aggiornamenti su Windows al 0% tramite motore di streaming nativo Node.js con gestione trasparente dei reindirizzamenti AWS S3.\n- Introdotto il Terminale Diagnostico in tempo reale (in stile installatore Ubuntu / Linux) nella finestra di scaricamento dell'aggiornamento, con tracciamento delle richieste di rete, reindirizzamenti, codici HTTP, velocità in MB/s e pulsante dedicato per copiare i log negli appunti.\n- Implementata la funzione di download automatico in background con notifica e installazione guidata al successivo avvio dell'applicazione.\n- Protezione del pacchetto di installazione nei file temporanei e pulizia automatica al completamento.",
-  "setupUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.10.4-005(unstable)/Class-Management-26.10.4-005.unstable.-Setup.exe",
-  "setupName": "Class-Management-26.10.4-005.unstable.-Setup.exe",
-  "portableUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.10.4-005(unstable)/Class-Management-26.10.4-005.unstable.-Portable.exe",
-  "portableName": "Class-Management-26.10.4-005.unstable.-Portable.exe"
+  "published_at": "2026-10-19T05:35:00Z",
+  "name": "Class Management v26.10.4-006(unstable)",
+  "body": "Novità versione 26.10.4-006(unstable):\n- Versione di collaudo e verifica del nuovo sistema di aggiornamento in-app per Windows.\n- Test del motore di download in streaming asincrono Node.js per verificare l'assenza di blocchi allo 0% durante i salti di reindirizzamento AWS S3.\n- Test del Terminale Diagnostico live nella modale di scaricamento con monitoraggio in tempo reale di throughput e stato connessione.\n- Test del sistema di download automatico trasparente in background con avviso di installazione al successivo avvio.",
+  "setupUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.10.4-006(unstable)/Class-Management-26.10.4-006.unstable.-Setup.exe",
+  "setupName": "Class-Management-26.10.4-006.unstable.-Setup.exe",
+  "portableUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.10.4-006(unstable)/Class-Management-26.10.4-006.unstable.-Portable.exe",
+  "portableName": "Class-Management-26.10.4-006.unstable.-Portable.exe"
 }

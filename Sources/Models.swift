@@ -18,7 +18,7 @@ public enum AuthorAttribution {
     public static let authorName = "Guaira Jaramillo Nitoglia"
     public static let authorEmail = "guaira.jaramillo.nitoglia@gmail.com"
     public static let appName = "Class Management"
-    public static let appVersion = "26.10.4-005(unstable)"
+    public static let appVersion = "26.10.4-006(unstable)"
     public static let licenseName = "GNU General Public License v3.0 (GPL-3.0)"
 
     public static var isBeta: Bool {
@@ -1548,6 +1548,12 @@ public struct AppState: Codable, Equatable {
     ]
 
     public static let defaultChangelog: [ChangelogEntry] = [
+        ChangelogEntry(version: "26.10.4-006(unstable)", date: "2026-10-19", changes: [
+            "Versione di collaudo e verifica del nuovo sistema di aggiornamento in-app per Windows.",
+            "Test del motore di download in streaming asincrono Node.js per verificare l'assenza di blocchi allo 0% durante i salti di reindirizzamento AWS S3.",
+            "Test del Terminale Diagnostico live nella modale di scaricamento con monitoraggio in tempo reale di throughput e stato connessione.",
+            "Test del sistema di download automatico trasparente in background con avviso di installazione al successivo avvio."
+        ]),
         ChangelogEntry(version: "26.10.4-005(unstable)", date: "2026-10-19", changes: [
             "Risolto definitivamente il blocco del download degli aggiornamenti su Windows al 0% tramite motore di streaming nativo Node.js con gestione trasparente dei reindirizzamenti AWS S3.",
             "Introdotto il Terminale Diagnostico in tempo reale (in stile installatore Ubuntu / Linux) nella finestra di scaricamento dell'aggiornamento, con tracciamento delle richieste di rete, reindirizzamenti, codici HTTP, velocità in MB/s e pulsante dedicato per copiare i log negli appunti.",
