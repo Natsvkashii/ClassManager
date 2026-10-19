@@ -957,6 +957,13 @@ public struct RecurringLessonsSheet: View {
         if store.state.settings.autoSyncAppleCalendar {
             store.syncCourseToAppleCalendar(store.state.courses[cIdx], showNotification: false)
         }
+        if store.state.settings.googleCalendarConnected {
+            store.syncModuleToGoogleCalendar(
+                course: store.state.courses[cIdx],
+                module: store.state.courses[cIdx].levels[lIdx].modules[mIdx],
+                showNotification: false
+            )
+        }
         store.showToast("+\(added) \(store.t("lessonsLower"))")
         dismiss()
     }

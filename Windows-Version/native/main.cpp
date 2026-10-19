@@ -41,9 +41,9 @@ static std::atomic<SOCKET> g_googleOAuthSock{INVALID_SOCKET};
 
 // Version and Metadata Constants
 static const wchar_t* APP_NAME = L"Class Management";
-static const wchar_t* APP_VERSION = L"26.10.4-012";
+static const wchar_t* APP_VERSION = L"26.10.4-013";
 static const wchar_t* APP_CHANNEL = L"UNSTABLE";
-static const wchar_t* WINDOW_TITLE = L"Class Management v26.10.4-012 [UNSTABLE]";
+static const wchar_t* WINDOW_TITLE = L"Class Management v26.10.4-013 [UNSTABLE]";
 static const wchar_t* AUTHOR_NAME = L"Guaira Jaramillo Nitoglia";
 static const wchar_t* AUTHOR_EMAIL = L"guaira.jaramillo.nitoglia@gmail.com";
 static const wchar_t* GITHUB_RELEASES_URL = L"https://github.com/Natsvkashii/ClassManager/releases";
@@ -335,12 +335,13 @@ static int RunSetupInstaller(const wchar_t* currentExePath, bool isSilent) {
     }
 
     if (!isSilent) {
+        std::wstring msg = L"Class Management v" + std::wstring(APP_VERSION) + L" è stato installato con successo!\n\n"
+                           L"La nuova versione nativa ultra-leggera sostituisce la versione precedente.\n"
+                           L"Tutti i dati, corsi e backup storici sono stati preservati al 100%.\n\n"
+                           L"L'applicazione verrà avviata ora.";
         MessageBoxW(
             NULL,
-            L"Class Management v26.10.4-012 è stato installato con successo!\n\n"
-            L"La nuova versione nativa ultra-leggera sostituisce la versione precedente.\n"
-            L"Tutti i dati, corsi e backup storici sono stati preservati al 100%.\n\n"
-            L"L'applicazione verrà avviata ora.",
+            msg.c_str(),
             L"Class Management - Installazione Completata",
             MB_OK | MB_ICONINFORMATION
         );
@@ -446,7 +447,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     HWND hwnd = (HWND)w.window();
 
     // Set Window Title and Size
-    w.set_title("Class Management v26.10.4-012 [UNSTABLE]");
+    w.set_title("Class Management v26.10.4-013 [UNSTABLE]");
     w.set_size(1400, 900, WEBVIEW_HINT_NONE);
     w.set_size(980, 650, WEBVIEW_HINT_MIN);
 
@@ -737,6 +738,15 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         return "{\"success\":false}";
     });
 
+    // J. runInstaller: Runs the built-in native Windows installer to install & register in system
+    std::wstring currentExeWStr = currentExePath;
+    w.bind("__native_run_installer", [currentExeWStr](std::string /*req*/) -> std::string {
+        std::thread([currentExeWStr]() {
+            RunSetupInstaller(currentExeWStr.c_str(), false);
+        }).detach();
+        return "true";
+    });
+
     // 5. Inject JavaScript Bridge Shim (window.electronAPI)
     const char* bridge_js = R"JS(
     (function() {
@@ -745,6 +755,9 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
             isNative: true,
             openExternal: function(url) {
                 return window.__native_open_external(url);
+            },
+            runNativeInstaller: function() {
+                return window.__native_run_installer();
             },
             saveFile: function(defaultPath, data) {
                 return window.__native_save_file(defaultPath || '', data || '');
@@ -768,7 +781,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
                 return window.__native_show_in_folder(filePath);
             },
             getAppVersion: function() {
-                return Promise.resolve('26.10.4-012');
+                return Promise.resolve('26.10.4-013');
             },
             startGoogleOAuth: function(authUrl) {
                 return window.__native_start_google_oauth(authUrl);

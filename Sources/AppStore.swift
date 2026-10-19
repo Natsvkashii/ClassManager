@@ -1038,6 +1038,85 @@ public final class AppStore {
         showToast(t("appleCalendarSyncedMsg"))
     }
 
+    // MARK: - Google Calendar Synchronization
+
+    public func syncModuleToGoogleCalendar(course: Course, module: CourseModule, showNotification: Bool = true) {
+        guard state.settings.googleCalendarConnected else { return }
+        Task { @MainActor in
+            guard let cIdx = self.state.courses.firstIndex(where: { $0.id == course.id }),
+                  let lvlIdx = self.state.courses[cIdx].levels.firstIndex(where: { $0.modules.contains(where: { $0.id == module.id }) }),
+                  let mIdx = self.state.courses[cIdx].levels[lvlIdx].modules.firstIndex(where: { $0.id == module.id }) else { return }
+
+            let moduleStIds = Set(self.state.courses[cIdx].levels[lvlIdx].modules[mIdx].studentIds)
+            let attendeeEmails = self.state.studentsDirectory
+                .filter { moduleStIds.contains($0.id) }
+                .compactMap { s -> String? in
+                    let em = s.email.trimmingCharacters(in: .whitespacesAndNewlines)
+                    return em.contains("@") ? em : nil
+                }
+
+            let slots = self.sortedSlots(for: self.state.courses[cIdx], module: module)
+            var syncedCount = 0
+
+            for (idx, slotKey) in slots.enumerated() {
+                let lp = self.findLesson(in: self.state.courses[cIdx], sectionId: module.id, slotKey: slotKey)
+                do {
+                    let currentMod = self.state.courses[cIdx].levels[lvlIdx].modules[mIdx]
+                    let (evId, meetUrl) = try await GoogleCalendarManager.shared.syncLessonToGoogle(
+                        course: self.state.courses[cIdx],
+                        module: currentMod,
+                        lessonPlan: lp,
+                        slotKey: slotKey,
+                        lessonNum: idx + 1,
+                        attendees: attendeeEmails,
+                        store: self
+                    )
+                    syncedCount += 1
+
+                    if let meet = meetUrl, !meet.isEmpty, (currentMod.googleMeetUrl?.isEmpty ?? true) {
+                        self.state.courses[cIdx].levels[lvlIdx].modules[mIdx].googleMeetUrl = meet
+                    }
+
+                    if let lIdx = self.state.courses[cIdx].lessons.firstIndex(where: { $0.slotKey == slotKey && ($0.sectionId == nil || $0.sectionId == module.id) }) {
+                        self.state.courses[cIdx].lessons[lIdx].googleCalendarEventId = evId
+                        if let meet = meetUrl {
+                            self.state.courses[cIdx].lessons[lIdx].googleMeetUrl = meet
+                        }
+                    } else {
+                        var newLp = lp ?? LessonPlan(sectionId: module.id, date: self.extractDate(from: slotKey), slotKey: slotKey, time: currentMod.startTime, endTime: currentMod.endTime)
+                        newLp.googleCalendarEventId = evId
+                        if let meet = meetUrl {
+                            newLp.googleMeetUrl = meet
+                        }
+                        self.state.courses[cIdx].lessons.append(newLp)
+                    }
+                } catch {
+                    print("Google Calendar sync lesson error for slot \(slotKey): \(error.localizedDescription)")
+                }
+            }
+
+            self.persist()
+            if showNotification {
+                self.showToast("Google Calendar: \(syncedCount) lezioni sincronizzate")
+            }
+        }
+    }
+
+    public func syncCourseToGoogleCalendar(_ course: Course, showNotification: Bool = true) {
+        guard state.settings.googleCalendarConnected else { return }
+        Task { @MainActor in
+            guard let c = self.state.courses.first(where: { $0.id == course.id }) else { return }
+            for lvl in c.levels {
+                for mod in lvl.modules {
+                    self.syncModuleToGoogleCalendar(course: c, module: mod, showNotification: false)
+                }
+            }
+            if showNotification {
+                self.showToast("Tutti i moduli sincronizzati su Google Calendar")
+            }
+        }
+    }
+
     // MARK: - WhatsApp & Email Contact Helpers
 
     public func parseStudentWhatsAppPhone(_ rawPhone: String) -> (hasPrefix: Bool, cleanDigits: String) {

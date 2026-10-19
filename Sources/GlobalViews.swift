@@ -280,7 +280,7 @@ public struct GlobalCalendarView: View {
                             let colW = (eventsWidth / CGFloat(placed.totalCols)) - 4.0
                             let leftX = timelineLeft + CGFloat(placed.colIndex) * (eventsWidth / CGFloat(placed.totalCols)) + 2.0
 
-                            renderEventCard(ev: placed.event, compact: durHeight < 55)
+                            renderEventCard(ev: placed.event, compact: durHeight < 55, fillHeight: true)
                                 .frame(width: max(80, colW), height: durHeight)
                                 .offset(x: leftX, y: topY)
                         }
@@ -499,7 +499,7 @@ public struct GlobalCalendarView: View {
     // MARK: - Unified Event Card Component
 
     @ViewBuilder
-    private func renderEventCard(ev: CalEvent, compact: Bool) -> some View {
+    private func renderEventCard(ev: CalEvent, compact: Bool, fillHeight: Bool = false) -> some View {
         if ev.isGoogleEvent {
             Button {
                 if let meet = ev.meetUrl, !meet.isEmpty, let u = URL(string: meet) {
@@ -525,13 +525,18 @@ public struct GlobalCalendarView: View {
                     Text(ev.isAllDay ? "Tutto il giorno" : "\(ev.time) - \(ev.endTime)")
                         .font(.system(size: compact ? 8.5 : 9.5))
                         .opacity(0.9)
+
+                    if fillHeight {
+                        Spacer(minLength: 0)
+                    }
                 }
                 .padding(compact ? 4 : 6)
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .frame(maxWidth: .infinity, maxHeight: fillHeight ? .infinity : nil, alignment: .topLeading)
                 .background(RoundedRectangle(cornerRadius: 6).fill(Color(red: 0.15, green: 0.45, blue: 0.88)))
                 .foregroundStyle(.white)
             }
             .buttonStyle(.plain)
+            .frame(maxWidth: .infinity, maxHeight: fillHeight ? .infinity : nil)
             .help(ev.meetUrl != nil ? "Google Calendar: \(ev.courseName)\nClicca per aprire la riunione Google Meet" : "Google Calendar: \(ev.courseName)")
         } else {
             Button {
@@ -558,13 +563,18 @@ public struct GlobalCalendarView: View {
                     Text("\(store.formatTimeDisplay(ev.time)) - \(store.formatTimeDisplay(ev.endTime))")
                         .font(.system(size: compact ? 8.5 : 9.5))
                         .opacity(0.9)
+
+                    if fillHeight {
+                        Spacer(minLength: 0)
+                    }
                 }
                 .padding(compact ? 5 : 7)
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .frame(maxWidth: .infinity, maxHeight: fillHeight ? .infinity : nil, alignment: .topLeading)
                 .background(RoundedRectangle(cornerRadius: 6).fill(ev.color))
                 .foregroundStyle(.white)
             }
             .buttonStyle(.plain)
+            .frame(maxWidth: .infinity, maxHeight: fillHeight ? .infinity : nil)
         }
     }
 

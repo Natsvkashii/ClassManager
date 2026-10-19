@@ -376,10 +376,13 @@ def publish_release(is_beta: bool = False):
                 release_id = res_obj.get("id")
                 print(f"✓ Created GitHub release ID: {release_id}")
 
-                # Upload all matching assets (.pkg, -Setup.exe, -Portable.exe)
+                # Upload strictly only 2 assets: macOS .pkg Installer and Windows -Setup.exe Installer
+                valid_suffixes = ("-Installer.pkg", "-Setup.exe")
                 assets_to_upload = sorted([
                     os.path.join(PROJECT_ROOT, f) for f in os.listdir(PROJECT_ROOT)
-                    if f.startswith(f"Class-Management-{cur_ver}") and os.path.isfile(os.path.join(PROJECT_ROOT, f))
+                    if f.startswith(f"Class-Management-{cur_ver}")
+                    and any(f.endswith(sfx) for sfx in valid_suffixes)
+                    and os.path.isfile(os.path.join(PROJECT_ROOT, f))
                 ])
                 for asset_path in assets_to_upload:
                     asset_filename = os.path.basename(asset_path)

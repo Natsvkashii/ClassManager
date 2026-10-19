@@ -1393,7 +1393,7 @@ public struct ModuleCalendarView: View {
         }
 
         let posterWeeks = buildContinuousWeeks(course: course, module: mod, slots: slots)
-        let monthSections = buildMultiMonthSections(course: course, module: mod, slots: slots, pastMonths: pastMonthsOffset, futureMonths: additionalMonths)
+        let monthSections = buildMultiMonthSections(course: course, module: mod, slots: slots)
 
         return AnyView(
             VStack(alignment: .leading, spacing: 14) {
@@ -1435,6 +1435,16 @@ public struct ModuleCalendarView: View {
                     }
                     .buttonStyle(.borderedProminent)
                     .tint(pal.color)
+
+                    if store.state.settings.googleCalendarConnected {
+                        Button {
+                            store.syncModuleToGoogleCalendar(course: course, module: mod)
+                        } label: {
+                            Label("Sincronizza Google", systemImage: "g.circle.fill")
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(Color(red: 0.15, green: 0.45, blue: 0.88))
+                    }
                 }
                 .padding(12)
                 .appCardStyle(cornerRadius: 12)
@@ -1506,19 +1516,6 @@ public struct ModuleCalendarView: View {
                     ZStack(alignment: .bottom) {
                         ScrollView {
                             VStack(spacing: 22) {
-                                // Load More Past Months Button
-                                Button {
-                                    pastMonthsOffset += 12
-                                } label: {
-                                    Label("Mostra altri mesi precedenti", systemImage: "clock.arrow.circlepath")
-                                        .font(.subheadline.bold())
-                                        .padding(.vertical, 6)
-                                }
-                                .buttonStyle(.bordered)
-                                .tint(pal.color)
-                                .padding(.top, 6)
-                                .padding(.bottom, 4)
-
                                 ForEach(Array(monthSections.enumerated()), id: \.element.id) { mIdx, section in
                                     VStack(alignment: .leading, spacing: 10) {
                                         // Month Header Banner
@@ -1734,19 +1731,6 @@ public struct ModuleCalendarView: View {
                                     .id("month-\(mIdx)")
                                     .padding(.bottom, 6)
                                 }
-
-                                // Button to load more future months dynamically
-                                Button {
-                                    additionalMonths += 12
-                                } label: {
-                                    Label(store.t("loadMoreMonthsBtn"), systemImage: "plus.circle")
-                                        .font(.subheadline.bold())
-                                        .padding(.vertical, 6)
-                                }
-                                .buttonStyle(.bordered)
-                                .tint(pal.color)
-                                .padding(.top, 8)
-                                .padding(.bottom, 20)
                             }
                             .padding(14)
                         }
@@ -1972,9 +1956,7 @@ public struct ModuleCalendarView: View {
     private func buildMultiMonthSections(
         course: Course,
         module: CourseModule,
-        slots: [String],
-        pastMonths: Int,
-        futureMonths: Int
+        slots: [String]
     ) -> [CalendarMonthSection] {
         let df = DateFormatter()
         df.dateFormat = "yyyy-MM-dd"
@@ -2037,26 +2019,37 @@ public struct ModuleCalendarView: View {
             }
         }
 
-        let curYear = cal.component(.year, from: today)
-        let curMonth = cal.component(.month, from: today)
-        guard let currentMonthStart = cal.date(from: DateComponents(year: curYear, month: curMonth, day: 1)) else {
-            return []
+        // Extract unique complete calendar months in which courses take place
+        var activeMonths: [(year: Int, month: Int)] = []
+        var seenMonths = Set<String>()
+        for sk in slots {
+            let dOnly = store.extractDate(from: sk)
+            let parts = dOnly.split(separator: "-").compactMap { Int($0) }
+            if parts.count >= 2 {
+                let key = String(format: "%04d-%02d", parts[0], parts[1])
+                if !seenMonths.contains(key) {
+                    seenMonths.insert(key)
+                    activeMonths.append((parts[0], parts[1]))
+                }
+            }
+        }
+        activeMonths.sort { ($0.year, $0.month) < ($1.year, $1.month) }
+
+        if activeMonths.isEmpty {
+            let curYear = cal.component(.year, from: today)
+            let curMonth = cal.component(.month, from: today)
+            activeMonths.append((curYear, curMonth))
         }
 
-        guard let startMonthDate = cal.date(byAdding: .month, value: -pastMonths, to: currentMonthStart) else {
-            return []
-        }
-
-        let totalMonths = pastMonths + 1 + futureMonths
         let startMon = store.state.settings.firstDayOfWeek != "sunday"
         var sections: [CalendarMonthSection] = []
 
-        for mOffset in 0..<totalMonths {
-            guard let curMonthDate = cal.date(byAdding: .month, value: mOffset, to: startMonthDate) else {
+        for monthItem in activeMonths {
+            let y = monthItem.year
+            let mNum = monthItem.month
+            guard let curMonthDate = cal.date(from: DateComponents(year: y, month: mNum, day: 1)) else {
                 continue
             }
-            let y = cal.component(.year, from: curMonthDate)
-            let mNum = cal.component(.month, from: curMonthDate)
             let mName = store.monthsList[safe: mNum - 1] ?? ""
             let sectionTitle = "\(mName) \(y)"
 
