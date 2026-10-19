@@ -16,7 +16,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Class Management v26.10.1-1 (Windows Edition)</title>
+    <title>Class Management v26.10.2b (Windows Edition)</title>
     <link rel="icon" type="image/png" href="logo.png">
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -149,6 +149,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                         </div>
                         <div class="sidebar-text truncate">
                             <h2 id="sidebarBrandTitle" class="text-sm font-extrabold text-slate-900 dark:text-white leading-tight truncate">Class Management</h2>
+                            <p id="sidebarBrandCreator" class="text-[9.5px] font-semibold text-slate-400 dark:text-slate-400 truncate"></p>
                         </div>
                     </div>
                     <button id="sidebarToggleMiniBtn" onclick="app.toggleSidebarMini()" class="hidden lg:flex w-8 h-8 rounded-lg hover:bg-sky-50 dark:hover:bg-navy-800 items-center justify-center text-slate-500 dark:text-slate-400 transition shrink-0" title="Espandi / Riduci">
@@ -166,7 +167,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
             <!-- Bottom App Badge -->
             <div class="p-3 border-t border-sky-100 dark:border-slate-800">
                 <div class="sidebar-footer-card p-2 rounded-xl bg-sky-50/70 dark:bg-navy-800/70 border border-sky-200/50 dark:border-slate-700/60 text-[10px] text-center text-slate-500 dark:text-slate-400 font-semibold">
-                    <span>Class Management v26.10.1-1</span>
+                    <span>Class Management v26.10.2b</span>
                 </div>
             </div>
         </aside>
@@ -183,8 +184,14 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                     <div id="headerCourseContextWrap" class="flex flex-wrap items-center gap-2 min-w-0 flex-1"></div>
                 </div>
 
-                <!-- Header Actions -->
+                <!-- Header Actions + Creator Attribution -->
                 <div class="flex items-center gap-2 shrink-0">
+                    <div id="headerCreatorBadge" class="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-slate-100 dark:bg-navy-800/80 border border-slate-200/60 dark:border-slate-700/60 text-[10.5px] text-slate-500 dark:text-slate-400 font-medium">
+                        <span class="font-extrabold text-slate-700 dark:text-slate-200">Class Management</span>
+                        <span>•</span>
+                        <span id="headerCreatorText"></span>
+                    </div>
+
                     <button onclick="app.openCourseModal()" class="px-3 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold flex items-center gap-1.5 shadow-xs transition">
                         <i class="fa-solid fa-plus"></i>
                         <span id="headerNewCourseBtnText" class="hidden md:inline">Nuovo Corso</span>
@@ -204,7 +211,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 <div class="w-full px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-2">
                     <p class="flex items-center gap-2">
                         <span id="footerPlatformDesc" class="text-slate-400 dark:text-slate-500">Piattaforma Accademica Multi-Livello QCER</span>
-                        <span id="footerVersionBadge" class="px-2 py-0.5 rounded-md bg-sky-100 dark:bg-navy-800 text-sky-700 dark:text-sky-300 text-[10px] font-bold">v26.10.1-1 (Windows Edition)</span>
+                        <span id="footerVersionBadge" class="px-2 py-0.5 rounded-md bg-sky-100 dark:bg-navy-800 text-sky-700 dark:text-sky-300 text-[10px] font-bold">v26.10.2b (Windows Edition)</span>
                     </p>
                     <p><span id="footerDevelopedBy">Concepito e Sviluppato da</span> <span class="font-semibold text-sky-700 dark:text-sky-400">Guaira Jaramillo Nitoglia</span> (<a href="mailto:guaira.jaramillo.nitoglia@gmail.com" class="underline hover:text-sky-600">guaira.jaramillo.nitoglia@gmail.com</a>)</p>
                 </div>
@@ -430,8 +437,27 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 calViewWeek: "Settimana",
                 calViewMonth: "Mese",
                 calViewYear: "Anno",
+                headerCreatedBy: "creato da Guaira Jaramillo Nitoglia",
                 billingTitle: "Fatturazione",
                 billingSubtitle: "",
+                totalLessonsHoursConducted: "Ore totali di lezione effettuate",
+                totalSpentInvoiced: "Totale speso",
+                billingFiscalDataBtn: "Dati di fatturazione",
+                moduleBillingCost: "Costo del modulo",
+                globalPricingTool: "Strumento Globale Modulo",
+                applyToAllLessonsBtn: "Applica a tutte le lezioni",
+                exportCalendarPngBtn: "Esporta Calendario PNG",
+                editLessonPricing: "Modifica Prezzo Lezione",
+                lessonPriceLabel: "Prezzo Lezione",
+                lessonVatLabel: "IVA Applicata (%)",
+                lessonDiscountLabel: "Sconto Applicato",
+                defaultPricingSection: "Prezzi base e IVA predefinita",
+                defaultHourlyRateLabel: "Tariffa oraria base",
+                defaultLessonDurationLabel: "Durata lezione base (ore)",
+                defaultVatPercentLabel: "Aliquota IVA predefinita (%)",
+                appliedToAllLessonsToast: "Tariffe e sconti applicati a tutte le lezioni del modulo",
+                lessonPricingUpdatedToast: "Prezzo della lezione aggiornato",
+                calendarPngSavedToast: "Immagine calendario generata e scaricata",
                 ecuadorBillingHeader: "Dati Fiscali (Cédula / RUC)",
                 idTypeLabel: "Documento",
                 idNumberLabel: "Numero Cédula / RUC",
@@ -657,8 +683,27 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 calViewWeek: "Week",
                 calViewMonth: "Month",
                 calViewYear: "Year",
+                headerCreatedBy: "created by Guaira Jaramillo Nitoglia",
                 billingTitle: "Costs & Billing",
                 billingSubtitle: "Manage module prices, hourly rates, discounts and tax IDs.",
+                totalLessonsHoursConducted: "Total lesson hours conducted",
+                totalSpentInvoiced: "Total spent",
+                billingFiscalDataBtn: "Billing & Fiscal Data",
+                moduleBillingCost: "Module cost",
+                globalPricingTool: "Module Global Pricing Tool",
+                applyToAllLessonsBtn: "Apply to all lessons",
+                exportCalendarPngBtn: "Export Calendar PNG",
+                editLessonPricing: "Edit Lesson Pricing",
+                lessonPriceLabel: "Lesson Price",
+                lessonVatLabel: "Applied VAT (%)",
+                lessonDiscountLabel: "Applied Discount",
+                defaultPricingSection: "Default Base Pricing & VAT",
+                defaultHourlyRateLabel: "Default base hourly rate",
+                defaultLessonDurationLabel: "Default lesson duration (hours)",
+                defaultVatPercentLabel: "Default VAT rate (%)",
+                appliedToAllLessonsToast: "Pricing and discounts applied to all module lessons",
+                lessonPricingUpdatedToast: "Lesson pricing updated",
+                calendarPngSavedToast: "Calendar image generated and downloaded",
                 ecuadorBillingHeader: "Tax Info (Cédula / RUC)",
                 idTypeLabel: "ID Type",
                 idNumberLabel: "Cédula / RUC Number",
@@ -884,8 +929,27 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 calViewWeek: "Semana",
                 calViewMonth: "Mes",
                 calViewYear: "Año",
+                headerCreatedBy: "creado por Guaira Jaramillo Nitoglia",
                 billingTitle: "Costos y Facturación",
                 billingSubtitle: "Gestiona precios del módulo, valor hora, descuentos y datos fiscales.",
+                totalLessonsHoursConducted: "Horas totales de clase impartidas",
+                totalSpentInvoiced: "Total gastado",
+                billingFiscalDataBtn: "Datos de facturación",
+                moduleBillingCost: "Costo del módulo",
+                globalPricingTool: "Herramienta Global del Módulo",
+                applyToAllLessonsBtn: "Aplicar a todas las clases",
+                exportCalendarPngBtn: "Exportar Calendario PNG",
+                editLessonPricing: "Editar Precio de la Clase",
+                lessonPriceLabel: "Precio de la Clase",
+                lessonVatLabel: "IVA Aplicado (%)",
+                lessonDiscountLabel: "Descuento Aplicado",
+                defaultPricingSection: "Precios base e IVA predeterminado",
+                defaultHourlyRateLabel: "Tarifa por hora base",
+                defaultLessonDurationLabel: "Duración de clase base (horas)",
+                defaultVatPercentLabel: "Tasa de IVA predeterminada (%)",
+                appliedToAllLessonsToast: "Tarifas y descuentos aplicados a todas las clases del módulo",
+                lessonPricingUpdatedToast: "Precio de la clase actualizado",
+                calendarPngSavedToast: "Imagen del calendario generada y descargada",
                 ecuadorBillingHeader: "Datos Fiscales (Cédula / RUC)",
                 idTypeLabel: "Documento",
                 idNumberLabel: "Número Cédula / RUC",
@@ -968,11 +1032,24 @@ Removing, obfuscating, or altering these credits violates the author's attributi
         ];
 
         const INITIAL_DATA = {
-            version: "26.10.1-1",
+            version: "26.10.2b",
             deletedItems: [],
             lastUpdated: new Date().toISOString(),
             activeCourseId: "",
             changelog: [
+                {
+                    version: "26.10.2b",
+                    date: "2026-10-18",
+                    changes: [
+                        "Riprogettata la sezione Fatturazione con panoramica generale (ore totali svolte, spesa totale e dati fiscali in finestra a comparsa).",
+                        "Aggiunta panoramica di tutti i moduli e livelli del corso con relativo costo totale del modulo.",
+                        "Introdotto il Calendario Fatturazione per ogni modulo con dettaglio dei costi a lezione, aliquota IVA e sconti applicati.",
+                        "Aggiunto lo strumento globale superiore per modificare prezzi, IVA e sconti su tutte le lezioni del modulo e modifica specifica per singola lezione.",
+                        "Aggiunta la funzione di esportazione del calendario di fatturazione del modulo in formato grafico PNG da inviare al cliente.",
+                        "Aggiunta nelle Opzioni la configurazione delle tariffe orarie base e dell'aliquota IVA predefinita.",
+                        "Aggiunta l'indicazione 'creato da Guaira Jaramillo Nitoglia' nella barra superiore accanto al nome dell'applicazione (in IT, EN ed ES)."
+                    ]
+                },
                 {
                     version: "26.10.1-1",
                     date: "2026-10-18",
@@ -1141,7 +1218,10 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 timeFormat: "24h",
                 currency: "$",
                 passThreshold: 6,
-                defaultLessonDuration: 90
+                defaultLessonDuration: 90,
+                defaultHourlyRate: 10,
+                defaultLessonDurationHours: 1.5,
+                defaultVatPercent: 15
             },
             rubrics: [
                 {
@@ -2071,6 +2151,8 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 document.documentElement.lang = this.state?.settings?.language || "it";
 
                 const brandTitle = document.getElementById("sidebarBrandTitle");
+                const brandCreator = document.getElementById("sidebarBrandCreator");
+                const headerCreator = document.getElementById("headerCreatorText");
                 const newBtnText = document.getElementById("headerNewCourseBtnText");
                 const footerVer = document.getElementById("footerVersionBadge");
                 const footerDesc = document.getElementById("footerPlatformDesc");
@@ -2078,6 +2160,8 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 const toggleMiniBtn = document.getElementById("sidebarToggleMiniBtn");
 
                 if (brandTitle) brandTitle.textContent = this.t("appTitle");
+                if (brandCreator) brandCreator.textContent = this.t("headerCreatedBy");
+                if (headerCreator) headerCreator.textContent = this.t("headerCreatedBy");
                 if (newBtnText) newBtnText.textContent = this.t("newCourseBtn");
                 if (footerVer) footerVer.textContent = `v${ver}`;
                 if (footerDesc) footerDesc.textContent = this.t("footerPlatformDesc");
@@ -5513,9 +5597,64 @@ Removing, obfuscating, or altering these credits violates the author's attributi
             }
 
             /**
-             * Billing ("Fatturazione") View
-             * - Supports applying prices, VAT, and discounts to current module only, subsequent modules/levels, or all modules/levels of the group (v0.6.0b)
+             * Billing ("Fatturazione") View & Pricing Helpers (v26.10.2b)
              */
+            getLessonPricing(mod, slotKey) {
+                if (!mod) return { net: 0, vatPct: 0, discType: 'percent', discVal: 0, discountAmount: 0, netAfterDiscount: 0, vatAmount: 0, gross: 0, hasOverride: false };
+                const b = mod.billing || {};
+                const defaultHourly = parseFloat(this.state?.settings?.defaultHourlyRate) || 10.0;
+                const defaultDuration = parseFloat(this.state?.settings?.defaultLessonDurationHours) || 1.5;
+                const defaultVat = parseFloat(this.state?.settings?.defaultVatPercent) || 15.0;
+
+                const hourly = (b.hourlyRateNet !== undefined && b.hourlyRateNet !== null && b.hourlyRateNet !== "") ? parseFloat(b.hourlyRateNet) : defaultHourly;
+                const duration = (b.lessonDurationHours !== undefined && b.lessonDurationHours !== null && b.lessonDurationHours !== "") ? parseFloat(b.lessonDurationHours) : defaultDuration;
+                const baseNet = hourly * duration;
+
+                const ov = (b.lessonOverrides && b.lessonOverrides[slotKey]) ? b.lessonOverrides[slotKey] : null;
+
+                const net = (ov && ov.price !== undefined && ov.price !== null && ov.price !== "") ? parseFloat(ov.price) : baseNet;
+                const vatPct = (ov && ov.vatPercent !== undefined && ov.vatPercent !== null && ov.vatPercent !== "") ? parseFloat(ov.vatPercent) : ((b.vatPercent !== undefined && b.vatPercent !== null && b.vatPercent !== "") ? parseFloat(b.vatPercent) : defaultVat);
+                const discType = (ov && ov.discountType) ? ov.discountType : (b.discountType || "percent");
+                const discVal = (ov && ov.discountValue !== undefined && ov.discountValue !== null && ov.discountValue !== "") ? parseFloat(ov.discountValue) : (parseFloat(b.discountValue) || 0);
+
+                let discountAmount = 0;
+                if (discVal > 0) {
+                    discountAmount = discType === "percent" ? (net * (discVal / 100)) : discVal;
+                }
+                const netAfterDiscount = Math.max(0, net - discountAmount);
+                const vatAmount = netAfterDiscount * (vatPct / 100);
+                const gross = netAfterDiscount + vatAmount;
+
+                return {
+                    net,
+                    vatPct,
+                    discType,
+                    discVal,
+                    discountAmount,
+                    netAfterDiscount,
+                    vatAmount,
+                    gross,
+                    hasOverride: !!ov
+                };
+            }
+
+            getModuleTotalGross(mod) {
+                if (!mod || !Array.isArray(mod.dates)) return 0;
+                const b = mod.billing || {};
+                if ((!b.lessonOverrides || Object.keys(b.lessonOverrides).length === 0) && b.discountType === "fixed" && (parseFloat(b.discountValue) || 0) > 0) {
+                    const defaultHourly = parseFloat(this.state?.settings?.defaultHourlyRate) || 10.0;
+                    const defaultDuration = parseFloat(this.state?.settings?.defaultLessonDurationHours) || 1.5;
+                    const defaultVat = parseFloat(this.state?.settings?.defaultVatPercent) || 15.0;
+                    const hourly = (b.hourlyRateNet !== undefined && b.hourlyRateNet !== null && b.hourlyRateNet !== "") ? parseFloat(b.hourlyRateNet) : defaultHourly;
+                    const duration = (b.lessonDurationHours !== undefined && b.lessonDurationHours !== null && b.lessonDurationHours !== "") ? parseFloat(b.lessonDurationHours) : defaultDuration;
+                    const vatPct = (b.vatPercent !== undefined && b.vatPercent !== null && b.vatPercent !== "") ? parseFloat(b.vatPercent) : defaultVat;
+                    const totalNet = hourly * duration * mod.dates.length;
+                    const netAfter = Math.max(0, totalNet - (parseFloat(b.discountValue) || 0));
+                    return netAfter + (netAfter * (vatPct / 100));
+                }
+                return mod.dates.reduce((sum, sk) => sum + this.getLessonPricing(mod, sk).gross, 0);
+            }
+
             renderBillingView(container) {
                 const activeCourses = (this.state.courses || []).filter(c => !c.archived);
                 const course = activeCourses.find(c => c.id === this.selectedBillingCourseId) || this.getActiveCourse() || activeCourses[0];
@@ -5525,200 +5664,900 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                     return;
                 }
 
-                const activeLevel = this.getActiveLevel(course);
-                const activeSection = this.getActiveSection(course);
-                if (!activeSection.billing) {
-                    activeSection.billing = { hourlyRateNet: 10, lessonDurationHours: 1.5, vatPercent: 15, discountType: "percent", discountTarget: "total", discountValue: 0 };
+                const pal = this.getCourseColorObj(course.color);
+                const curSettingHourly = parseFloat(this.state?.settings?.defaultHourlyRate) || 10.0;
+                const curSettingDuration = parseFloat(this.state?.settings?.defaultLessonDurationHours) || 1.5;
+                const curSettingVat = parseFloat(this.state?.settings?.defaultVatPercent) || 15.0;
+
+                // Identify opened/focused module
+                let currentModule = null;
+                let currentLevel = null;
+                if (this.selectedBillingModuleId) {
+                    for (const lvl of (course.levels || [])) {
+                        const found = (lvl.modules || []).find(m => m.id === this.selectedBillingModuleId);
+                        if (found) {
+                            currentModule = found;
+                            currentLevel = lvl;
+                            break;
+                        }
+                    }
                 }
-                const b = activeSection.billing;
-                const lessonsCount = (activeSection.dates || []).length;
-                const totalHours = Number((lessonsCount * (parseFloat(b.lessonDurationHours) || 1.5)).toFixed(2));
-                const subtotalNet = totalHours * (parseFloat(b.hourlyRateNet) || 0);
-                const discVal = parseFloat(b.discountValue) || 0;
-                const discountAmt = b.discountType === "percent" ? (subtotalNet * (discVal / 100)) : discVal;
-                const netAfterDiscount = Math.max(0, subtotalNet - discountAmt);
-                const vatAmt = netAfterDiscount * ((parseFloat(b.vatPercent) || 0) / 100);
-                const totalGross = netAfterDiscount + vatAmt;
-                const fInfo = course.billingConfig?.billingInfo || {};
+                if (!currentModule) {
+                    currentLevel = this.getActiveLevel(course);
+                    currentModule = this.getActiveSection(course);
+                }
+                if (!currentModule && course.levels?.[0]?.modules?.[0]) {
+                    currentLevel = course.levels[0];
+                    currentModule = course.levels[0].modules[0];
+                }
+
+                // Initialize module billing defaults if missing
+                if (currentModule && !currentModule.billing) {
+                    currentModule.billing = {
+                        hourlyRateNet: curSettingHourly,
+                        lessonDurationHours: curSettingDuration,
+                        vatPercent: curSettingVat,
+                        discountType: "percent",
+                        discountTarget: "total",
+                        discountValue: 0,
+                        lessonOverrides: {}
+                    };
+                }
+
+                // Compute Course-Level General Overview Statistics
+                const todayIso = new Date().toISOString().substring(0, 10);
+                let totalScheduledHours = 0;
+                let totalCompletedHours = 0;
+                let totalCourseGross = 0;
+                let totalModulesCount = 0;
+
+                (course.levels || []).forEach(lvl => {
+                    (lvl.modules || []).forEach(mod => {
+                        totalModulesCount++;
+                        const b = mod.billing || {};
+                        const dur = parseFloat(b.lessonDurationHours) || curSettingDuration;
+                        totalScheduledHours += (mod.dates || []).length * dur;
+                        (mod.dates || []).forEach(d => {
+                            const dOnly = this.extractDateFromSlotKey(d);
+                            const hasAtt = mod.attendance && Object.values(mod.attendance).some(stObj => stObj && stObj[d]);
+                            if (dOnly <= todayIso || hasAtt) {
+                                totalCompletedHours += dur;
+                            }
+                        });
+                        totalCourseGross += this.getModuleTotalGross(mod);
+                    });
+                });
+
+                const curBilling = currentModule?.billing || {};
+                const curHourlyRate = (curBilling.hourlyRateNet !== undefined && curBilling.hourlyRateNet !== null && curBilling.hourlyRateNet !== "") ? parseFloat(curBilling.hourlyRateNet) : curSettingHourly;
+                const curDuration = (curBilling.lessonDurationHours !== undefined && curBilling.lessonDurationHours !== null && curBilling.lessonDurationHours !== "") ? parseFloat(curBilling.lessonDurationHours) : curSettingDuration;
+                const curVat = (curBilling.vatPercent !== undefined && curBilling.vatPercent !== null && curBilling.vatPercent !== "") ? parseFloat(curBilling.vatPercent) : curSettingVat;
+                const curDiscType = curBilling.discountType || "percent";
+                const curDiscVal = parseFloat(curBilling.discountValue) || 0;
+
+                const curModuleCost = currentModule ? this.getModuleTotalGross(currentModule) : 0;
+                const curSortedSlots = currentModule ? this.sortModuleSlots(course, currentModule) : [];
+
+                // Build Calendar Data for Opened Module
+                const startFirstDayMon = (this.state?.settings?.firstDayOfWeek || "monday") === "monday";
+                const dayHeaders = startFirstDayMon ? this.t("daysShortMon") : this.t("daysShortSun");
+                const monthNames = this.t("months");
+
+                const monthsData = [];
+                if (currentModule && curSortedSlots.length > 0) {
+                    const firstDateStr = this.extractDateFromSlotKey(curSortedSlots[0]);
+                    const lastDateStr = this.extractDateFromSlotKey(curSortedSlots[curSortedSlots.length - 1]);
+                    const firstDate = new Date(firstDateStr + "T12:00:00");
+                    const lastDate = new Date(lastDateStr + "T12:00:00");
+
+                    const slotsByDate = {};
+                    curSortedSlots.forEach((slotKey, idx) => {
+                        const dStr = this.extractDateFromSlotKey(slotKey);
+                        if (!slotsByDate[dStr]) slotsByDate[dStr] = [];
+                        const les = this.findLessonForSlot(course, currentModule.id, slotKey);
+                        const pricing = this.getLessonPricing(currentModule, slotKey);
+                        slotsByDate[dStr].push({
+                            slotKey,
+                            lessonNumber: idx + 1,
+                            time: les?.time || currentModule.startTime || course.startTime || "19:00",
+                            title: les?.title || "",
+                            pricing
+                        });
+                    });
+
+                    let mCursor = new Date(firstDate.getFullYear(), firstDate.getMonth(), 1);
+                    const maxMonth = new Date(lastDate.getFullYear(), lastDate.getMonth() + 1, 1);
+
+                    while (mCursor < maxMonth) {
+                        const y = mCursor.getFullYear();
+                        const m = mCursor.getMonth();
+                        const monthTitle = `${monthNames[m]} ${y}`;
+
+                        const firstDayOfMonth = new Date(y, m, 1);
+                        const lastDayOfMonth = new Date(y, m + 1, 0);
+
+                        const startCursor = new Date(firstDayOfMonth);
+                        const fDow = startCursor.getDay();
+                        const startOffset = startFirstDayMon ? (fDow === 0 ? -6 : 1 - fDow) : -fDow;
+                        startCursor.setDate(startCursor.getDate() + startOffset);
+
+                        const endCursor = new Date(lastDayOfMonth);
+                        const lDow = endCursor.getDay();
+                        const endOffset = startFirstDayMon ? (lDow === 0 ? 0 : 7 - lDow) : (6 - lDow);
+                        endCursor.setDate(endCursor.getDate() + endOffset);
+
+                        const weeks = [];
+                        let wCursor = new Date(startCursor);
+                        let monthSessionCount = 0;
+
+                        while (wCursor <= endCursor) {
+                            const weekDays = [];
+                            for (let i = 0; i < 7; i++) {
+                                const curY = wCursor.getFullYear();
+                                const curM = String(wCursor.getMonth() + 1).padStart(2, "0");
+                                const curD = String(wCursor.getDate()).padStart(2, "0");
+                                const iso = `${curY}-${curM}-${curD}`;
+                                const isCurrentMonth = wCursor.getMonth() === m;
+                                const lessons = slotsByDate[iso] || [];
+                                if (isCurrentMonth) monthSessionCount += lessons.length;
+
+                                weekDays.push({
+                                    iso,
+                                    dayNum: wCursor.getDate(),
+                                    isCurrentMonth,
+                                    lessons
+                                });
+                                wCursor.setDate(wCursor.getDate() + 1);
+                            }
+                            weeks.push(weekDays);
+                        }
+
+                        monthsData.push({
+                            id: `bill-month-${y}-${m}`,
+                            title: monthTitle,
+                            sessionCount: monthSessionCount,
+                            weeks
+                        });
+
+                        mCursor.setMonth(mCursor.getMonth() + 1);
+                    }
+                }
 
                 container.innerHTML = `
                     <div class="space-y-5 text-xs">
+                        <!-- Course Selector Pills -->
                         <div class="flex flex-wrap items-center gap-2">
                             ${activeCourses.map(c => {
-                                const pal = this.getCourseColorObj(c.color);
+                                const cPal = this.getCourseColorObj(c.color);
                                 const isSel = c.id === course.id;
                                 return `
-                                    <button onclick="app.selectedBillingCourseId = '${c.id}'; app.switchCourse('${c.id}', 'billing');"
+                                    <button onclick="app.selectedBillingCourseId = '${c.id}'; app.selectedBillingModuleId = ''; app.switchCourse('${c.id}', 'billing');"
                                         class="px-3.5 py-2 rounded-xl border font-extrabold flex items-center gap-2 transition ${isSel ? 'text-white shadow-xs' : 'bg-white dark:bg-navy-900 border-sky-100 dark:border-slate-800'}"
-                                        style="${isSel ? `background-color:${pal.hex}; border-color:${pal.hex}` : ''}">
-                                        <span class="w-2.5 h-2.5 rounded-full" style="background-color:${isSel ? '#fff' : pal.hex}"></span>
+                                        style="${isSel ? `background-color:${cPal.hex}; border-color:${cPal.hex}` : ''}">
+                                        <span class="w-2.5 h-2.5 rounded-full" style="background-color:${isSel ? '#fff' : cPal.hex}"></span>
                                         <span>${this.escapeHtml(c.name)}</span>
                                     </button>
                                 `;
                             }).join("")}
                         </div>
 
-                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-5 items-stretch">
-                            <!-- Module Pricing & Scope Card -->
-                            <form onsubmit="app.saveModuleBillingConfig(event)" class="bg-white dark:bg-navy-900 rounded-2xl border border-sky-100 dark:border-slate-800 p-5 shadow-xs flex flex-col justify-between h-full space-y-4">
-                                <div class="space-y-4">
-                                    <div class="flex items-center justify-between border-b border-sky-100 dark:border-slate-800 pb-3 min-h-[52px]">
-                                        <div>
-                                            <h3 class="text-sm font-extrabold text-slate-900 dark:text-white">${this.escapeHtml(course.name)} — ${this.escapeHtml(this.formatLevelModuleBadge(course, activeLevel, activeSection))}</h3>
-                                            <p class="text-[11px] text-slate-400">${lessonsCount} ${this.t("lessonsLower")} • ${totalHours} h</p>
-                                        </div>
-                                        <span class="text-base font-extrabold text-emerald-600">${this.formatMoney(totalGross)}</span>
+                        <!-- 1. GENERAL OVERVIEW SPACE -->
+                        <div class="bg-white dark:bg-navy-900 rounded-2xl border border-sky-100 dark:border-slate-800 p-5 shadow-xs space-y-4">
+                            <div class="flex flex-wrap items-center justify-between gap-3 border-b border-sky-100 dark:border-slate-800 pb-3">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-10 h-10 rounded-xl flex items-center justify-center text-white font-extrabold shadow-xs" style="background-color: ${pal.hex};">
+                                        <i class="fa-solid fa-file-invoice-dollar text-base"></i>
                                     </div>
-
-                                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                                        <div>
-                                            <label class="block font-bold mb-1">Tariffa Oraria (${this.getCurrency()})</label>
-                                            <input type="number" step="0.01" id="billHourlyNet" value="${b.hourlyRateNet}" class="w-full h-9 rounded-xl border border-sky-200 dark:border-slate-700 bg-transparent px-3 font-bold">
-                                        </div>
-                                        <div>
-                                            <label class="block font-bold mb-1">Durata Lezione (h)</label>
-                                            <input type="number" step="0.25" id="billLessonDur" value="${b.lessonDurationHours}" class="w-full h-9 rounded-xl border border-sky-200 dark:border-slate-700 bg-transparent px-3 font-bold">
-                                        </div>
-                                        <div>
-                                            <label class="block font-bold mb-1">IVA (%)</label>
-                                            <input type="number" step="0.1" id="billVatPct" value="${b.vatPercent}" class="w-full h-9 rounded-xl border border-sky-200 dark:border-slate-700 bg-transparent px-3 font-bold">
-                                        </div>
-                                    </div>
-
-                                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                        <div>
-                                            <label class="block font-bold mb-1">Tipo Sconto</label>
-                                            <select id="billDiscType" class="w-full h-9 rounded-xl border border-sky-200 dark:border-slate-700 bg-transparent px-3 font-bold">
-                                                <option value="percent" ${b.discountType === 'percent' ? 'selected' : ''}>Percentuale (%)</option>
-                                                <option value="fixed" ${b.discountType === 'fixed' ? 'selected' : ''}>Importo Fisso (${this.getCurrency()})</option>
-                                            </select>
-                                        </div>
-                                        <div>
-                                            <label class="block font-bold mb-1">Valore Sconto</label>
-                                            <input type="number" step="0.01" id="billDiscVal" value="${b.discountValue}" class="w-full h-9 rounded-xl border border-sky-200 dark:border-slate-700 bg-transparent px-3 font-bold">
-                                        </div>
-                                    </div>
-
                                     <div>
-                                        <label class="block font-bold mb-1">Applica tariffe, IVA e sconti a:</label>
-                                        <select id="billApplyScope" class="w-full h-9 rounded-xl border border-sky-200 dark:border-slate-700 bg-transparent px-3 font-bold">
-                                            <option value="current">Solo questo modulo (${this.escapeHtml(activeSection.name)})</option>
-                                            <option value="subsequent">Questo modulo e moduli/livelli successivi</option>
-                                            <option value="all">Tutti i moduli e livelli del gruppo</option>
-                                        </select>
+                                        <h2 class="text-sm font-extrabold text-slate-900 dark:text-white">${this.escapeHtml(course.name)} — ${this.t("billingTitle")}</h2>
+                                        <p class="text-[11px] text-slate-400">${(course.levels || []).length} ${this.t("levelShort")} • ${totalModulesCount} ${this.t("modulesLabel")}</p>
+                                    </div>
+                                </div>
+                                <button onclick="app.openFiscalInfoModal('${course.id}')"
+                                    class="px-3.5 py-2 rounded-xl text-white font-extrabold flex items-center gap-2 shadow-2xs transition"
+                                    style="background-color: ${pal.hex};">
+                                    <i class="fa-solid fa-address-card text-xs"></i>
+                                    <span>${this.t("billingFiscalDataBtn")}</span>
+                                </button>
+                            </div>
+
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <!-- Conducted Hours Metric -->
+                                <div class="p-4 rounded-xl border border-sky-100 dark:border-slate-800" style="background-color: ${pal.hex}14;">
+                                    <span class="block font-bold text-slate-500 dark:text-slate-400 text-[11px] mb-1">${this.t("totalLessonsHoursConducted")}</span>
+                                    <div class="flex items-baseline gap-2">
+                                        <span class="text-2xl font-black" style="color: ${pal.hex};">${totalCompletedHours.toFixed(1)} h</span>
+                                        <span class="text-xs font-bold text-slate-400">/ ${totalScheduledHours.toFixed(1)} h totali</span>
                                     </div>
                                 </div>
 
-                                <div class="flex justify-end pt-3 mt-auto border-t border-sky-100/60 dark:border-slate-800">
-                                    <button type="submit" class="px-4 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-extrabold shadow-2xs">${this.t("saveBillingBtn")}</button>
-                                </div>
-                            </form>
-
-                            <!-- Tax / Fiscal Info Card -->
-                            <form onsubmit="app.saveCourseFiscalInfo(event)" class="bg-white dark:bg-navy-900 rounded-2xl border border-sky-100 dark:border-slate-800 p-5 shadow-xs flex flex-col justify-between h-full space-y-4">
-                                <div class="space-y-4">
-                                    <div class="flex items-center justify-between border-b border-sky-100 dark:border-slate-800 pb-3 min-h-[52px]">
-                                        <h3 class="text-sm font-extrabold text-slate-900 dark:text-white">${this.t("ecuadorBillingHeader")}</h3>
+                                <!-- Total Spent Metric -->
+                                <div class="p-4 rounded-xl border border-emerald-100 dark:border-emerald-950/40 bg-emerald-50/50 dark:bg-emerald-950/20">
+                                    <span class="block font-bold text-emerald-700 dark:text-emerald-400 text-[11px] mb-1">${this.t("totalSpentInvoiced")}</span>
+                                    <div class="text-2xl font-black text-emerald-600 dark:text-emerald-400">
+                                        ${this.formatMoney(totalCourseGross)}
                                     </div>
-                                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 2. ALL MODULES AND LEVELS LIST -->
+                        <div class="bg-white dark:bg-navy-900 rounded-2xl border border-sky-100 dark:border-slate-800 p-5 shadow-xs space-y-4">
+                            <div class="flex flex-wrap items-center justify-between gap-2 border-b border-sky-100 dark:border-slate-800 pb-3">
+                                <div>
+                                    <h3 class="text-sm font-extrabold text-slate-900 dark:text-white">Moduli e Livelli del Corso</h3>
+                                    <p class="text-[11px] text-slate-400">Clicca su un modulo per aprirne il calendario e i costi dettagliati</p>
+                                </div>
+                            </div>
+
+                            <div class="space-y-4">
+                                ${(course.levels || []).map(lvl => `
+                                    <div class="space-y-2">
+                                        <div class="flex items-center gap-2">
+                                            <span class="px-2 py-0.5 rounded-md font-extrabold text-[10px]" style="background-color: ${pal.hex}25; color: ${pal.hex};">
+                                                ${this.escapeHtml(lvl.code === 'Altro' ? (lvl.customName || this.t('otherLevelOpt')) : lvl.code)}
+                                            </span>
+                                            ${lvl.sublevel ? `<span class="text-[11px] text-slate-400 font-bold">(${this.escapeHtml(lvl.sublevel)})</span>` : ''}
+                                        </div>
+
+                                        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                                            ${(lvl.modules || []).map(mod => {
+                                                const mCost = this.getModuleTotalGross(mod);
+                                                const mDur = parseFloat(mod.billing?.lessonDurationHours) || curSettingDuration;
+                                                const mHours = ((mod.dates || []).length * mDur).toFixed(1);
+                                                const isOpened = currentModule && currentModule.id === mod.id;
+                                                return `
+                                                    <button type="button" onclick="app.selectedBillingModuleId = '${mod.id}'; app.renderMainView();"
+                                                        class="p-3.5 rounded-xl border text-left transition flex flex-col justify-between space-y-2 ${isOpened ? 'ring-2' : 'hover:border-sky-300 dark:hover:border-slate-700'}"
+                                                        style="${isOpened ? `border-color: ${pal.hex}; background-color: ${pal.hex}12; --tw-ring-color: ${pal.hex}` : 'border-color: rgba(226,232,240,0.8); background-color: rgba(248,250,252,0.5);'}">
+                                                        <div class="flex items-center justify-between gap-2">
+                                                            <span class="font-extrabold text-slate-900 dark:text-white truncate">${this.escapeHtml(mod.name)}</span>
+                                                            <span class="font-extrabold text-emerald-600 dark:text-emerald-400">${this.formatMoney(mCost)}</span>
+                                                        </div>
+                                                        <div class="flex items-center justify-between text-[11px] text-slate-400">
+                                                            <span>${(mod.dates || []).length} ${this.t("lessonsLower")} • ${mHours} h</span>
+                                                            ${isOpened ? `<span class="px-2 py-0.5 rounded text-[9px] font-extrabold text-white" style="background-color: ${pal.hex};">Aperto</span>` : ''}
+                                                        </div>
+                                                    </button>
+                                                `;
+                                            }).join("")}
+                                        </div>
+                                    </div>
+                                `).join("")}
+                            </div>
+                        </div>
+
+                        <!-- 3. OPENED MODULE VIEW: GLOBAL TOOLBAR + BILLING CALENDAR -->
+                        ${currentModule ? `
+                            <div class="bg-white dark:bg-navy-900 rounded-2xl border border-sky-100 dark:border-slate-800 p-5 shadow-xs space-y-5">
+                                <!-- Module Header & Total Module Cost -->
+                                <div class="flex flex-wrap items-center justify-between gap-3 border-b border-sky-100 dark:border-slate-800 pb-4">
+                                    <div>
+                                        <div class="flex items-center gap-2">
+                                            <h3 class="text-base font-extrabold text-slate-900 dark:text-white">${this.escapeHtml(currentModule.name)}</h3>
+                                            <span class="px-2.5 py-0.5 rounded-lg text-xs font-extrabold text-white" style="background-color: ${pal.hex};">
+                                                ${this.escapeHtml(this.formatLevelModuleBadge(course, currentLevel, currentModule))}
+                                            </span>
+                                        </div>
+                                        <p class="text-[11px] text-slate-400 mt-1">${curSortedSlots.length} ${this.t("lessonsLower")} • ${(curSortedSlots.length * curDuration).toFixed(1)} h</p>
+                                    </div>
+
+                                    <div class="flex items-center gap-3">
+                                        <div class="px-4 py-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800">
+                                            <span class="text-[11px] text-emerald-700 dark:text-emerald-400 font-bold block">${this.t("moduleBillingCost")}</span>
+                                            <span class="text-lg font-black text-emerald-600 dark:text-emerald-400">${this.formatMoney(curModuleCost)}</span>
+                                        </div>
+                                        <button onclick="app.downloadModuleBillingCalendarPng('${course.id}', '${currentModule.id}')"
+                                            class="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold flex items-center gap-2 shadow-2xs transition">
+                                            <i class="fa-solid fa-file-image"></i>
+                                            <span>${this.t("exportCalendarPngBtn")}</span>
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <!-- Global Batch Toolbar -->
+                                <div class="p-4 rounded-xl border border-sky-100 dark:border-slate-800 bg-slate-50/70 dark:bg-navy-800/40 space-y-3">
+                                    <div class="flex items-center justify-between">
+                                        <div class="flex items-center gap-2 font-extrabold text-slate-800 dark:text-slate-100">
+                                            <i class="fa-solid fa-sliders" style="color: ${pal.hex};"></i>
+                                            <span>${this.t("globalPricingTool")}</span>
+                                        </div>
+                                        <span class="text-[11px] text-slate-400">Modifica contemporaneamente tariffe, IVA e sconti su tutte le lezioni</span>
+                                    </div>
+
+                                    <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3 items-end">
                                         <div>
-                                            <label class="block font-bold mb-1">${this.t("idTypeLabel")}</label>
-                                            <select id="fiscIdType" class="w-full h-9 rounded-xl border border-sky-200 dark:border-slate-700 bg-transparent px-3 font-bold">
-                                                <option value="cedula" ${fInfo.idType === 'cedula' ? 'selected' : ''}>Cédula</option>
-                                                <option value="ruc" ${fInfo.idType === 'ruc' ? 'selected' : ''}>RUC</option>
-                                                <option value="passport" ${fInfo.idType === 'passport' ? 'selected' : ''}>Pasaporte / Altro</option>
+                                            <label class="block font-bold text-[11px] text-slate-500 mb-1">Tariffa Oraria (${this.getCurrency()})</label>
+                                            <input type="number" step="0.01" id="batchHourlyRateNet" value="${curHourlyRate}"
+                                                class="w-full h-9 rounded-xl border border-sky-200 dark:border-slate-700 bg-white dark:bg-navy-900 px-3 font-bold text-slate-800 dark:text-slate-100">
+                                        </div>
+                                        <div>
+                                            <label class="block font-bold text-[11px] text-slate-500 mb-1">Durata (h)</label>
+                                            <input type="number" step="0.25" id="batchLessonDurationHours" value="${curDuration}"
+                                                class="w-full h-9 rounded-xl border border-sky-200 dark:border-slate-700 bg-white dark:bg-navy-900 px-3 font-bold text-slate-800 dark:text-slate-100">
+                                        </div>
+                                        <div>
+                                            <label class="block font-bold text-[11px] text-slate-500 mb-1">IVA (%)</label>
+                                            <input type="number" step="0.1" id="batchVatPercent" value="${curVat}"
+                                                class="w-full h-9 rounded-xl border border-sky-200 dark:border-slate-700 bg-white dark:bg-navy-900 px-3 font-bold text-slate-800 dark:text-slate-100">
+                                        </div>
+                                        <div>
+                                            <label class="block font-bold text-[11px] text-slate-500 mb-1">Tipo Sconto</label>
+                                            <select id="batchDiscountType"
+                                                class="w-full h-9 rounded-xl border border-sky-200 dark:border-slate-700 bg-white dark:bg-navy-900 px-2 font-bold text-slate-800 dark:text-slate-100">
+                                                <option value="percent" ${curDiscType === 'percent' ? 'selected' : ''}>%</option>
+                                                <option value="fixed" ${curDiscType === 'fixed' ? 'selected' : ''}>${this.getCurrency()} (Fisso)</option>
                                             </select>
                                         </div>
                                         <div>
-                                            <label class="block font-bold mb-1">${this.t("idNumberLabel")}</label>
-                                            <input type="text" id="fiscIdNum" value="${this.escapeHtml(fInfo.idNumber || '')}" class="w-full h-9 rounded-xl border border-sky-200 dark:border-slate-700 bg-transparent px-3 font-bold">
-                                        </div>
-                                        <div class="sm:col-span-2">
-                                            <label class="block font-bold mb-1">${this.t("fullNameBillingLabel")}</label>
-                                            <input type="text" id="fiscFullName" value="${this.escapeHtml(fInfo.fullName || course.name || '')}" class="w-full h-9 rounded-xl border border-sky-200 dark:border-slate-700 bg-transparent px-3 font-bold">
+                                            <label class="block font-bold text-[11px] text-slate-500 mb-1">Valore Sconto</label>
+                                            <input type="number" step="0.01" id="batchDiscountValue" value="${curDiscVal}"
+                                                class="w-full h-9 rounded-xl border border-sky-200 dark:border-slate-700 bg-white dark:bg-navy-900 px-3 font-bold text-slate-800 dark:text-slate-100">
                                         </div>
                                         <div>
-                                            <label class="block font-bold mb-1">${this.t("cityBillingLabel")}</label>
-                                            <input type="text" id="fiscCity" value="${this.escapeHtml(fInfo.city || '')}" class="w-full h-9 rounded-xl border border-sky-200 dark:border-slate-700 bg-transparent px-3">
-                                        </div>
-                                        <div>
-                                            <label class="block font-bold mb-1">${this.t("addressBillingLabel")}</label>
-                                            <input type="text" id="fiscAddress" value="${this.escapeHtml(fInfo.address || '')}" class="w-full h-9 rounded-xl border border-sky-200 dark:border-slate-700 bg-transparent px-3">
-                                        </div>
-                                        <div>
-                                            <label class="block font-bold mb-1">${this.t("phoneBillingLabel")}</label>
-                                            <input type="text" id="fiscPhone" value="${this.escapeHtml(fInfo.phone || '')}" class="w-full h-9 rounded-xl border border-sky-200 dark:border-slate-700 bg-transparent px-3">
-                                        </div>
-                                        <div>
-                                            <label class="block font-bold mb-1">${this.t("emailBillingLabel")}</label>
-                                            <input type="email" id="fiscEmail" value="${this.escapeHtml(fInfo.email || '')}" class="w-full h-9 rounded-xl border border-sky-200 dark:border-slate-700 bg-transparent px-3">
+                                            <button type="button" onclick="app.applyBatchPricingToModule('${course.id}', '${currentModule.id}')"
+                                                class="w-full h-9 rounded-xl text-white font-extrabold flex items-center justify-center gap-1.5 shadow-2xs transition"
+                                                style="background-color: ${pal.hex};">
+                                                <i class="fa-solid fa-check text-xs"></i>
+                                                <span>${this.t("applyToAllLessonsBtn")}</span>
+                                            </button>
                                         </div>
                                     </div>
                                 </div>
-                                <div class="flex justify-end pt-3 mt-auto border-t border-sky-100/60 dark:border-slate-800">
-                                    <button type="submit" class="px-4 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-extrabold shadow-2xs">${this.t("saveBillingBtn")}</button>
-                                </div>
-                            </form>
-                        </div>
-                        </div>
+
+                                <!-- Billing Calendar Grid -->
+                                ${monthsData.length === 0 ? `
+                                    <div class="py-12 text-center text-slate-400">
+                                        <i class="fa-regular fa-calendar-xmark text-3xl mb-2 block"></i>
+                                        <span>${this.t("noScheduledLessonsMsg")}</span>
+                                    </div>
+                                ` : `
+                                    <div class="space-y-6">
+                                        ${monthsData.map(sec => `
+                                            <div class="space-y-3">
+                                                <!-- Month Header -->
+                                                <div class="flex items-center justify-between border-b border-sky-100 dark:border-slate-800 pb-2">
+                                                    <h4 class="text-sm font-extrabold text-slate-900 dark:text-white">${this.escapeHtml(sec.title)}</h4>
+                                                    <span class="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold" style="background-color: ${pal.hex}20; color: ${pal.hex};">
+                                                        ${sec.sessionCount} ${this.t("lessonsLower")}
+                                                    </span>
+                                                </div>
+
+                                                <!-- Weekday Header -->
+                                                <div class="grid grid-cols-7 gap-2 text-center text-[11px] font-black text-slate-400">
+                                                    ${dayHeaders.map(d => `<div>${d.toUpperCase()}</div>`).join("")}
+                                                </div>
+
+                                                <!-- Month Days Grid -->
+                                                <div class="space-y-2">
+                                                    ${sec.weeks.map(week => `
+                                                        <div class="grid grid-cols-7 gap-2">
+                                                            ${week.map(cell => {
+                                                                if (!cell.isCurrentMonth) {
+                                                                    return `<div class="min-h-[85px] rounded-xl bg-slate-50/50 dark:bg-navy-950/20 border border-slate-100 dark:border-slate-800/40 opacity-40"></div>`;
+                                                                }
+                                                                return `
+                                                                    <div class="min-h-[85px] p-2 rounded-xl border flex flex-col justify-between transition ${cell.lessons.length > 0 ? 'bg-sky-50/30 dark:bg-sky-950/10 border-sky-200/80 dark:border-sky-800/50' : 'bg-white dark:bg-navy-900 border-slate-200/70 dark:border-slate-800'}">
+                                                                        <div class="flex items-center justify-between mb-1">
+                                                                            <span class="text-xs font-extrabold ${cell.lessons.length > 0 ? 'text-slate-900 dark:text-white' : 'text-slate-400'}">${cell.dayNum}</span>
+                                                                        </div>
+
+                                                                        <div class="space-y-1.5 flex-1 flex flex-col justify-end">
+                                                                            ${cell.lessons.map(lItem => {
+                                                                                const pr = lItem.pricing;
+                                                                                return `
+                                                                                    <button type="button" onclick="app.openEditLessonPriceModal('${course.id}', '${currentModule.id}', '${lItem.slotKey}')"
+                                                                                        title="${this.t('editLessonPricing')}"
+                                                                                        class="w-full text-left p-2 rounded-lg text-white font-extrabold shadow-2xs hover:opacity-90 transition cursor-pointer"
+                                                                                        style="background-color: ${pal.hex};">
+                                                                                        <div class="flex items-center justify-between text-[10px] opacity-95">
+                                                                                            <span class="bg-white/25 px-1 rounded text-[9px]">L${lItem.lessonNumber}</span>
+                                                                                            <span>${this.escapeHtml(lItem.time)}</span>
+                                                                                        </div>
+                                                                                        <div class="text-xs font-black mt-0.5">
+                                                                                            ${this.formatMoney(pr.gross)}
+                                                                                        </div>
+                                                                                        <div class="flex items-center gap-1.5 text-[9px] opacity-90 mt-0.5">
+                                                                                            <span>IVA ${Math.round(pr.vatPct)}%</span>
+                                                                                            ${pr.discountAmount > 0 ? `<span class="text-amber-200 font-bold">-${this.formatMoney(pr.discountAmount)}</span>` : ''}
+                                                                                        </div>
+                                                                                    </button>
+                                                                                `;
+                                                                            }).join("")}
+                                                                        </div>
+                                                                    </div>
+                                                                `;
+                                                            }).join("")}
+                                                        </div>
+                                                    `).join("")}
+                                                </div>
+                                            </div>
+                                        `).join("")}
+                                    </div>
+                                `}
+                            </div>
+                        ` : ''}
                     </div>
                 `;
             }
 
-            saveModuleBillingConfig(e) {
+            openFiscalInfoModal(courseId) {
+                const course = (this.state.courses || []).find(c => c.id === courseId) || this.getActiveCourse();
+                if (!course) return;
+                const fInfo = course.billingConfig?.billingInfo || {};
+
+                this.openModal(`
+                    <div class="p-5 space-y-4">
+                        <div class="flex items-center justify-between border-b border-sky-100 dark:border-slate-800 pb-3">
+                            <div class="flex items-center gap-2.5">
+                                <i class="fa-solid fa-address-card text-sky-600 text-lg"></i>
+                                <h3 class="text-sm font-extrabold text-slate-900 dark:text-white">${this.t("ecuadorBillingHeader")}</h3>
+                            </div>
+                            <button type="button" onclick="app.closeModal()" class="w-8 h-8 rounded-lg hover:bg-slate-100 dark:hover:bg-navy-800 flex items-center justify-center">
+                                <i class="fa-solid fa-xmark"></i>
+                            </button>
+                        </div>
+
+                        <form onsubmit="app.saveCourseFiscalInfoFromModal('${course.id}', event)" class="space-y-4 text-xs">
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <div>
+                                    <label class="block font-bold mb-1">${this.t("idTypeLabel")}</label>
+                                    <select id="modalFiscIdType" class="w-full h-9 rounded-xl border border-sky-200 dark:border-slate-700 bg-transparent px-3 font-bold">
+                                        <option value="cedula" ${fInfo.idType === 'cedula' ? 'selected' : ''}>Cédula</option>
+                                        <option value="ruc" ${fInfo.idType === 'ruc' ? 'selected' : ''}>RUC</option>
+                                        <option value="passport" ${fInfo.idType === 'passport' ? 'selected' : ''}>Pasaporte / Altro</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block font-bold mb-1">${this.t("idNumberLabel")}</label>
+                                    <input type="text" id="modalFiscIdNum" value="${this.escapeHtml(fInfo.idNumber || '')}" class="w-full h-9 rounded-xl border border-sky-200 dark:border-slate-700 bg-transparent px-3 font-bold">
+                                </div>
+                                <div class="sm:col-span-2">
+                                    <label class="block font-bold mb-1">${this.t("fullNameBillingLabel")}</label>
+                                    <input type="text" id="modalFiscFullName" value="${this.escapeHtml(fInfo.fullName || course.name || '')}" class="w-full h-9 rounded-xl border border-sky-200 dark:border-slate-700 bg-transparent px-3 font-bold">
+                                </div>
+                                <div>
+                                    <label class="block font-bold mb-1">${this.t("cityBillingLabel")}</label>
+                                    <input type="text" id="modalFiscCity" value="${this.escapeHtml(fInfo.city || '')}" class="w-full h-9 rounded-xl border border-sky-200 dark:border-slate-700 bg-transparent px-3">
+                                </div>
+                                <div>
+                                    <label class="block font-bold mb-1">${this.t("addressBillingLabel")}</label>
+                                    <input type="text" id="modalFiscAddress" value="${this.escapeHtml(fInfo.address || '')}" class="w-full h-9 rounded-xl border border-sky-200 dark:border-slate-700 bg-transparent px-3">
+                                </div>
+                                <div>
+                                    <label class="block font-bold mb-1">${this.t("phoneBillingLabel")}</label>
+                                    <input type="text" id="modalFiscPhone" value="${this.escapeHtml(fInfo.phone || '')}" class="w-full h-9 rounded-xl border border-sky-200 dark:border-slate-700 bg-transparent px-3">
+                                </div>
+                                <div>
+                                    <label class="block font-bold mb-1">${this.t("emailBillingLabel")}</label>
+                                    <input type="email" id="modalFiscEmail" value="${this.escapeHtml(fInfo.email || '')}" class="w-full h-9 rounded-xl border border-sky-200 dark:border-slate-700 bg-transparent px-3">
+                                </div>
+                            </div>
+
+                            <div class="flex justify-end gap-2 pt-3 border-t border-sky-100 dark:border-slate-800">
+                                <button type="button" onclick="app.closeModal()" class="px-4 py-2 rounded-xl border border-slate-300 dark:border-slate-700 font-bold">${this.t("cancelBtn")}</button>
+                                <button type="submit" class="px-4 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-extrabold shadow-2xs">${this.t("saveBillingBtn")}</button>
+                            </div>
+                        </form>
+                    </div>
+                `, "max-w-xl");
+            }
+
+            saveCourseFiscalInfoFromModal(courseId, e) {
                 if (e) e.preventDefault();
-                const course = this.getActiveCourse();
-                const activeLvl = this.getActiveLevel(course);
-                const activeMod = this.getActiveSection(course);
-                if (!course || !activeLvl || !activeMod) return;
-
-                const newBilling = {
-                    hourlyRateNet: parseFloat(document.getElementById("billHourlyNet")?.value) || 0,
-                    lessonDurationHours: parseFloat(document.getElementById("billLessonDur")?.value) || 1.5,
-                    vatPercent: parseFloat(document.getElementById("billVatPct")?.value) || 0,
-                    discountType: document.getElementById("billDiscType")?.value || "percent",
-                    discountTarget: "total",
-                    discountValue: parseFloat(document.getElementById("billDiscVal")?.value) || 0
+                const course = (this.state.courses || []).find(c => c.id === courseId);
+                if (!course) return;
+                if (!course.billingConfig) course.billingConfig = {};
+                course.billingConfig.billingInfo = {
+                    idType: document.getElementById("modalFiscIdType")?.value || "cedula",
+                    idNumber: document.getElementById("modalFiscIdNum")?.value.trim() || "",
+                    fullName: document.getElementById("modalFiscFullName")?.value.trim() || "",
+                    city: document.getElementById("modalFiscCity")?.value.trim() || "",
+                    address: document.getElementById("modalFiscAddress")?.value.trim() || "",
+                    phone: document.getElementById("modalFiscPhone")?.value.trim() || "",
+                    email: document.getElementById("modalFiscEmail")?.value.trim() || ""
                 };
-                const scope = document.getElementById("billApplyScope")?.value || "current";
-
-                if (scope === "current") {
-                    activeMod.billing = { ...newBilling };
-                } else if (scope === "all") {
-                    (course.levels || []).forEach(l => (l.modules || []).forEach(m => {
-                        m.billing = { ...newBilling };
-                    }));
-                } else if (scope === "subsequent") {
-                    let reached = false;
-                    (course.levels || []).forEach(l => {
-                        (l.modules || []).forEach(m => {
-                            if (l.id === activeLvl.id && m.id === activeMod.id) reached = true;
-                            if (reached) m.billing = { ...newBilling };
-                        });
-                    });
-                }
-
                 this.persist();
+                this.closeModal(true);
                 this.renderMainView();
                 this.showToast(this.t("saveBillingBtn"), "success");
             }
 
-            saveCourseFiscalInfo(e) {
-                if (e) e.preventDefault();
-                const course = this.getActiveCourse();
+            openEditLessonPriceModal(courseId, moduleId, slotKey) {
+                const course = (this.state.courses || []).find(c => c.id === courseId);
                 if (!course) return;
-                if (!course.billingConfig) course.billingConfig = {};
-                course.billingConfig.billingInfo = {
-                    idType: document.getElementById("fiscIdType")?.value || "cedula",
-                    idNumber: document.getElementById("fiscIdNum")?.value.trim() || "",
-                    fullName: document.getElementById("fiscFullName")?.value.trim() || "",
-                    city: document.getElementById("fiscCity")?.value.trim() || "",
-                    address: document.getElementById("fiscAddress")?.value.trim() || "",
-                    phone: document.getElementById("fiscPhone")?.value.trim() || "",
-                    email: document.getElementById("fiscEmail")?.value.trim() || ""
+                let mod = null;
+                for (const lvl of (course.levels || [])) {
+                    const found = (lvl.modules || []).find(m => m.id === moduleId);
+                    if (found) { mod = found; break; }
+                }
+                if (!mod) return;
+
+                const pricing = this.getLessonPricing(mod, slotKey);
+                const les = this.findLessonForSlot(course, moduleId, slotKey);
+                const titleOrTime = les?.title ? `${les.title} (${les.time || ''})` : (les?.time || slotKey);
+
+                this.openModal(`
+                    <div class="p-5 space-y-4">
+                        <div class="flex items-center justify-between border-b border-sky-100 dark:border-slate-800 pb-3">
+                            <div>
+                                <h3 class="text-sm font-extrabold text-slate-900 dark:text-white">${this.t("editLessonPricing")}</h3>
+                                <p class="text-[11px] text-slate-400 font-bold mt-0.5">${this.escapeHtml(titleOrTime)} • ${this.formatDateDisplay(this.extractDateFromSlotKey(slotKey))}</p>
+                            </div>
+                            <button type="button" onclick="app.closeModal()" class="w-8 h-8 rounded-lg hover:bg-slate-100 dark:hover:bg-navy-800 flex items-center justify-center">
+                                <i class="fa-solid fa-xmark"></i>
+                            </button>
+                        </div>
+
+                        <form onsubmit="app.saveLessonPriceFromModal('${course.id}', '${mod.id}', '${slotKey}', event)" class="space-y-4 text-xs">
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <div>
+                                    <label class="block font-bold mb-1">${this.t("lessonPriceLabel")} Netto (${this.getCurrency()})</label>
+                                    <input type="number" step="0.01" id="editLessonNetPrice" value="${pricing.net}" class="w-full h-9 rounded-xl border border-sky-200 dark:border-slate-700 bg-transparent px-3 font-bold">
+                                </div>
+                                <div>
+                                    <label class="block font-bold mb-1">${this.t("lessonVatLabel")}</label>
+                                    <input type="number" step="0.1" id="editLessonVatPct" value="${pricing.vatPct}" class="w-full h-9 rounded-xl border border-sky-200 dark:border-slate-700 bg-transparent px-3 font-bold">
+                                </div>
+                                <div>
+                                    <label class="block font-bold mb-1">Tipo Sconto</label>
+                                    <select id="editLessonDiscType" class="w-full h-9 rounded-xl border border-sky-200 dark:border-slate-700 bg-transparent px-3 font-bold">
+                                        <option value="percent" ${pricing.discType === 'percent' ? 'selected' : ''}>Percentuale (%)</option>
+                                        <option value="fixed" ${pricing.discType === 'fixed' ? 'selected' : ''}>Fisso (${this.getCurrency()})</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block font-bold mb-1">${this.t("lessonDiscountLabel")}</label>
+                                    <input type="number" step="0.01" id="editLessonDiscVal" value="${pricing.discVal}" class="w-full h-9 rounded-xl border border-sky-200 dark:border-slate-700 bg-transparent px-3 font-bold">
+                                </div>
+                            </div>
+
+                            <div class="flex items-center justify-between pt-3 border-t border-sky-100 dark:border-slate-800">
+                                <button type="button" onclick="app.resetLessonPriceFromModal('${course.id}', '${mod.id}', '${slotKey}')"
+                                    class="px-3.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-bold hover:bg-slate-100 dark:hover:bg-navy-800">
+                                    Ripristina Predefinito
+                                </button>
+                                <div class="flex items-center gap-2">
+                                    <button type="button" onclick="app.closeModal()" class="px-4 py-2 rounded-xl border border-slate-300 dark:border-slate-700 font-bold">${this.t("cancelBtn")}</button>
+                                    <button type="submit" class="px-4 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-extrabold shadow-2xs">${this.t("saveBillingBtn")}</button>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                `, "max-w-lg");
+            }
+
+            saveLessonPriceFromModal(courseId, moduleId, slotKey, e) {
+                if (e) e.preventDefault();
+                const course = (this.state.courses || []).find(c => c.id === courseId);
+                if (!course) return;
+                let mod = null;
+                for (const lvl of (course.levels || [])) {
+                    const found = (lvl.modules || []).find(m => m.id === moduleId);
+                    if (found) { mod = found; break; }
+                }
+                if (!mod) return;
+
+                if (!mod.billing) mod.billing = {};
+                if (!mod.billing.lessonOverrides) mod.billing.lessonOverrides = {};
+
+                mod.billing.lessonOverrides[slotKey] = {
+                    price: parseFloat(document.getElementById("editLessonNetPrice")?.value) || 0,
+                    vatPercent: parseFloat(document.getElementById("editLessonVatPct")?.value) || 0,
+                    discountType: document.getElementById("editLessonDiscType")?.value || "percent",
+                    discountValue: parseFloat(document.getElementById("editLessonDiscVal")?.value) || 0
                 };
+
                 this.persist();
-                this.showToast(this.t("saveBillingBtn"), "success");
+                this.closeModal(true);
+                this.renderMainView();
+                this.showToast(this.t("lessonPricingUpdatedToast"), "success");
+            }
+
+            resetLessonPriceFromModal(courseId, moduleId, slotKey) {
+                const course = (this.state.courses || []).find(c => c.id === courseId);
+                if (!course) return;
+                let mod = null;
+                for (const lvl of (course.levels || [])) {
+                    const found = (lvl.modules || []).find(m => m.id === moduleId);
+                    if (found) { mod = found; break; }
+                }
+                if (!mod || !mod.billing?.lessonOverrides) return;
+
+                delete mod.billing.lessonOverrides[slotKey];
+                this.persist();
+                this.closeModal(true);
+                this.renderMainView();
+                this.showToast(this.t("lessonPricingUpdatedToast"), "info");
+            }
+
+            applyBatchPricingToModule(courseId, moduleId) {
+                const course = (this.state.courses || []).find(c => c.id === courseId);
+                if (!course) return;
+                let mod = null;
+                for (const lvl of (course.levels || [])) {
+                    const found = (lvl.modules || []).find(m => m.id === moduleId);
+                    if (found) { mod = found; break; }
+                }
+                if (!mod) return;
+
+                mod.billing = {
+                    hourlyRateNet: parseFloat(document.getElementById("batchHourlyRateNet")?.value) || 0,
+                    lessonDurationHours: parseFloat(document.getElementById("batchLessonDurationHours")?.value) || 1.5,
+                    vatPercent: parseFloat(document.getElementById("batchVatPercent")?.value) || 0,
+                    discountType: document.getElementById("batchDiscountType")?.value || "percent",
+                    discountTarget: "total",
+                    discountValue: parseFloat(document.getElementById("batchDiscountValue")?.value) || 0,
+                    lessonOverrides: {} // Reset individual overrides so all lessons adhere to batch settings
+                };
+
+                this.persist();
+                this.renderMainView();
+                this.showToast(this.t("appliedToAllLessonsToast"), "success");
+            }
+
+            downloadModuleBillingCalendarPng(courseId, moduleId) {
+                const course = (this.state.courses || []).find(c => c.id === courseId) || this.getActiveCourse();
+                if (!course) return;
+                let mod = null;
+                let lvl = null;
+                for (const l of (course.levels || [])) {
+                    const found = (l.modules || []).find(m => m.id === moduleId);
+                    if (found) { mod = found; lvl = l; break; }
+                }
+                if (!mod) return;
+
+                const slots = this.sortModuleSlots(course, mod);
+                if (!slots || slots.length === 0) {
+                    this.showToast(this.t("noScheduledLessonsMsg"), "warning");
+                    return;
+                }
+
+                const pal = this.getCourseColorObj(course.color);
+                const curSettingDuration = parseFloat(this.state?.settings?.defaultLessonDurationHours) || 1.5;
+                const dur = parseFloat(mod.billing?.lessonDurationHours) || curSettingDuration;
+                const totalHours = (slots.length * dur).toFixed(1);
+                const totalCost = this.getModuleTotalGross(mod);
+                const startFirstDayMon = (this.state?.settings?.firstDayOfWeek || "monday") === "monday";
+                const dayHeaders = startFirstDayMon ? ["LUN", "MAR", "MER", "GIO", "VEN", "SAB", "DOM"] : ["DOM", "LUN", "MAR", "MER", "GIO", "VEN", "SAB"];
+                const monthNames = ["Gennaio", "Febbraio", "Marzo", "Aprile", "Maggio", "Giugno", "Luglio", "Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre"];
+
+                // Build month structures
+                const firstDateStr = this.extractDateFromSlotKey(slots[0]);
+                const lastDateStr = this.extractDateFromSlotKey(slots[slots.length - 1]);
+                const firstDate = new Date(firstDateStr + "T12:00:00");
+                const lastDate = new Date(lastDateStr + "T12:00:00");
+
+                const slotsByDate = {};
+                slots.forEach((slotKey, idx) => {
+                    const dStr = this.extractDateFromSlotKey(slotKey);
+                    if (!slotsByDate[dStr]) slotsByDate[dStr] = [];
+                    const les = this.findLessonForSlot(course, mod.id, slotKey);
+                    const pr = this.getLessonPricing(mod, slotKey);
+                    slotsByDate[dStr].push({
+                        slotKey,
+                        lessonNum: idx + 1,
+                        time: les?.time || mod.startTime || course.startTime || "19:00",
+                        pricing: pr
+                    });
+                });
+
+                const months = [];
+                let mCursor = new Date(firstDate.getFullYear(), firstDate.getMonth(), 1);
+                const maxMonth = new Date(lastDate.getFullYear(), lastDate.getMonth() + 1, 1);
+
+                while (mCursor < maxMonth) {
+                    const y = mCursor.getFullYear();
+                    const m = mCursor.getMonth();
+                    const title = `${monthNames[m]} ${y}`;
+                    const firstDayOfMonth = new Date(y, m, 1);
+                    const lastDayOfMonth = new Date(y, m + 1, 0);
+
+                    const startCursor = new Date(firstDayOfMonth);
+                    const fDow = startCursor.getDay();
+                    const startOffset = startFirstDayMon ? (fDow === 0 ? -6 : 1 - fDow) : -fDow;
+                    startCursor.setDate(startCursor.getDate() + startOffset);
+
+                    const endCursor = new Date(lastDayOfMonth);
+                    const lDow = endCursor.getDay();
+                    const endOffset = startFirstDayMon ? (lDow === 0 ? 0 : 7 - lDow) : (6 - lDow);
+                    endCursor.setDate(endCursor.getDate() + endOffset);
+
+                    const weeks = [];
+                    let wCursor = new Date(startCursor);
+                    let mCount = 0;
+
+                    while (wCursor <= endCursor) {
+                        const week = [];
+                        for (let i = 0; i < 7; i++) {
+                            const curY = wCursor.getFullYear();
+                            const curM = String(wCursor.getMonth() + 1).padStart(2, "0");
+                            const curD = String(wCursor.getDate()).padStart(2, "0");
+                            const iso = `${curY}-${curM}-${curD}`;
+                            const isCurrentMonth = wCursor.getMonth() === m;
+                            const lessons = slotsByDate[iso] || [];
+                            if (isCurrentMonth) mCount += lessons.length;
+                            week.push({ iso, dayNum: wCursor.getDate(), isCurrentMonth, lessons });
+                            wCursor.setDate(wCursor.getDate() + 1);
+                        }
+                        weeks.push(week);
+                    }
+                    months.push({ title, count: mCount, weeks });
+                    mCursor.setMonth(mCursor.getMonth() + 1);
+                }
+
+                // Setup Canvas Dimensions (Scale 2x for Retina High DPI)
+                const width = 1200;
+                let estimatedHeight = 180 + 90; // Header + Summary
+                months.forEach(mObj => {
+                    estimatedHeight += 50 + 35 + (mObj.weeks.length * 115) + 30; // Month title, headers, week rows, padding
+                });
+                estimatedHeight += 70; // Footer
+
+                const canvas = document.createElement("canvas");
+                const scale = 2;
+                canvas.width = width * scale;
+                canvas.height = estimatedHeight * scale;
+                const ctx = canvas.getContext("2d");
+                ctx.scale(scale, scale);
+
+                // Background
+                ctx.fillStyle = "#ffffff";
+                ctx.fillRect(0, 0, width, estimatedHeight);
+
+                // Top Banner Background
+                ctx.fillStyle = pal.hex;
+                ctx.fillRect(0, 0, width, 140);
+
+                // Course & Module Header Text
+                ctx.fillStyle = "#ffffff";
+                ctx.font = "bold 26px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+                ctx.fillText(`${course.name} — ${mod.name}`, 40, 50);
+
+                ctx.font = "normal 14px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+                const badgeTxt = this.formatLevelModuleBadge(course, lvl, mod);
+                ctx.fillText(`Livello: ${badgeTxt} • Calendario Lezioni & Tariffe`, 40, 80);
+
+                const nowFormatted = new Date().toLocaleDateString(this.state?.settings?.language === "es" ? "es-ES" : (this.state?.settings?.language === "en" ? "en-US" : "it-IT"));
+                ctx.font = "normal 12px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+                ctx.fillText(`Data emissione: ${nowFormatted}`, 40, 110);
+
+                // Summary Card
+                ctx.fillStyle = "#f8fafc";
+                ctx.strokeStyle = "#e2e8f0";
+                ctx.lineWidth = 1;
+                roundRect(ctx, 40, 155, width - 80, 75, 12, true, true);
+
+                ctx.fillStyle = "#64748b";
+                ctx.font = "bold 11px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+                ctx.fillText("TOTALE LEZIONI", 60, 180);
+                ctx.fillText("ORE TOTALI", 240, 180);
+                ctx.fillText("COSTO TOTALE MODULO", 440, 180);
+
+                ctx.fillStyle = "#0f172a";
+                ctx.font = "bold 20px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+                ctx.fillText(`${slots.length} lezioni`, 60, 210);
+                ctx.fillText(`${totalHours} ore`, 240, 210);
+
+                ctx.fillStyle = "#059669"; // Emerald
+                ctx.fillText(this.formatMoney(totalCost), 440, 210);
+
+                // Render Months
+                let yPos = 250;
+                const calWidth = width - 80;
+                const colWidth = (calWidth - (6 * 8)) / 7;
+
+                months.forEach(mObj => {
+                    // Month Title Banner
+                    ctx.fillStyle = "#1e293b";
+                    ctx.font = "bold 16px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+                    ctx.fillText(mObj.title, 40, yPos + 22);
+
+                    ctx.fillStyle = pal.hex;
+                    ctx.font = "bold 11px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+                    ctx.fillText(`${mObj.count} lezioni`, width - 130, yPos + 22);
+
+                    yPos += 36;
+
+                    // Weekday headers
+                    dayHeaders.forEach((dh, colIdx) => {
+                        const colX = 40 + colIdx * (colWidth + 8);
+                        ctx.fillStyle = "#64748b";
+                        ctx.font = "bold 10px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+                        ctx.textAlign = "center";
+                        ctx.fillText(dh, colX + colWidth / 2, yPos + 12);
+                    });
+                    ctx.textAlign = "left";
+                    yPos += 22;
+
+                    // Month Weeks
+                    mObj.weeks.forEach(week => {
+                        const rowHeight = 105;
+                        week.forEach((cell, colIdx) => {
+                            const cellX = 40 + colIdx * (colWidth + 8);
+                            const cellY = yPos;
+
+                            if (!cell.isCurrentMonth) {
+                                ctx.fillStyle = "#f8fafc";
+                                ctx.strokeStyle = "#f1f5f9";
+                                roundRect(ctx, cellX, cellY, colWidth, rowHeight, 8, true, true);
+                            } else {
+                                const hasLessons = cell.lessons.length > 0;
+                                ctx.fillStyle = hasLessons ? "#f0f9ff" : "#ffffff";
+                                ctx.strokeStyle = hasLessons ? "#bae6fd" : "#e2e8f0";
+                                roundRect(ctx, cellX, cellY, colWidth, rowHeight, 8, true, true);
+
+                                // Day number
+                                ctx.fillStyle = hasLessons ? "#0f172a" : "#94a3b8";
+                                ctx.font = "bold 12px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+                                ctx.fillText(String(cell.dayNum), cellX + 8, cellY + 18);
+
+                                // Lesson items inside this cell
+                                cell.lessons.forEach((lesItem, lIdx) => {
+                                    const cardY = cellY + 26 + (lIdx * 68);
+                                    if (cardY + 60 <= cellY + rowHeight) {
+                                        ctx.fillStyle = pal.hex;
+                                        roundRect(ctx, cellX + 4, cardY, colWidth - 8, 56, 6, true, false);
+
+                                        ctx.fillStyle = "#ffffff";
+                                        ctx.font = "bold 9px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+                                        ctx.fillText(`L${lesItem.lessonNum} • ${lesItem.time}`, cellX + 8, cardY + 14);
+
+                                        ctx.font = "bold 12px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+                                        ctx.fillText(this.formatMoney(lesItem.pricing.gross), cellX + 8, cardY + 32);
+
+                                        ctx.font = "normal 8px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+                                        let sub = `IVA ${Math.round(lesItem.pricing.vatPct)}%`;
+                                        if (lesItem.pricing.discountAmount > 0) {
+                                            sub += ` (-${this.formatMoney(lesItem.pricing.discountAmount)})`;
+                                        }
+                                        ctx.fillText(sub, cellX + 8, cardY + 47);
+                                    }
+                                });
+                            }
+                        });
+                        yPos += rowHeight + 8;
+                    });
+
+                    yPos += 20; // Month gap
+                });
+
+                // Footer
+                ctx.fillStyle = "#94a3b8";
+                ctx.font = "normal 11px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+                ctx.fillText("Generato da Class Management • Creato da Guaira Jaramillo Nitoglia", 40, estimatedHeight - 30);
+
+                // Helper for Rounded Rectangles on Canvas
+                function roundRect(c, x, y, w, h, r, fill, stroke) {
+                    c.beginPath();
+                    c.moveTo(x + r, y);
+                    c.lineTo(x + w - r, y);
+                    c.quadraticCurveTo(x + w, y, x + w, y + r);
+                    c.lineTo(x + w, y + h - r);
+                    c.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+                    c.lineTo(x + r, y + h);
+                    c.quadraticCurveTo(x, y + h, x, y + h - r);
+                    c.lineTo(x, y + r);
+                    c.quadraticCurveTo(x, y, x + r, y);
+                    c.closePath();
+                    if (fill) c.fill();
+                    if (stroke) c.stroke();
+                }
+
+                // Export to PNG File
+                const safeCourse = course.name.replace(/[^a-zA-Z0-9_\-]/g, "_");
+                const safeMod = mod.name.replace(/[^a-zA-Z0-9_\-]/g, "_");
+                const filename = `Fatturazione_${safeCourse}_${safeMod}.png`;
+
+                const dataUrl = canvas.toDataURL("image/png");
+                const a = document.createElement("a");
+                a.href = dataUrl;
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+
+                this.showToast(this.t("calendarPngSavedToast"), "success");
             }
 
             /**
@@ -6265,6 +7104,31 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                                 <div>
                                     <label class="block font-bold mb-1">${this.t("currencyLabel")}</label>
                                     <input type="text" value="${this.escapeHtml(s.currency || '$')}" onchange="app.updateSetting('currency', this.value)" class="w-full rounded-xl border border-sky-200 dark:border-slate-700 bg-transparent px-3 py-2 font-bold">
+                                </div>
+                            </div>
+
+                            <!-- Default Base Pricing & VAT Section -->
+                            <div class="pt-4 border-t border-sky-100 dark:border-slate-800 space-y-3">
+                                <div>
+                                    <h4 class="font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
+                                        <i class="fa-solid fa-money-bill-wave text-emerald-600"></i>
+                                        <span>${this.t("defaultPricingSection")}</span>
+                                    </h4>
+                                    <p class="text-[11px] text-slate-400 mt-0.5">Valori predefiniti applicati automaticamente nei nuovi moduli e nel sistema di fatturazione.</p>
+                                </div>
+                                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                    <div>
+                                        <label class="block font-bold mb-1">${this.t("defaultHourlyRateLabel")} (${this.getCurrency()})</label>
+                                        <input type="number" step="0.5" value="${s.defaultHourlyRate ?? 10}" onchange="app.updateSetting('defaultHourlyRate', parseFloat(this.value)||10)" class="w-full rounded-xl border border-sky-200 dark:border-slate-700 bg-transparent px-3 py-2 font-bold">
+                                    </div>
+                                    <div>
+                                        <label class="block font-bold mb-1">${this.t("defaultLessonDurationLabel")}</label>
+                                        <input type="number" step="0.25" value="${s.defaultLessonDurationHours ?? 1.5}" onchange="app.updateSetting('defaultLessonDurationHours', parseFloat(this.value)||1.5)" class="w-full rounded-xl border border-sky-200 dark:border-slate-700 bg-transparent px-3 py-2 font-bold">
+                                    </div>
+                                    <div>
+                                        <label class="block font-bold mb-1">${this.t("defaultVatPercentLabel")}</label>
+                                        <input type="number" step="0.5" value="${s.defaultVatPercent ?? 15}" onchange="app.updateSetting('defaultVatPercent', parseFloat(this.value)||15)" class="w-full rounded-xl border border-sky-200 dark:border-slate-700 bg-transparent px-3 py-2 font-bold">
+                                    </div>
                                 </div>
                             </div>
 

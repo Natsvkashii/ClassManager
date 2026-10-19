@@ -693,9 +693,26 @@ public struct TrashBinView: View {
 
 // MARK: - Billing ("Fatturazione") View
 
+// MARK: - Redesigned Billing View with Course Overview, Module Cards, and Lesson Calendar
+
 public struct BillingView: View {
     @Environment(AppStore.self) private var store
-    @State private var applyScope: String = "current"
+    @State private var selectedModuleId: String? = nil
+    @State private var showFiscalModal: Bool = false
+    @State private var editingSlotKey: String? = nil
+
+    // Global tool values for the currently opened module
+    @State private var batchHourlyRate: Double = 10.0
+    @State private var batchDurationHours: Double = 1.5
+    @State private var batchVatPercent: Double = 15.0
+    @State private var batchDiscountType: String = "percent"
+    @State private var batchDiscountValue: Double = 0.0
+
+    // Specific lesson editing values
+    @State private var editNetPrice: Double = 0.0
+    @State private var editVatPercent: Double = 15.0
+    @State private var editDiscountType: String = "percent"
+    @State private var editDiscountValue: Double = 0.0
 
     public var body: some View {
         guard let (cIdx, lIdx, mIdx) = store.activeIndices() else {
@@ -706,42 +723,87 @@ public struct BillingView: View {
             )
         }
         let course = store.state.courses[cIdx]
-        let lvl = course.levels[lIdx]
-        let mod = lvl.modules[mIdx]
-        let b = mod.billing ?? ModuleBilling()
-        let lessonsCount = mod.dates.count
-        let totalHours = Double(lessonsCount) * b.lessonDurationHours
-        let subtotalNet = totalHours * b.hourlyRateNet
-        let discAmt = (b.discountType == "percent") ? (subtotalNet * (b.discountValue / 100.0)) : b.discountValue
-        let netAfterDisc = max(0.0, subtotalNet - discAmt)
-        let vatAmt = netAfterDisc * (b.vatPercent / 100.0)
-        let totalGross = netAfterDisc + vatAmt
+        let activeLevel = course.levels[lIdx]
+        let activeMod = course.levels[lIdx].modules[mIdx]
+        let pal = store.palette(for: course.color)
+
+        // Find currently focused module or fallback to activeMod
+        let currentModule: CourseModule = {
+            if let selId = selectedModuleId {
+                for lvl in course.levels {
+                    if let found = lvl.modules.first(where: { $0.id == selId }) {
+                        return found
+                    }
+                }
+            }
+            return activeMod
+        }()
+
+        let currentLevel: CourseLevel = {
+            for lvl in course.levels {
+                if lvl.modules.contains(where: { $0.id == currentModule.id }) {
+                    return lvl
+                }
+            }
+            return activeLevel
+        }()
+
+        // Compute Course-Level General Overview Statistics
+        let df = DateFormatter()
+        df.dateFormat = "yyyy-MM-dd"
+        let todayIso = df.string(from: Date())
+
+        var totalScheduledHours: Double = 0.0
+        var totalCompletedHours: Double = 0.0
+        var totalCourseGross: Double = 0.0
+        var totalModulesCount: Int = 0
+
+        for lvl in course.levels {
+            for mod in lvl.modules {
+                totalModulesCount += 1
+                let b = mod.billing ?? ModuleBilling()
+                totalScheduledHours += Double(mod.dates.count) * b.lessonDurationHours
+                for d in mod.dates {
+                    let dOnly = store.extractDate(from: d)
+                    let isCompleted = (dOnly <= todayIso) || (mod.attendance.values.contains(where: { ($0[d] ?? "") != "" }))
+                    if isCompleted {
+                        totalCompletedHours += b.lessonDurationHours
+                    }
+                }
+                totalCourseGross += b.totalGross(for: mod.dates)
+            }
+        }
+
+        let curBilling = currentModule.billing ?? ModuleBilling()
+        let curModuleCost = curBilling.totalGross(for: currentModule.dates)
+        let curSortedSlots = store.sortedSlots(for: course, module: currentModule)
 
         return AnyView(
             ScrollView {
-                VStack(alignment: .leading, spacing: 18) {
-                    // Course selector pills
+                VStack(alignment: .leading, spacing: 20) {
+                    // Course Selector Pills Bar
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 10) {
                             ForEach(store.activeCourses) { c in
-                                let pal = store.palette(for: c.color)
+                                let cPal = store.palette(for: c.color)
                                 let isSel = c.id == course.id
                                 Button {
                                     store.switchCourse(c.id, tab: .billing)
+                                    selectedModuleId = nil
                                 } label: {
                                     HStack(spacing: 6) {
-                                        Circle().fill(isSel ? .white : pal.color).frame(width: 8, height: 8)
+                                        Circle().fill(isSel ? .white : cPal.color).frame(width: 8, height: 8)
                                         Text(c.name).font(.caption.bold())
                                     }
                                     .padding(.horizontal, 12)
                                     .padding(.vertical, 8)
                                     .background(
                                         RoundedRectangle(cornerRadius: 10)
-                                            .fill(isSel ? pal.color : Color.secondary.opacity(0.08))
+                                            .fill(isSel ? cPal.color : Color.secondary.opacity(0.08))
                                     )
                                     .overlay(
                                         RoundedRectangle(cornerRadius: 10)
-                                            .strokeBorder(isSel ? pal.color : Color.secondary.opacity(0.26), lineWidth: 1)
+                                            .strokeBorder(isSel ? cPal.color : Color.secondary.opacity(0.26), lineWidth: 1)
                                     )
                                     .foregroundStyle(isSel ? .white : .primary)
                                 }
@@ -752,220 +814,1037 @@ public struct BillingView: View {
                     .padding(12)
                     .appCardStyle(cornerRadius: 12)
 
-                    HStack(alignment: .top, spacing: 18) {
-                        // Module Pricing Card
-                        VStack(alignment: .leading, spacing: 14) {
-                            HStack(alignment: .center) {
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text("\(course.name) — \(store.formatLevelModuleBadge(course: course, level: lvl, module: mod))")
-                                        .font(.headline)
-                                    Text("\(lessonsCount) \(store.t("lessonsLower")) • \(String(format: "%.2f", totalHours)) h")
+                    // 1. GENERAL OVERVIEW SPACE (Summary card of hours, total spent, and fiscal data modal button)
+                    VStack(alignment: .leading, spacing: 14) {
+                        HStack(alignment: .center) {
+                            HStack(spacing: 8) {
+                                Image(systemName: "chart.bar.doc.horizontal.fill")
+                                    .font(.title3)
+                                    .foregroundStyle(pal.color)
+                                VStack(alignment: .leading, spacing: 1) {
+                                    Text("\(course.name) — \(store.t("billingTitle"))")
+                                        .font(.title3.bold())
+                                    Text("\(course.levels.count) \(store.t("levelShort")) • \(totalModulesCount) \(store.t("modulesLabel"))")
                                         .font(.caption)
                                         .foregroundStyle(.secondary)
                                 }
-                                Spacer()
-                                Text(store.formatMoney(totalGross))
-                                    .font(.title2.bold())
+                            }
+                            Spacer()
+                            // Button linking to Billing / Fiscal data modal popup
+                            Button {
+                                showFiscalModal = true
+                            } label: {
+                                Label(store.t("billingFiscalDataBtn"), systemImage: "doc.text.fill")
+                                    .font(.caption.bold())
+                                    .padding(.horizontal, 14)
+                                    .padding(.vertical, 8)
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .tint(pal.color)
+                        }
+
+                        Divider()
+
+                        // Metrics Summary Bar
+                        HStack(spacing: 16) {
+                            // Total Hours Conducted Metric
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(store.t("totalLessonsHoursConducted"))
+                                    .font(.caption.bold())
+                                    .foregroundStyle(.secondary)
+                                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                                    Text(String(format: "%.1f", totalCompletedHours))
+                                        .font(.system(size: 26, weight: .heavy))
+                                        .foregroundStyle(pal.color)
+                                    Text("h  /  \(String(format: "%.1f", totalScheduledHours)) h totali")
+                                        .font(.caption.bold())
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(14)
+                            .background(RoundedRectangle(cornerRadius: 12).fill(pal.color.opacity(0.08)))
+
+                            // Total Spent Metric
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(store.t("totalSpentInvoiced"))
+                                    .font(.caption.bold())
+                                    .foregroundStyle(.secondary)
+                                Text(store.formatMoney(totalCourseGross))
+                                    .font(.system(size: 26, weight: .heavy))
                                     .foregroundStyle(.green)
                             }
-                            .frame(minHeight: 38)
-
-                            Divider()
-
-                            ModuleBillingEditor(
-                                billing: b,
-                                applyScope: $applyScope,
-                                moduleName: mod.name,
-                                currency: store.state.settings.currency
-                            ) { updatedBilling, scope in
-                                applyBilling(updatedBilling, scope: scope, cIdx: cIdx, lIdx: lIdx, mIdx: mIdx)
-                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(14)
+                            .background(RoundedRectangle(cornerRadius: 12).fill(Color.green.opacity(0.08)))
                         }
-                        .padding(18)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                        .appCardStyle(cornerRadius: 16)
-
-                        // Fiscal / Tax Info Card (Cédula / RUC)
-                        VStack(alignment: .leading, spacing: 14) {
-                            HStack(alignment: .center) {
-                                Text(store.t("ecuadorBillingHeader"))
-                                    .font(.headline)
-                                Spacer()
-                            }
-                            .frame(minHeight: 38)
-
-                            Divider()
-
-                            FiscalInfoEditor(info: course.billingConfig.billingInfo) { updatedInfo in
-                                store.recordUndoSnapshot()
-                                store.state.courses[cIdx].billingConfig.billingInfo = updatedInfo
-                                store.persist()
-                                store.showToast(store.t("saveBillingBtn"))
-                            }
-                        }
-                        .padding(18)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                        .appCardStyle(cornerRadius: 16)
                     }
+                    .padding(18)
+                    .appCardStyle(cornerRadius: 16)
+
+                    // 2. ALL MODULES AND LEVELS LIST (With cost for each module)
+                    VStack(alignment: .leading, spacing: 14) {
+                        HStack {
+                            Text("Moduli e Livelli del Corso")
+                                .font(.headline.bold())
+                            Spacer()
+                            Text("Clicca su un modulo per aprirne il calendario e i costi dettagliati")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+
+                        VStack(spacing: 14) {
+                            ForEach(course.levels) { lvl in
+                                VStack(alignment: .leading, spacing: 8) {
+                                    // Level Header
+                                    HStack(spacing: 6) {
+                                        Text(lvl.code == "Altro" ? (lvl.customName.isEmpty ? store.t("otherLevelOpt") : lvl.customName) : lvl.code)
+                                            .font(.caption.bold())
+                                            .padding(.horizontal, 8)
+                                            .padding(.vertical, 3)
+                                            .background(Capsule().fill(pal.color.opacity(0.18)))
+                                            .foregroundStyle(pal.color)
+                                        if !lvl.sublevel.isEmpty {
+                                            Text("(\(lvl.sublevel))")
+                                                .font(.caption)
+                                                .foregroundStyle(.secondary)
+                                        }
+                                        Spacer()
+                                    }
+
+                                    // Module Cards Grid
+                                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 220), spacing: 12)], spacing: 12) {
+                                        ForEach(lvl.modules) { mod in
+                                            let modB = mod.billing ?? ModuleBilling()
+                                            let cost = modB.totalGross(for: mod.dates)
+                                            let isSelected = mod.id == currentModule.id
+
+                                            Button {
+                                                selectedModuleId = mod.id
+                                                syncGlobalToolbar(for: modB)
+                                            } label: {
+                                                VStack(alignment: .leading, spacing: 6) {
+                                                    HStack {
+                                                        Text(mod.name)
+                                                            .font(.subheadline.bold())
+                                                        Spacer()
+                                                        Text(store.formatMoney(cost))
+                                                            .font(.subheadline.bold())
+                                                            .foregroundStyle(.green)
+                                                    }
+                                                    HStack {
+                                                        Text("\(mod.dates.count) \(store.t("lessonsLower")) • \(String(format: "%.1f", Double(mod.dates.count) * modB.lessonDurationHours)) h")
+                                                            .font(.caption2)
+                                                            .foregroundStyle(.secondary)
+                                                        Spacer()
+                                                        if isSelected {
+                                                            Text("Aperto")
+                                                                .font(.system(size: 9, weight: .bold))
+                                                                .padding(.horizontal, 6)
+                                                                .padding(.vertical, 1)
+                                                                .background(Capsule().fill(pal.color))
+                                                                .foregroundStyle(.white)
+                                                        }
+                                                    }
+                                                }
+                                                .padding(12)
+                                                .background(
+                                                    RoundedRectangle(cornerRadius: 12)
+                                                        .fill(isSelected ? pal.color.opacity(0.12) : Color.secondary.opacity(0.04))
+                                                )
+                                                .overlay(
+                                                    RoundedRectangle(cornerRadius: 12)
+                                                        .strokeBorder(isSelected ? pal.color : Color.secondary.opacity(0.18), lineWidth: isSelected ? 2 : 1)
+                                                )
+                                            }
+                                            .buttonStyle(.plain)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    .padding(18)
+                    .appCardStyle(cornerRadius: 16)
+
+                    // 3. OPENED MODULE VIEW: GLOBAL TOOLBAR + BILLING CALENDAR
+                    VStack(alignment: .leading, spacing: 16) {
+                        // Module Title & Actions
+                        HStack(alignment: .center) {
+                            VStack(alignment: .leading, spacing: 2) {
+                                HStack(spacing: 8) {
+                                    Text("\(currentModule.name)")
+                                        .font(.title2.bold())
+                                    Text(store.formatLevelModuleBadge(course: course, level: currentLevel, module: currentModule))
+                                        .font(.caption.bold())
+                                        .padding(.horizontal, 8)
+                                        .padding(.vertical, 3)
+                                        .background(Capsule().fill(pal.color.opacity(0.15)))
+                                        .foregroundStyle(pal.color)
+                                }
+                                Text("\(curSortedSlots.count) \(store.t("lessonsLower")) • \(String(format: "%.1f", Double(curSortedSlots.count) * curBilling.lessonDurationHours)) h")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            Text("\(store.t("moduleBillingCost")): \(store.formatMoney(curModuleCost))")
+                                .font(.title3.bold())
+                                .foregroundStyle(.green)
+                                .padding(.horizontal, 14)
+                                .padding(.vertical, 6)
+                                .background(RoundedRectangle(cornerRadius: 10).fill(Color.green.opacity(0.10)))
+                        }
+
+                        Divider()
+
+                        // GLOBAL TOOLBAR: Modify prices, VAT, and discounts across all lessons of the module
+                        VStack(alignment: .leading, spacing: 10) {
+                            HStack {
+                                Label(store.t("globalPricingTool"), systemImage: "slider.horizontal.3")
+                                    .font(.subheadline.bold())
+                                    .foregroundStyle(pal.color)
+                                Spacer()
+                                // Export PNG Button
+                                Button {
+                                    exportBillingCalendarPNG(course: course, level: currentLevel, module: currentModule, palette: pal)
+                                } label: {
+                                    Label(store.t("exportCalendarPngBtn"), systemImage: "photo.badge.arrow.down")
+                                        .font(.caption.bold())
+                                }
+                                .buttonStyle(.borderedProminent)
+                                .tint(.indigo)
+                            }
+
+                            HStack(spacing: 12) {
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text("Tariffa Oraria (\(store.state.settings.currency))").font(.caption.bold())
+                                    TextField("10", value: $batchHourlyRate, format: .number).textFieldStyle(.roundedBorder)
+                                }
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text("Durata (h)").font(.caption.bold())
+                                    TextField("1.5", value: $batchDurationHours, format: .number).textFieldStyle(.roundedBorder)
+                                }
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text("IVA (%)").font(.caption.bold())
+                                    TextField("15", value: $batchVatPercent, format: .number).textFieldStyle(.roundedBorder)
+                                }
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text("Tipo Sconto").font(.caption.bold())
+                                    Picker("", selection: $batchDiscountType) {
+                                        Text("Percentuale (%)").tag("percent")
+                                        Text("Fisso (\(store.state.settings.currency))").tag("fixed")
+                                    }
+                                    .labelsHidden()
+                                }
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text("Valore Sconto").font(.caption.bold())
+                                    TextField("0", value: $batchDiscountValue, format: .number).textFieldStyle(.roundedBorder)
+                                }
+                                VStack {
+                                    Spacer()
+                                    Button {
+                                        applyBatchToModule(courseId: course.id, moduleId: currentModule.id)
+                                    } label: {
+                                        Text(store.t("applyToAllLessonsBtn"))
+                                            .font(.caption.bold())
+                                            .padding(.horizontal, 10)
+                                            .padding(.vertical, 5)
+                                    }
+                                    .buttonStyle(.borderedProminent)
+                                    .tint(pal.color)
+                                }
+                            }
+                        }
+                        .padding(14)
+                        .background(RoundedRectangle(cornerRadius: 12).fill(Color.secondary.opacity(0.05)))
+
+                        // CALENDAR SIMILAR TO "PIANO LEZIONI" (With specific lesson price, VAT %, and discount)
+                        if curSortedSlots.isEmpty {
+                            Text(store.t("noScheduledLessonsMsg"))
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                                .frame(maxWidth: .infinity, minHeight: 120, alignment: .center)
+                        } else {
+                            let calMonths = buildBillingMonthSections(course: course, module: currentModule, slots: curSortedSlots)
+                            VStack(spacing: 18) {
+                                ForEach(calMonths) { sec in
+                                    VStack(alignment: .leading, spacing: 8) {
+                                        // Month Banner
+                                        HStack {
+                                            Text(sec.title)
+                                                .font(.headline.bold())
+                                            Spacer()
+                                            Text("\(sec.sessionsCount) \(store.t("lessonsLower"))")
+                                                .font(.caption2.bold())
+                                                .padding(.horizontal, 8)
+                                                .padding(.vertical, 2)
+                                                .background(Capsule().fill(pal.color.opacity(0.14)))
+                                                .foregroundStyle(pal.color)
+                                        }
+
+                                        // Weekday Headers
+                                        HStack(spacing: 6) {
+                                            ForEach(store.daysShortList, id: \.self) { d in
+                                                Text(d.uppercased())
+                                                    .font(.system(size: 11, weight: .heavy))
+                                                    .foregroundStyle(.secondary)
+                                                    .frame(maxWidth: .infinity)
+                                            }
+                                        }
+
+                                        // Weeks Grid
+                                        VStack(spacing: 6) {
+                                            ForEach(Array(sec.weeks.enumerated()), id: \.offset) { _, week in
+                                                HStack(spacing: 6) {
+                                                    ForEach(week) { cell in
+                                                        if !cell.isCurrentMonth {
+                                                            RoundedRectangle(cornerRadius: 10)
+                                                                .fill(Color.secondary.opacity(0.02))
+                                                                .frame(maxWidth: .infinity, minHeight: 96)
+                                                        } else {
+                                                            VStack(alignment: .leading, spacing: 4) {
+                                                                HStack {
+                                                                    Text("\(cell.dayNum)")
+                                                                        .font(.caption.bold())
+                                                                        .foregroundStyle(cell.lessons.isEmpty ? .secondary : .primary)
+                                                                    Spacer()
+                                                                }
+
+                                                                ForEach(cell.lessons) { lItem in
+                                                                    let vatPct = curBilling.lessonVatPercent(for: lItem.slotKey)
+                                                                    let discAmt = curBilling.lessonDiscountAmount(for: lItem.slotKey)
+                                                                    let gross = curBilling.lessonGrossPrice(for: lItem.slotKey)
+
+                                                                    Button {
+                                                                        openLessonPriceEditor(slotKey: lItem.slotKey, billing: curBilling)
+                                                                    } label: {
+                                                                        VStack(alignment: .leading, spacing: 2) {
+                                                                            HStack {
+                                                                                Text("L\(lItem.lessonNum)")
+                                                                                    .font(.system(size: 9, weight: .heavy))
+                                                                                    .padding(.horizontal, 4)
+                                                                                    .padding(.vertical, 1)
+                                                                                    .background(RoundedRectangle(cornerRadius: 3).fill(Color.white.opacity(0.25)))
+                                                                                Spacer()
+                                                                                Text(store.formatTimeDisplay(lItem.time))
+                                                                                    .font(.system(size: 8, weight: .bold))
+                                                                            }
+
+                                                                            // Lesson Price
+                                                                            Text(store.formatMoney(gross))
+                                                                                .font(.system(size: 11, weight: .heavy))
+
+                                                                            // VAT & Discount info
+                                                                            HStack(spacing: 3) {
+                                                                                Text("IVA \(Int(vatPct))%")
+                                                                                    .font(.system(size: 8))
+                                                                                    .opacity(0.9)
+                                                                                if discAmt > 0 {
+                                                                                    Text("-\(store.formatMoney(discAmt))")
+                                                                                        .font(.system(size: 8, weight: .bold))
+                                                                                        .foregroundStyle(.yellow)
+                                                                                }
+                                                                            }
+                                                                        }
+                                                                        .padding(5)
+                                                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                                                        .background(RoundedRectangle(cornerRadius: 8).fill(pal.color))
+                                                                        .foregroundStyle(.white)
+                                                                    }
+                                                                    .buttonStyle(.plain)
+                                                                    .help(store.t("editLessonPricing"))
+                                                                }
+                                                                Spacer(minLength: 0)
+                                                            }
+                                                            .padding(6)
+                                                            .frame(maxWidth: .infinity, minHeight: 96, alignment: .topLeading)
+                                                            .background(
+                                                                RoundedRectangle(cornerRadius: 10)
+                                                                    .fill(cell.lessons.isEmpty ? Color.secondary.opacity(0.04) : pal.color.opacity(0.08))
+                                                            )
+                                                            .overlay(
+                                                                RoundedRectangle(cornerRadius: 10)
+                                                                    .strokeBorder(cell.lessons.isEmpty ? Color.secondary.opacity(0.14) : pal.color.opacity(0.40))
+                                                            )
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    .padding(18)
+                    .appCardStyle(cornerRadius: 16)
                 }
                 .padding(22)
+            }
+            .sheet(isPresented: $showFiscalModal) {
+                FiscalInfoModalSheet(course: course, onSave: { updatedInfo in
+                    store.recordUndoSnapshot()
+                    store.state.courses[cIdx].billingConfig.billingInfo = updatedInfo
+                    store.persist()
+                    store.showToast(store.t("saveBillingBtn"))
+                    showFiscalModal = false
+                }, onCancel: {
+                    showFiscalModal = false
+                })
+            }
+            .sheet(isPresented: Binding(
+                get: { editingSlotKey != nil },
+                set: { if !$0 { editingSlotKey = nil } }
+            )) {
+                if let sk = editingSlotKey {
+                    LessonPricingModalSheet(
+                        slotKey: sk,
+                        currency: store.state.settings.currency,
+                        netPrice: $editNetPrice,
+                        vatPercent: $editVatPercent,
+                        discountType: $editDiscountType,
+                        discountValue: $editDiscountValue,
+                        onSave: {
+                            saveLessonPrice(courseId: course.id, moduleId: currentModule.id, slotKey: sk)
+                            editingSlotKey = nil
+                        },
+                        onReset: {
+                            resetLessonPriceToDefault(courseId: course.id, moduleId: currentModule.id, slotKey: sk)
+                            editingSlotKey = nil
+                        },
+                        onCancel: {
+                            editingSlotKey = nil
+                        }
+                    )
+                }
+            }
+            .onAppear {
+                syncGlobalToolbar(for: curBilling)
             }
         )
     }
 
-    private func applyBilling(_ newBilling: ModuleBilling, scope: String, cIdx: Int, lIdx: Int, mIdx: Int) {
-        store.recordUndoSnapshot()
-        if scope == "current" {
-            store.state.courses[cIdx].levels[lIdx].modules[mIdx].billing = newBilling
-        } else if scope == "all" {
-            for li in store.state.courses[cIdx].levels.indices {
-                for mi in store.state.courses[cIdx].levels[li].modules.indices {
-                    store.state.courses[cIdx].levels[li].modules[mi].billing = newBilling
-                }
-            }
-        } else if scope == "subsequent" {
-            var reached = false
-            for li in store.state.courses[cIdx].levels.indices {
-                for mi in store.state.courses[cIdx].levels[li].modules.indices {
-                    if li == lIdx && mi == mIdx { reached = true }
-                    if reached {
-                        store.state.courses[cIdx].levels[li].modules[mi].billing = newBilling
-                    }
+    private func syncGlobalToolbar(for b: ModuleBilling) {
+        batchHourlyRate = b.hourlyRateNet
+        batchDurationHours = b.lessonDurationHours
+        batchVatPercent = b.vatPercent
+        batchDiscountType = b.discountType
+        batchDiscountValue = b.discountValue
+    }
+
+    private func applyBatchToModule(courseId: String, moduleId: String) {
+        guard let cIdx = store.state.courses.firstIndex(where: { $0.id == courseId }) else { return }
+        for li in store.state.courses[cIdx].levels.indices {
+            for mi in store.state.courses[cIdx].levels[li].modules.indices {
+                if store.state.courses[cIdx].levels[li].modules[mi].id == moduleId {
+                    store.recordUndoSnapshot()
+                    var b = store.state.courses[cIdx].levels[li].modules[mi].billing ?? ModuleBilling()
+                    b.hourlyRateNet = batchHourlyRate
+                    b.lessonDurationHours = batchDurationHours
+                    b.vatPercent = batchVatPercent
+                    b.discountType = batchDiscountType
+                    b.discountValue = batchDiscountValue
+                    // Reset individual overrides so everything is harmonized to the global setting
+                    b.lessonOverrides = [:]
+                    store.state.courses[cIdx].levels[li].modules[mi].billing = b
+                    store.persist()
+                    store.showToast(store.t("appliedToAllLessonsToast"))
+                    return
                 }
             }
         }
-        store.persist()
-        store.showToast(store.t("saveBillingBtn"))
+    }
+
+    private func openLessonPriceEditor(slotKey: String, billing: ModuleBilling) {
+        editingSlotKey = slotKey
+        if let ov = billing.lessonOverrides[slotKey] {
+            editNetPrice = ov.price ?? (billing.hourlyRateNet * billing.lessonDurationHours)
+            editVatPercent = ov.vatPercent ?? billing.vatPercent
+            editDiscountType = ov.discountType ?? billing.discountType
+            editDiscountValue = ov.discountValue ?? (billing.discountValue)
+        } else {
+            editNetPrice = billing.hourlyRateNet * billing.lessonDurationHours
+            editVatPercent = billing.vatPercent
+            editDiscountType = billing.discountType
+            editDiscountValue = (billing.discountType == "percent") ? billing.discountValue : 0.0
+        }
+    }
+
+    private func saveLessonPrice(courseId: String, moduleId: String, slotKey: String) {
+        guard let cIdx = store.state.courses.firstIndex(where: { $0.id == courseId }) else { return }
+        for li in store.state.courses[cIdx].levels.indices {
+            for mi in store.state.courses[cIdx].levels[li].modules.indices {
+                if store.state.courses[cIdx].levels[li].modules[mi].id == moduleId {
+                    store.recordUndoSnapshot()
+                    var b = store.state.courses[cIdx].levels[li].modules[mi].billing ?? ModuleBilling()
+                    b.lessonOverrides[slotKey] = LessonBillingItem(
+                        price: editNetPrice,
+                        vatPercent: editVatPercent,
+                        discountType: editDiscountType,
+                        discountValue: editDiscountValue
+                    )
+                    store.state.courses[cIdx].levels[li].modules[mi].billing = b
+                    store.persist()
+                    store.showToast(store.t("lessonPricingUpdatedToast"))
+                    return
+                }
+            }
+        }
+    }
+
+    private func resetLessonPriceToDefault(courseId: String, moduleId: String, slotKey: String) {
+        guard let cIdx = store.state.courses.firstIndex(where: { $0.id == courseId }) else { return }
+        for li in store.state.courses[cIdx].levels.indices {
+            for mi in store.state.courses[cIdx].levels[li].modules.indices {
+                if store.state.courses[cIdx].levels[li].modules[mi].id == moduleId {
+                    store.recordUndoSnapshot()
+                    var b = store.state.courses[cIdx].levels[li].modules[mi].billing ?? ModuleBilling()
+                    b.lessonOverrides.removeValue(forKey: slotKey)
+                    store.state.courses[cIdx].levels[li].modules[mi].billing = b
+                    store.persist()
+                    store.showToast(store.t("lessonPricingUpdatedToast"))
+                    return
+                }
+            }
+        }
+    }
+
+    // Helper data structures for month grid
+    fileprivate struct BillingLessonItem: Identifiable {
+        var id: String { slotKey }
+        let slotKey: String
+        let lessonNum: Int
+        let time: String
+    }
+
+    fileprivate struct BillingDayCell: Identifiable {
+        var id: String { iso }
+        let iso: String
+        let dayNum: Int
+        let isCurrentMonth: Bool
+        let lessons: [BillingLessonItem]
+    }
+
+    fileprivate struct BillingMonthSection: Identifiable {
+        var id: String { title }
+        let title: String
+        let sessionsCount: Int
+        let weeks: [[BillingDayCell]]
+    }
+
+    private func buildBillingMonthSections(course: Course, module: CourseModule, slots: [String]) -> [BillingMonthSection] {
+        let df = DateFormatter()
+        df.dateFormat = "yyyy-MM-dd"
+        df.locale = Locale(identifier: "en_US_POSIX")
+        guard let firstStr = slots.first.map({ store.extractDate(from: $0) }),
+              let lastStr = slots.last.map({ store.extractDate(from: $0) }),
+              let firstDate = df.date(from: firstStr),
+              let lastDate = df.date(from: lastStr) else {
+            return []
+        }
+
+        var byDate: [String: [BillingLessonItem]] = [:]
+        for (idx, sk) in slots.enumerated() {
+            let dOnly = store.extractDate(from: sk)
+            let les = store.findLesson(in: course, sectionId: module.id, slotKey: sk)
+            let sess = BillingLessonItem(
+                slotKey: sk,
+                lessonNum: idx + 1,
+                time: les?.time ?? module.startTime
+            )
+            byDate[dOnly, default: []].append(sess)
+        }
+
+        let cal = Calendar.current
+        var sections: [BillingMonthSection] = []
+        let startMon = (store.state.settings.firstDayOfWeek != "sunday")
+
+        let curY = cal.component(.year, from: firstDate)
+        let curM = cal.component(.month, from: firstDate)
+        let endY = cal.component(.year, from: lastDate)
+        let endM = cal.component(.month, from: lastDate)
+
+        let totalMonthsSpan = max(1, (endY - curY) * 12 + (endM - curM) + 1)
+
+        for mOffset in 0..<totalMonthsSpan {
+            guard let curMonthDate = cal.date(byAdding: .month, value: mOffset, to: firstDate) else { continue }
+            let y = cal.component(.year, from: curMonthDate)
+            let mNum = cal.component(.month, from: curMonthDate)
+            let mName = store.monthsList[safe: mNum - 1] ?? ""
+            let sectionTitle = "\(mName) \(y)"
+
+            guard let daysRange = cal.range(of: .day, in: .month, for: curMonthDate),
+                  let firstDayOfThisMonth = cal.date(from: DateComponents(year: y, month: mNum, day: 1)) else {
+                continue
+            }
+            let daysInMonth = daysRange.count
+            let weekday = cal.component(.weekday, from: firstDayOfThisMonth)
+            let leadingBlanks = startMon ? (weekday == 1 ? 6 : weekday - 2) : (weekday - 1)
+
+            var allCells: [BillingDayCell] = []
+            for b in 0..<leadingBlanks {
+                let padOffset = -(leadingBlanks - b)
+                if let padDate = cal.date(byAdding: .day, value: padOffset, to: firstDayOfThisMonth) {
+                    allCells.append(BillingDayCell(
+                        iso: df.string(from: padDate),
+                        dayNum: cal.component(.day, from: padDate),
+                        isCurrentMonth: false,
+                        lessons: []
+                    ))
+                }
+            }
+
+            var monthCount = 0
+            for d in 1...daysInMonth {
+                let cellIso = String(format: "%04d-%02d-%02d", y, mNum, d)
+                let sessList = byDate[cellIso] ?? []
+                monthCount += sessList.count
+                allCells.append(BillingDayCell(
+                    iso: cellIso,
+                    dayNum: d,
+                    isCurrentMonth: true,
+                    lessons: sessList
+                ))
+            }
+
+            let remainder = allCells.count % 7
+            if remainder != 0 {
+                let trailingCount = 7 - remainder
+                if let lastDayOfThisMonth = cal.date(from: DateComponents(year: y, month: mNum, day: daysInMonth)) {
+                    for t in 1...trailingCount {
+                        if let trailDate = cal.date(byAdding: .day, value: t, to: lastDayOfThisMonth) {
+                            allCells.append(BillingDayCell(
+                                iso: df.string(from: trailDate),
+                                dayNum: cal.component(.day, from: trailDate),
+                                isCurrentMonth: false,
+                                lessons: []
+                            ))
+                        }
+                    }
+                }
+            }
+
+            var weeks: [[BillingDayCell]] = []
+            for i in stride(from: 0, to: allCells.count, by: 7) {
+                let end = min(i + 7, allCells.count)
+                weeks.append(Array(allCells[i..<end]))
+            }
+
+            sections.append(BillingMonthSection(
+                title: sectionTitle,
+                sessionsCount: monthCount,
+                weeks: weeks
+            ))
+        }
+
+        return sections
+    }
+
+    private func exportBillingCalendarPNG(course: Course, level: CourseLevel, module: CourseModule, palette: CourseColorInfo) {
+        let poster = BillingCalendarPosterView(
+            course: course,
+            level: level,
+            module: module,
+            slots: store.sortedSlots(for: course, module: module),
+            store: store,
+            palette: palette
+        )
+
+        let renderer = ImageRenderer(content: poster)
+        renderer.scale = 2.0 // High DPI crisp output
+
+        guard let nsImage = renderer.nsImage,
+              let tiffData = nsImage.tiffRepresentation,
+              let bitmap = NSBitmapImageRep(data: tiffData),
+              let pngData = bitmap.representation(using: .png, properties: [:]) else {
+            store.showToast("Errore durante la generazione dell'immagine")
+            return
+        }
+
+        let panel = NSSavePanel()
+        let safeCourse = course.name.replacingOccurrences(of: " ", with: "_")
+        let safeMod = module.name.replacingOccurrences(of: " ", with: "_")
+        panel.nameFieldStringValue = "Fatturazione_\(safeCourse)_\(safeMod).png"
+        panel.allowedContentTypes = [.png]
+        panel.canCreateDirectories = true
+
+        if panel.runModal() == .OK, let url = panel.url {
+            try? pngData.write(to: url, options: .atomic)
+            store.showToast("🖼️ \(store.t("calendarPngSavedToast"))")
+        }
     }
 }
 
-private struct ModuleBillingEditor: View {
-    @Environment(AppStore.self) private var store
-    @State var billing: ModuleBilling
-    @Binding var applyScope: String
-    let moduleName: String
+// MARK: - Lesson Pricing Modal Sheet
+
+private struct LessonPricingModalSheet: View {
+    let slotKey: String
     let currency: String
-    let onSave: (ModuleBilling, String) -> Void
+    @Binding var netPrice: Double
+    @Binding var vatPercent: Double
+    @Binding var discountType: String
+    @Binding var discountValue: Double
+    let onSave: () -> Void
+    let onReset: () -> Void
+    let onCancel: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(spacing: 12) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Tariffa Oraria (\(currency))").font(.caption.bold())
-                    TextField("10", value: $billing.hourlyRateNet, format: .number).textFieldStyle(.roundedBorder)
+        VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                Text("Modifica Prezzo Lezione")
+                    .font(.headline.bold())
+                Spacer()
+                Button { onCancel() } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.title3)
+                        .foregroundStyle(.secondary)
                 }
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Durata Lezione (h)").font(.caption.bold())
-                    TextField("1.5", value: $billing.lessonDurationHours, format: .number).textFieldStyle(.roundedBorder)
-                }
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("IVA (%)").font(.caption.bold())
-                    TextField("15", value: $billing.vatPercent, format: .number).textFieldStyle(.roundedBorder)
-                }
+                .buttonStyle(.plain)
             }
 
-            HStack(spacing: 12) {
+            Text("Data / Slot: \(slotKey)")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            Divider()
+
+            VStack(alignment: .leading, spacing: 12) {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("Tipo Sconto").font(.caption.bold())
-                    Picker("", selection: $billing.discountType) {
-                        Text("Percentuale (%)").tag("percent")
-                        Text("Importo Fisso (\(currency))").tag("fixed")
+                    Text("Prezzo Netto Lezione (\(currency))").font(.caption.bold())
+                    TextField("15.00", value: $netPrice, format: .number)
+                        .textFieldStyle(.roundedBorder)
+                }
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Aliquota IVA (%)").font(.caption.bold())
+                    TextField("15", value: $vatPercent, format: .number)
+                        .textFieldStyle(.roundedBorder)
+                }
+
+                HStack(spacing: 12) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Tipo Sconto").font(.caption.bold())
+                        Picker("", selection: $discountType) {
+                            Text("Percentuale (%)").tag("percent")
+                            Text("Importo Fisso (\(currency))").tag("fixed")
+                        }
+                        .labelsHidden()
                     }
-                    .labelsHidden()
-                }
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Valore Sconto").font(.caption.bold())
-                    TextField("0", value: $billing.discountValue, format: .number).textFieldStyle(.roundedBorder)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Valore Sconto").font(.caption.bold())
+                        TextField("0", value: $discountValue, format: .number)
+                            .textFieldStyle(.roundedBorder)
+                    }
                 }
             }
 
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Applica tariffe, IVA e sconti a:").font(.caption.bold())
-                Picker("", selection: $applyScope) {
-                    Text("Solo questo modulo (\(moduleName))").tag("current")
-                    Text("Questo modulo e moduli/livelli successivi").tag("subsequent")
-                    Text("Tutti i moduli e livelli del gruppo").tag("all")
-                }
-                .labelsHidden()
-            }
-
-            Spacer(minLength: 12)
+            // Calculation preview
+            let discAmt = (discountType == "percent") ? (netPrice * (discountValue / 100.0)) : discountValue
+            let afterDisc = max(0.0, netPrice - discAmt)
+            let vatAmt = afterDisc * (vatPercent / 100.0)
+            let gross = afterDisc + vatAmt
 
             HStack {
+                Text("Prezzo Totale Calcolato:")
+                    .font(.caption.bold())
                 Spacer()
-                Button(store.t("saveBillingBtn")) {
-                    onSave(billing, applyScope)
+                Text(String(format: "%@ %.2f", currency, gross))
+                    .font(.headline.bold())
+                    .foregroundStyle(.green)
+            }
+            .padding(10)
+            .background(RoundedRectangle(cornerRadius: 8).fill(Color.secondary.opacity(0.08)))
+
+            Divider()
+
+            HStack {
+                Button("Reimposta ai valori del modulo") {
+                    onReset()
+                }
+                .buttonStyle(.bordered)
+
+                Spacer()
+
+                Button("Annulla") {
+                    onCancel()
+                }
+                .buttonStyle(.plain)
+
+                Button("Salva Prezzo") {
+                    onSave()
                 }
                 .buttonStyle(.borderedProminent)
             }
         }
-        .frame(maxHeight: .infinity)
-        .onChange(of: moduleName) { _, _ in
-            if let c = store.activeCourse, let m = store.getActiveModule(for: c), let b = m.billing {
-                billing = b
-            }
-        }
+        .padding(20)
+        .frame(width: 440)
     }
 }
 
-private struct FiscalInfoEditor: View {
+// MARK: - Fiscal Info Modal Sheet
+
+private struct FiscalInfoModalSheet: View {
     @Environment(AppStore.self) private var store
-    @State var info: BillingInfo
+    let course: Course
+    @State private var info: BillingInfo
     let onSave: (BillingInfo) -> Void
+    let onCancel: () -> Void
+
+    init(course: Course, onSave: @escaping (BillingInfo) -> Void, onCancel: @escaping () -> Void) {
+        self.course = course
+        self._info = State(initialValue: course.billingConfig.billingInfo)
+        self.onSave = onSave
+        self.onCancel = onCancel
+    }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(spacing: 12) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(store.t("idTypeLabel")).font(.caption.bold())
-                    Picker("", selection: $info.idType) {
-                        Text("Cédula").tag("cedula")
-                        Text("RUC").tag("ruc")
-                        Text("Pasaporte / Altro").tag("passport")
+        VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                HStack(spacing: 8) {
+                    Image(systemName: "building.columns.fill")
+                        .foregroundStyle(.blue)
+                    Text(store.t("ecuadorBillingHeader"))
+                        .font(.headline.bold())
+                }
+                Spacer()
+                Button { onCancel() } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.title3)
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+            }
+
+            Divider()
+
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(spacing: 12) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(store.t("idTypeLabel")).font(.caption.bold())
+                        Picker("", selection: $info.idType) {
+                            Text("Cédula").tag("cedula")
+                            Text("RUC").tag("ruc")
+                            Text("Pasaporte / Altro").tag("passport")
+                        }
+                        .labelsHidden()
                     }
-                    .labelsHidden()
+                    .frame(width: 140)
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(store.t("idNumberLabel")).font(.caption.bold())
+                        TextField("", text: $info.idNumber).textFieldStyle(.roundedBorder)
+                    }
                 }
-                .frame(width: 140)
 
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(store.t("idNumberLabel")).font(.caption.bold())
-                    TextField("", text: $info.idNumber).textFieldStyle(.roundedBorder)
+                    Text(store.t("fullNameBillingLabel")).font(.caption.bold())
+                    TextField("", text: $info.fullName).textFieldStyle(.roundedBorder)
                 }
-            }
-            VStack(alignment: .leading, spacing: 4) {
-                Text(store.t("fullNameBillingLabel")).font(.caption.bold())
-                TextField("", text: $info.fullName).textFieldStyle(.roundedBorder)
-            }
-            HStack(spacing: 12) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(store.t("cityBillingLabel")).font(.caption.bold())
-                    TextField("", text: $info.city).textFieldStyle(.roundedBorder)
+
+                HStack(spacing: 12) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(store.t("cityBillingLabel")).font(.caption.bold())
+                        TextField("", text: $info.city).textFieldStyle(.roundedBorder)
+                    }
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(store.t("addressBillingLabel")).font(.caption.bold())
+                        TextField("", text: $info.address).textFieldStyle(.roundedBorder)
+                    }
                 }
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(store.t("addressBillingLabel")).font(.caption.bold())
-                    TextField("", text: $info.address).textFieldStyle(.roundedBorder)
-                }
-            }
-            HStack(spacing: 12) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(store.t("phoneBillingLabel")).font(.caption.bold())
-                    TextField("", text: $info.phone).textFieldStyle(.roundedBorder)
-                }
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(store.t("emailBillingLabel")).font(.caption.bold())
-                    TextField("", text: $info.email).textFieldStyle(.roundedBorder)
+
+                HStack(spacing: 12) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(store.t("phoneBillingLabel")).font(.caption.bold())
+                        TextField("", text: $info.phone).textFieldStyle(.roundedBorder)
+                    }
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(store.t("emailBillingLabel")).font(.caption.bold())
+                        TextField("", text: $info.email).textFieldStyle(.roundedBorder)
+                    }
                 }
             }
 
-            Spacer(minLength: 12)
+            Divider()
 
             HStack {
                 Spacer()
-                Button(store.t("saveBillingBtn")) { onSave(info) }
-                    .buttonStyle(.borderedProminent)
+                Button("Annulla") { onCancel() }
+                    .buttonStyle(.plain)
+                Button(store.t("saveBillingBtn")) {
+                    onSave(info)
+                }
+                .buttonStyle(.borderedProminent)
             }
         }
-        .frame(maxHeight: .infinity)
+        .padding(22)
+        .frame(width: 480)
+    }
+}
+
+// MARK: - Billing Calendar Poster View for PNG Export
+
+private struct BillingCalendarPosterView: View {
+    let course: Course
+    let level: CourseLevel
+    let module: CourseModule
+    let slots: [String]
+    let store: AppStore
+    let palette: CourseColorInfo
+
+    var body: some View {
+        let b = module.billing ?? ModuleBilling()
+        let totalCost = b.totalGross(for: slots)
+        let totalHours = Double(slots.count) * b.lessonDurationHours
+        let fInfo = course.billingConfig.billingInfo
+
+        VStack(alignment: .leading, spacing: 18) {
+            // Header Banner
+            HStack(spacing: 16) {
+                AppLogoImageView(size: 56)
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: 10) {
+                        Text(course.name)
+                            .font(.system(size: 26, weight: .heavy))
+                            .foregroundStyle(.white)
+                        Text("\(level.code) • \(module.name)")
+                            .font(.system(size: 14, weight: .heavy))
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 4)
+                            .background(Capsule().fill(Color.white))
+                            .foregroundStyle(palette.color)
+                    }
+                    Text("Dettaglio Fatturazione e Calendario Lezioni • \(slots.count) Lezioni (\(String(format: "%.1f", totalHours)) ore)")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(Color.white.opacity(0.92))
+                }
+                Spacer()
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text("Totale Modulo")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(Color.white.opacity(0.85))
+                    Text(store.formatMoney(totalCost))
+                        .font(.system(size: 24, weight: .heavy))
+                        .foregroundStyle(.white)
+                }
+            }
+            .padding(22)
+            .background(
+                RoundedRectangle(cornerRadius: 18)
+                    .fill(
+                        LinearGradient(
+                            colors: [palette.color, palette.hoverColor],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+            )
+
+            // Client & Fiscal Info Box (if provided)
+            if !fInfo.fullName.isEmpty || !fInfo.idNumber.isEmpty {
+                HStack(spacing: 20) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Intestatario:").font(.system(size: 10, weight: .bold)).foregroundStyle(.secondary)
+                        Text(fInfo.fullName).font(.system(size: 13, weight: .bold))
+                    }
+                    if !fInfo.idNumber.isEmpty {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("\(fInfo.idType.uppercased()):").font(.system(size: 10, weight: .bold)).foregroundStyle(.secondary)
+                            Text(fInfo.idNumber).font(.system(size: 13, weight: .bold))
+                        }
+                    }
+                    if !fInfo.city.isEmpty {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Città:").font(.system(size: 10, weight: .bold)).foregroundStyle(.secondary)
+                            Text(fInfo.city).font(.system(size: 13, weight: .bold))
+                        }
+                    }
+                    Spacer()
+                }
+                .padding(14)
+                .background(RoundedRectangle(cornerRadius: 12).fill(Color.secondary.opacity(0.06)))
+            }
+
+            // Lessons List Table
+            VStack(spacing: 6) {
+                // Table Header
+                HStack(spacing: 8) {
+                    Text("N.").font(.system(size: 11, weight: .heavy)).frame(width: 36, alignment: .leading)
+                    Text("Data e Orario").font(.system(size: 11, weight: .heavy)).frame(width: 180, alignment: .leading)
+                    Text("Prezzo Base").font(.system(size: 11, weight: .heavy)).frame(width: 90, alignment: .trailing)
+                    Text("Sconto").font(.system(size: 11, weight: .heavy)).frame(width: 90, alignment: .trailing)
+                    Text("IVA").font(.system(size: 11, weight: .heavy)).frame(width: 70, alignment: .trailing)
+                    Text("Totale").font(.system(size: 11, weight: .heavy)).frame(maxWidth: .infinity, alignment: .trailing)
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .background(RoundedRectangle(cornerRadius: 8).fill(palette.color.opacity(0.12)))
+
+                // Rows
+                ForEach(Array(slots.enumerated()), id: \.element) { idx, slotKey in
+                    let d = store.extractDate(from: slotKey)
+                    let les = store.findLesson(in: course, sectionId: module.id, slotKey: slotKey)
+                    let st = les?.time ?? module.startTime
+                    let et = les?.endTime ?? module.endTime
+                    let net = b.lessonNetPrice(for: slotKey)
+                    let vatPct = b.lessonVatPercent(for: slotKey)
+                    let disc = b.lessonDiscountAmount(for: slotKey)
+                    let gross = b.lessonGrossPrice(for: slotKey)
+
+                    HStack(spacing: 8) {
+                        Text("\(idx + 1)")
+                            .font(.system(size: 11, weight: .bold))
+                            .frame(width: 36, alignment: .leading)
+                        Text("\(store.formatShortWeekdayDate(d))  \(store.formatTimeDisplay(st))-\(store.formatTimeDisplay(et))")
+                            .font(.system(size: 11, weight: .semibold))
+                            .frame(width: 180, alignment: .leading)
+                        Text(store.formatMoney(net))
+                            .font(.system(size: 11))
+                            .frame(width: 90, alignment: .trailing)
+                        Text(disc > 0 ? "-\(store.formatMoney(disc))" : "-")
+                            .font(.system(size: 11))
+                            .foregroundStyle(disc > 0 ? .orange : .secondary)
+                            .frame(width: 90, alignment: .trailing)
+                        Text("\(Int(vatPct))%")
+                            .font(.system(size: 11))
+                            .frame(width: 70, alignment: .trailing)
+                        Text(store.formatMoney(gross))
+                            .font(.system(size: 12, weight: .heavy))
+                            .foregroundStyle(.green)
+                            .frame(maxWidth: .infinity, alignment: .trailing)
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+                    .background(
+                        RoundedRectangle(cornerRadius: 6)
+                            .fill(idx % 2 == 0 ? Color.secondary.opacity(0.04) : Color.clear)
+                    )
+                }
+            }
+
+            // Summary Totals
+            HStack {
+                Spacer()
+                VStack(alignment: .trailing, spacing: 4) {
+                    Text("Totale da Saldare: \(store.formatMoney(totalCost))")
+                        .font(.system(size: 18, weight: .heavy))
+                        .foregroundStyle(.green)
+                }
+                .padding(14)
+                .background(RoundedRectangle(cornerRadius: 12).fill(Color.green.opacity(0.10)))
+            }
+
+            // Watermark attribution
+            HStack {
+                Text("Class Management • Concepito e Sviluppato da Guaira Jaramillo Nitoglia (guaira.jaramillo.nitoglia@gmail.com)")
+                    .font(.system(size: 10))
+                    .foregroundStyle(.secondary)
+                Spacer()
+            }
+            .padding(.top, 8)
+        }
+        .padding(24)
+        .frame(width: 780)
+        .background(Color(NSColor.windowBackgroundColor))
     }
 }
 
@@ -1054,6 +1933,54 @@ public struct SettingsView: View {
                             }
                         }
                     }
+
+                    Divider()
+
+                    // Default Base Pricing & VAT Section
+                    VStack(alignment: .leading, spacing: 10) {
+                        Label(store.t("defaultPricingSection"), systemImage: "banknote")
+                            .font(.headline)
+                            .foregroundStyle(.green)
+
+                        HStack(spacing: 16) {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("\(store.t("defaultHourlyRateLabel")) (\(store.state.settings.currency))").font(.caption.bold())
+                                TextField("10", value: Binding(
+                                    get: { store.state.settings.defaultHourlyRate },
+                                    set: { store.state.settings.defaultHourlyRate = $0; store.persist() }
+                                ), format: .number)
+                                .textFieldStyle(.roundedBorder)
+                                .frame(width: 110)
+                            }
+
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(store.t("defaultLessonDurationLabel")).font(.caption.bold())
+                                TextField("1.5", value: Binding(
+                                    get: { store.state.settings.defaultLessonDurationHours },
+                                    set: { store.state.settings.defaultLessonDurationHours = $0; store.persist() }
+                                ), format: .number)
+                                .textFieldStyle(.roundedBorder)
+                                .frame(width: 110)
+                            }
+
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(store.t("defaultVatPercentLabel")).font(.caption.bold())
+                                TextField("15", value: Binding(
+                                    get: { store.state.settings.defaultVatPercent },
+                                    set: { store.state.settings.defaultVatPercent = $0; store.persist() }
+                                ), format: .number)
+                                .textFieldStyle(.roundedBorder)
+                                .frame(width: 110)
+                            }
+                            Spacer()
+                        }
+                    }
+                    .padding(14)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(Color.green.opacity(0.08))
+                            .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color.green.opacity(0.30)))
+                    )
 
                     Divider()
 

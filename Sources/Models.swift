@@ -18,7 +18,7 @@ public enum AuthorAttribution {
     public static let authorName = "Guaira Jaramillo Nitoglia"
     public static let authorEmail = "guaira.jaramillo.nitoglia@gmail.com"
     public static let appName = "Class Management"
-    public static let appVersion = "26.10.1-1"
+    public static let appVersion = "26.10.2b"
     public static let licenseName = "GNU General Public License v3.0 (GPL-3.0)"
 }
 
@@ -309,6 +309,9 @@ public struct AppSettings: Codable, Equatable {
     public var currency: String = "$"
     public var passThreshold: Double = 6.0
     public var defaultLessonDuration: Int = 90
+    public var defaultHourlyRate: Double = 10.0
+    public var defaultLessonDurationHours: Double = 1.5
+    public var defaultVatPercent: Double = 15.0
     public var autoSyncAppleCalendar: Bool = true
     public var calendarSyncMode: String = "perCourse" // "perCourse" or "single"
     public var iCloudSyncEnabled: Bool = true
@@ -320,7 +323,7 @@ public struct AppSettings: Codable, Equatable {
     public init() {}
 
     enum CodingKeys: String, CodingKey {
-        case language, theme, sidebarMini, firstDayOfWeek, dateFormat, timeFormat, currency, passThreshold, defaultLessonDuration, autoSyncAppleCalendar, calendarSyncMode, iCloudSyncEnabled, checkForUpdatesAutomatically, includeBetaUpdates, updateCheckFrequency, lastUpdateCheckDate
+        case language, theme, sidebarMini, firstDayOfWeek, dateFormat, timeFormat, currency, passThreshold, defaultLessonDuration, defaultHourlyRate, defaultLessonDurationHours, defaultVatPercent, autoSyncAppleCalendar, calendarSyncMode, iCloudSyncEnabled, checkForUpdatesAutomatically, includeBetaUpdates, updateCheckFrequency, lastUpdateCheckDate
     }
 
     public init(from decoder: Decoder) throws {
@@ -335,6 +338,9 @@ public struct AppSettings: Codable, Equatable {
         currency = cur.isEmpty ? "$" : cur
         passThreshold = c.flexDouble(.passThreshold, default: 6.0)
         defaultLessonDuration = c.flexInt(.defaultLessonDuration, default: 90)
+        defaultHourlyRate = c.flexDouble(.defaultHourlyRate, default: 10.0)
+        defaultLessonDurationHours = c.flexDouble(.defaultLessonDurationHours, default: 1.5)
+        defaultVatPercent = c.flexDouble(.defaultVatPercent, default: 15.0)
         autoSyncAppleCalendar = c.flexBool(.autoSyncAppleCalendar, default: true)
         calendarSyncMode = c.flexString(.calendarSyncMode, default: "perCourse")
         iCloudSyncEnabled = c.flexBool(.iCloudSyncEnabled, default: true)
@@ -355,6 +361,9 @@ public struct AppSettings: Codable, Equatable {
         currency = cur.isEmpty ? "$" : cur
         passThreshold = JSONDictHelper.dbl(dict["passThreshold"], default: 6.0)
         defaultLessonDuration = JSONDictHelper.int(dict["defaultLessonDuration"], default: 90)
+        defaultHourlyRate = JSONDictHelper.dbl(dict["defaultHourlyRate"], default: 10.0)
+        defaultLessonDurationHours = JSONDictHelper.dbl(dict["defaultLessonDurationHours"], default: 1.5)
+        defaultVatPercent = JSONDictHelper.dbl(dict["defaultVatPercent"], default: 15.0)
         autoSyncAppleCalendar = JSONDictHelper.bool(dict["autoSyncAppleCalendar"], default: true)
         calendarSyncMode = JSONDictHelper.str(dict["calendarSyncMode"], default: "perCourse")
         iCloudSyncEnabled = JSONDictHelper.bool(dict["iCloudSyncEnabled"], default: true)
@@ -632,6 +641,39 @@ public struct Student: Codable, Identifiable, Equatable {
     }
 }
 
+public struct LessonBillingItem: Codable, Equatable {
+    public var price: Double? = nil
+    public var vatPercent: Double? = nil
+    public var discountType: String? = nil
+    public var discountValue: Double? = nil
+
+    enum CodingKeys: String, CodingKey {
+        case price, vatPercent, discountType, discountValue
+    }
+
+    public init(price: Double? = nil, vatPercent: Double? = nil, discountType: String? = nil, discountValue: Double? = nil) {
+        self.price = price
+        self.vatPercent = vatPercent
+        self.discountType = discountType
+        self.discountValue = discountValue
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        price = try? c.decodeIfPresent(Double.self, forKey: .price)
+        vatPercent = try? c.decodeIfPresent(Double.self, forKey: .vatPercent)
+        discountType = try? c.decodeIfPresent(String.self, forKey: .discountType)
+        discountValue = try? c.decodeIfPresent(Double.self, forKey: .discountValue)
+    }
+
+    public init(dict: [String: Any]) {
+        price = JSONDictHelper.optDbl(dict["price"])
+        vatPercent = JSONDictHelper.optDbl(dict["vatPercent"])
+        discountType = JSONDictHelper.optStr(dict["discountType"])
+        discountValue = JSONDictHelper.optDbl(dict["discountValue"])
+    }
+}
+
 public struct ModuleBilling: Codable, Equatable {
     public var hourlyRateNet: Double = 10.0
     public var lessonDurationHours: Double = 1.5
@@ -639,9 +681,10 @@ public struct ModuleBilling: Codable, Equatable {
     public var discountType: String = "percent"
     public var discountTarget: String = "total"
     public var discountValue: Double = 0.0
+    public var lessonOverrides: [String: LessonBillingItem] = [:]
 
     enum CodingKeys: String, CodingKey {
-        case hourlyRateNet, lessonDurationHours, vatPercent, discountType, discountTarget, discountValue
+        case hourlyRateNet, lessonDurationHours, vatPercent, discountType, discountTarget, discountValue, lessonOverrides
     }
 
     public init(hourlyRateNet: Double = 10.0,
@@ -649,13 +692,15 @@ public struct ModuleBilling: Codable, Equatable {
                 vatPercent: Double = 15.0,
                 discountType: String = "percent",
                 discountTarget: String = "total",
-                discountValue: Double = 0.0) {
+                discountValue: Double = 0.0,
+                lessonOverrides: [String: LessonBillingItem] = [:]) {
         self.hourlyRateNet = hourlyRateNet
         self.lessonDurationHours = lessonDurationHours
         self.vatPercent = vatPercent
         self.discountType = discountType
         self.discountTarget = discountTarget
         self.discountValue = discountValue
+        self.lessonOverrides = lessonOverrides
     }
 
     public init(from decoder: Decoder) throws {
@@ -666,6 +711,7 @@ public struct ModuleBilling: Codable, Equatable {
         discountType = c.flexString(.discountType, default: "percent")
         discountTarget = c.flexString(.discountTarget, default: "total")
         discountValue = c.flexDouble(.discountValue, default: 0.0)
+        lessonOverrides = (try? c.decodeIfPresent([String: LessonBillingItem].self, forKey: .lessonOverrides)) ?? [:]
     }
 
     public init(dict: [String: Any]) {
@@ -675,6 +721,61 @@ public struct ModuleBilling: Codable, Equatable {
         discountType = JSONDictHelper.str(dict["discountType"], default: "percent")
         discountTarget = JSONDictHelper.str(dict["discountTarget"], default: "total")
         discountValue = JSONDictHelper.dbl(dict["discountValue"], default: 0.0)
+        var ov: [String: LessonBillingItem] = [:]
+        if let rawOv = dict["lessonOverrides"] as? [String: Any] {
+            for (k, v) in rawOv {
+                if let vDict = v as? [String: Any] {
+                    ov[k] = LessonBillingItem(dict: vDict)
+                }
+            }
+        }
+        lessonOverrides = ov
+    }
+
+    public func lessonNetPrice(for slotKey: String) -> Double {
+        if let o = lessonOverrides[slotKey], let p = o.price, p >= 0 {
+            return p
+        }
+        return hourlyRateNet * lessonDurationHours
+    }
+
+    public func lessonVatPercent(for slotKey: String) -> Double {
+        if let o = lessonOverrides[slotKey], let v = o.vatPercent, v >= 0 {
+            return v
+        }
+        return vatPercent
+    }
+
+    public func lessonDiscountAmount(for slotKey: String) -> Double {
+        let net = lessonNetPrice(for: slotKey)
+        if let o = lessonOverrides[slotKey], let v = o.discountValue, v > 0 {
+            let t = o.discountType ?? "percent"
+            return t == "percent" ? (net * (v / 100.0)) : v
+        }
+        if discountValue > 0 && discountType == "percent" {
+            return net * (discountValue / 100.0)
+        }
+        return 0.0
+    }
+
+    public func lessonGrossPrice(for slotKey: String) -> Double {
+        let net = lessonNetPrice(for: slotKey)
+        let disc = lessonDiscountAmount(for: slotKey)
+        let afterDisc = max(0.0, net - disc)
+        let vat = afterDisc * (lessonVatPercent(for: slotKey) / 100.0)
+        return afterDisc + vat
+    }
+
+    public func totalGross(for dates: [String]) -> Double {
+        if dates.isEmpty { return 0.0 }
+        var sum = 0.0
+        for d in dates {
+            sum += lessonGrossPrice(for: d)
+        }
+        if discountType == "fixed" && discountValue > 0 && lessonOverrides.isEmpty {
+            sum = max(0.0, sum - discountValue)
+        }
+        return sum
     }
 }
 

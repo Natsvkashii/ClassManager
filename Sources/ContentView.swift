@@ -330,9 +330,10 @@ private struct SidebarView: View {
                     Text(store.t("appTitle"))
                         .font(.headline.bold())
                         .lineLimit(1)
-                    Text("macOS Native • v\(store.state.version)")
-                        .font(.system(size: 10, weight: .semibold))
+                    Text(store.t("headerCreatedBy"))
+                        .font(.system(size: 9.5, weight: .medium))
                         .foregroundStyle(.secondary)
+                        .lineLimit(1)
                 }
                 Spacer()
             }
@@ -629,6 +630,13 @@ private struct TopUnifiedHeaderBar: View {
             }
 
             Spacer()
+
+            Text(store.t("headerCreatedBy"))
+                .font(.system(size: 10, weight: .medium))
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(RoundedRectangle(cornerRadius: 6).fill(Color.secondary.opacity(0.08)))
 
             // Header Action Buttons (Undo + New Course + Theme)
             HStack(spacing: 8) {
