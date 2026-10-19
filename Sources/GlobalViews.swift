@@ -700,6 +700,8 @@ public struct BillingView: View {
     @State private var selectedModuleId: String? = nil
     @State private var showFiscalModal: Bool = false
     @State private var editingSlotKey: String? = nil
+    @State private var showExportBillingLangModal: Bool = false
+    @State private var selectedExportBillingLang: String = "it"
 
     // Global tool values for the currently opened module
     @State private var batchHourlyRate: Double = 10.0
@@ -1006,7 +1008,8 @@ public struct BillingView: View {
                                 Spacer()
                                 // Export PNG Button
                                 Button {
-                                    exportBillingCalendarPNG(course: course, level: currentLevel, module: currentModule, palette: pal)
+                                    selectedExportBillingLang = store.state.settings.language
+                                    showExportBillingLangModal = true
                                 } label: {
                                     Label(store.t("exportCalendarPngBtn"), systemImage: "photo.badge.arrow.down")
                                         .font(.caption.bold())
@@ -1217,6 +1220,22 @@ public struct BillingView: View {
                         }
                     )
                 }
+            }
+            .sheet(isPresented: $showExportBillingLangModal) {
+                ExportLanguageModalSheet(
+                    title: store.t("exportLanguageTitle"),
+                    prompt: store.t("exportLanguagePrompt"),
+                    confirmTitle: store.t("confirmExportBtn"),
+                    selectedLang: $selectedExportBillingLang,
+                    palette: pal,
+                    onConfirm: {
+                        showExportBillingLangModal = false
+                        exportBillingCalendarPNG(course: course, level: currentLevel, module: currentModule, palette: pal, lang: selectedExportBillingLang)
+                    },
+                    onCancel: {
+                        showExportBillingLangModal = false
+                    }
+                )
             }
             .onAppear {
                 syncGlobalToolbar(for: curBilling)
@@ -1440,14 +1459,15 @@ public struct BillingView: View {
         return sections
     }
 
-    private func exportBillingCalendarPNG(course: Course, level: CourseLevel, module: CourseModule, palette: CourseColorInfo) {
+    private func exportBillingCalendarPNG(course: Course, level: CourseLevel, module: CourseModule, palette: CourseColorInfo, lang: String = "it") {
         let poster = BillingCalendarPosterView(
             course: course,
             level: level,
             module: module,
             slots: store.sortedSlots(for: course, module: module),
             store: store,
-            palette: palette
+            palette: palette,
+            lang: lang
         )
 
         let renderer = ImageRenderer(content: poster)
@@ -1464,7 +1484,7 @@ public struct BillingView: View {
         let panel = NSSavePanel()
         let safeCourse = course.name.replacingOccurrences(of: " ", with: "_")
         let safeMod = module.name.replacingOccurrences(of: " ", with: "_")
-        panel.nameFieldStringValue = "Fatturazione_\(safeCourse)_\(safeMod).png"
+        panel.nameFieldStringValue = "Fatturazione_\(safeCourse)_\(safeMod)_\(lang).png"
         panel.allowedContentTypes = [.png]
         panel.canCreateDirectories = true
 
@@ -1690,11 +1710,179 @@ private struct BillingCalendarPosterView: View {
     let slots: [String]
     let store: AppStore
     let palette: CourseColorInfo
+    var lang: String = "it"
+
+    private var totalHours: Double {
+        let b = module.billing ?? ModuleBilling()
+        return Double(slots.count) * b.lessonDurationHours
+    }
+
+    private func computeDurationText(start: String, end: String, fallbackHours: Double) -> String {
+        let sParts = start.split(separator: ":").compactMap { Int($0) }
+        let eParts = end.split(separator: ":").compactMap { Int($0) }
+        var diffMins = 0
+        if sParts.count >= 2 && eParts.count >= 2 {
+            let sTotal = sParts[0] * 60 + sParts[1]
+            let eTotal = eParts[0] * 60 + eParts[1]
+            diffMins = eTotal - sTotal
+        }
+        if diffMins <= 0 {
+            diffMins = Int(round(fallbackHours * 60))
+        }
+        let h = diffMins / 60
+        let m = diffMins % 60
+        if h > 0 && m > 0 {
+            return "\(h)h \(m)m"
+        } else if h > 0 {
+            return "\(h)h"
+        } else {
+            return "\(m)m"
+        }
+    }
+
+    private func formatLocalizedShortDate(_ isoDate: String, lang: String) -> String {
+        let parts = isoDate.split(separator: "-").compactMap { Int($0) }
+        guard parts.count == 3 else { return isoDate }
+        let y = parts[0]
+        let m = parts[1]
+        let d = parts[2]
+
+        var comps = DateComponents()
+        comps.year = y
+        comps.month = m
+        comps.day = d
+        let cal = Calendar.current
+        let date = cal.date(from: comps) ?? Date()
+        let dow = cal.component(.weekday, from: date) - 1 // 0=Sun, 1=Mon, ..., 6=Sat
+
+        let itDays = ["Dom", "Lun", "Mar", "Mer", "Gio", "Ven", "Sab"]
+        let itMonths = ["Gen", "Feb", "Mar", "Apr", "Mag", "Giu", "Lug", "Ago", "Set", "Ott", "Nov", "Dic"]
+
+        let enDays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+        let enMonths = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+
+        let esDays = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"]
+        let esMonths = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"]
+
+        let mIdx = max(0, min(11, m - 1))
+        let dowIdx = max(0, min(6, dow))
+
+        switch lang {
+        case "en":
+            return "\(enDays[dowIdx]) \(enMonths[mIdx]) \(d), \(y)"
+        case "es":
+            return "\(esDays[dowIdx]) \(d) \(esMonths[mIdx]) \(y)"
+        default:
+            return "\(itDays[dowIdx]) \(d) \(itMonths[mIdx]) \(y)"
+        }
+    }
+
+    private var bannerSubtitle: String {
+        let hStr = String(format: "%.1f", totalHours)
+        switch lang {
+        case "en":
+            return "Billing Breakdown & Lessons Schedule • \(slots.count) Lessons (\(hStr) hrs)"
+        case "es":
+            return "Detalle de Facturación y Calendario de Clases • \(slots.count) Clases (\(hStr) hrs)"
+        default:
+            return "Dettaglio Fatturazione e Calendario Lezioni • \(slots.count) Lezioni (\(hStr) ore)"
+        }
+    }
+
+    private var moduleTotalLabel: String {
+        switch lang {
+        case "en": return "Module Total"
+        case "es": return "Total del Módulo"
+        default: return "Totale Modulo"
+        }
+    }
+
+    private var clientBillingLabel: String {
+        switch lang {
+        case "en": return "Billing Name:"
+        case "es": return "Titular:"
+        default: return "Intestatario:"
+        }
+    }
+
+    private var cityLabel: String {
+        switch lang {
+        case "en": return "City:"
+        case "es": return "Ciudad:"
+        default: return "Città:"
+        }
+    }
+
+    private var totalDueLabel: String {
+        switch lang {
+        case "en": return "Total Due"
+        case "es": return "Total a Pagar"
+        default: return "Totale da Saldare"
+        }
+    }
+
+    private var colDate: String {
+        switch lang {
+        case "en": return "Date"
+        case "es": return "Fecha"
+        default: return "Data"
+        }
+    }
+
+    private var colTime: String {
+        switch lang {
+        case "en": return "Time"
+        case "es": return "Horario"
+        default: return "Orario"
+        }
+    }
+
+    private var colDuration: String {
+        switch lang {
+        case "en": return "Duration"
+        case "es": return "Duración"
+        default: return "Durata"
+        }
+    }
+
+    private var colBasePrice: String {
+        switch lang {
+        case "en": return "Base Price"
+        case "es": return "Precio Base"
+        default: return "Prezzo Base"
+        }
+    }
+
+    private var colDiscount: String {
+        switch lang {
+        case "en": return "Discount"
+        case "es": return "Descuento"
+        default: return "Sconto"
+        }
+    }
+
+    private var colTotal: String {
+        switch lang {
+        case "en": return "Total"
+        case "es": return "Total"
+        default: return "Totale"
+        }
+    }
+
+    private var watermarkAttribution: String {
+        switch lang {
+        case "en":
+            return "Class Management • Designed and Developed by Guaira Jaramillo Nitoglia (guaira.jaramillo.nitoglia@gmail.com)"
+        case "es":
+            return "Class Management • Concebido y Desarrollado por Guaira Jaramillo Nitoglia (guaira.jaramillo.nitoglia@gmail.com)"
+        default:
+            return "Class Management • Concepito e Sviluppato da Guaira Jaramillo Nitoglia (guaira.jaramillo.nitoglia@gmail.com)"
+        }
+    }
 
     var body: some View {
         let b = module.billing ?? ModuleBilling()
         let totalCost = b.totalGross(for: slots)
-        let totalHours = Double(slots.count) * b.lessonDurationHours
         let fInfo = course.billingConfig.billingInfo
 
         VStack(alignment: .leading, spacing: 18) {
@@ -1713,13 +1901,13 @@ private struct BillingCalendarPosterView: View {
                             .background(Capsule().fill(Color.white))
                             .foregroundStyle(palette.color)
                     }
-                    Text("Dettaglio Fatturazione e Calendario Lezioni • \(slots.count) Lezioni (\(String(format: "%.1f", totalHours)) ore)")
+                    Text(bannerSubtitle)
                         .font(.system(size: 14, weight: .semibold))
                         .foregroundStyle(Color.white.opacity(0.92))
                 }
                 Spacer()
                 VStack(alignment: .trailing, spacing: 2) {
-                    Text("Totale Modulo")
+                    Text(moduleTotalLabel)
                         .font(.system(size: 11, weight: .bold))
                         .foregroundStyle(Color.white.opacity(0.85))
                     Text(store.formatMoney(totalCost))
@@ -1743,7 +1931,7 @@ private struct BillingCalendarPosterView: View {
             if !fInfo.fullName.isEmpty || !fInfo.idNumber.isEmpty {
                 HStack(spacing: 20) {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("Intestatario:").font(.system(size: 10, weight: .bold)).foregroundStyle(.secondary)
+                        Text(clientBillingLabel).font(.system(size: 10, weight: .bold)).foregroundStyle(.secondary)
                         Text(fInfo.fullName).font(.system(size: 13, weight: .bold))
                     }
                     if !fInfo.idNumber.isEmpty {
@@ -1754,7 +1942,7 @@ private struct BillingCalendarPosterView: View {
                     }
                     if !fInfo.city.isEmpty {
                         VStack(alignment: .leading, spacing: 2) {
-                            Text("Città:").font(.system(size: 10, weight: .bold)).foregroundStyle(.secondary)
+                            Text(cityLabel).font(.system(size: 10, weight: .bold)).foregroundStyle(.secondary)
                             Text(fInfo.city).font(.system(size: 13, weight: .bold))
                         }
                     }
@@ -1768,12 +1956,14 @@ private struct BillingCalendarPosterView: View {
             VStack(spacing: 6) {
                 // Table Header
                 HStack(spacing: 8) {
-                    Text("N.").font(.system(size: 11, weight: .heavy)).frame(width: 36, alignment: .leading)
-                    Text("Data e Orario").font(.system(size: 11, weight: .heavy)).frame(width: 180, alignment: .leading)
-                    Text("Prezzo Base").font(.system(size: 11, weight: .heavy)).frame(width: 90, alignment: .trailing)
-                    Text("Sconto").font(.system(size: 11, weight: .heavy)).frame(width: 90, alignment: .trailing)
-                    Text("IVA").font(.system(size: 11, weight: .heavy)).frame(width: 70, alignment: .trailing)
-                    Text("Totale").font(.system(size: 11, weight: .heavy)).frame(maxWidth: .infinity, alignment: .trailing)
+                    Text("N.").font(.system(size: 11, weight: .heavy)).frame(width: 32, alignment: .leading)
+                    Text(colDate).font(.system(size: 11, weight: .heavy)).frame(width: 130, alignment: .leading)
+                    Text(colTime).font(.system(size: 11, weight: .heavy)).frame(width: 100, alignment: .leading)
+                    Text(colDuration).font(.system(size: 11, weight: .heavy)).frame(width: 70, alignment: .leading)
+                    Text(colBasePrice).font(.system(size: 11, weight: .heavy)).frame(width: 90, alignment: .trailing)
+                    Text(colDiscount).font(.system(size: 11, weight: .heavy)).frame(width: 80, alignment: .trailing)
+                    Text("IVA").font(.system(size: 11, weight: .heavy)).frame(width: 65, alignment: .trailing)
+                    Text(colTotal).font(.system(size: 11, weight: .heavy)).frame(maxWidth: .infinity, alignment: .trailing)
                 }
                 .padding(.horizontal, 12)
                 .padding(.vertical, 8)
@@ -1793,20 +1983,26 @@ private struct BillingCalendarPosterView: View {
                     HStack(spacing: 8) {
                         Text("\(idx + 1)")
                             .font(.system(size: 11, weight: .bold))
-                            .frame(width: 36, alignment: .leading)
-                        Text("\(store.formatShortWeekdayDate(d))  \(store.formatTimeDisplay(st))-\(store.formatTimeDisplay(et))")
+                            .frame(width: 32, alignment: .leading)
+                        Text(formatLocalizedShortDate(d, lang: lang))
                             .font(.system(size: 11, weight: .semibold))
-                            .frame(width: 180, alignment: .leading)
+                            .frame(width: 130, alignment: .leading)
+                        Text("\(store.formatTimeDisplay(st)) - \(store.formatTimeDisplay(et))")
+                            .font(.system(size: 11))
+                            .frame(width: 100, alignment: .leading)
+                        Text(computeDurationText(start: st, end: et, fallbackHours: b.lessonDurationHours))
+                            .font(.system(size: 11))
+                            .frame(width: 70, alignment: .leading)
                         Text(store.formatMoney(net))
                             .font(.system(size: 11))
                             .frame(width: 90, alignment: .trailing)
                         Text(disc > 0 ? "-\(store.formatMoney(disc))" : "-")
                             .font(.system(size: 11))
                             .foregroundStyle(disc > 0 ? .orange : .secondary)
-                            .frame(width: 90, alignment: .trailing)
+                            .frame(width: 80, alignment: .trailing)
                         Text("\(Int(vatPct))%")
                             .font(.system(size: 11))
-                            .frame(width: 70, alignment: .trailing)
+                            .frame(width: 65, alignment: .trailing)
                         Text(store.formatMoney(gross))
                             .font(.system(size: 12, weight: .heavy))
                             .foregroundStyle(.green)
@@ -1825,7 +2021,7 @@ private struct BillingCalendarPosterView: View {
             HStack {
                 Spacer()
                 VStack(alignment: .trailing, spacing: 4) {
-                    Text("Totale da Saldare: \(store.formatMoney(totalCost))")
+                    Text("\(totalDueLabel): \(store.formatMoney(totalCost))")
                         .font(.system(size: 18, weight: .heavy))
                         .foregroundStyle(.green)
                 }
@@ -1835,7 +2031,7 @@ private struct BillingCalendarPosterView: View {
 
             // Watermark attribution
             HStack {
-                Text("Class Management • Concepito e Sviluppato da Guaira Jaramillo Nitoglia (guaira.jaramillo.nitoglia@gmail.com)")
+                Text(watermarkAttribution)
                     .font(.system(size: 10))
                     .foregroundStyle(.secondary)
                 Spacer()
@@ -1843,7 +2039,7 @@ private struct BillingCalendarPosterView: View {
             .padding(.top, 8)
         }
         .padding(24)
-        .frame(width: 780)
+        .frame(width: 840)
         .background(Color(NSColor.windowBackgroundColor))
     }
 }

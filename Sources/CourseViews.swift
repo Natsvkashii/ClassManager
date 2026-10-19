@@ -1382,6 +1382,8 @@ public struct ModuleCalendarView: View {
     @State private var isAutoScrollingDown: Bool = false
     @State private var isAutoScrollingUp: Bool = false
     @State private var autoScrollTimer: Timer? = nil
+    @State private var showExportLangModal: Bool = false
+    @State private var selectedExportLang: String = "it"
 
     public var body: some View {
         guard let course = store.activeCourse,
@@ -1440,7 +1442,8 @@ public struct ModuleCalendarView: View {
 
                     // Download 1:1 Square PNG Image of the Module Calendar
                     Button {
-                        exportSquareCalendarPNG(course: course, module: mod, slots: slots, weeks: posterWeeks, palette: pal)
+                        selectedExportLang = store.state.settings.language
+                        showExportLangModal = true
                     } label: {
                         Label(store.t("downloadPngBtn"), systemImage: "photo.badge.arrow.down")
                     }
@@ -1457,6 +1460,22 @@ public struct ModuleCalendarView: View {
                 }
                 .padding(12)
                 .appCardStyle(cornerRadius: 12)
+                .sheet(isPresented: $showExportLangModal) {
+                    ExportLanguageModalSheet(
+                        title: store.t("exportLanguageTitle"),
+                        prompt: store.t("exportLanguagePrompt"),
+                        confirmTitle: store.t("confirmExportBtn"),
+                        selectedLang: $selectedExportLang,
+                        palette: pal,
+                        onConfirm: {
+                            showExportLangModal = false
+                            exportSquareCalendarPNG(course: course, module: mod, slots: slots, weeks: posterWeeks, palette: pal, lang: selectedExportLang)
+                        },
+                        onCancel: {
+                            showExportLangModal = false
+                        }
+                    )
+                }
 
                 // Quick Month Navigation Strip
                 if monthSections.count > 1 {
@@ -2084,7 +2103,7 @@ public struct ModuleCalendarView: View {
         store.showToast("✅ \(store.t("copyTextBtn"))")
     }
 
-    private func exportSquareCalendarPNG(course: Course, module: CourseModule, slots: [String], weeks: [[CalendarDayCell]], palette: CourseColorInfo) {
+    private func exportSquareCalendarPNG(course: Course, module: CourseModule, slots: [String], weeks: [[CalendarDayCell]], palette: CourseColorInfo, lang: String = "it") {
         let badge = store.formatLevelModuleBadge(course: course, module: module)
         let poster = ModuleSquareCalendarPosterView(
             courseName: course.name,
@@ -2092,9 +2111,9 @@ public struct ModuleCalendarView: View {
             defaultTime: "\(store.formatTimeDisplay(module.startTime)) - \(store.formatTimeDisplay(module.endTime))",
             totalLessons: slots.count,
             totalWeeks: weeks.count,
-            daysHeader: store.daysShortList,
             weeks: weeks,
-            palette: palette
+            palette: palette,
+            lang: lang
         )
 
         let renderer = ImageRenderer(content: poster)
@@ -2110,7 +2129,7 @@ public struct ModuleCalendarView: View {
 
         let panel = NSSavePanel()
         let safeName = course.name.replacingOccurrences(of: " ", with: "_")
-        panel.nameFieldStringValue = "Calendario_\(safeName)_\(badge.replacingOccurrences(of: " ", with: "_"))_1x1.png"
+        panel.nameFieldStringValue = "Calendario_\(safeName)_\(badge.replacingOccurrences(of: " ", with: "_"))_\(lang)_1x1.png"
         panel.allowedContentTypes = [.png]
         panel.canCreateDirectories = true
 
@@ -2118,6 +2137,111 @@ public struct ModuleCalendarView: View {
             try? pngData.write(to: url, options: .atomic)
             store.showToast("🖼️ \(store.t("downloadPngBtn"))")
         }
+    }
+}
+
+// MARK: - Reusable Multilingual PNG Export Modal Sheet
+
+public struct ExportLanguageModalSheet: View {
+    let title: String
+    let prompt: String
+    let confirmTitle: String
+    @Binding var selectedLang: String
+    let palette: CourseColorInfo
+    let onConfirm: () -> Void
+    let onCancel: () -> Void
+
+    private let languages: [(code: String, label: String, flag: String)] = [
+        ("it", "Italiano", "🇮🇹"),
+        ("en", "English", "🇬🇧"),
+        ("es", "Español", "🇪🇸")
+    ]
+
+    public init(
+        title: String,
+        prompt: String,
+        confirmTitle: String,
+        selectedLang: Binding<String>,
+        palette: CourseColorInfo,
+        onConfirm: @escaping () -> Void,
+        onCancel: @escaping () -> Void
+    ) {
+        self.title = title
+        self.prompt = prompt
+        self.confirmTitle = confirmTitle
+        self._selectedLang = selectedLang
+        self.palette = palette
+        self.onConfirm = onConfirm
+        self.onCancel = onCancel
+    }
+
+    public var body: some View {
+        VStack(spacing: 20) {
+            HStack(spacing: 12) {
+                Image(systemName: "photo.badge.arrow.down")
+                    .font(.system(size: 26, weight: .bold))
+                    .foregroundStyle(palette.color)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .font(.headline.bold())
+                    Text(prompt)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+            }
+
+            VStack(spacing: 8) {
+                ForEach(languages, id: \.code) { item in
+                    let isSelected = selectedLang == item.code
+                    Button {
+                        selectedLang = item.code
+                    } label: {
+                        HStack(spacing: 12) {
+                            Text(item.flag)
+                                .font(.title3)
+                            Text(item.label)
+                                .font(.subheadline.bold())
+                                .foregroundStyle(isSelected ? palette.color : Color.primary)
+                            Spacer()
+                            if isSelected {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .foregroundStyle(palette.color)
+                            }
+                        }
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 10)
+                        .background(
+                            RoundedRectangle(cornerRadius: 10)
+                                .fill(isSelected ? palette.color.opacity(0.12) : Color.secondary.opacity(0.06))
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 10)
+                                .strokeBorder(isSelected ? palette.color : Color.clear, lineWidth: 1.5)
+                        )
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+
+            HStack {
+                Button("Annulla") {
+                    onCancel()
+                }
+                .keyboardShortcut(.cancelAction)
+
+                Spacer()
+
+                Button(confirmTitle) {
+                    onConfirm()
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(palette.color)
+                .keyboardShortcut(.defaultAction)
+            }
+        }
+        .padding(22)
+        .frame(width: 380)
     }
 }
 
@@ -2129,9 +2253,58 @@ private struct ModuleSquareCalendarPosterView: View {
     let defaultTime: String
     let totalLessons: Int
     let totalWeeks: Int
-    let daysHeader: [String]
     let weeks: [[ModuleCalendarView.CalendarDayCell]]
     let palette: CourseColorInfo
+    let lang: String
+
+    private var daysHeader: [String] {
+        switch lang {
+        case "en": return ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"]
+        case "es": return ["LUN", "MAR", "MIÉ", "JUE", "VIE", "SÁB", "DOM"]
+        default:   return ["LUN", "MAR", "MER", "GIO", "VEN", "SAB", "DOM"]
+        }
+    }
+
+    private var headerSubtitle: String {
+        switch lang {
+        case "en": return "⏰ Schedule: \(defaultTime)  •  📚 \(totalLessons) Lessons (\(totalWeeks) \(totalWeeks == 1 ? "week" : "weeks"))"
+        case "es": return "⏰ Horario: \(defaultTime)  •  📚 \(totalLessons) Lecciones (\(totalWeeks) \(totalWeeks == 1 ? "semana" : "semanas"))"
+        default:   return "⏰ Orario: \(defaultTime)  •  📚 \(totalLessons) Lezioni (\(totalWeeks) \(totalWeeks == 1 ? "settimana" : "settimane"))"
+        }
+    }
+
+    private var lessonPrefix: String {
+        switch lang {
+        case "en": return "Les."
+        case "es": return "Lecc."
+        default:   return "Lez."
+        }
+    }
+
+    private func localizedMonthShort(day: ModuleCalendarView.CalendarDayCell) -> String {
+        let parts = day.iso.split(separator: "-").compactMap { Int($0) }
+        guard parts.count >= 2 else { return day.monthShort }
+        let mIdx = max(0, min(11, parts[1] - 1))
+        switch lang {
+        case "en":
+            let en = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+            return en[mIdx]
+        case "es":
+            let es = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"]
+            return es[mIdx]
+        default:
+            let it = ["Gen", "Feb", "Mar", "Apr", "Mag", "Giu", "Lug", "Ago", "Set", "Ott", "Nov", "Dic"]
+            return it[mIdx]
+        }
+    }
+
+    private var footerTitle: String {
+        switch lang {
+        case "en": return "\(AuthorAttribution.appName) • Lesson Plan"
+        case "es": return "\(AuthorAttribution.appName) • Plan de Clases"
+        default:   return "\(AuthorAttribution.appName) • Piano lezioni"
+        }
+    }
 
     var body: some View {
         let rowCount = max(1, weeks.count)
@@ -2154,7 +2327,7 @@ private struct ModuleSquareCalendarPosterView: View {
                             .background(Capsule().fill(Color.white))
                             .foregroundStyle(palette.color)
                     }
-                    Text("⏰ Orario: \(defaultTime)  •  📚 \(totalLessons) Lezioni (\(totalWeeks) settimane)")
+                    Text(headerSubtitle)
                         .font(.system(size: 15, weight: .semibold))
                         .foregroundStyle(Color.white.opacity(0.92))
                 }
@@ -2164,12 +2337,12 @@ private struct ModuleSquareCalendarPosterView: View {
             .background(
                 RoundedRectangle(cornerRadius: 20)
                     .fill(
-                        LinearGradient(
-                            colors: [palette.color, palette.hoverColor],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
+                    LinearGradient(
+                        colors: [palette.color, palette.hoverColor],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
                     )
+                )
             )
 
             // Calendar Grid Area
@@ -2189,25 +2362,28 @@ private struct ModuleSquareCalendarPosterView: View {
                         ForEach(week, id: \.iso) { day in
                             let hasLesson = !day.sessions.isEmpty
                             VStack(alignment: .leading, spacing: 5) {
-                                Text("\(day.dayNum) \(day.monthShort)")
+                                Text("\(day.dayNum) \(localizedMonthShort(day: day))")
                                     .font(.system(size: 12, weight: .bold))
                                     .foregroundStyle(hasLesson ? palette.textColor : Color.gray)
 
                                 ForEach(day.sessions, id: \.slotKey) { sess in
-                                    VStack(alignment: .leading, spacing: 2) {
-                                        HStack(spacing: 4) {
-                                            Text("Lez. \(sess.lessonNum)")
+                                    // 2-row layout: Badge on top, Time on bottom - prevents line breaking and cut-offs
+                                    VStack(alignment: .leading, spacing: 3) {
+                                        HStack {
+                                            Text("\(lessonPrefix) \(sess.lessonNum)")
                                                 .font(.system(size: 10, weight: .heavy))
                                                 .padding(.horizontal, 5)
-                                                .padding(.vertical, 1)
-                                                .background(RoundedRectangle(cornerRadius: 4).fill(Color.white.opacity(0.25)))
+                                                .padding(.vertical, 1.5)
+                                                .background(RoundedRectangle(cornerRadius: 4).fill(Color.white.opacity(0.28)))
                                             Spacer()
-                                            Text("\(sess.time)-\(sess.endTime)")
-                                                .font(.system(size: 9, weight: .bold))
                                         }
+                                        Text("\(sess.time) - \(sess.endTime)")
+                                            .font(.system(size: 9.5, weight: .bold))
+                                            .lineLimit(1)
+                                            .minimumScaleFactor(0.75)
                                         if !sess.title.isEmpty {
                                             Text(sess.title)
-                                                .font(.system(size: 10, weight: .semibold))
+                                                .font(.system(size: 9, weight: .semibold))
                                                 .lineLimit(1)
                                         }
                                     }
@@ -2242,7 +2418,7 @@ private struct ModuleSquareCalendarPosterView: View {
 
             // Footer
             HStack {
-                Text("\(AuthorAttribution.appName) • Piano lezioni")
+                Text(footerTitle)
                     .font(.system(size: 12, weight: .bold))
                     .foregroundStyle(Color(red: 0.35, green: 0.42, blue: 0.52))
                 Spacer()

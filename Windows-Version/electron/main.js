@@ -27,7 +27,7 @@ function createMainWindow() {
         height: 900,
         minWidth: 980,
         minHeight: 650,
-        title: 'Class Management v26.10.3',
+        title: 'Class Management v26.10.4-001(unstable)',
         icon: getIconPath(),
         backgroundColor: '#090e1a',
         show: false,
@@ -348,8 +348,8 @@ ipcMain.handle('check-for-updates-api', async () => {
     }
 });
 
-// Download update file into dedicated system temp folder and reveal in Windows File Explorer
-ipcMain.handle('download-update-asset', async (event, { url, filename }) => {
+// Download update file into dedicated system temp folder and reveal in Windows File Explorer if requested
+ipcMain.handle('download-update-asset', async (event, { url, filename, reveal = false }) => {
     try {
         const updateFolder = path.join(app.getPath('temp'), 'ClassManagement_Updates');
         await fs.promises.mkdir(updateFolder, { recursive: true });
@@ -361,14 +361,16 @@ ipcMain.handle('download-update-asset', async (event, { url, filename }) => {
             }
         });
 
-        // Automatically open the folder with the downloaded file highlighted in Explorer
-        try {
-            shell.showItemInFolder(targetFile);
-        } catch (openErr) {
-            console.warn('shell.showItemInFolder error:', openErr);
+        // Automatically open the folder with the downloaded file highlighted in Explorer if requested
+        if (reveal) {
+            try {
+                shell.showItemInFolder(targetFile);
+            } catch (openErr) {
+                console.warn('shell.showItemInFolder error:', openErr);
+            }
         }
 
-        return { success: true, filePath: targetFile, folderOpened: true };
+        return { success: true, filePath: targetFile, folderOpened: !!reveal };
     } catch (err) {
         console.error('Update download error:', err);
         return { error: err.message };

@@ -1,12 +1,12 @@
 {
-  "version": "26.10.3",
-  "tag_name": "v26.10.3",
-  "prerelease": false,
-  "published_at": "2026-10-19T02:30:00Z",
-  "name": "Class Management v26.10.3 (Stabile)",
-  "body": "Novità versione ufficiale 26.10.3 (Canale Stabile):\n- Nuovo pulsante dedicato per l'invio di feedback in basso a sinistra nella barra laterale, con apertura automatica dell'app mail predefinita rivolta all'autore (Guaira Jaramillo Nitoglia).\n- Continuità degli aggiornamenti beta: le versioni di anteprima continuano a ricevere build beta fino al rilascio e installazione della versione stabile successiva.\n- Perfezionamento del sistema di aggiornamento su Windows con download controllato in cartella temporanea, apertura automatica in Esplora File e pulizia automatica post-installazione.\n- Backup di sicurezza automatico ogni 5 minuti e creazione di report diagnostici in caso di errori imprevisti nella cartella Documenti/Class Manager.\n- Configurazione iniziale guidata al primo avvio per la scelta di lingua, valuta e formato data/ora.\n- Riprogettazione completa della sezione Fatturazione con panoramica ore svolte, totali di spesa, impostazione fiscale globale per modulo ed esportazione calendario in formato immagine PNG.",
-  "setupUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.10.3/Class-Management-26.10.3-Setup.exe",
-  "setupName": "Class-Management-26.10.3-Setup.exe",
-  "portableUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.10.3/Class-Management-26.10.3-Portable.exe",
-  "portableName": "Class-Management-26.10.3-Portable.exe"
+  "version": "26.10.4-001(unstable)",
+  "tag_name": "v26.10.4-001(unstable)",
+  "prerelease": true,
+  "published_at": "2026-10-19T03:30:00Z",
+  "name": "Class Management v26.10.4-001(unstable)",
+  "body": "Novità versione 26.10.4-001(unstable):\n- Nuovo schema di versionamento standardizzato YY.MM.PATCH-REV(status) con supporto a '(unstable)' e '(stable)'.\n- Perfezionato il sistema di aggiornamento Windows con due opzioni dedicate: aggiornamento diretto dall'applicazione o download con apertura in Esplora File.\n- Risolto il blocco della finestra di ricerca aggiornamenti su Windows.\n- Esportazione Calendario PNG (1:1): ottimizzato il layout dell'orario delle lezioni per evitare testo a capo o troncature.\n- Esportazione Fatturazione PNG: separazione di Data e Orario in colonne distinte e aggiunta della colonna Durata delle lezioni.\n- Supporto multilingua completo (Italiano, English, Español) selezionabile all'esportazione delle immagini PNG per calendario e fatturazione.",
+  "setupUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.10.4-001(unstable)/Class-Management-26.10.4-001(unstable)-Setup.exe",
+  "setupName": "Class-Management-26.10.4-001(unstable)-Setup.exe",
+  "portableUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.10.4-001(unstable)/Class-Management-26.10.4-001(unstable)-Portable.exe",
+  "portableName": "Class-Management-26.10.4-001(unstable)-Portable.exe"
 }

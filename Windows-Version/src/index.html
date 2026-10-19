@@ -452,6 +452,17 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 globalPricingTool: "Strumento Globale Modulo",
                 applyToAllLessonsBtn: "Applica a tutte le lezioni",
                 exportCalendarPngBtn: "Esporta Calendario PNG",
+                exportLanguageTitle: "Lingua di Esportazione",
+                exportLanguagePrompt: "Seleziona la lingua per le intestazioni, date e testi dell'immagine PNG:",
+                confirmExportBtn: "Esporta PNG",
+                durationColHeader: "Durata",
+                dateColHeader: "Data",
+                timeColHeader: "Orario",
+                basePriceColHeader: "Prezzo Base",
+                discountColHeader: "Sconto",
+                vatColHeader: "IVA",
+                totalColHeader: "Totale",
+                totalDueLabel: "Totale da Saldare",
                 editLessonPricing: "Modifica Prezzo Lezione",
                 lessonPriceLabel: "Prezzo Lezione",
                 lessonVatLabel: "IVA Applicata (%)",
@@ -699,6 +710,17 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 globalPricingTool: "Module Global Pricing Tool",
                 applyToAllLessonsBtn: "Apply to all lessons",
                 exportCalendarPngBtn: "Export Calendar PNG",
+                exportLanguageTitle: "Export Language",
+                exportLanguagePrompt: "Select the language for headers, dates, and texts in the PNG image:",
+                confirmExportBtn: "Export PNG",
+                durationColHeader: "Duration",
+                dateColHeader: "Date",
+                timeColHeader: "Time",
+                basePriceColHeader: "Base Price",
+                discountColHeader: "Discount",
+                vatColHeader: "VAT",
+                totalColHeader: "Total",
+                totalDueLabel: "Total Due",
                 editLessonPricing: "Edit Lesson Pricing",
                 lessonPriceLabel: "Lesson Price",
                 lessonVatLabel: "Applied VAT (%)",
@@ -946,6 +968,17 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 globalPricingTool: "Herramienta Global del Módulo",
                 applyToAllLessonsBtn: "Aplicar a todas las clases",
                 exportCalendarPngBtn: "Exportar Calendario PNG",
+                exportLanguageTitle: "Idioma de Exportación",
+                exportLanguagePrompt: "Selecciona el idioma para los encabezados, fechas y textos en la imagen PNG:",
+                confirmExportBtn: "Exportar PNG",
+                durationColHeader: "Duración",
+                dateColHeader: "Fecha",
+                timeColHeader: "Horario",
+                basePriceColHeader: "Precio Base",
+                discountColHeader: "Descuento",
+                vatColHeader: "IVA",
+                totalColHeader: "Total",
+                totalDueLabel: "Total a Pagar",
                 editLessonPricing: "Editar Precio de la Clase",
                 lessonPriceLabel: "Precio de la Clase",
                 lessonVatLabel: "IVA Aplicado (%)",
@@ -1039,11 +1072,23 @@ Removing, obfuscating, or altering these credits violates the author's attributi
         ];
 
         const INITIAL_DATA = {
-            version: "26.10.3",
+            version: "26.10.4-001(unstable)",
             deletedItems: [],
             lastUpdated: new Date().toISOString(),
             activeCourseId: "",
             changelog: [
+                {
+                    version: "26.10.4-001(unstable)",
+                    date: "2026-10-19",
+                    changes: [
+                        "Adozione del nuovo schema di versionamento standardizzato YY.MM.PATCH-REV(status) con supporto a '(unstable)' e '(stable)'.",
+                        "Perfezionato il sistema di aggiornamento Windows con due opzioni dedicate: aggiornamento diretto dall'applicazione o download con apertura in Esplora File.",
+                        "Risolto il blocco della finestra di ricerca aggiornamenti su Windows.",
+                        "Esportazione Calendario PNG: ottimizzato il layout dell'orario delle lezioni per evitare testo a capo o troncature.",
+                        "Esportazione Fatturazione PNG: separazione di Data e Orario in colonne distinte e aggiunta della colonna Durata delle lezioni.",
+                        "Supporto multilingua completo (Italiano, English, Español) selezionabile all'esportazione delle immagini PNG per calendario e fatturazione."
+                    ]
+                },
                 {
                     version: "26.10.3",
                     date: "2026-10-18",
@@ -4604,7 +4649,125 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 });
             }
 
-            downloadCalendarSquarePng() {
+            computeDurationText(start, end, fallbackHours = 1.5) {
+                let diffMins = 0;
+                if (start && end) {
+                    const sParts = start.split(":").map(Number);
+                    const eParts = end.split(":").map(Number);
+                    if (sParts.length >= 2 && eParts.length >= 2 && !isNaN(sParts[0]) && !isNaN(eParts[0])) {
+                        const sTotal = sParts[0] * 60 + sParts[1];
+                        const eTotal = eParts[0] * 60 + eParts[1];
+                        diffMins = eTotal - sTotal;
+                    }
+                }
+                if (diffMins <= 0) {
+                    diffMins = Math.round(fallbackHours * 60);
+                }
+                const h = Math.floor(diffMins / 60);
+                const m = diffMins % 60;
+                if (h > 0 && m > 0) return `${h}h ${m}m`;
+                if (h > 0) return `${h}h`;
+                return `${m}m`;
+            }
+
+            formatLocalizedShortDate(isoDate, lang = "it") {
+                if (!isoDate) return "";
+                const parts = isoDate.split("-").map(Number);
+                if (parts.length !== 3) return isoDate;
+                const [y, m, d] = parts;
+                const date = new Date(y, m - 1, d, 12, 0, 0);
+                const dow = date.getDay(); // 0=Sun, 1=Mon...
+
+                const itDays = ["Dom", "Lun", "Mar", "Mer", "Gio", "Ven", "Sab"];
+                const itMonths = ["Gen", "Feb", "Mar", "Apr", "Mag", "Giu", "Lug", "Ago", "Set", "Ott", "Nov", "Dic"];
+
+                const enDays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+                const enMonths = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+                const esDays = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
+                const esMonths = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
+
+                const mIdx = Math.max(0, Math.min(11, m - 1));
+                const dowIdx = Math.max(0, Math.min(6, dow));
+
+                if (lang === "en") {
+                    return `${enDays[dowIdx]} ${enMonths[mIdx]} ${d}, ${y}`;
+                } else if (lang === "es") {
+                    return `${esDays[dowIdx]} ${d} ${esMonths[mIdx]} ${y}`;
+                } else {
+                    return `${itDays[dowIdx]} ${d} ${itMonths[mIdx]} ${y}`;
+                }
+            }
+
+            openExportLanguageModal(title, prompt, onConfirm) {
+                const currentLang = this.state?.settings?.language || "it";
+                this.openModal(`
+                    <div class="p-6 space-y-4 text-xs max-w-sm">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-xl bg-sky-100 dark:bg-navy-800 text-sky-600 dark:text-sky-300 flex items-center justify-center text-lg shrink-0">
+                                <i class="fa-solid fa-globe"></i>
+                            </div>
+                            <div>
+                                <h4 class="text-sm font-extrabold text-slate-900 dark:text-white">${this.escapeHtml(title || "Lingua di Esportazione")}</h4>
+                                <p class="text-[11px] text-slate-400 mt-0.5">${this.escapeHtml(prompt || "Seleziona la lingua per le intestazioni, date e testi dell'immagine PNG:")}</p>
+                            </div>
+                        </div>
+
+                        <div class="space-y-2 pt-2">
+                            <label class="flex items-center gap-3 p-3 rounded-xl border border-sky-100 dark:border-slate-800 hover:bg-sky-50/50 dark:hover:bg-navy-800/50 cursor-pointer transition">
+                                <input type="radio" name="exportLangOption" value="it" ${currentLang === 'it' ? 'checked' : ''} class="w-4 h-4 text-sky-600">
+                                <div class="flex items-center gap-2">
+                                    <span class="text-base">🇮🇹</span>
+                                    <span class="font-bold text-slate-800 dark:text-slate-200">Italiano</span>
+                                </div>
+                            </label>
+                            <label class="flex items-center gap-3 p-3 rounded-xl border border-sky-100 dark:border-slate-800 hover:bg-sky-50/50 dark:hover:bg-navy-800/50 cursor-pointer transition">
+                                <input type="radio" name="exportLangOption" value="en" ${currentLang === 'en' ? 'checked' : ''} class="w-4 h-4 text-sky-600">
+                                <div class="flex items-center gap-2">
+                                    <span class="text-base">🇬🇧</span>
+                                    <span class="font-bold text-slate-800 dark:text-slate-200">English</span>
+                                </div>
+                            </label>
+                            <label class="flex items-center gap-3 p-3 rounded-xl border border-sky-100 dark:border-slate-800 hover:bg-sky-50/50 dark:hover:bg-navy-800/50 cursor-pointer transition">
+                                <input type="radio" name="exportLangOption" value="es" ${currentLang === 'es' ? 'checked' : ''} class="w-4 h-4 text-sky-600">
+                                <div class="flex items-center gap-2">
+                                    <span class="text-base">🇪🇸</span>
+                                    <span class="font-bold text-slate-800 dark:text-slate-200">Español</span>
+                                </div>
+                            </label>
+                        </div>
+
+                        <div class="flex items-center justify-end gap-2 pt-3 border-t border-sky-100 dark:border-slate-800">
+                            <button type="button" onclick="app.closeModal()" class="px-4 py-2 rounded-xl border border-slate-300 dark:border-slate-700 font-bold hover:bg-slate-100 dark:hover:bg-navy-800 transition">Annulla</button>
+                            <button type="button" id="confirmExportLangBtn" class="px-4 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-extrabold shadow-sm transition">Esporta PNG</button>
+                        </div>
+                    </div>
+                `, "max-w-sm");
+
+                setTimeout(() => {
+                    const btn = document.getElementById("confirmExportLangBtn");
+                    if (btn) {
+                        btn.onclick = () => {
+                            const selected = document.querySelector('input[name="exportLangOption"]:checked')?.value || "it";
+                            this.closeModal();
+                            if (typeof onConfirm === "function") {
+                                onConfirm(selected);
+                            }
+                        };
+                    }
+                }, 50);
+            }
+
+            downloadCalendarSquarePng(lang = null) {
+                if (!lang) {
+                    this.openExportLanguageModal(
+                        this.t("exportLanguageTitle") || "Lingua di Esportazione",
+                        this.t("exportLanguagePrompt") || "Seleziona la lingua per le intestazioni, date e testi dell'immagine PNG:",
+                        (chosenLang) => this.downloadCalendarSquarePng(chosenLang)
+                    );
+                    return;
+                }
+
                 const course = this.getActiveCourse();
                 const sec = this.getActiveSection(course);
                 if (!course || !sec) return;
@@ -4633,19 +4796,35 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 ctx.font = "bold 44px sans-serif";
                 ctx.fillText(course.name, 70, 100);
 
+                const subtitleMap = {
+                    it: " • Calendario Ufficiale Lezioni",
+                    en: " • Official Lesson Schedule",
+                    es: " • Calendario Oficial de Clases"
+                };
+                const totalMap = {
+                    it: `Totale: ${slots.length} lezioni programmate`,
+                    en: `Total: ${slots.length} scheduled lessons`,
+                    es: `Total: ${slots.length} clases programadas`
+                };
+                const lesPrefixMap = {
+                    it: "Lez.",
+                    en: "Les.",
+                    es: "Lecc."
+                };
+
                 ctx.fillStyle = pal.hex || "#38bdf8";
                 ctx.font = "bold 26px sans-serif";
-                ctx.fillText(this.formatLevelModuleBadge(course) + " • Calendario Ufficiale Lezioni", 70, 145);
+                ctx.fillText(this.formatLevelModuleBadge(course) + (subtitleMap[lang] || subtitleMap.it), 70, 145);
 
                 ctx.fillStyle = "#94a3b8";
                 ctx.font = "20px sans-serif";
-                ctx.fillText(`Totale: ${slots.length} lezioni programmate`, 70, 185);
+                ctx.fillText(totalMap[lang] || totalMap.it, 70, 185);
 
                 // Lessons Grid (up to 20 lessons displayed)
-                const startY = 240;
+                const startY = 230;
                 const cardW = 510;
-                const cardH = 75;
-                const gap = 16;
+                const cardH = 82;
+                const gap = 14;
 
                 slots.slice(0, 20).forEach((slotKey, idx) => {
                     const col = idx % 2;
@@ -4664,46 +4843,53 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                     // Lesson Num badge
                     ctx.fillStyle = pal.hex || "#0284c7";
                     ctx.beginPath();
-                    ctx.roundRect(x + 12, y + 16, 42, 42, 8);
+                    ctx.roundRect(x + 12, y + 14, 52, 26, 6);
                     ctx.fill();
 
                     ctx.fillStyle = "#ffffff";
-                    ctx.font = "bold 20px sans-serif";
+                    ctx.font = "bold 13px sans-serif";
                     ctx.textAlign = "center";
-                    ctx.fillText(`${idx + 1}`, x + 33, y + 43);
+                    ctx.fillText(`${lesPrefixMap[lang] || 'Lez.'} ${idx + 1}`, x + 38, y + 32);
                     ctx.textAlign = "left";
 
-                    // Date & Time
+                    // Date
                     const d = this.extractDateFromSlotKey(slotKey);
                     const les = this.findLessonForSlot(course, sec.id, slotKey);
                     const st = les?.time || sec.startTime || course.startTime || "19:00";
                     const et = les?.endTime || sec.endTime || course.endTime || "20:30";
 
                     ctx.fillStyle = "#f8fafc";
-                    ctx.font = "bold 18px sans-serif";
-                    ctx.fillText(this.formatShortWeekdayDate(d), x + 66, y + 36);
+                    ctx.font = "bold 17px sans-serif";
+                    ctx.fillText(this.formatLocalizedShortDate(d, lang), x + 72, y + 33);
 
-                    ctx.fillStyle = "#94a3b8";
-                    ctx.font = "14px sans-serif";
-                    ctx.fillText(`${st} - ${et}`, x + 66, y + 56);
+                    // Time on bottom row (full card width, no cutting off)
+                    ctx.fillStyle = "#38bdf8";
+                    ctx.font = "bold 15px monospace";
+                    ctx.fillText(`🕒 ${st} - ${et}`, x + 16, y + 66);
 
+                    // Lesson title if any
                     if (les?.title) {
                         ctx.fillStyle = "#34d399";
-                        ctx.font = "bold 14px sans-serif";
-                        ctx.fillText(les.title.length > 25 ? les.title.substring(0, 25) + "..." : les.title, x + 230, y + 45);
+                        ctx.font = "bold 13px sans-serif";
+                        ctx.fillText(les.title.length > 25 ? les.title.substring(0, 25) + "..." : les.title, x + 230, y + 66);
                     }
                 });
 
                 // Footer watermark
+                const watermarkMap = {
+                    it: "Class Management • Concepito e Sviluppato da Guaira Jaramillo Nitoglia (guaira.jaramillo.nitoglia@gmail.com)",
+                    en: "Class Management • Designed and Developed by Guaira Jaramillo Nitoglia (guaira.jaramillo.nitoglia@gmail.com)",
+                    es: "Class Management • Concebido y Desarrollado por Guaira Jaramillo Nitoglia (guaira.jaramillo.nitoglia@gmail.com)"
+                };
                 ctx.fillStyle = "#64748b";
-                ctx.font = "16px sans-serif";
-                ctx.fillText("Class Management • Concepito e Sviluppato da Guaira Jaramillo Nitoglia", 70, 1150);
+                ctx.font = "15px sans-serif";
+                ctx.fillText(watermarkMap[lang] || watermarkMap.it, 70, 1160);
 
                 const a = document.createElement("a");
-                a.download = `calendario_${course.name.replace(/\s+/g, "_")}.png`;
+                a.download = `calendario_${course.name.replace(/\s+/g, "_")}_${lang}.png`;
                 a.href = canvas.toDataURL("image/png");
                 a.click();
-                this.showToast("🖼️ Immagine calendario generata e scaricata!", "success");
+                this.showToast(this.t("calendarPngSavedToast") || "🖼️ Immagine calendario generata e scaricata!", "success");
             }
 
             renderModuleStudentCalendarView(container) {
@@ -6334,7 +6520,16 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 this.showToast(this.t("appliedToAllLessonsToast"), "success");
             }
 
-            downloadModuleBillingCalendarPng(courseId, moduleId) {
+            downloadModuleBillingCalendarPng(courseId, moduleId, lang = null) {
+                if (!lang) {
+                    this.openExportLanguageModal(
+                        this.t("exportLanguageTitle") || "Lingua di Esportazione",
+                        this.t("exportLanguagePrompt") || "Seleziona la lingua per le intestazioni, date e testi dell'immagine PNG:",
+                        (chosenLang) => this.downloadModuleBillingCalendarPng(courseId, moduleId, chosenLang)
+                    );
+                    return;
+                }
+
                 const course = (this.state.courses || []).find(c => c.id === courseId) || this.getActiveCourse();
                 if (!course) return;
                 let mod = null;
@@ -6356,236 +6551,271 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 const dur = parseFloat(mod.billing?.lessonDurationHours) || curSettingDuration;
                 const totalHours = (slots.length * dur).toFixed(1);
                 const totalCost = this.getModuleTotalGross(mod);
-                const startFirstDayMon = (this.state?.settings?.firstDayOfWeek || "monday") === "monday";
-                const dayHeaders = startFirstDayMon ? ["LUN", "MAR", "MER", "GIO", "VEN", "SAB", "DOM"] : ["DOM", "LUN", "MAR", "MER", "GIO", "VEN", "SAB"];
-                const monthNames = ["Gennaio", "Febbraio", "Marzo", "Aprile", "Maggio", "Giugno", "Luglio", "Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre"];
+                const fInfo = course.billingConfig?.billingInfo || {};
 
-                // Build month structures
-                const firstDateStr = this.extractDateFromSlotKey(slots[0]);
-                const lastDateStr = this.extractDateFromSlotKey(slots[slots.length - 1]);
-                const firstDate = new Date(firstDateStr + "T12:00:00");
-                const lastDate = new Date(lastDateStr + "T12:00:00");
-
-                const slotsByDate = {};
-                slots.forEach((slotKey, idx) => {
-                    const dStr = this.extractDateFromSlotKey(slotKey);
-                    if (!slotsByDate[dStr]) slotsByDate[dStr] = [];
-                    const les = this.findLessonForSlot(course, mod.id, slotKey);
-                    const pr = this.getLessonPricing(mod, slotKey);
-                    slotsByDate[dStr].push({
-                        slotKey,
-                        lessonNum: idx + 1,
-                        time: les?.time || mod.startTime || course.startTime || "19:00",
-                        pricing: pr
-                    });
-                });
-
-                const months = [];
-                let mCursor = new Date(firstDate.getFullYear(), firstDate.getMonth(), 1);
-                const maxMonth = new Date(lastDate.getFullYear(), lastDate.getMonth() + 1, 1);
-
-                while (mCursor < maxMonth) {
-                    const y = mCursor.getFullYear();
-                    const m = mCursor.getMonth();
-                    const title = `${monthNames[m]} ${y}`;
-                    const firstDayOfMonth = new Date(y, m, 1);
-                    const lastDayOfMonth = new Date(y, m + 1, 0);
-
-                    const startCursor = new Date(firstDayOfMonth);
-                    const fDow = startCursor.getDay();
-                    const startOffset = startFirstDayMon ? (fDow === 0 ? -6 : 1 - fDow) : -fDow;
-                    startCursor.setDate(startCursor.getDate() + startOffset);
-
-                    const endCursor = new Date(lastDayOfMonth);
-                    const lDow = endCursor.getDay();
-                    const endOffset = startFirstDayMon ? (lDow === 0 ? 0 : 7 - lDow) : (6 - lDow);
-                    endCursor.setDate(endCursor.getDate() + endOffset);
-
-                    const weeks = [];
-                    let wCursor = new Date(startCursor);
-                    let mCount = 0;
-
-                    while (wCursor <= endCursor) {
-                        const week = [];
-                        for (let i = 0; i < 7; i++) {
-                            const curY = wCursor.getFullYear();
-                            const curM = String(wCursor.getMonth() + 1).padStart(2, "0");
-                            const curD = String(wCursor.getDate()).padStart(2, "0");
-                            const iso = `${curY}-${curM}-${curD}`;
-                            const isCurrentMonth = wCursor.getMonth() === m;
-                            const lessons = slotsByDate[iso] || [];
-                            if (isCurrentMonth) mCount += lessons.length;
-                            week.push({ iso, dayNum: wCursor.getDate(), isCurrentMonth, lessons });
-                            wCursor.setDate(wCursor.getDate() + 1);
-                        }
-                        weeks.push(week);
-                    }
-                    months.push({ title, count: mCount, weeks });
-                    mCursor.setMonth(mCursor.getMonth() + 1);
-                }
-
-                // Setup Canvas Dimensions (Scale 2x for Retina High DPI)
+                // Dimensions
                 const width = 1200;
-                let estimatedHeight = 180 + 90; // Header + Summary
-                months.forEach(mObj => {
-                    estimatedHeight += 50 + 35 + (mObj.weeks.length * 115) + 30; // Month title, headers, week rows, padding
-                });
-                estimatedHeight += 70; // Footer
+                const bannerHeight = 130;
+                const fiscalHeight = (fInfo.fullName || fInfo.idNumber || fInfo.city) ? 65 : 0;
+                const tableHeaderHeight = 44;
+                const rowHeight = 36;
+                const tableHeight = tableHeaderHeight + (slots.length * rowHeight) + 15;
+                const summaryHeight = 65;
+                const footerHeight = 50;
+                const totalHeight = 40 + bannerHeight + (fiscalHeight ? fiscalHeight + 15 : 0) + 20 + tableHeight + summaryHeight + footerHeight + 20;
 
                 const canvas = document.createElement("canvas");
-                const scale = 2;
+                const scale = 2; // Retina Crisp High DPI
                 canvas.width = width * scale;
-                canvas.height = estimatedHeight * scale;
+                canvas.height = totalHeight * scale;
                 const ctx = canvas.getContext("2d");
                 ctx.scale(scale, scale);
 
                 // Background
                 ctx.fillStyle = "#ffffff";
-                ctx.fillRect(0, 0, width, estimatedHeight);
+                ctx.fillRect(0, 0, width, totalHeight);
 
-                // Top Banner Background
-                ctx.fillStyle = pal.hex;
-                ctx.fillRect(0, 0, width, 140);
+                let yCursor = 30;
 
-                // Course & Module Header Text
+                // 1. Header Banner
+                const bannerGrad = ctx.createLinearGradient(40, yCursor, width - 40, yCursor + bannerHeight);
+                bannerGrad.addColorStop(0, pal.hex || "#0284c7");
+                bannerGrad.addColorStop(1, pal.hoverHex || "#0369a1");
+                ctx.fillStyle = bannerGrad;
+                ctx.beginPath();
+                ctx.roundRect(40, yCursor, width - 80, bannerHeight, 18);
+                ctx.fill();
+
+                // Banner Course Name & Badge
                 ctx.fillStyle = "#ffffff";
-                ctx.font = "bold 26px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
-                ctx.fillText(`${course.name} — ${mod.name}`, 40, 50);
+                ctx.font = "bold 30px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+                ctx.fillText(course.name, 65, yCursor + 50);
 
-                ctx.font = "normal 14px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
                 const badgeTxt = this.formatLevelModuleBadge(course, lvl, mod);
-                ctx.fillText(`Livello: ${badgeTxt} • Calendario Lezioni & Tariffe`, 40, 80);
+                const badgeWidth = ctx.measureText(badgeTxt).width + 24;
+                const nameWidth = ctx.measureText(course.name).width;
 
-                const nowFormatted = new Date().toLocaleDateString(this.state?.settings?.language === "es" ? "es-ES" : (this.state?.settings?.language === "en" ? "en-US" : "it-IT"));
-                ctx.font = "normal 12px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
-                ctx.fillText(`Data emissione: ${nowFormatted}`, 40, 110);
+                ctx.fillStyle = "#ffffff";
+                ctx.beginPath();
+                ctx.roundRect(65 + nameWidth + 18, yCursor + 25, badgeWidth, 32, 16);
+                ctx.fill();
 
-                // Summary Card
-                ctx.fillStyle = "#f8fafc";
-                ctx.strokeStyle = "#e2e8f0";
-                ctx.lineWidth = 1;
-                roundRect(ctx, 40, 155, width - 80, 75, 12, true, true);
+                ctx.fillStyle = pal.hex || "#0284c7";
+                ctx.font = "bold 15px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+                ctx.fillText(badgeTxt, 65 + nameWidth + 30, yCursor + 47);
 
-                ctx.fillStyle = "#64748b";
-                ctx.font = "bold 11px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
-                ctx.fillText("TOTALE LEZIONI", 60, 180);
-                ctx.fillText("ORE TOTALI", 240, 180);
-                ctx.fillText("COSTO TOTALE MODULO", 440, 180);
+                // Banner Subtitle
+                const bannerSubMap = {
+                    it: `Dettaglio Fatturazione e Calendario Lezioni • ${slots.length} Lezioni (${totalHours} ore)`,
+                    en: `Billing Breakdown & Lessons Schedule • ${slots.length} Lessons (${totalHours} hrs)`,
+                    es: `Detalle de Facturación y Calendario de Clases • ${slots.length} Clases (${totalHours} hrs)`
+                };
+                ctx.fillStyle = "rgba(255, 255, 255, 0.92)";
+                ctx.font = "600 16px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+                ctx.fillText(bannerSubMap[lang] || bannerSubMap.it, 65, yCursor + 92);
 
-                ctx.fillStyle = "#0f172a";
-                ctx.font = "bold 20px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
-                ctx.fillText(`${slots.length} lezioni`, 60, 210);
-                ctx.fillText(`${totalHours} ore`, 240, 210);
+                // Module Total (Top Right)
+                const modTotalLabelMap = {
+                    it: "Totale Modulo",
+                    en: "Module Total",
+                    es: "Total del Módulo"
+                };
+                ctx.textAlign = "right";
+                ctx.fillStyle = "rgba(255, 255, 255, 0.85)";
+                ctx.font = "bold 13px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+                ctx.fillText(modTotalLabelMap[lang] || modTotalLabelMap.it, width - 70, yCursor + 48);
 
-                ctx.fillStyle = "#059669"; // Emerald
-                ctx.fillText(this.formatMoney(totalCost), 440, 210);
+                ctx.fillStyle = "#ffffff";
+                ctx.font = "bold 32px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+                ctx.fillText(this.formatMoney(totalCost), width - 70, yCursor + 88);
+                ctx.textAlign = "left";
 
-                // Render Months
-                let yPos = 250;
-                const calWidth = width - 80;
-                const colWidth = (calWidth - (6 * 8)) / 7;
+                yCursor += bannerHeight + 20;
 
-                months.forEach(mObj => {
-                    // Month Title Banner
-                    ctx.fillStyle = "#1e293b";
-                    ctx.font = "bold 16px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
-                    ctx.fillText(mObj.title, 40, yPos + 22);
+                // 2. Client & Fiscal Info Box
+                if (fiscalHeight > 0) {
+                    ctx.fillStyle = "#f8fafc";
+                    ctx.strokeStyle = "#e2e8f0";
+                    ctx.lineWidth = 1;
+                    ctx.beginPath();
+                    ctx.roundRect(40, yCursor, width - 80, fiscalHeight, 12);
+                    ctx.fill();
+                    ctx.stroke();
 
-                    ctx.fillStyle = pal.hex;
-                    ctx.font = "bold 11px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
-                    ctx.fillText(`${mObj.count} lezioni`, width - 130, yPos + 22);
-
-                    yPos += 36;
-
-                    // Weekday headers
-                    dayHeaders.forEach((dh, colIdx) => {
-                        const colX = 40 + colIdx * (colWidth + 8);
+                    const intestMap = { it: "Intestatario:", en: "Billing Name:", es: "Titular:" };
+                    let fx = 60;
+                    if (fInfo.fullName) {
                         ctx.fillStyle = "#64748b";
-                        ctx.font = "bold 10px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
-                        ctx.textAlign = "center";
-                        ctx.fillText(dh, colX + colWidth / 2, yPos + 12);
-                    });
-                    ctx.textAlign = "left";
-                    yPos += 22;
+                        ctx.font = "bold 11px sans-serif";
+                        ctx.fillText(intestMap[lang] || intestMap.it, fx, yCursor + 25);
+                        ctx.fillStyle = "#0f172a";
+                        ctx.font = "bold 14px sans-serif";
+                        ctx.fillText(fInfo.fullName, fx, yCursor + 46);
+                        fx += 280;
+                    }
+                    if (fInfo.idNumber) {
+                        ctx.fillStyle = "#64748b";
+                        ctx.font = "bold 11px sans-serif";
+                        ctx.fillText((fInfo.idType || "ID").toUpperCase() + ":", fx, yCursor + 25);
+                        ctx.fillStyle = "#0f172a";
+                        ctx.font = "bold 14px sans-serif";
+                        ctx.fillText(fInfo.idNumber, fx, yCursor + 46);
+                        fx += 220;
+                    }
+                    if (fInfo.city) {
+                        const cityMap = { it: "Città:", en: "City:", es: "Ciudad:" };
+                        ctx.fillStyle = "#64748b";
+                        ctx.font = "bold 11px sans-serif";
+                        ctx.fillText(cityMap[lang] || cityMap.it, fx, yCursor + 25);
+                        ctx.fillStyle = "#0f172a";
+                        ctx.font = "bold 14px sans-serif";
+                        ctx.fillText(fInfo.city, fx, yCursor + 46);
+                    }
 
-                    // Month Weeks
-                    mObj.weeks.forEach(week => {
-                        const rowHeight = 105;
-                        week.forEach((cell, colIdx) => {
-                            const cellX = 40 + colIdx * (colWidth + 8);
-                            const cellY = yPos;
-
-                            if (!cell.isCurrentMonth) {
-                                ctx.fillStyle = "#f8fafc";
-                                ctx.strokeStyle = "#f1f5f9";
-                                roundRect(ctx, cellX, cellY, colWidth, rowHeight, 8, true, true);
-                            } else {
-                                const hasLessons = cell.lessons.length > 0;
-                                ctx.fillStyle = hasLessons ? "#f0f9ff" : "#ffffff";
-                                ctx.strokeStyle = hasLessons ? "#bae6fd" : "#e2e8f0";
-                                roundRect(ctx, cellX, cellY, colWidth, rowHeight, 8, true, true);
-
-                                // Day number
-                                ctx.fillStyle = hasLessons ? "#0f172a" : "#94a3b8";
-                                ctx.font = "bold 12px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
-                                ctx.fillText(String(cell.dayNum), cellX + 8, cellY + 18);
-
-                                // Lesson items inside this cell
-                                cell.lessons.forEach((lesItem, lIdx) => {
-                                    const cardY = cellY + 26 + (lIdx * 68);
-                                    if (cardY + 60 <= cellY + rowHeight) {
-                                        ctx.fillStyle = pal.hex;
-                                        roundRect(ctx, cellX + 4, cardY, colWidth - 8, 56, 6, true, false);
-
-                                        ctx.fillStyle = "#ffffff";
-                                        ctx.font = "bold 9px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
-                                        ctx.fillText(`L${lesItem.lessonNum} • ${lesItem.time}`, cellX + 8, cardY + 14);
-
-                                        ctx.font = "bold 12px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
-                                        ctx.fillText(this.formatMoney(lesItem.pricing.gross), cellX + 8, cardY + 32);
-
-                                        ctx.font = "normal 8px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
-                                        let sub = `IVA ${Math.round(lesItem.pricing.vatPct)}%`;
-                                        if (lesItem.pricing.discountAmount > 0) {
-                                            sub += ` (-${this.formatMoney(lesItem.pricing.discountAmount)})`;
-                                        }
-                                        ctx.fillText(sub, cellX + 8, cardY + 47);
-                                    }
-                                });
-                            }
-                        });
-                        yPos += rowHeight + 8;
-                    });
-
-                    yPos += 20; // Month gap
-                });
-
-                // Footer
-                ctx.fillStyle = "#94a3b8";
-                ctx.font = "normal 11px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
-                ctx.fillText("Generato da Class Management • Creato da Guaira Jaramillo Nitoglia", 40, estimatedHeight - 30);
-
-                // Helper for Rounded Rectangles on Canvas
-                function roundRect(c, x, y, w, h, r, fill, stroke) {
-                    c.beginPath();
-                    c.moveTo(x + r, y);
-                    c.lineTo(x + w - r, y);
-                    c.quadraticCurveTo(x + w, y, x + w, y + r);
-                    c.lineTo(x + w, y + h - r);
-                    c.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
-                    c.lineTo(x + r, y + h);
-                    c.quadraticCurveTo(x, y + h, x, y + h - r);
-                    c.lineTo(x, y + r);
-                    c.quadraticCurveTo(x, y, x + r, y);
-                    c.closePath();
-                    if (fill) c.fill();
-                    if (stroke) c.stroke();
+                    yCursor += fiscalHeight + 20;
                 }
 
-                // Export to PNG File
+                // 3. Lessons Table
+                ctx.fillStyle = pal.hex + "1a"; // 10% opacity tint
+                ctx.beginPath();
+                ctx.roundRect(40, yCursor, width - 80, tableHeaderHeight, 10);
+                ctx.fill();
+
+                // Table Column Headers (N., Data, Orario, Durata, Prezzo Base, Sconto, IVA, Totale)
+                const colHeaders = {
+                    it: { n: "N.", date: "Data", time: "Orario", dur: "Durata", base: "Prezzo Base", disc: "Sconto", vat: "IVA", tot: "Totale" },
+                    en: { n: "N.", date: "Date", time: "Time", dur: "Duration", base: "Base Price", disc: "Discount", vat: "VAT", tot: "Total" },
+                    es: { n: "N.", date: "Fecha", time: "Horario", dur: "Duración", base: "Precio Base", disc: "Descuento", vat: "IVA", tot: "Total" }
+                }[lang] || { n: "N.", date: "Data", time: "Orario", dur: "Durata", base: "Prezzo Base", disc: "Sconto", vat: "IVA", tot: "Totale" };
+
+                ctx.fillStyle = "#1e293b";
+                ctx.font = "bold 13px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+
+                const cX = {
+                    n: 60,
+                    date: 110,
+                    time: 320,
+                    dur: 490,
+                    base: 630,
+                    disc: 790,
+                    vat: 910,
+                    tot: width - 65
+                };
+
+                ctx.fillText(colHeaders.n, cX.n, yCursor + 27);
+                ctx.fillText(colHeaders.date, cX.date, yCursor + 27);
+                ctx.fillText(colHeaders.time, cX.time, yCursor + 27);
+                ctx.fillText(colHeaders.dur, cX.dur, yCursor + 27);
+
+                ctx.textAlign = "right";
+                ctx.fillText(colHeaders.base, cX.base + 110, yCursor + 27);
+                ctx.fillText(colHeaders.disc, cX.disc + 80, yCursor + 27);
+                ctx.fillText(colHeaders.vat, cX.vat + 50, yCursor + 27);
+                ctx.fillText(colHeaders.tot, cX.tot, yCursor + 27);
+                ctx.textAlign = "left";
+
+                yCursor += tableHeaderHeight + 6;
+
+                // Table Rows
+                slots.forEach((slotKey, idx) => {
+                    const d = this.extractDateFromSlotKey(slotKey);
+                    const les = this.findLessonForSlot(course, mod.id, slotKey);
+                    const st = les?.time || mod.startTime || course.startTime || "19:00";
+                    const et = les?.endTime || mod.endTime || course.endTime || "20:30";
+                    const pr = this.getLessonPricing(mod, slotKey);
+                    const durationStr = this.computeDurationText(st, et, dur);
+
+                    if (idx % 2 === 0) {
+                        ctx.fillStyle = "rgba(241, 245, 249, 0.55)";
+                        ctx.beginPath();
+                        ctx.roundRect(40, yCursor, width - 80, rowHeight, 6);
+                        ctx.fill();
+                    }
+
+                    // N.
+                    ctx.fillStyle = "#334155";
+                    ctx.font = "bold 13px sans-serif";
+                    ctx.fillText(String(idx + 1), cX.n, yCursor + 23);
+
+                    // Date
+                    ctx.fillStyle = "#0f172a";
+                    ctx.font = "600 13px sans-serif";
+                    ctx.fillText(this.formatLocalizedShortDate(d, lang), cX.date, yCursor + 23);
+
+                    // Time
+                    ctx.fillStyle = "#475569";
+                    ctx.font = "500 13px monospace";
+                    ctx.fillText(`${st} - ${et}`, cX.time, yCursor + 23);
+
+                    // Duration
+                    ctx.fillStyle = "#475569";
+                    ctx.font = "500 13px sans-serif";
+                    ctx.fillText(durationStr, cX.dur, yCursor + 23);
+
+                    // Base Price
+                    ctx.textAlign = "right";
+                    ctx.fillStyle = "#334155";
+                    ctx.font = "13px sans-serif";
+                    ctx.fillText(this.formatMoney(pr.net), cX.base + 110, yCursor + 23);
+
+                    // Discount
+                    if (pr.discountAmount > 0) {
+                        ctx.fillStyle = "#ea580c";
+                        ctx.fillText(`-${this.formatMoney(pr.discountAmount)}`, cX.disc + 80, yCursor + 23);
+                    } else {
+                        ctx.fillStyle = "#94a3b8";
+                        ctx.fillText("-", cX.disc + 80, yCursor + 23);
+                    }
+
+                    // VAT
+                    ctx.fillStyle = "#64748b";
+                    ctx.fillText(`${Math.round(pr.vatPct)}%`, cX.vat + 50, yCursor + 23);
+
+                    // Total
+                    ctx.fillStyle = "#059669";
+                    ctx.font = "bold 14px sans-serif";
+                    ctx.fillText(this.formatMoney(pr.gross), cX.tot, yCursor + 23);
+                    ctx.textAlign = "left";
+
+                    yCursor += rowHeight;
+                });
+
+                yCursor += 16;
+
+                // 4. Summary Totals Box
+                const totalDueMap = {
+                    it: "Totale da Saldare",
+                    en: "Total Due",
+                    es: "Total a Pagar"
+                };
+                const totalDueText = `${totalDueMap[lang] || totalDueMap.it}: ${this.formatMoney(totalCost)}`;
+                ctx.font = "bold 22px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+                const totalDueW = ctx.measureText(totalDueText).width + 40;
+
+                ctx.fillStyle = "rgba(16, 185, 129, 0.12)";
+                ctx.beginPath();
+                ctx.roundRect(width - 40 - totalDueW, yCursor, totalDueW, 52, 14);
+                ctx.fill();
+
+                ctx.fillStyle = "#059669";
+                ctx.fillText(totalDueText, width - 20 - totalDueW, yCursor + 34);
+
+                yCursor += 70;
+
+                // 5. Watermark attribution
+                const watermarkMap = {
+                    it: "Class Management • Concepito e Sviluppato da Guaira Jaramillo Nitoglia (guaira.jaramillo.nitoglia@gmail.com)",
+                    en: "Class Management • Designed and Developed by Guaira Jaramillo Nitoglia (guaira.jaramillo.nitoglia@gmail.com)",
+                    es: "Class Management • Concebido y Desarrollado por Guaira Jaramillo Nitoglia (guaira.jaramillo.nitoglia@gmail.com)"
+                };
+                ctx.fillStyle = "#94a3b8";
+                ctx.font = "12px sans-serif";
+                ctx.fillText(watermarkMap[lang] || watermarkMap.it, 40, yCursor);
+
+                // Download File
                 const safeCourse = course.name.replace(/[^a-zA-Z0-9_\-]/g, "_");
                 const safeMod = mod.name.replace(/[^a-zA-Z0-9_\-]/g, "_");
-                const filename = `Fatturazione_${safeCourse}_${safeMod}.png`;
+                const filename = `Fatturazione_${safeCourse}_${safeMod}_${lang}.png`;
 
                 const dataUrl = canvas.toDataURL("image/png");
                 const a = document.createElement("a");
@@ -6595,7 +6825,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 a.click();
                 document.body.removeChild(a);
 
-                this.showToast(this.t("calendarPngSavedToast"), "success");
+                this.showToast(this.t("calendarPngSavedToast") || "🖼️ Immagine fatturazione generata e scaricata!", "success");
             }
 
             /**
@@ -6626,21 +6856,31 @@ Removing, obfuscating, or altering these credits violates the author's attributi
 
             parseAppVersion(str) {
                 let clean = (str || "").trim().replace(/^[vV\s]+/, "");
-                const isBetaCandidate = clean.toLowerCase().includes("b") || clean.toLowerCase().includes("beta");
-                let base = clean;
-                let beta = null;
+                const lower = clean.toLowerCase();
+                let unstable = false;
+                if (lower.includes("(unstable)") || lower.includes("unstable") || lower.includes("beta")) {
+                    unstable = true;
+                } else if (lower.includes("(stable)") || lower.includes("stable")) {
+                    unstable = false;
+                } else if (/[0-9]+b\b|[0-9]+b$/.test(lower)) {
+                    unstable = true;
+                }
+
+                // Strip status tags like (stable), (unstable), (beta), -stable, -unstable
+                const core = clean
+                    .replace(/\((?:unstable|stable|beta)\)/gi, "")
+                    .replace(/-(?:unstable|stable|beta)/gi, "")
+                    .trim();
+
+                let base = core;
                 let rev = 0;
 
-                if (base.includes("-")) {
-                    const dashIdx = base.indexOf("-");
-                    const suffix = base.substring(dashIdx + 1);
-                    base = base.substring(0, dashIdx);
+                if (core.includes("-")) {
+                    const dashIdx = core.indexOf("-");
+                    const suffix = core.substring(dashIdx + 1);
+                    base = core.substring(0, dashIdx);
                     const digits = suffix.replace(/[^0-9]/g, "");
-                    if (isBetaCandidate) {
-                        beta = parseInt(digits, 10) || 1;
-                    } else {
-                        rev = parseInt(digits, 10) || 0;
-                    }
+                    rev = parseInt(digits, 10) || 0;
                 }
 
                 const dotParts = base.split(".");
@@ -6649,17 +6889,8 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 let patch = 0;
 
                 if (dotParts.length > 2) {
-                    const patchPart = dotParts[2];
-                    const bIdx = patchPart.toLowerCase().indexOf("b");
-                    if (bIdx >= 0) {
-                        const pDigits = patchPart.substring(0, bIdx).replace(/[^0-9]/g, "");
-                        patch = parseInt(pDigits, 10) || 0;
-                        const afterB = patchPart.substring(bIdx + 1).replace(/[^0-9]/g, "");
-                        beta = parseInt(afterB, 10) || (beta || 1);
-                    } else {
-                        const pDigits = patchPart.replace(/[^0-9]/g, "");
-                        patch = parseInt(pDigits, 10) || 0;
-                    }
+                    const pDigits = dotParts[2].replace(/[^0-9]/g, "");
+                    patch = parseInt(pDigits, 10) || 0;
                 }
 
                 return {
@@ -6667,8 +6898,8 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                     minor,
                     patch,
                     revision: rev,
-                    isBeta: isBetaCandidate,
-                    betaNumber: isBetaCandidate ? (beta || 1) : null,
+                    isUnstable: unstable,
+                    isBeta: unstable,
                     raw: clean
                 };
             }
@@ -6677,20 +6908,24 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 if (lhs.major !== rhs.major) return lhs.major - rhs.major;
                 if (lhs.minor !== rhs.minor) return lhs.minor - rhs.minor;
                 if (lhs.patch !== rhs.patch) return lhs.patch - rhs.patch;
+                if (lhs.revision !== rhs.revision) return lhs.revision - rhs.revision;
 
-                // Both have identical major.minor.patch
-                // A beta is strictly an earlier pre-release of the same stable version:
-                if (lhs.isBeta && !rhs.isBeta) return -1;
-                if (!lhs.isBeta && rhs.isBeta) return 1;
-                if (lhs.isBeta && rhs.isBeta) {
-                    return (lhs.betaNumber || 1) - (rhs.betaNumber || 1);
-                }
-                return (lhs.revision || 0) - (rhs.revision || 0);
+                // Both have identical major.minor.patch.revision
+                // An unstable version is strictly earlier than stable release of the same revision:
+                if (lhs.isUnstable && !rhs.isUnstable) return -1;
+                if (!lhs.isUnstable && rhs.isUnstable) return 1;
+                return 0;
             }
 
             isBetaVersion() {
-                const v = String(this.state?.version || INITIAL_DATA.version || "");
-                return v.toLowerCase().includes("b") || v.toLowerCase().includes("beta");
+                const v = String(this.state?.version || INITIAL_DATA.version || "").toLowerCase();
+                if (v.includes("(unstable)") || v.includes("unstable") || v.includes("beta")) {
+                    return true;
+                }
+                if (v.includes("(stable)") || v.includes("stable")) {
+                    return false;
+                }
+                return /[0-9]+b\b|[0-9]+b$/.test(v);
             }
 
             setupBetaDiagnosticsAndBackup() {
@@ -7029,7 +7264,7 @@ Dettagli di Sistema:
                 }
             }
 
-            async startUpdateDownload(url, fileName, inModal = true) {
+            async startUpdateDownload(url, fileName, mode = 'direct') {
                 if (!window.electronAPI || typeof window.electronAPI.downloadUpdateAsset !== "function") {
                     if (window.electronAPI && typeof window.electronAPI.openExternal === "function") {
                         window.electronAPI.openExternal(url);
@@ -7048,36 +7283,38 @@ Dettagli di Sistema:
                     downloadedPath: null
                 };
 
-                if (inModal) {
-                    this.openModal(`
-                        <div class="p-6 space-y-5 text-xs max-w-md">
-                            <div class="flex items-center gap-3">
-                                <div class="w-11 h-11 rounded-xl bg-gradient-to-tr from-sky-500 to-indigo-600 text-white flex items-center justify-center text-xl shrink-0 shadow-sm">
-                                    <i class="fa-solid fa-cloud-arrow-down fa-bounce"></i>
-                                </div>
-                                <div>
-                                    <h4 class="text-sm font-extrabold text-slate-900 dark:text-white">Download Aggiornamento in Corso</h4>
-                                    <p class="text-slate-400 text-[11px] truncate max-w-[260px]">${this.escapeHtml(fileName || "Class-Management-Update.exe")}</p>
-                                </div>
-                            </div>
+                const modeNote = mode === 'direct'
+                    ? "Al termine dello scaricamento, l'applicazione si chiuderà e avvierà l'installazione automatica."
+                    : "Al termine dello scaricamento, la cartella temporanea con il file verrà aperta automaticamente in Esplora File.";
 
-                            <div class="space-y-2 pt-1">
-                                <div class="w-full bg-slate-200 dark:bg-navy-950 h-3.5 rounded-full overflow-hidden p-0.5 border border-sky-200/50 dark:border-slate-800">
-                                    <div id="modalUpdateProgressBar" class="bg-gradient-to-r from-sky-500 to-indigo-600 h-full rounded-full transition-all duration-150" style="width: 0%;"></div>
-                                </div>
-                                <div class="flex items-center justify-between text-[11px] text-slate-500">
-                                    <span id="modalUpdateProgressText">Connessione ai server di download...</span>
-                                    <span id="modalUpdatePercentText" class="font-extrabold text-sky-600 dark:text-sky-400">0%</span>
-                                </div>
+                this.openModal(`
+                    <div class="p-6 space-y-5 text-xs max-w-md">
+                        <div class="flex items-center gap-3">
+                            <div class="w-11 h-11 rounded-xl bg-gradient-to-tr from-sky-500 to-indigo-600 text-white flex items-center justify-center text-xl shrink-0 shadow-sm">
+                                <i class="fa-solid fa-cloud-arrow-down fa-bounce"></i>
                             </div>
-
-                            <div class="p-3 rounded-xl bg-sky-50/70 dark:bg-navy-800/60 border border-sky-100 dark:border-slate-800 text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-2">
-                                <i class="fa-solid fa-info-circle text-sky-600 shrink-0"></i>
-                                <span>Al termine dello scaricamento, l'applicazione si chiuderà per consentire l'installazione automatica.</span>
+                            <div>
+                                <h4 class="text-sm font-extrabold text-slate-900 dark:text-white">Download Aggiornamento in Corso</h4>
+                                <p class="text-slate-400 text-[11px] truncate max-w-[260px]">${this.escapeHtml(fileName || "Class-Management-Update.exe")}</p>
                             </div>
                         </div>
-                    `, "max-w-md", true);
-                }
+
+                        <div class="space-y-2 pt-1">
+                            <div class="w-full bg-slate-200 dark:bg-navy-950 h-3.5 rounded-full overflow-hidden p-0.5 border border-sky-200/50 dark:border-slate-800">
+                                <div id="modalUpdateProgressBar" class="bg-gradient-to-r from-sky-500 to-indigo-600 h-full rounded-full transition-all duration-150" style="width: 0%;"></div>
+                            </div>
+                            <div class="flex items-center justify-between text-[11px] text-slate-500">
+                                <span id="modalUpdateProgressText">Connessione ai server di download...</span>
+                                <span id="modalUpdatePercentText" class="font-extrabold text-sky-600 dark:text-sky-400">0%</span>
+                            </div>
+                        </div>
+
+                        <div class="p-3 rounded-xl bg-sky-50/70 dark:bg-navy-800/60 border border-sky-100 dark:border-slate-800 text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-2">
+                            <i class="fa-solid fa-info-circle text-sky-600 shrink-0"></i>
+                            <span>${modeNote}</span>
+                        </div>
+                    </div>
+                `, "max-w-md", true);
 
                 if (this.activeTab === "credits") {
                     this.renderCreditsView(document.getElementById("mainContentArea"));
@@ -7110,50 +7347,71 @@ Dettagli di Sistema:
                 });
 
                 try {
-                    const res = await window.electronAPI.downloadUpdateAsset(url, fileName || "Class-Management-Update.exe");
+                    const revealInFolder = (mode === 'explorer');
+                    const res = await window.electronAPI.downloadUpdateAsset(url, fileName || "Class-Management-Update.exe", revealInFolder);
                     removeListener();
                     if (res && res.success && res.filePath) {
                         if (this.updateState) {
                             this.updateState.isDownloading = false;
                             this.updateState.downloadedPath = res.filePath;
-                            this.updateState.statusText = "Download completato! Il file è pronto in Esplora File.";
+                            this.updateState.statusText = "Download completato con successo!";
                         }
 
                         const escapedPath = this.escapeHtml(res.filePath).replace(/\\/g, '\\\\');
 
-                        this.openModal(`
-                            <div class="p-6 sm:p-7 space-y-4 text-xs max-w-md text-center">
-                                <div class="w-14 h-14 mx-auto rounded-2xl bg-emerald-500/15 text-emerald-500 flex items-center justify-center text-3xl border border-emerald-500/25 shadow-xs">
-                                    <i class="fa-solid fa-circle-check"></i>
-                                </div>
-                                <div>
-                                    <h4 class="text-base font-extrabold text-slate-900 dark:text-white">Download Completato!</h4>
-                                    <p class="text-slate-500 dark:text-slate-400 mt-1">L'installer dell'aggiornamento è stato scaricato nei file temporanei ed è stato aperto automaticamente in <strong>Esplora File</strong>.</p>
-                                </div>
-                                
-                                <div class="p-3.5 rounded-xl bg-slate-50 dark:bg-navy-950 border border-slate-200 dark:border-slate-800 text-left text-[11px] text-slate-600 dark:text-slate-400 space-y-1.5">
-                                    <div class="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
-                                        <i class="fa-solid fa-folder-open text-sky-500"></i> File pronto per l'installazione:
+                        if (mode === 'direct') {
+                            this.openModal(`
+                                <div class="p-6 space-y-4 text-xs max-w-md text-center">
+                                    <div class="w-14 h-14 mx-auto rounded-2xl bg-emerald-500/15 text-emerald-500 flex items-center justify-center text-3xl border border-emerald-500/25 shadow-xs">
+                                        <i class="fa-solid fa-arrows-rotate fa-spin"></i>
                                     </div>
-                                    <div class="font-mono text-[10px] break-all text-sky-600 dark:text-sky-400 font-bold bg-white dark:bg-navy-900 p-2 rounded-lg border border-sky-100 dark:border-slate-800">
-                                        ${this.escapeHtml(res.filePath)}
+                                    <div>
+                                        <h4 class="text-base font-extrabold text-slate-900 dark:text-white">Avvio Installazione...</h4>
+                                        <p class="text-slate-500 dark:text-slate-400 mt-1">L'applicazione si sta chiudendo per consentire l'installazione automatica dell'aggiornamento.</p>
                                     </div>
-                                    <p class="text-[10px] text-slate-400 pt-0.5">Ti basta fare doppio clic sul file per avviare l'installazione. I file temporanei verranno rimossi automaticamente.</p>
                                 </div>
+                            `, "max-w-md", true);
 
-                                <div class="flex flex-col sm:flex-row items-center justify-center gap-2 pt-2">
-                                    <button type="button" onclick="if(window.electronAPI && window.electronAPI.showItemInFolder){window.electronAPI.showItemInFolder('${escapedPath}');}" class="w-full sm:w-auto px-4 py-2.5 rounded-xl border border-sky-300 dark:border-slate-700 text-sky-600 dark:text-sky-400 font-bold hover:bg-sky-50 dark:hover:bg-navy-800 transition flex items-center justify-center gap-2">
-                                        <i class="fa-solid fa-folder-open"></i> Mostra di nuovo
-                                    </button>
-                                    <button type="button" onclick="if(window.electronAPI && window.electronAPI.installUpdateAndQuit){window.electronAPI.installUpdateAndQuit('${escapedPath}');}" class="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold shadow-sm transition flex items-center justify-center gap-2">
-                                        <i class="fa-solid fa-play"></i> Avvia e Chiudi App
-                                    </button>
-                                    <button type="button" onclick="app.closeModal()" class="w-full sm:w-auto px-3 py-2.5 rounded-xl text-slate-500 hover:text-slate-700 font-bold text-xs">
-                                        Chiudi
-                                    </button>
+                            setTimeout(() => {
+                                if (window.electronAPI && typeof window.electronAPI.installUpdateAndQuit === "function") {
+                                    window.electronAPI.installUpdateAndQuit(res.filePath);
+                                }
+                            }, 800);
+                        } else {
+                            this.openModal(`
+                                <div class="p-6 sm:p-7 space-y-4 text-xs max-w-md text-center">
+                                    <div class="w-14 h-14 mx-auto rounded-2xl bg-emerald-500/15 text-emerald-500 flex items-center justify-center text-3xl border border-emerald-500/25 shadow-xs">
+                                        <i class="fa-solid fa-circle-check"></i>
+                                    </div>
+                                    <div>
+                                        <h4 class="text-base font-extrabold text-slate-900 dark:text-white">Download Completato!</h4>
+                                        <p class="text-slate-500 dark:text-slate-400 mt-1">L'installer dell'aggiornamento è stato scaricato nei file temporanei ed è stato aperto automaticamente in <strong>Esplora File</strong>.</p>
+                                    </div>
+                                    
+                                    <div class="p-3.5 rounded-xl bg-slate-50 dark:bg-navy-950 border border-slate-200 dark:border-slate-800 text-left text-[11px] text-slate-600 dark:text-slate-400 space-y-1.5">
+                                        <div class="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                                            <i class="fa-solid fa-folder-open text-sky-500"></i> File pronto per l'installazione:
+                                        </div>
+                                        <div class="font-mono text-[10px] break-all text-sky-600 dark:text-sky-400 font-bold bg-white dark:bg-navy-900 p-2 rounded-lg border border-sky-100 dark:border-slate-800">
+                                            ${this.escapeHtml(res.filePath)}
+                                        </div>
+                                        <p class="text-[10px] text-slate-400 pt-0.5">Ti basta fare doppio clic sul file per avviare l'installazione. I file temporanei verranno rimossi automaticamente.</p>
+                                    </div>
+
+                                    <div class="flex flex-col sm:flex-row items-center justify-center gap-2 pt-2">
+                                        <button type="button" onclick="if(window.electronAPI && window.electronAPI.showItemInFolder){window.electronAPI.showItemInFolder('${escapedPath}');}" class="w-full sm:w-auto px-4 py-2.5 rounded-xl border border-sky-300 dark:border-slate-700 text-sky-600 dark:text-sky-400 font-bold hover:bg-sky-50 dark:hover:bg-navy-800 transition flex items-center justify-center gap-2">
+                                            <i class="fa-solid fa-folder-open"></i> Mostra in Esplora File
+                                        </button>
+                                        <button type="button" onclick="if(window.electronAPI && window.electronAPI.installUpdateAndQuit){window.electronAPI.installUpdateAndQuit('${escapedPath}');}" class="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold shadow-sm transition flex items-center justify-center gap-2">
+                                            <i class="fa-solid fa-play"></i> Avvia e Chiudi App
+                                        </button>
+                                        <button type="button" onclick="app.closeModal()" class="w-full sm:w-auto px-3 py-2.5 rounded-xl text-slate-500 hover:text-slate-700 font-bold text-xs">
+                                            Chiudi
+                                        </button>
+                                    </div>
                                 </div>
-                            </div>
-                        `, "max-w-md", true);
+                            `, "max-w-md", true);
+                        }
 
                         this.showToast("Aggiornamento scaricato con successo!", "success");
                         if (this.activeTab === "credits") {
@@ -7165,26 +7423,20 @@ Dettagli di Sistema:
                             this.updateState.statusText = "Errore durante il download: " + (res?.error || "Sconosciuto");
                         }
                         this.showToast("Errore durante il download dell'aggiornamento", "error");
-                        if (inModal) {
-                            this.openModal(`
-                                <div class="p-6 space-y-4 text-xs max-w-md text-center">
-                                    <div class="w-12 h-12 mx-auto rounded-full bg-rose-100 dark:bg-rose-950 text-rose-600 dark:text-rose-400 flex items-center justify-center text-xl">
-                                        <i class="fa-solid fa-triangle-exclamation"></i>
-                                    </div>
-                                    <div>
-                                        <h4 class="text-sm font-extrabold text-slate-900 dark:text-white">Errore Download</h4>
-                                        <p class="text-slate-500 mt-1">${this.escapeHtml(res?.error || "Impossibile completare il download.")}</p>
-                                    </div>
-                                    <div class="flex items-center justify-center gap-2 pt-2">
-                                        <button type="button" onclick="app.closeModal()" class="px-4 py-2 rounded-xl border border-slate-300 dark:border-slate-700 font-bold">Chiudi</button>
-                                        <button type="button" onclick="if(window.electronAPI){window.electronAPI.openExternal('${url}');}else{window.open('${url}','_blank');}app.closeModal();" class="px-4 py-2 rounded-xl bg-sky-600 text-white font-extrabold">Scarica da Browser</button>
-                                    </div>
+                        this.openModal(`
+                            <div class="p-6 space-y-4 text-xs max-w-md text-center">
+                                <div class="w-12 h-12 mx-auto rounded-full bg-rose-100 dark:bg-rose-950 text-rose-600 dark:text-rose-400 flex items-center justify-center text-xl">
+                                    <i class="fa-solid fa-triangle-exclamation"></i>
                                 </div>
-                            `, "max-w-md");
-                        }
-                        if (this.activeTab === "credits") {
-                            this.renderCreditsView(document.getElementById("mainContentArea"));
-                        }
+                                <div>
+                                    <h4 class="text-sm font-extrabold text-slate-900 dark:text-white">Errore Download</h4>
+                                    <p class="text-slate-500 mt-1">${this.escapeHtml(res?.error || "Impossibile scaricare l'aggiornamento.")}</p>
+                                </div>
+                                <div class="pt-2">
+                                    <button type="button" onclick="app.closeModal()" class="px-5 py-2 rounded-xl bg-slate-600 text-white font-bold">Chiudi</button>
+                                </div>
+                            </div>
+                        `, "max-w-md");
                     }
                 } catch (err) {
                     removeListener();
@@ -7213,6 +7465,9 @@ Dettagli di Sistema:
                             <div>
                                 <h4 class="text-sm font-extrabold text-slate-900 dark:text-white">Verifica Aggiornamenti</h4>
                                 <p class="text-slate-500 mt-1">Controllo della disponibilità di nuove versioni su GitHub in corso...</p>
+                            </div>
+                            <div class="pt-2">
+                                <button type="button" onclick="app.closeModal()" class="px-4 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-bold hover:bg-slate-100 dark:hover:bg-navy-800 transition">Annulla</button>
                             </div>
                         </div>
                     `, "max-w-md");
@@ -7302,7 +7557,7 @@ Dettagli di Sistema:
                         return;
                     }
 
-                    const currentVer = this.parseAppVersion(this.state.version || "26.10.3");
+                    const currentVer = this.parseAppVersion(this.state.version || INITIAL_DATA.version || "26.10.4-001(unstable)");
                     // Beta versions receive beta updates even if toggle is off until next stable arrives
                     const isCurrentBeta = this.isBetaVersion();
                     const includeBeta = (this.state.settings?.includeBetaUpdates === true) || isCurrentBeta;
@@ -7339,10 +7594,7 @@ Dettagli di Sistema:
                             this.renderCreditsView(document.getElementById("mainContentArea"));
                         }
 
-                        // Pre-update automatic backup
-                        await this.performPreUpdateBackup();
-
-                        // Present update modal with direct action
+                        // Present update modal with TWO distinct options (Direct or Explorer)
                         this.openModal(`
                             <div class="p-6 space-y-4 text-xs max-w-md">
                                 <div class="flex items-center gap-3">
@@ -7353,7 +7605,7 @@ Dettagli di Sistema:
                                         <div class="flex items-center gap-2">
                                             <h4 class="text-sm font-extrabold text-slate-900 dark:text-white">Nuova Versione Disponibile!</h4>
                                             <span class="px-2 py-0.5 rounded-full ${rel.prerelease ? 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300' : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300'} text-[10px] font-extrabold">
-                                                ${rel.prerelease ? 'Beta' : 'Stabile'}
+                                                ${rel.prerelease ? 'Anteprima (Unstable)' : 'Stabile'}
                                             </span>
                                         </div>
                                         <p class="text-sky-600 font-extrabold text-xs mt-0.5">${this.escapeHtml(rel.tag_name || rel.name)}</p>
@@ -7362,7 +7614,7 @@ Dettagli di Sistema:
 
                                 <div class="p-3.5 rounded-xl bg-slate-50 dark:bg-navy-950/70 border border-sky-100 dark:border-slate-800 space-y-2">
                                     <p class="text-slate-600 dark:text-slate-300 leading-relaxed text-[11px]">
-                                        È disponibile una nuova versione aggiornata di <strong>${this.t("appTitle")}</strong>.
+                                        È disponibile una nuova versione aggiornata di <strong>${this.t("appTitle")}</strong>. Scegli come preferisci procedere:
                                     </p>
                                     ${rel.body ? `
                                         <div class="text-[11px] text-slate-500 dark:text-slate-400 whitespace-pre-line max-h-32 overflow-y-auto custom-scrollbar border-t border-sky-100 dark:border-slate-800 pt-2">
@@ -7373,19 +7625,22 @@ Dettagli di Sistema:
 
                                 <div class="flex items-center gap-2 text-[11px] text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 p-2.5 rounded-xl border border-emerald-200/50">
                                     <i class="fa-solid fa-shield-check text-sm shrink-0"></i>
-                                    <span>Un backup di sicurezza dei tuoi dati è già stato creato automaticamente.</span>
+                                    <span>Un backup automatico di sicurezza dei tuoi dati verrà creato all'avvio del download.</span>
                                 </div>
 
-                                <div class="flex flex-wrap items-center justify-end gap-2 pt-1">
-                                    <button type="button" onclick="app.closeModal()" class="px-3.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 font-bold hover:bg-slate-100 dark:hover:bg-navy-800 transition">Più tardi</button>
+                                <div class="flex flex-col sm:flex-row flex-wrap items-center justify-end gap-2 pt-1">
+                                    <button type="button" onclick="app.closeModal()" class="w-full sm:w-auto px-3.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 font-bold hover:bg-slate-100 dark:hover:bg-navy-800 transition">Più tardi</button>
                                     ${portableUrl ? `
-                                        <button type="button" onclick="if(window.electronAPI){window.electronAPI.openExternal('${portableUrl}');}else{window.open('${portableUrl}','_blank');}app.closeModal();" class="px-3.5 py-2 rounded-xl border border-sky-300 dark:border-sky-700 bg-sky-50 dark:bg-navy-800 text-sky-700 dark:text-sky-300 font-bold hover:bg-sky-100 flex items-center gap-1.5 transition">
+                                        <button type="button" onclick="if(window.electronAPI){window.electronAPI.openExternal('${portableUrl}');}else{window.open('${portableUrl}','_blank');}app.closeModal();" class="w-full sm:w-auto px-3 py-2 rounded-xl border border-sky-300 dark:border-sky-700 bg-sky-50 dark:bg-navy-800 text-sky-700 dark:text-sky-300 font-bold hover:bg-sky-100 flex items-center justify-center gap-1.5 transition">
                                             <i class="fa-solid fa-box-archive"></i> Portable (.exe)
                                         </button>
                                     ` : ''}
-                                    <button type="button" onclick="app.startUpdateDownload('${primaryUrl}', '${primaryName}', true)" class="px-4 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-extrabold shadow-md flex items-center gap-2 transition">
-                                        <i class="fa-solid fa-download"></i>
-                                        <span>Scarica e Aggiorna Ora</span>
+                                    <button type="button" onclick="app.startUpdateDownload('${primaryUrl}', '${primaryName}', 'explorer')" class="w-full sm:w-auto px-3.5 py-2 rounded-xl border border-sky-300 dark:border-sky-700 bg-sky-50 dark:bg-navy-800 text-sky-700 dark:text-sky-300 font-bold hover:bg-sky-100 flex items-center justify-center gap-1.5 transition">
+                                        <i class="fa-solid fa-folder-open"></i> Scarica e apri in Esplora File
+                                    </button>
+                                    <button type="button" onclick="app.startUpdateDownload('${primaryUrl}', '${primaryName}', 'direct')" class="w-full sm:w-auto px-4 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-extrabold shadow-md flex items-center justify-center gap-2 transition">
+                                        <i class="fa-solid fa-bolt"></i>
+                                        <span>Aggiorna direttamente dall'applicazione</span>
                                     </button>
                                 </div>
                             </div>
@@ -7400,7 +7655,7 @@ Dettagli di Sistema:
                                     </div>
                                     <div>
                                         <h4 class="text-sm font-extrabold text-slate-900 dark:text-white">Class Management è Aggiornato!</h4>
-                                        <p class="text-slate-500 mt-1">Stai già utilizzando l'ultima versione disponibile (<strong>v${this.escapeHtml(this.state.version || "26.10.1-1")}</strong>). Non sono necessari aggiornamenti.</p>
+                                        <p class="text-slate-500 mt-1">Stai già utilizzando l'ultima versione disponibile (<strong>v${this.escapeHtml(this.state.version || INITIAL_DATA.version || "26.10.4-001(unstable)")}</strong>). Non sono necessari aggiornamenti.</p>
                                     </div>
                                     <div class="pt-2">
                                         <button type="button" onclick="app.closeModal()" class="px-5 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-extrabold shadow-sm transition">OK</button>
@@ -7695,9 +7950,13 @@ Dettagli di Sistema:
                                         </div>
                                     ` : `
                                         <div class="flex flex-wrap items-center gap-2 pt-2">
-                                            <button type="button" onclick="app.startUpdateDownload('${update.primaryUrl}', '${update.primaryName}', true)" class="px-4 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-extrabold shadow-2xs flex items-center gap-2 transition">
-                                                <i class="fa-solid fa-cloud-arrow-down"></i>
-                                                <span>Scarica e Installa Aggiornamento</span>
+                                            <button type="button" onclick="app.startUpdateDownload('${update.primaryUrl}', '${update.primaryName}', 'direct')" class="px-4 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-extrabold shadow-2xs flex items-center gap-2 transition">
+                                                <i class="fa-solid fa-bolt"></i>
+                                                <span>Aggiorna direttamente dall'applicazione</span>
+                                            </button>
+                                            <button type="button" onclick="app.startUpdateDownload('${update.primaryUrl}', '${update.primaryName}', 'explorer')" class="px-3.5 py-2 rounded-xl border border-sky-300 dark:border-sky-700 bg-sky-50 dark:bg-navy-800 text-sky-700 dark:text-sky-300 font-bold hover:bg-sky-100 flex items-center gap-1.5 transition">
+                                                <i class="fa-solid fa-folder-open"></i>
+                                                <span>Scarica e apri in Esplora File</span>
                                             </button>
                                             ${update.portableUrl ? `
                                                 <button type="button" onclick="if(window.electronAPI){window.electronAPI.openExternal('${update.portableUrl}');}else{window.open('${update.portableUrl}','_blank');}" class="px-3.5 py-2 rounded-xl border border-sky-300 dark:border-sky-700 bg-sky-50 dark:bg-navy-800 text-sky-700 dark:text-sky-300 font-bold hover:bg-sky-100 flex items-center gap-1.5 transition">

@@ -110,25 +110,46 @@ def set_version(version: str):
     print(f"\n[OK] Version synchronized to {version}")
 
 
+def is_version_unstable(cur_ver: str) -> bool:
+    if not cur_ver:
+        return False
+    v = cur_ver.lower().strip()
+    if "(unstable)" in v or "unstable" in v:
+        return True
+    if "(stable)" in v or "stable" in v:
+        return False
+    if "beta" in v:
+        return True
+    if re.search(r'\d+b$', v):
+        return True
+    return False
+
+
 def bump_beta():
-    cur = get_swift_version() or "26.10.2-001b"
-    # Matches YY.MM.PATCH-NUMb (e.g. 26.10.2-001b) or stable YY.MM.PATCH-NUM
+    cur = get_swift_version() or "26.10.4-001(unstable)"
+    # New standardized format: YY.MM.PATCH-NUM(status)
+    m_new = re.match(r"^(\d+\.\d+\.\d+)-(\d+)\((unstable|stable)\)$", cur)
+    if m_new:
+        base, num_str, status = m_new.groups()
+        num = int(num_str)
+        new_ver = f"{base}-{num + 1:03d}(unstable)"
+        set_version(new_ver)
+        return new_ver
+
+    # Legacy format: YY.MM.PATCH-NUMb
     m = re.match(r"^(\d+\.\d+\.\d+)-(\d+)(b)?$", cur)
     if m:
         base, num_str, is_b = m.groups()
         num = int(num_str)
-        if is_b:
-            new_ver = f"{base}-{num + 1:03d}b"
-        else:
-            new_ver = f"{base}-001b"
+        new_ver = f"{base}-{num + 1:03d}(unstable)"
     else:
         m_old = re.match(r"^(\d+\.\d+\.\d+)(?:b(\d*))?$", cur)
         if m_old:
             base, sub = m_old.groups()
             sub_int = int(sub) if sub else 1
-            new_ver = f"{base}-{sub_int:03d}b"
+            new_ver = f"{base}-{sub_int:03d}(unstable)"
         else:
-            new_ver = "26.10.2-001b"
+            new_ver = "26.10.4-001(unstable)"
 
     set_version(new_ver)
     return new_ver
@@ -138,16 +159,13 @@ def archive_version_artifacts(version: str):
     target_dir = os.path.join(VERSIONS_DIR, f"v{version}")
     os.makedirs(target_dir, exist_ok=True)
     count = 0
-    patterns = [
-        f"Class-Management-{version}*.*",
-        f"Class-Management-*{version}*.*"
-    ]
-    for pat in patterns:
-        for f in glob.glob(os.path.join(PROJECT_ROOT, pat)):
-            if os.path.isfile(f):
-                shutil.move(f, os.path.join(target_dir, os.path.basename(f)))
-                count += 1
-                print(f"  -> Archived: {os.path.basename(f)} into Versions/v{version}/")
+    for f in os.listdir(PROJECT_ROOT):
+        full_p = os.path.join(PROJECT_ROOT, f)
+        if os.path.isfile(full_p) and f.startswith("Class-Management-") and version in f:
+            dest_file = os.path.join(target_dir, f)
+            shutil.copy2(full_p, dest_file)
+            count += 1
+            print(f"  -> Archived: {f} into Versions/v{version}/")
     print(f"[OK] Archived {count} artifacts for version v{version}")
 
 
@@ -244,8 +262,8 @@ exit 0
 
 
 def publish_release(is_beta: bool = False):
-    cur_ver = get_swift_version() or "26.10.0"
-    is_beta_candidate = "b" in cur_ver.lower()
+    cur_ver = get_swift_version() or "26.10.4-001(unstable)"
+    is_beta_candidate = is_version_unstable(cur_ver)
     if is_beta_candidate:
         is_beta = True
     elif is_beta and not is_beta_candidate:
@@ -328,7 +346,10 @@ def publish_release(is_beta: bool = False):
                 print(f"✓ Created GitHub release ID: {release_id}")
 
                 # Upload all matching assets (.pkg, -Setup.exe, -Portable.exe)
-                assets_to_upload = sorted(glob.glob(os.path.join(PROJECT_ROOT, f"Class-Management-{cur_ver}*.*")))
+                assets_to_upload = sorted([
+                    os.path.join(PROJECT_ROOT, f) for f in os.listdir(PROJECT_ROOT)
+                    if f.startswith(f"Class-Management-{cur_ver}") and os.path.isfile(os.path.join(PROJECT_ROOT, f))
+                ])
                 for asset_path in assets_to_upload:
                     asset_filename = os.path.basename(asset_path)
                     print(f"Uploading asset {asset_filename} ({os.path.getsize(asset_path)} bytes)...")
@@ -368,7 +389,7 @@ def print_status():
     branch = get_git_branch()
     ver_swift = get_swift_version()
     ver_plist = get_plist_version()
-    is_beta = ("b" in (ver_swift or "").lower())
+    is_beta = is_version_unstable(ver_swift)
 
     print("\n=======================================================")
     print(" CLASS MANAGEMENT — PROJECT STATUS")

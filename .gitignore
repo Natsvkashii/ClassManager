@@ -29,3 +29,4 @@ Windows-Version/*.exe
 dist/
 *.log
 Versions/
+.build/

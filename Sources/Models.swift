@@ -18,12 +18,18 @@ public enum AuthorAttribution {
     public static let authorName = "Guaira Jaramillo Nitoglia"
     public static let authorEmail = "guaira.jaramillo.nitoglia@gmail.com"
     public static let appName = "Class Management"
-    public static let appVersion = "26.10.3"
+    public static let appVersion = "26.10.4-001(unstable)"
     public static let licenseName = "GNU General Public License v3.0 (GPL-3.0)"
 
     public static var isBeta: Bool {
         let v = appVersion.lowercased()
-        return v.contains("b") || v.contains("beta")
+        if v.contains("(unstable)") || v.contains("unstable") || v.contains("beta") {
+            return true
+        }
+        if v.contains("(stable)") || v.contains("stable") {
+            return false
+        }
+        return v.range(of: #"[0-9]+b\b|[0-9]+b$"#, options: .regularExpression) != nil
     }
 }
 
@@ -1542,6 +1548,14 @@ public struct AppState: Codable, Equatable {
     ]
 
     public static let defaultChangelog: [ChangelogEntry] = [
+        ChangelogEntry(version: "26.10.4-001(unstable)", date: "2026-10-19", changes: [
+            "Adozione del nuovo schema di versionamento standardizzato YY.MM.PATCH-REV(status) con supporto a '(unstable)' e '(stable)'.",
+            "Perfezionato il sistema di aggiornamento Windows con due opzioni dedicate: aggiornamento diretto dall'applicazione o download con apertura in Esplora File.",
+            "Risolto il problema del blocco della finestra di ricerca aggiornamenti su Windows.",
+            "Esportazione Calendario PNG (1:1): ottimizzato il layout dell'orario delle lezioni per evitare testo a capo o troncature.",
+            "Esportazione Fatturazione PNG: separazione di Data e Orario in colonne distinte e aggiunta della colonna Durata delle lezioni.",
+            "Supporto multilingua completo (Italiano, English, Español) selezionabile all'esportazione delle immagini PNG per calendario e fatturazione."
+        ]),
         ChangelogEntry(version: "26.10.3", date: "2026-10-18", changes: [
             "Rilascio Ufficiale della Versione Stabile 26.10.3 per macOS e Windows.",
             "Aggiunto pulsante di invio Feedback e commenti in basso a sinistra nella barra laterale per contattare direttamente l'autore via email con dati di versione e sistema precompilati.",

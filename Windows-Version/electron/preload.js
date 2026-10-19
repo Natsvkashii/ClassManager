@@ -20,7 +20,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     openPath: (filePath) => ipcRenderer.invoke('open-path', { filePath }),
     getAppVersion: () => ipcRenderer.invoke('get-app-version'),
     checkForUpdatesAPI: () => ipcRenderer.invoke('check-for-updates-api'),
-    downloadUpdateAsset: (url, filename) => ipcRenderer.invoke('download-update-asset', { url, filename }),
+    downloadUpdateAsset: (url, filename, reveal = false) => ipcRenderer.invoke('download-update-asset', { url, filename, reveal }),
     installUpdateAndQuit: (filePath) => ipcRenderer.invoke('install-update-and-quit', { filePath }),
     onDownloadProgress: (callback) => {
         const listener = (event, data) => callback(data);

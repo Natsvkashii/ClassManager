@@ -66,10 +66,11 @@ public struct AppVersion: Comparable, Equatable, CustomStringConvertible {
     public let major: Int // Year in YY.MM.R
     public let minor: Int // Month in YY.MM.R
     public let patch: Int // Release in YY.MM.R
-    public let revision: Int // Sub-release/Hotfix (e.g. 2 in 26.10.0-2)
-    public let isBeta: Bool
-    public let betaNumber: Int?
+    public let revision: Int // Sub-release/Hotfix (e.g. 1 in 26.10.4-001)
+    public let isUnstable: Bool
     public let raw: String
+
+    public var isBeta: Bool { isUnstable }
 
     public var description: String {
         raw
@@ -79,20 +80,31 @@ public struct AppVersion: Comparable, Equatable, CustomStringConvertible {
         let clean = string.trimmingCharacters(in: CharacterSet(charactersIn: "vV \t\n\r"))
         self.raw = clean
 
-        let isBetaCandidate = clean.lowercased().contains("b") || clean.lowercased().contains("beta")
-        var base = clean
-        var beta: Int? = nil
-        var rev: Int = 0
+        let lower = clean.lowercased()
+        var unstable = false
+        if lower.contains("(unstable)") || lower.contains("unstable") || lower.contains("beta") {
+            unstable = true
+        } else if lower.contains("(stable)") || lower.contains("stable") {
+            unstable = false
+        } else if lower.range(of: #"[0-9]+b\b|[0-9]+b$"#, options: .regularExpression) != nil {
+            unstable = true
+        }
+        self.isUnstable = unstable
 
-        if let dashIdx = base.firstIndex(of: "-") {
-            let suffix = String(base[base.index(after: dashIdx)...])
-            base = String(base[..<dashIdx])
+        // Strip status tags like (stable), (unstable), (beta)
+        let core = clean
+            .replacingOccurrences(of: #"\((?:unstable|stable|beta)\)"#, with: "", options: [.regularExpression, .caseInsensitive])
+            .replacingOccurrences(of: #"-(?:unstable|stable|beta)"#, with: "", options: [.regularExpression, .caseInsensitive])
+            .trimmingCharacters(in: .whitespaces)
+
+        var base = core
+        var rev = 0
+
+        if let dashIdx = core.firstIndex(of: "-") {
+            let suffix = String(core[core.index(after: dashIdx)...])
+            base = String(core[..<dashIdx])
             let digits = suffix.filter { $0.isNumber }
-            if isBetaCandidate {
-                beta = Int(digits) ?? 1
-            } else {
-                rev = Int(digits) ?? 0
-            }
+            rev = Int(digits) ?? 0
         }
 
         let dotParts = base.split(separator: ".")
@@ -100,23 +112,13 @@ public struct AppVersion: Comparable, Equatable, CustomStringConvertible {
         self.minor = dotParts.count > 1 ? (Int(dotParts[1]) ?? 0) : 0
 
         if dotParts.count > 2 {
-            let patchPart = String(dotParts[2])
-            if let bIndex = patchPart.lowercased().firstIndex(of: "b") {
-                let pDigits = String(patchPart[..<bIndex]).filter { $0.isNumber }
-                self.patch = Int(pDigits) ?? 0
-                let afterB = String(patchPart[patchPart.index(after: bIndex)...]).filter { $0.isNumber }
-                beta = Int(afterB) ?? 1
-            } else {
-                let pDigits = patchPart.filter { $0.isNumber }
-                self.patch = Int(pDigits) ?? 0
-            }
+            let pDigits = String(dotParts[2]).filter { $0.isNumber }
+            self.patch = Int(pDigits) ?? 0
         } else {
             self.patch = 0
         }
 
         self.revision = rev
-        self.isBeta = isBetaCandidate
-        self.betaNumber = isBetaCandidate ? (beta ?? 1) : nil
     }
 
     public static func < (lhs: AppVersion, rhs: AppVersion) -> Bool {
@@ -126,18 +128,9 @@ public struct AppVersion: Comparable, Equatable, CustomStringConvertible {
         if lhs.revision != rhs.revision { return lhs.revision < rhs.revision }
 
         // Both have identical major.minor.patch.revision
-        // A beta is strictly an earlier pre-release of the same stable version:
-        // lhs is beta, rhs is stable -> lhs < rhs (true)
-        // lhs is stable, rhs is beta -> lhs > rhs (false)
-        if lhs.isBeta && !rhs.isBeta {
-            return true
-        }
-        if !lhs.isBeta && rhs.isBeta {
-            return false
-        }
-        if lhs.isBeta && rhs.isBeta {
-            return (lhs.betaNumber ?? 1) < (rhs.betaNumber ?? 1)
-        }
+        // An unstable pre-release of the same revision comes before the stable release:
+        if lhs.isUnstable && !rhs.isUnstable { return true }
+        if !lhs.isUnstable && rhs.isUnstable { return false }
         return false
     }
 
@@ -146,8 +139,7 @@ public struct AppVersion: Comparable, Equatable, CustomStringConvertible {
                lhs.minor == rhs.minor &&
                lhs.patch == rhs.patch &&
                lhs.revision == rhs.revision &&
-               lhs.isBeta == rhs.isBeta &&
-               lhs.betaNumber == rhs.betaNumber
+               lhs.isUnstable == rhs.isUnstable
     }
 }
 
