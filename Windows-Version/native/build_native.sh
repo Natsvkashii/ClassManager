@@ -10,16 +10,26 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
-VERSION="26.10.4-009"
-OUTPUT_NAME="Class-Management-${VERSION}-Native.exe"
-OUTPUT_PATH="$REPO_ROOT/$OUTPUT_NAME"
+VERSION="26.10.4-010"
+if [ -f "$REPO_ROOT/Sources/Models.swift" ]; then
+    DETECTED_VER=$(grep -E 'public static let appVersion =' "$REPO_ROOT/Sources/Models.swift" | head -n 1 | sed -E 's/.*"([^"]+)".*/\1/')
+    if [ -n "$DETECTED_VER" ]; then
+        VERSION="$DETECTED_VER"
+    fi
+fi
 
-echo "=== Building Native Windows Application (Option A: WebView2 C++ Core) ==="
+SETUP_NAME="Class-Management-${VERSION}-Setup.exe"
+SETUP_PATH="$REPO_ROOT/$SETUP_NAME"
+
+NATIVE_NAME="Class-Management-${VERSION}-Native.exe"
+NATIVE_PATH="$REPO_ROOT/$NATIVE_NAME"
+
+echo "=== Building Official Native Windows Executables (WebView2 C++ Core) ==="
 echo "Version: $VERSION"
-echo "Target: $OUTPUT_PATH"
+echo "Targets: $SETUP_NAME (Official Setup) & $NATIVE_NAME (Portable)"
 
-# 1. Generate / Refresh Assets Bundle
-echo "--> Bundling HTML, Logo, and App Icon..."
+# 1. Generate / Refresh Assets Bundle from index.html, logo.png, AppIcon.ico
+echo "--> Bundling HTML, Logo, and App Icon into C++ headers..."
 python3 "$SCRIPT_DIR/generate_assets.py"
 
 # 2. Locate Zig compiler
@@ -35,8 +45,8 @@ fi
 
 echo "--> Using compiler: $ZIG_BIN ($("$ZIG_BIN" version))"
 
-# 3. Compile Native C++ Executable
-echo "--> Compiling with x86_64-windows target and -O3 optimization..."
+# 3. Compile Native Executable (Optimized PE32+ GUI)
+echo "--> Compiling $SETUP_NAME with x86_64-windows target and -O3 optimization..."
 "$ZIG_BIN" c++ \
     -target x86_64-windows \
     -Wl,--subsystem,windows \
@@ -44,7 +54,7 @@ echo "--> Compiling with x86_64-windows target and -O3 optimization..."
     -I"$SCRIPT_DIR" \
     -I"$SCRIPT_DIR/include" \
     "$SCRIPT_DIR/app_native.cpp" \
-    -o "$OUTPUT_PATH" \
+    -o "$SETUP_PATH" \
     -lole32 \
     -loleaut32 \
     -luser32 \
@@ -57,14 +67,19 @@ echo "--> Compiling with x86_64-windows target and -O3 optimization..."
     -ldwmapi \
     -lgdi32
 
-# Also copy into Versions/ and Windows-Version/dist/ if directory exists
+# Create the portable copy as well
+cp -f "$SETUP_PATH" "$NATIVE_PATH"
+
+# Also copy into Versions/ and Windows-Version/dist/ if directories exist
 if [ -d "$REPO_ROOT/Versions" ]; then
-    cp "$OUTPUT_PATH" "$REPO_ROOT/Versions/"
+    cp -f "$SETUP_PATH" "$REPO_ROOT/Versions/"
+    cp -f "$NATIVE_PATH" "$REPO_ROOT/Versions/"
 fi
 if [ -d "$REPO_ROOT/Windows-Version/dist" ]; then
-    cp "$OUTPUT_PATH" "$REPO_ROOT/Windows-Version/dist/"
+    cp -f "$SETUP_PATH" "$REPO_ROOT/Windows-Version/dist/"
+    cp -f "$NATIVE_PATH" "$REPO_ROOT/Windows-Version/dist/"
 fi
 
 echo "--> Build completed successfully!"
-ls -lh "$OUTPUT_PATH"
-file "$OUTPUT_PATH"
+ls -lh "$SETUP_PATH" "$NATIVE_PATH"
+file "$SETUP_PATH"

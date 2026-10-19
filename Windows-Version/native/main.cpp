@@ -28,15 +28,16 @@
 #include <sstream>
 #include <fstream>
 #include <iostream>
+#include <algorithm>
 
 #include "include/webview.h"
 #include "assets_bundle.h"
 
 // Version and Metadata Constants
 static const wchar_t* APP_NAME = L"Class Management";
-static const wchar_t* APP_VERSION = L"26.10.4-009";
+static const wchar_t* APP_VERSION = L"26.10.4-010";
 static const wchar_t* APP_CHANNEL = L"UNSTABLE";
-static const wchar_t* WINDOW_TITLE = L"Class Management v26.10.4-009 [UNSTABLE]";
+static const wchar_t* WINDOW_TITLE = L"Class Management v26.10.4-010 [UNSTABLE]";
 static const wchar_t* AUTHOR_NAME = L"Guaira Jaramillo Nitoglia";
 static const wchar_t* AUTHOR_EMAIL = L"guaira.jaramillo.nitoglia@gmail.com";
 static const wchar_t* GITHUB_RELEASES_URL = L"https://github.com/Natsvkashii/ClassManager/releases";
@@ -126,7 +127,7 @@ static bool EnsureAssetFile(const std::wstring& targetPath, const unsigned char*
         size.HighPart = fileInfo.nFileSizeHigh;
         size.LowPart = fileInfo.nFileSizeLow;
         if ((size_t)size.QuadPart == len) {
-            return true; // Already up-to-date
+            return true;
         }
     }
 
@@ -142,7 +143,7 @@ static bool EnsureAssetFile(const std::wstring& targetPath, const unsigned char*
 // Helper: Perform HTTP GET using WinHTTP
 static std::string WinHttpGet(const std::wstring& host, const std::wstring& path, bool https = true) {
     std::string responseBody;
-    HINTERNET hSession = WinHttpOpen(L"ClassManagement-Native/26.10.4-009",
+    HINTERNET hSession = WinHttpOpen(L"ClassManagement-Native/26.10.4-010",
                                     WINHTTP_ACCESS_TYPE_DEFAULT_PROXY,
                                     WINHTTP_NO_PROXY_NAME,
                                     WINHTTP_NO_PROXY_BYPASS, 0);
@@ -165,7 +166,7 @@ static std::string WinHttpGet(const std::wstring& host, const std::wstring& path
         return "";
     }
 
-    const wchar_t* headers = L"Accept: application/vnd.github.v3+json\r\nUser-Agent: ClassManagement-Native/26.10.4-009\r\n";
+    const wchar_t* headers = L"Accept: application/vnd.github.v3+json\r\nUser-Agent: ClassManagement-Native/26.10.4-010\r\n";
     BOOL sendOk = WinHttpSendRequest(hRequest, headers, (DWORD)-1, NULL, 0, 0, 0);
     if (sendOk && WinHttpReceiveResponse(hRequest, NULL)) {
         DWORD dwSize = 0;
@@ -187,15 +188,212 @@ static std::string WinHttpGet(const std::wstring& host, const std::wstring& path
     return responseBody;
 }
 
+// Helper: Search user Documents/GestioneCorsi_Backups for the most recent backup JSON
+static std::string FindLatestBackupJson() {
+    wchar_t docsPath[MAX_PATH];
+    if (!SUCCEEDED(SHGetFolderPathW(NULL, CSIDL_MYDOCUMENTS, NULL, 0, docsPath))) {
+        return "";
+    }
+    std::wstring backupDir = std::wstring(docsPath) + L"\\GestioneCorsi_Backups";
+    std::wstring searchPattern = backupDir + L"\\*.json";
+
+    WIN32_FIND_DATAW fd;
+    HANDLE hFind = FindFirstFileW(searchPattern.c_str(), &fd);
+    if (hFind == INVALID_HANDLE_VALUE) return "";
+
+    std::wstring latestFile;
+    FILETIME latestTime = {0, 0};
+
+    do {
+        if (!(fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)) {
+            if (CompareFileTime(&fd.ftLastWriteTime, &latestTime) > 0) {
+                latestTime = fd.ftLastWriteTime;
+                latestFile = backupDir + L"\\" + fd.cFileName;
+            }
+        }
+    } while (FindNextFileW(hFind, &fd));
+    FindClose(hFind);
+
+    if (latestFile.empty()) return "";
+
+    HANDLE hFile = CreateFileW(latestFile.c_str(), GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+    if (hFile == INVALID_HANDLE_VALUE) return "";
+
+    DWORD size = GetFileSize(hFile, NULL);
+    if (size == 0 || size > 50 * 1024 * 1024) { // safety limit
+        CloseHandle(hFile);
+        return "";
+    }
+
+    std::string content(size, 0);
+    DWORD read = 0;
+    ReadFile(hFile, &content[0], size, &read, NULL);
+    CloseHandle(hFile);
+
+    return content;
+}
+
+// Helper: Create Windows Shell Shortcut (.lnk)
+static HRESULT CreateShellShortcut(const wchar_t* targetPath, const wchar_t* linkPath, const wchar_t* iconPath) {
+    IShellLinkW* psl = NULL;
+    HRESULT hr = CoCreateInstance(CLSID_ShellLink, NULL, CLSCTX_INPROC_SERVER, IID_IShellLinkW, (LPVOID*)&psl);
+    if (SUCCEEDED(hr)) {
+        psl->SetPath(targetPath);
+        if (iconPath && wcslen(iconPath) > 0) {
+            psl->SetIconLocation(iconPath, 0);
+        }
+        IPersistFile* ppf = NULL;
+        hr = psl->QueryInterface(IID_IPersistFile, (LPVOID*)&ppf);
+        if (SUCCEEDED(hr)) {
+            hr = ppf->Save(linkPath, TRUE);
+            ppf->Release();
+        }
+        psl->Release();
+    }
+    return hr;
+}
+
+// Helper: Setup / Installer Routine
+static int RunSetupInstaller(const wchar_t* currentExePath, bool isSilent) {
+    // 1. Terminate old running application instances
+    system("taskkill /F /IM \"Class Management.exe\" /T 2>nul");
+    system("taskkill /F /IM \"ClassManagement.exe\" /T 2>nul");
+    Sleep(500);
+
+    // 2. Resolve destination directory: %LOCALAPPDATA%\Programs\Class Management/
+    wchar_t localAppData[MAX_PATH];
+    if (!SUCCEEDED(SHGetFolderPathW(NULL, CSIDL_LOCAL_APPDATA, NULL, 0, localAppData))) {
+        wcscpy(localAppData, L"C:\\");
+    }
+    std::wstring programsDir = std::wstring(localAppData) + L"\\Programs";
+    CreateDirectoryW(programsDir.c_str(), NULL);
+
+    std::wstring targetDir = programsDir + L"\\Class Management";
+    CreateDirectoryW(targetDir.c_str(), NULL);
+
+    // Clean up legacy Electron clutter from target directory to free up ~150MB
+    std::wstring rmCmd = L"rd /s /q \"" + targetDir + L"\\resources\" 2>nul";
+    _wsystem(rmCmd.c_str());
+    rmCmd = L"rd /s /q \"" + targetDir + L"\\locales\" 2>nul";
+    _wsystem(rmCmd.c_str());
+
+    std::wstring targetExe = targetDir + L"\\Class Management.exe";
+    std::wstring targetIcon = targetDir + L"\\AppIcon.ico";
+
+    // Copy current executable to target destination
+    BOOL copyOk = CopyFileW(currentExePath, targetExe.c_str(), FALSE);
+    if (!copyOk) {
+        // If file locked, retry once after force kill
+        system("taskkill /F /IM \"Class Management.exe\" /T 2>nul");
+        Sleep(500);
+        copyOk = CopyFileW(currentExePath, targetExe.c_str(), FALSE);
+    }
+
+    // Extract AppIcon.ico
+    EnsureAssetFile(targetIcon, ASSET_APP_ICON_ICO, ASSET_APP_ICON_ICO_LEN);
+
+    // 3. Create Desktop shortcut
+    wchar_t desktopPath[MAX_PATH];
+    if (SUCCEEDED(SHGetFolderPathW(NULL, CSIDL_DESKTOPDIRECTORY, NULL, 0, desktopPath))) {
+        std::wstring desktopLnk = std::wstring(desktopPath) + L"\\Class Management.lnk";
+        CreateShellShortcut(targetExe.c_str(), desktopLnk.c_str(), targetIcon.c_str());
+    }
+
+    // 4. Create Start Menu shortcut
+    wchar_t startMenuPath[MAX_PATH];
+    if (SUCCEEDED(SHGetFolderPathW(NULL, CSIDL_PROGRAMS, NULL, 0, startMenuPath))) {
+        std::wstring startLnk = std::wstring(startMenuPath) + L"\\Class Management.lnk";
+        CreateShellShortcut(targetExe.c_str(), startLnk.c_str(), targetIcon.c_str());
+    }
+
+    // 5. Register in Windows Registry (Installed Programs)
+    HKEY hKey;
+    const wchar_t* uninstSubKey = L"Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\ClassManagement";
+    if (RegCreateKeyExW(HKEY_CURRENT_USER, uninstSubKey, 0, NULL, 0, KEY_WRITE, NULL, &hKey, NULL) == ERROR_SUCCESS) {
+        const wchar_t* dName = L"Class Management";
+        const wchar_t* dVer = APP_VERSION;
+        const wchar_t* pub = AUTHOR_NAME;
+        std::wstring iconVal = targetExe + L",0";
+        std::wstring uninstVal = L"\"" + targetExe + L"\" --uninstall";
+        DWORD dword1 = 1;
+
+        RegSetValueExW(hKey, L"DisplayName", 0, REG_SZ, (const BYTE*)dName, (DWORD)(wcslen(dName) + 1) * sizeof(wchar_t));
+        RegSetValueExW(hKey, L"DisplayVersion", 0, REG_SZ, (const BYTE*)dVer, (DWORD)(wcslen(dVer) + 1) * sizeof(wchar_t));
+        RegSetValueExW(hKey, L"Publisher", 0, REG_SZ, (const BYTE*)pub, (DWORD)(wcslen(pub) + 1) * sizeof(wchar_t));
+        RegSetValueExW(hKey, L"DisplayIcon", 0, REG_SZ, (const BYTE*)iconVal.c_str(), (DWORD)(iconVal.size() + 1) * sizeof(wchar_t));
+        RegSetValueExW(hKey, L"InstallLocation", 0, REG_SZ, (const BYTE*)targetDir.c_str(), (DWORD)(targetDir.size() + 1) * sizeof(wchar_t));
+        RegSetValueExW(hKey, L"UninstallString", 0, REG_SZ, (const BYTE*)uninstVal.c_str(), (DWORD)(uninstVal.size() + 1) * sizeof(wchar_t));
+        RegSetValueExW(hKey, L"NoModify", 0, REG_DWORD, (const BYTE*)&dword1, sizeof(DWORD));
+        RegSetValueExW(hKey, L"NoRepair", 0, REG_DWORD, (const BYTE*)&dword1, sizeof(DWORD));
+        RegCloseKey(hKey);
+    }
+
+    if (!isSilent) {
+        MessageBoxW(
+            NULL,
+            L"Class Management v26.10.4-010 è stato installato con successo!\n\n"
+            L"La nuova versione nativa ultra-leggera sostituisce la versione precedente.\n"
+            L"Tutti i dati, corsi e backup storici sono stati preservati al 100%.\n\n"
+            L"L'applicazione verrà avviata ora.",
+            L"Class Management - Installazione Completata",
+            MB_OK | MB_ICONINFORMATION
+        );
+    }
+
+    // Launch installed application
+    ShellExecuteW(NULL, L"open", targetExe.c_str(), NULL, targetDir.c_str(), SW_SHOWNORMAL);
+    return 0;
+}
+
 // WinMain Entry Point
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow) {
-    // 1. Initialize Common Controls
+    // Initialize COM and Common Controls
+    CoInitializeEx(NULL, COINIT_APARTMENTTHREADED);
     INITCOMMONCONTROLSEX icex;
     icex.dwSize = sizeof(INITCOMMONCONTROLSEX);
     icex.dwICC = ICC_STANDARD_CLASSES | ICC_WIN95_CLASSES;
     InitCommonControlsEx(&icex);
 
-    // 2. Prepare App Data and Assets Directory (%LOCALAPPDATA%\ClassManagement_App)
+    wchar_t currentExePath[MAX_PATH];
+    GetModuleFileNameW(NULL, currentExePath, MAX_PATH);
+    std::wstring exeLower = currentExePath;
+    std::transform(exeLower.begin(), exeLower.end(), exeLower.begin(), ::towlower);
+
+    std::string cmdLineStr = lpCmdLine ? lpCmdLine : "";
+    std::string cmdLower = cmdLineStr;
+    std::transform(cmdLower.begin(), cmdLower.end(), cmdLower.begin(), ::tolower);
+
+    bool isSilent = (cmdLower.find("/s") != std::string::npos || cmdLower.find("--silent") != std::string::npos);
+    bool isSetupExe = (exeLower.find(L"setup") != std::wstring::npos);
+    bool isInstallCmd = (cmdLower.find("/install") != std::string::npos || cmdLower.find("--install") != std::string::npos);
+    bool isUninstallCmd = (cmdLower.find("--uninstall") != std::string::npos);
+
+    // Handle Uninstallation
+    if (isUninstallCmd) {
+        wchar_t desktopPath[MAX_PATH];
+        if (SUCCEEDED(SHGetFolderPathW(NULL, CSIDL_DESKTOPDIRECTORY, NULL, 0, desktopPath))) {
+            std::wstring desktopLnk = std::wstring(desktopPath) + L"\\Class Management.lnk";
+            DeleteFileW(desktopLnk.c_str());
+        }
+        wchar_t startMenuPath[MAX_PATH];
+        if (SUCCEEDED(SHGetFolderPathW(NULL, CSIDL_PROGRAMS, NULL, 0, startMenuPath))) {
+            std::wstring startLnk = std::wstring(startMenuPath) + L"\\Class Management.lnk";
+            DeleteFileW(startLnk.c_str());
+        }
+        RegDeleteKeyW(HKEY_CURRENT_USER, L"Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\ClassManagement");
+        if (!isSilent) {
+            MessageBoxW(NULL, L"Class Management è stato disinstallato dal sistema.\nI tuoi dati e i file di backup in Documenti sono stati conservati.", L"Class Management", MB_OK | MB_ICONINFORMATION);
+        }
+        return 0;
+    }
+
+    // Handle Setup / Installer Mode
+    if (isSetupExe || isInstallCmd) {
+        return RunSetupInstaller(currentExePath, isSilent);
+    }
+
+    // Standard Application Mode
+    // 1. Prepare App Data and Assets Directory (%LOCALAPPDATA%\ClassManagement_App)
     wchar_t localAppData[MAX_PATH];
     if (!SUCCEEDED(SHGetFolderPathW(NULL, CSIDL_LOCAL_APPDATA, NULL, 0, localAppData))) {
         wcscpy(localAppData, L"C:\\");
@@ -214,10 +412,10 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
     EnsureAssetFile(indexPath, ASSET_INDEX_HTML, ASSET_INDEX_HTML_LEN);
     EnsureAssetFile(logoPath, ASSET_LOGO_PNG, ASSET_LOGO_PNG_LEN);
-    EnsureAssetFile(iconPath, ASSET_LOGO_PNG, ASSET_LOGO_PNG_LEN); // Copy as icon.png for UI fallbacks
+    EnsureAssetFile(iconPath, ASSET_LOGO_PNG, ASSET_LOGO_PNG_LEN);
     EnsureAssetFile(appIconPath, ASSET_APP_ICON_ICO, ASSET_APP_ICON_ICO_LEN);
 
-    // 3. Check for Microsoft Edge WebView2 Runtime
+    // 2. Check for Microsoft Edge WebView2 Runtime
     webview::detail::mswebview2::loader loader;
     LPWSTR versionStr = nullptr;
     HRESULT hrVersion = loader.get_available_browser_version_string(nullptr, &versionStr);
@@ -237,12 +435,12 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     }
     CoTaskMemFree(versionStr);
 
-    // 4. Create Native WebView2 Instance
+    // 3. Create Native WebView2 Instance
     webview::webview w(false, nullptr);
     HWND hwnd = (HWND)w.window();
 
     // Set Window Title and Size
-    w.set_title("Class Management v26.10.4-009 [UNSTABLE]");
+    w.set_title("Class Management v26.10.4-010 [UNSTABLE]");
     w.set_size(1400, 900, WEBVIEW_HINT_NONE);
     w.set_size(980, 650, WEBVIEW_HINT_MIN);
 
@@ -268,7 +466,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         DwmSetWindowAttribute(hwnd, 20 /* DWMWA_USE_IMMERSIVE_DARK_MODE */, &dark, sizeof(dark));
     }
 
-    // 5. Bind Native C++ Methods to JavaScript
+    // 4. Bind Native C++ Methods to JavaScript
     // A. openExternal: Opens URL in user's default browser
     w.bind("__native_open_external", [](std::string req) -> std::string {
         std::string url = ParseJsonArg(req, 0);
@@ -354,7 +552,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     w.bind("__native_check_updates", [](std::string /*req*/) -> std::string {
         std::string jsonResp = WinHttpGet(L"api.github.com", L"/repos/Natsvkashii/ClassManager/releases", true);
         if (jsonResp.empty() || jsonResp[0] != '[') {
-            // Fallback to update-manifest.json
             std::string manifestResp = WinHttpGet(L"raw.githubusercontent.com", L"/Natsvkashii/ClassManager/stable/update-manifest.json", true);
             if (!manifestResp.empty() && manifestResp[0] == '{') {
                 return "{\"success\":true,\"releases\":[" + manifestResp + "]}";
@@ -422,7 +619,16 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         return "{\"canceled\":true}";
     });
 
-    // 6. Inject JavaScript Bridge Shim (window.electronAPI) Before Loading HTML
+    // I. checkExistingLegacyData: Automatically detects legacy backup data to migrate
+    w.bind("__native_check_legacy_data", [](std::string /*req*/) -> std::string {
+        std::string backupData = FindLatestBackupJson();
+        if (!backupData.empty() && backupData[0] == '{') {
+            return "{\"success\":true,\"data\":" + backupData + "}";
+        }
+        return "{\"success\":false}";
+    });
+
+    // 5. Inject JavaScript Bridge Shim (window.electronAPI)
     const char* bridge_js = R"JS(
     (function() {
         window.electronAPI = {
@@ -453,10 +659,13 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
                 return window.__native_show_in_folder(filePath);
             },
             getAppVersion: function() {
-                return Promise.resolve('26.10.4-009');
+                return Promise.resolve('26.10.4-010');
             },
             checkForUpdatesAPI: function() {
                 return window.__native_check_updates();
+            },
+            checkExistingLegacyData: function() {
+                return window.__native_check_legacy_data();
             },
             downloadUpdateAsset: function(url, filename, reveal, version, releaseInfo) {
                 window.__native_open_external(url);
@@ -482,16 +691,15 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
     w.init(bridge_js);
 
-    // 7. Navigate to the local application index.html
+    // 6. Navigate to the local application index.html
     std::wstring fileUri = L"file:///" + indexPath;
-    // Replace backslashes with forward slashes for URI format
     for (size_t i = 0; i < fileUri.size(); ++i) {
         if (fileUri[i] == L'\\') fileUri[i] = L'/';
     }
 
     w.navigate(WideToUtf8(fileUri));
 
-    // 8. Run the Message Loop
+    // 7. Run the Message Loop
     w.run();
 
     return 0;

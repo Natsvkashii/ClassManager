@@ -16,7 +16,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Class Management v26.10.4-009 (Windows Native Edition)</title>
+    <title>Class Management v26.10.4-010 (Windows Native Edition)</title>
     <link rel="icon" type="image/png" href="logo.png">
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -1099,12 +1099,21 @@ Removing, obfuscating, or altering these credits violates the author's attributi
         ];
 
         const INITIAL_DATA = {
-            version: "26.10.4-009",
+            version: "26.10.4-010",
             channel: "unstable",
             deletedItems: [],
             lastUpdated: new Date().toISOString(),
             activeCourseId: "",
             changelog: [
+                {
+                    version: "26.10.4-010",
+                    date: "2026-10-19",
+                    changes: [
+                        "Risolto in modo definitivo il controllo aggiornamenti su macOS: propagazione del flag prerelease al comparatore semantico, eliminando la notifica di aggiornamento persistente a versione già installata.",
+                        "Versione nativa C++ promossa a release ufficiale per Windows con Setup installer leggero (~2.2 MB): rimossa la versione pesante Electron, migrazione e preservazione automatica di tutti i dati storici e backup pregressi.",
+                        "Risolto il bug di scorrimento orizzontale su Windows: la marcatura di una presenza aggiorna ora l'elemento in-place preservando la posizione di scroll senza riavvolgere la schermata all'inizio."
+                    ]
+                },
                 {
                     version: "26.10.4-009",
                     date: "2026-10-19",
@@ -1459,17 +1468,36 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                             req.onsuccess = () => resolve(req.result || null);
                             req.onerror = () => resolve(null);
                         });
-                        if (data) return data;
+                        if (data && Array.isArray(data.courses) && data.courses.length > 0) return data;
                     }
                 } catch (e) {
                     console.warn("IndexedDB load fallback:", e);
                 }
                 try {
                     const raw = localStorage.getItem("class_management_state_v1") || localStorage.getItem("gestione_corsi_state_v1");
-                    return raw ? JSON.parse(raw) : null;
-                } catch (e) {
-                    return null;
+                    if (raw) {
+                        const parsed = JSON.parse(raw);
+                        if (parsed && Array.isArray(parsed.courses) && parsed.courses.length > 0) return parsed;
+                    }
+                } catch (e) {}
+
+                // Automatic legacy data migration: if fresh install or empty profile, check existing backups in Documents
+                if (window.electronAPI && typeof window.electronAPI.checkExistingLegacyData === "function") {
+                    try {
+                        const legacy = await window.electronAPI.checkExistingLegacyData();
+                        if (legacy && legacy.success && legacy.data) {
+                            const parsed = typeof legacy.data === "string" ? JSON.parse(legacy.data) : legacy.data;
+                            if (parsed && Array.isArray(parsed.courses) && parsed.courses.length > 0) {
+                                console.log("[Data-Migration] Dati storici rilevati e ripristinati automaticamente!", parsed.courses.length, "corsi.");
+                                await this.saveState(parsed);
+                                return parsed;
+                            }
+                        }
+                    } catch (migErr) {
+                        console.warn("[Data-Migration] Avviso verifica dati pregressi:", migErr);
+                    }
                 }
+                return null;
             }
 
             async saveState(state) {
@@ -2576,6 +2604,20 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 const container = document.getElementById("mainViewContainer");
                 if (!container) return;
 
+                // Capture scroll positions before re-rendering
+                const scrollStates = [];
+                const scrollables = container.querySelectorAll(".overflow-x-auto, .overflow-y-auto, [id*='Scroll']");
+                scrollables.forEach(el => {
+                    scrollStates.push({
+                        id: el.id,
+                        scrollLeft: el.scrollLeft,
+                        scrollTop: el.scrollTop
+                    });
+                });
+                const mainArea = document.getElementById("mainContentArea");
+                const mainScrollTop = mainArea ? mainArea.scrollTop : 0;
+                const mainScrollLeft = mainArea ? mainArea.scrollLeft : 0;
+
                 switch (this.currentTab) {
                     case "home":
                         this.renderHomeView(container);
@@ -2625,6 +2667,19 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                     default:
                         this.renderHomeView(container);
                 }
+
+                // Restore scroll positions after re-rendering
+                if (mainArea) {
+                    mainArea.scrollTop = mainScrollTop;
+                    mainArea.scrollLeft = mainScrollLeft;
+                }
+                const newScrollables = container.querySelectorAll(".overflow-x-auto, .overflow-y-auto, [id*='Scroll']");
+                newScrollables.forEach((el, idx) => {
+                    if (idx < scrollStates.length) {
+                        el.scrollLeft = scrollStates[idx].scrollLeft;
+                        el.scrollTop = scrollStates[idx].scrollTop;
+                    }
+                });
             }
 
             renderHomeView(container) {
@@ -2778,7 +2833,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
 
                         <!-- Attendance Table -->
                         <div class="bg-white dark:bg-navy-900 rounded-2xl border border-sky-100 dark:border-slate-800 shadow-xs overflow-hidden">
-                            <div class="overflow-x-auto custom-scrollbar">
+                            <div id="attendanceScrollContainer" class="overflow-x-auto custom-scrollbar">
                                 <table class="w-full text-left border-collapse text-xs">
                                     <thead>
                                         <tr class="bg-sky-50/80 dark:bg-navy-800/90 border-b border-sky-100 dark:border-slate-800 text-slate-600 dark:text-slate-300">
@@ -2843,7 +2898,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                                                         else if (val === "G") btnClass = "bg-amber-500 text-white font-extrabold shadow-2xs";
                                                         return `
                                                             <td class="px-2 py-2 text-center border-r border-sky-100/50 dark:border-slate-800/70">
-                                                                <button onclick="app.cycleAttendance('${st.id}', '${dStr}')" class="w-9 h-8 rounded-lg text-xs transition ${btnClass}">
+                                                                <button onclick="app.cycleAttendance('${st.id}', '${dStr}', this)" class="w-9 h-8 rounded-lg text-xs transition ${btnClass}">
                                                                     ${val || "·"}
                                                                 </button>
                                                             </td>
@@ -3006,7 +3061,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 this.renderAll();
             }
 
-            cycleAttendance(studentId, dateStr) {
+            cycleAttendance(studentId, dateStr, btnElement = null) {
                 const course = this.getActiveCourse();
                 const sec = this.getActiveSection(course);
                 if (!course || !sec) return;
@@ -3017,7 +3072,19 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 if (next === "") delete sec.attendance[studentId][dateStr];
                 else sec.attendance[studentId][dateStr] = next;
                 this.persist();
-                this.renderMainView();
+
+                // In-place button update to eliminate layout reflow and scroll jumps
+                const btn = btnElement || (typeof event !== 'undefined' ? event?.currentTarget : null);
+                if (btn && btn.tagName === 'BUTTON') {
+                    btn.textContent = next || "·";
+                    let btnClass = "w-9 h-8 rounded-lg text-xs transition bg-slate-100 dark:bg-navy-800 text-slate-400";
+                    if (next === "P") btnClass = "w-9 h-8 rounded-lg text-xs transition bg-emerald-500 text-white font-extrabold shadow-2xs";
+                    else if (next === "A") btnClass = "w-9 h-8 rounded-lg text-xs transition bg-rose-500 text-white font-extrabold shadow-2xs";
+                    else if (next === "G") btnClass = "w-9 h-8 rounded-lg text-xs transition bg-amber-500 text-white font-extrabold shadow-2xs";
+                    btn.className = btnClass;
+                } else {
+                    this.renderMainView();
+                }
             }
 
             getStudentAttendanceEvaluationInfo(course, studentId, moduleObj = null) {
@@ -7531,7 +7598,7 @@ Dettagli di Sistema:
                     const res = await window.electronAPI.getPendingUpdate();
                     if (res && res.success && res.pendingUpdate && res.pendingUpdate.filePath) {
                         const pending = res.pendingUpdate;
-                        const curVer = this.parseAppVersion(this.state.version || INITIAL_DATA.version || "26.10.4-009");
+                        const curVer = this.parseAppVersion(this.state.version || INITIAL_DATA.version || "26.10.4-010");
                         const pendingVer = this.parseAppVersion(pending.version || "");
                         if (this.compareAppVersions(pendingVer, curVer) > 0) {
                             this.pendingUpdate = pending;
@@ -7784,7 +7851,7 @@ Dettagli di Sistema:
                         return;
                     }
 
-                    const currentVer = this.parseAppVersion(this.state.version || INITIAL_DATA.version || "26.10.4-009");
+                    const currentVer = this.parseAppVersion(this.state.version || INITIAL_DATA.version || "26.10.4-010");
                     // Beta versions receive beta updates even if toggle is off until next stable arrives
                     const isCurrentBeta = this.isBetaVersion();
                     const includeBeta = (this.state.settings?.includeBetaUpdates === true) || isCurrentBeta;
@@ -7881,7 +7948,7 @@ Dettagli di Sistema:
                                     </div>
                                     <div>
                                         <h4 class="text-sm font-extrabold text-slate-900 dark:text-white">Class Management è Aggiornato!</h4>
-                                        <p class="text-slate-500 mt-1">Stai già utilizzando l'ultima versione disponibile (<strong>v${this.escapeHtml(this.state.version || INITIAL_DATA.version || "26.10.4-009")}</strong>). Non sono necessari aggiornamenti.</p>
+                                        <p class="text-slate-500 mt-1">Stai già utilizzando l'ultima versione disponibile (<strong>v${this.escapeHtml(this.state.version || INITIAL_DATA.version || "26.10.4-010")}</strong>). Non sono necessari aggiornamenti.</p>
                                     </div>
                                     <div class="pt-2">
                                         <button type="button" onclick="app.closeModal()" class="px-5 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-extrabold shadow-sm transition">OK</button>
@@ -8069,7 +8136,7 @@ Dettagli di Sistema:
              */
             renderCreditsView(container) {
                 const s = this.state.settings || {};
-                const currentVer = this.state.version || INITIAL_DATA.version || "26.10.4-009";
+                const currentVer = this.state.version || INITIAL_DATA.version || "26.10.4-010";
                 const latestChangelog = (this.state.changelog && this.state.changelog.length > 0) ? this.state.changelog[0] : null;
                 const update = this.availableUpdate;
                 const isDownloading = this.updateState?.isDownloading;

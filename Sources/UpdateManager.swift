@@ -248,7 +248,7 @@ public final class UpdateManager: NSObject, URLSessionDownloadDelegate {
         var highestCandidate: (release: GitHubRelease, version: AppVersion)? = nil
 
         for rel in filteredReleases {
-            let relVer = AppVersion(string: rel.cleanVersion)
+            let relVer = AppVersion(string: rel.cleanVersion, channel: rel.prerelease ? "unstable" : "stable")
             if let currentBest = highestCandidate {
                 if relVer > currentBest.version {
                     highestCandidate = (rel, relVer)

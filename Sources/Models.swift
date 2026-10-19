@@ -18,7 +18,7 @@ public enum AuthorAttribution {
     public static let authorName = "Guaira Jaramillo Nitoglia"
     public static let authorEmail = "guaira.jaramillo.nitoglia@gmail.com"
     public static let appName = "Class Management"
-    public static let appVersion = "26.10.4-009"
+    public static let appVersion = "26.10.4-010"
     public static let appChannel = "unstable"
     public static let licenseName = "GNU General Public License v3.0 (GPL-3.0)"
 
@@ -1552,6 +1552,11 @@ public struct AppState: Codable, Equatable {
     ]
 
     public static let defaultChangelog: [ChangelogEntry] = [
+        ChangelogEntry(version: "26.10.4-010", date: "2026-10-19", changes: [
+            "Risolto in modo definitivo il controllo aggiornamenti su macOS: propagazione del flag prerelease al comparatore semantico, eliminando la notifica di aggiornamento persistente a versione già installata.",
+            "Versione nativa promossa a release ufficiale per Windows con Setup installer leggero (~2.2 MB): rimossa la versione pesante Electron, migrazione e preservazione automatica di tutti i dati storici e backup pregressi.",
+            "Risolto il bug di scorrimento orizzontale su Windows: la marcatura di una presenza aggiorna ora l'elemento in-place preservando la posizione di scroll senza riavvolgere la schermata all'inizio."
+        ]),
         ChangelogEntry(version: "26.10.4-009", date: "2026-10-19", changes: [
             "Separazione netta del numero di versione dal canale (badge Unstable dedicato) per eliminare conflitti di sanitizzazione e verifiche errate.",
             "Risolto il problema di riavvio su macOS: l'applicazione ora si chiude all'avvio dell'installer e si riapre automaticamente al termine dell'installazione.",
