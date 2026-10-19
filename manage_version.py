@@ -65,6 +65,15 @@ def get_swift_version():
     return match.group(1) if match else None
 
 
+def get_swift_channel():
+    if not os.path.exists(MODELS_SWIFT):
+        return "stable"
+    with open(MODELS_SWIFT, "r", encoding="utf-8") as f:
+        content = f.read()
+    match = re.search(r'public\s+static\s+let\s+appChannel\s*=\s*"([^"]+)"', content)
+    return match.group(1).lower() if match else "stable"
+
+
 def get_plist_version():
     if not os.path.exists(INFO_PLIST):
         return None
@@ -111,6 +120,8 @@ def set_version(version: str):
 
 
 def is_version_unstable(cur_ver: str) -> bool:
+    if get_swift_channel() == "unstable":
+        return True
     if not cur_ver:
         return False
     v = cur_ver.lower().strip()
@@ -126,13 +137,22 @@ def is_version_unstable(cur_ver: str) -> bool:
 
 
 def bump_beta():
-    cur = get_swift_version() or "26.10.4-001(unstable)"
-    # New standardized format: YY.MM.PATCH-NUM(status)
+    cur = get_swift_version() or "26.10.4-001"
+    # Clean format: YY.MM.PATCH-NUM
+    m_clean = re.match(r"^(\d+\.\d+\.\d+)-(\d+)$", cur)
+    if m_clean:
+        base, num_str = m_clean.groups()
+        num = int(num_str)
+        new_ver = f"{base}-{num + 1:03d}"
+        set_version(new_ver)
+        return new_ver
+
+    # Format with status tag: YY.MM.PATCH-NUM(status)
     m_new = re.match(r"^(\d+\.\d+\.\d+)-(\d+)\((unstable|stable)\)$", cur)
     if m_new:
         base, num_str, status = m_new.groups()
         num = int(num_str)
-        new_ver = f"{base}-{num + 1:03d}(unstable)"
+        new_ver = f"{base}-{num + 1:03d}"
         set_version(new_ver)
         return new_ver
 
@@ -320,11 +340,22 @@ def publish_release(is_beta: bool = False):
 
     if token:
         print("\n=== Publishing Release on GitHub via API ===")
+        rel_body = f"Release di Class Management {tag_name}.\n\nAutore: Guaira Jaramillo Nitoglia (guaira.jaramillo.nitoglia@gmail.com)\nLicenza: GNU General Public License v3.0 (GPL-3.0)\nCanale: {'Beta / Unstable' if is_beta else 'Stabile'}."
+        manifest_path = os.path.join(PROJECT_ROOT, "update-manifest.json")
+        if os.path.exists(manifest_path):
+            try:
+                with open(manifest_path, "r", encoding="utf-8") as mf:
+                    mdata = json.load(mf)
+                    if mdata.get("body"):
+                        rel_body = f"{mdata['body']}\n\n{rel_body}"
+            except Exception:
+                pass
+
         rel_data = {
             "tag_name": tag_name,
             "target_commitish": expected_branch,
             "name": f"Class Management {tag_name}",
-            "body": f"Release di Class Management {tag_name}.\n\nAutore: Guaira Jaramillo Nitoglia (guaira.jaramillo.nitoglia@gmail.com)\nLicenza: GNU General Public License v3.0 (GPL-3.0)\nCanale: {'Beta / Unstable' if is_beta else 'Stabile'}.",
+            "body": rel_body,
             "draft": False,
             "prerelease": is_beta
         }

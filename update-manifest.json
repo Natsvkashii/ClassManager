@@ -1,12 +1,13 @@
 {
-  "version": "26.10.4-008(unstable)",
-  "tag_name": "v26.10.4-008(unstable)",
+  "version": "26.10.4-009",
+  "channel": "unstable",
+  "tag_name": "v26.10.4-009",
   "prerelease": true,
-  "published_at": "2026-10-19T11:00:00Z",
-  "name": "Class Management v26.10.4-008(unstable)",
-  "body": "Novità versione 26.10.4-008(unstable):\n- Nuovo logo e icona moderna/minimalista Fluent/macOS (mortarboard e libro aperto con sfumature blu reale, ciano e accento smeraldo).\n- Rimozione del selettore ridondante gruppi/corsi con pallini e nomi dalla schermata di Fatturazione (gestito nella barra superiore).\n- Supporto alla consultazione dei mesi precedenti nel Piano Lezioni, con focus e scroll automatico immediato sul mese corrente.\n- Visualizzazione in grigio delle lezioni passate di altri moduli nel calendario (escluse automaticamente da esportazione PNG e WhatsApp).\n- Badge di stato lezione: pallino grigio con spunta (✓) se sono state segnate presenze; pallino con X rossa (✕) se la data è passata senza presenze registrate.",
-  "setupUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.10.4-008(unstable)/Class-Management-26.10.4-008.unstable.-Setup.exe",
-  "setupName": "Class-Management-26.10.4-008.unstable.-Setup.exe",
-  "portableUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.10.4-008(unstable)/Class-Management-26.10.4-008.unstable.-Portable.exe",
-  "portableName": "Class-Management-26.10.4-008.unstable.-Portable.exe"
+  "published_at": "2026-10-19T12:00:00Z",
+  "name": "Class Management v26.10.4-009 [UNSTABLE]",
+  "body": "Novità versione 26.10.4-009:\n- Separazione netta del numero di versione dal canale (badge Unstable dedicato) per eliminare conflitti di sanitizzazione e verifiche errate.\n- Risolto il problema di riavvio su macOS: l'applicazione ora si chiude all'avvio dell'installer e si riapre automaticamente al termine dell'installazione.\n- Risolto il problema della notifica persistente di aggiornamento su macOS una volta installata l'ultima versione.\n- Nuova versione nativa per Windows (Class-Management-26.10.4-009-Native.exe) compilata in C++ nativo Win32: download diretto affidabile tramite librerie di sistema Windows (urlmon/winhttp) e progress bar nativa.\n- Semplificato il sistema di aggiornamento nella versione Windows standard: il pulsante di download apre direttamente il link nel browser web senza blocchi al caricamento dello stream.",
+  "setupUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.10.4-009/Class-Management-26.10.4-009-Setup.exe",
+  "setupName": "Class-Management-26.10.4-009-Setup.exe",
+  "nativeUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.10.4-009/Class-Management-26.10.4-009-Native.exe",
+  "nativeName": "Class-Management-26.10.4-009-Native.exe"
 }

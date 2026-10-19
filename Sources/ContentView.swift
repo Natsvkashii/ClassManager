@@ -399,10 +399,17 @@ private struct SidebarView: View {
                 .buttonStyle(.plain)
                 .help("Invia feedback o commenti via email all'autore")
 
-                Text("\(AuthorAttribution.appName) v\(AuthorAttribution.appVersion)")
-                    .font(.system(size: 9.5, weight: .medium))
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, alignment: .center)
+                HStack(spacing: 4) {
+                    Text("\(AuthorAttribution.appName) v\(AuthorAttribution.appVersion)")
+                        .font(.system(size: 9.5, weight: .medium))
+                        .foregroundStyle(.secondary)
+                    if !AuthorAttribution.appChannel.isEmpty {
+                        Text("[\(AuthorAttribution.appChannel.uppercased())]")
+                            .font(.system(size: 8.5, weight: .bold))
+                            .foregroundStyle(.orange)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .center)
             }
             .padding(.horizontal, 10)
             .padding(.vertical, 8)

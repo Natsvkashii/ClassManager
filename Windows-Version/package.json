@@ -1,7 +1,7 @@
 {
   "name": "class-management",
-  "version": "26.10.4-008-unstable",
-  "description": "Class Management v26.10.4-008(unstable) — Piattaforma Accademica Multi-Livello QCER (Presenze, Piano Lezioni, Voti, Attività, Criteri di Valutazione, Piano Lezioni Drag & Drop, Cestino 30gg, Anagrafica, Fatturazione)",
+  "version": "26.10.4-009",
+  "description": "Class Management v26.10.4-009 [UNSTABLE] — Piattaforma Accademica Multi-Livello QCER (Presenze, Piano Lezioni, Voti, Attività, Criteri di Valutazione, Piano Lezioni Drag & Drop, Cestino 30gg, Anagrafica, Fatturazione)",
   "author": {
     "name": "Guaira Jaramillo Nitoglia",
     "email": "guaira.jaramillo.nitoglia@gmail.com"
@@ -32,12 +32,6 @@
           "arch": [
             "x64"
           ]
-        },
-        {
-          "target": "portable",
-          "arch": [
-            "x64"
-          ]
         }
       ]
     },
@@ -48,10 +42,7 @@
       "createStartMenuShortcut": true,
       "shortcutName": "Class Management",
       "uninstallDisplayName": "Class Management",
-      "artifactName": "Class-Management-26.10.4-008(unstable)-Setup.${ext}"
-    },
-    "portable": {
-      "artifactName": "Class-Management-26.10.4-008(unstable)-Portable.${ext}"
+      "artifactName": "Class-Management-26.10.4-009-Setup.${ext}"
     }
   },
   "devDependencies": {

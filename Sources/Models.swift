@@ -18,10 +18,14 @@ public enum AuthorAttribution {
     public static let authorName = "Guaira Jaramillo Nitoglia"
     public static let authorEmail = "guaira.jaramillo.nitoglia@gmail.com"
     public static let appName = "Class Management"
-    public static let appVersion = "26.10.4-008(unstable)"
+    public static let appVersion = "26.10.4-009"
+    public static let appChannel = "unstable"
     public static let licenseName = "GNU General Public License v3.0 (GPL-3.0)"
 
     public static var isBeta: Bool {
+        if appChannel.lowercased() == "unstable" || appChannel.lowercased() == "beta" {
+            return true
+        }
         let v = appVersion.lowercased()
         if v.contains("(unstable)") || v.contains("unstable") || v.contains("beta") {
             return true
@@ -1548,6 +1552,13 @@ public struct AppState: Codable, Equatable {
     ]
 
     public static let defaultChangelog: [ChangelogEntry] = [
+        ChangelogEntry(version: "26.10.4-009", date: "2026-10-19", changes: [
+            "Separazione netta del numero di versione dal canale (badge Unstable dedicato) per eliminare conflitti di sanitizzazione e verifiche errate.",
+            "Risolto il problema di riavvio su macOS: l'applicazione ora si chiude all'avvio dell'installer e si riapre automaticamente al termine dell'installazione.",
+            "Risolto il problema della notifica persistente di aggiornamento su macOS una volta installata l'ultima versione.",
+            "Nuova versione nativa per Windows (Class-Management-26.10.4-009-Native.exe) compilata in C++ nativo Win32: download diretto affidabile tramite librerie di sistema Windows (urlmon/winhttp) e progress bar nativa.",
+            "Semplificato il sistema di aggiornamento nella versione Windows standard: il pulsante di download apre direttamente il link nel browser web senza blocchi al caricamento dello stream."
+        ]),
         ChangelogEntry(version: "26.10.4-008(unstable)", date: "2026-10-19", changes: [
             "Nuovo logo e icona moderna/minimalista Fluent/macOS (mortarboard e libro aperto con sfumature blu reale, ciano e accento smeraldo).",
             "Rimozione del selettore ridondante gruppi/corsi con pallini e nomi dalla schermata di Fatturazione (gestito nella barra superiore).",

@@ -76,13 +76,15 @@ public struct AppVersion: Comparable, Equatable, CustomStringConvertible {
         raw
     }
 
-    public init(string: String) {
+    public init(string: String, channel: String? = nil) {
         let clean = string.trimmingCharacters(in: CharacterSet(charactersIn: "vV \t\n\r"))
         self.raw = clean
 
         let lower = clean.lowercased()
         var unstable = false
-        if lower.contains("(unstable)") || lower.contains("unstable") || lower.contains("beta") {
+        if let ch = channel?.lowercased(), ch == "unstable" || ch == "beta" {
+            unstable = true
+        } else if lower.contains("(unstable)") || lower.contains("unstable") || lower.contains(".unstable.") || lower.contains("beta") {
             unstable = true
         } else if lower.contains("(stable)") || lower.contains("stable") {
             unstable = false
@@ -91,9 +93,10 @@ public struct AppVersion: Comparable, Equatable, CustomStringConvertible {
         }
         self.isUnstable = unstable
 
-        // Strip status tags like (stable), (unstable), (beta)
+        // Strip status tags like (stable), (unstable), (beta), .unstable.
         let core = clean
             .replacingOccurrences(of: #"\((?:unstable|stable|beta)\)"#, with: "", options: [.regularExpression, .caseInsensitive])
+            .replacingOccurrences(of: #"\.(?:unstable|stable|beta)\."#, with: "", options: [.regularExpression, .caseInsensitive])
             .replacingOccurrences(of: #"-(?:unstable|stable|beta)"#, with: "", options: [.regularExpression, .caseInsensitive])
             .trimmingCharacters(in: .whitespaces)
 
@@ -228,7 +231,7 @@ public final class UpdateManager: NSObject, URLSessionDownloadDelegate {
         self.isChecking = false
         self.lastCheckDate = Date()
 
-        let currentVersion = AppVersion(string: AuthorAttribution.appVersion)
+        let currentVersion = AppVersion(string: AuthorAttribution.appVersion, channel: AuthorAttribution.appChannel)
 
         // Continuity rule: Beta versions continue to receive beta updates until a stable version is installed
         let effectiveIncludeBeta = includeBeta || AuthorAttribution.isBeta
@@ -425,7 +428,26 @@ public final class UpdateManager: NSObject, URLSessionDownloadDelegate {
 
                 let launched = NSWorkspace.shared.open(destinationUrl)
                 if launched {
-                    self.statusMessage = "Installer avviato (\(destinationUrl.lastPathComponent)). Segui le istruzioni a schermo per completare l'aggiornamento."
+                    self.statusMessage = "Installer avviato. L'applicazione si chiuderà e si riavvierà al termine dell'aggiornamento..."
+
+                    // Background script: blocks on open -W until macOS installer completes, then relaunches Class Management
+                    let pkgPath = destinationUrl.path.replacingOccurrences(of: "\"", with: "\\\"")
+                    let relaunchScript = """
+                    sleep 1
+                    open -W "\(pkgPath)"
+                    if [ -d "/Applications/Class Management.app" ]; then
+                        open "/Applications/Class Management.app"
+                    fi
+                    """
+                    let p = Process()
+                    p.executableURL = URL(fileURLWithPath: "/bin/sh")
+                    p.arguments = ["-c", relaunchScript]
+                    try? p.run()
+
+                    // Gracefully terminate this application so the installer can update files cleanly
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+                        NSApplication.shared.terminate(nil)
+                    }
                 } else {
                     self.errorMessage = "Impossibile avviare automaticamente l'installer. Trovi il file in: \(destinationUrl.path)"
                     self.statusMessage = self.errorMessage ?? ""

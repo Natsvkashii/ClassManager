@@ -2343,6 +2343,14 @@ public struct CreditsView: View {
                                     .padding(.vertical, 2)
                                     .background(Capsule().fill(Color.blue.opacity(0.18)))
                                     .foregroundStyle(.blue)
+                                if !AuthorAttribution.appChannel.isEmpty {
+                                    Text(AuthorAttribution.appChannel.uppercased())
+                                        .font(.caption2.bold())
+                                        .padding(.horizontal, 6)
+                                        .padding(.vertical, 2)
+                                        .background(Capsule().fill(Color.orange.opacity(0.18)))
+                                        .foregroundStyle(.orange)
+                                }
                                 Text("Versione installata")
                                     .font(.caption2.bold())
                                     .foregroundStyle(.secondary)
@@ -2561,6 +2569,14 @@ public struct AppInfoAndCreditsSheet: View {
                                     .padding(.vertical, 2)
                                     .background(Capsule().fill(Color.blue.opacity(0.18)))
                                     .foregroundStyle(.blue)
+                                if !AuthorAttribution.appChannel.isEmpty {
+                                    Text(AuthorAttribution.appChannel.uppercased())
+                                        .font(.caption2.bold())
+                                        .padding(.horizontal, 6)
+                                        .padding(.vertical, 2)
+                                        .background(Capsule().fill(Color.orange.opacity(0.18)))
+                                        .foregroundStyle(.orange)
+                                }
                             }
                             Text(store.t("appSubtitle"))
                                 .font(.subheadline)
