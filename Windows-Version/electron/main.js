@@ -27,7 +27,7 @@ function createMainWindow() {
         height: 900,
         minWidth: 980,
         minHeight: 650,
-        title: 'Class Management v26.10.4-004(unstable)',
+        title: 'Class Management v26.10.4-005(unstable)',
         icon: getIconPath(),
         backgroundColor: '#090e1a',
         show: false,
@@ -67,49 +67,112 @@ function createMainWindow() {
     });
 }
 
-// Helper: Stream download with redirect support using native fetch
-async function downloadFileWithRedirects(fileUrl, destPath, onProgress) {
-    const res = await fetch(fileUrl, {
-        headers: {
-            'User-Agent': 'Class-Management-Updater/26.10'
-        },
-        redirect: 'follow'
-    });
-
-    if (!res.ok) {
-        throw new Error(`Download fallito con codice di stato HTTP ${res.status}`);
+// Helper: Stream download with redirect support and granular real-time logging
+function downloadFileWithRedirects(fileUrl, destPath, onProgress, onLog, maxRedirects = 10) {
+    if (maxRedirects <= 0) {
+        return Promise.reject(new Error('Troppi reindirizzamenti (limite raggiunto).'));
     }
 
-    const totalBytes = parseInt(res.headers.get('content-length') || '0', 10);
-    let receivedBytes = 0;
-
-    const fileStream = fs.createWriteStream(destPath);
-    const { Readable } = require('stream');
-    const nodeReadable = Readable.fromWeb(res.body);
-
     return new Promise((resolve, reject) => {
-        nodeReadable.on('data', (chunk) => {
-            receivedBytes += chunk.length;
-            if (onProgress) {
-                const percent = totalBytes > 0 ? Math.round((receivedBytes / totalBytes) * 100) : 0;
-                onProgress({ receivedBytes, totalBytes, percent });
+        const isHttps = fileUrl.startsWith('https:');
+        const client = isHttps ? require('https') : require('http');
+        if (onLog) onLog(`[RETE GET] Connessione a: ${fileUrl.split('?')[0]}`);
+
+        const req = client.get(fileUrl, {
+            headers: {
+                'User-Agent': 'Class-Management-Updater/26.10',
+                'Accept': '*/*'
             }
+        }, (res) => {
+            if (onLog) onLog(`[HTTP STATUS] Ricevuta risposta: ${res.statusCode} ${res.statusMessage || ''}`);
+
+            // Handle standard HTTP redirects (301, 302, 303, 307, 308)
+            if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+                let redirectUrl = res.headers.location;
+                if (!redirectUrl.startsWith('http')) {
+                    try {
+                        const origin = new URL(fileUrl).origin;
+                        redirectUrl = origin + redirectUrl;
+                    } catch (e) {}
+                }
+                if (onLog) onLog(`[REDIRECT ${res.statusCode}] Reindirizzamento verso server asset: ${redirectUrl.split('?')[0]}`);
+                res.resume(); // Discard buffer to prevent memory leaks
+                return downloadFileWithRedirects(redirectUrl, destPath, onProgress, onLog, maxRedirects - 1)
+                    .then(resolve)
+                    .catch(reject);
+            }
+
+            if (res.statusCode !== 200) {
+                res.resume();
+                const err = new Error(`Il server di download ha restituito il codice HTTP ${res.statusCode} (${res.statusMessage || 'Errore'})`);
+                if (onLog) onLog(`[ERRORE HTTP] ${err.message}`);
+                return reject(err);
+            }
+
+            const totalBytes = parseInt(res.headers['content-length'] || '0', 10);
+            const totalMb = (totalBytes / (1024 * 1024)).toFixed(2);
+            if (onLog) onLog(`[INFO ASSET] Dimensione file: ${totalBytes} byte (~${totalMb} MB)`);
+            if (onLog) onLog(`[IO DISCO] Apertura stream di scrittura su: ${destPath}`);
+
+            const fileStream = fs.createWriteStream(destPath);
+            let receivedBytes = 0;
+            let lastReportTime = Date.now();
+            let lastReportBytes = 0;
+            let lastLoggedPercent = -10;
+
+            res.on('data', (chunk) => {
+                receivedBytes += chunk.length;
+                fileStream.write(chunk);
+
+                const now = Date.now();
+                if (now - lastReportTime >= 150 || receivedBytes === totalBytes) {
+                    const elapsedSec = (now - lastReportTime) / 1000;
+                    const bytesSince = receivedBytes - lastReportBytes;
+                    const speedMbps = elapsedSec > 0 ? (bytesSince / (1024 * 1024 * elapsedSec)).toFixed(1) : '0.0';
+                    const percent = totalBytes > 0 ? Math.round((receivedBytes / totalBytes) * 100) : 0;
+                    if (onProgress) {
+                        onProgress({ receivedBytes, totalBytes, percent, speedMbps });
+                    }
+
+                    if (onLog && (percent - lastLoggedPercent >= 10 || receivedBytes === totalBytes)) {
+                        lastLoggedPercent = percent;
+                        const recMb = (receivedBytes / (1024 * 1024)).toFixed(1);
+                        onLog(`[PROGRESSO] Ricevuti ${recMb} MB / ${totalMb} MB (${percent}%) — Velocità: ${speedMbps} MB/s`);
+                    }
+
+                    lastReportTime = now;
+                    lastReportBytes = receivedBytes;
+                }
+            });
+
+            res.on('end', () => {
+                fileStream.end(() => {
+                    if (onLog) onLog(`[DOWNLOAD COMPLETATO] File scritto con successo su disco: ${receivedBytes} byte.`);
+                    resolve(destPath);
+                });
+            });
+
+            res.on('error', (err) => {
+                fileStream.end();
+                fs.unlink(destPath, () => {});
+                if (onLog) onLog(`[ERRORE STREAM] ${err.message}`);
+                reject(err);
+            });
+
+            fileStream.on('error', (err) => {
+                fs.unlink(destPath, () => {});
+                if (onLog) onLog(`[ERRORE DISCO] Scrittura su file fallita: ${err.message}`);
+                reject(err);
+            });
         });
 
-        nodeReadable.pipe(fileStream);
-
-        fileStream.on('finish', () => {
-            fileStream.close(() => resolve(destPath));
-        });
-
-        fileStream.on('error', (err) => {
-            fs.unlink(destPath, () => {});
+        req.on('error', (err) => {
+            if (onLog) onLog(`[ERRORE CONNESSIONE] ${err.message}`);
             reject(err);
         });
 
-        nodeReadable.on('error', (err) => {
-            fs.unlink(destPath, () => {});
-            reject(err);
+        req.setTimeout(35000, () => {
+            req.destroy(new Error('Timeout di connessione (35 secondi superati senza risposta).'));
         });
     });
 }
@@ -360,24 +423,51 @@ ipcMain.handle('check-for-updates-api', async () => {
 });
 
 // Download update file into dedicated system temp folder and reveal in Windows File Explorer if requested
-ipcMain.handle('download-update-asset', async (event, { url, filename, reveal = false }) => {
+ipcMain.handle('download-update-asset', async (event, { url, filename, reveal = false, version = null, releaseInfo = null }) => {
+    const sendLog = (msg) => {
+        const time = new Date().toLocaleTimeString();
+        const line = `[${time}] ${msg}`;
+        console.log(line);
+        if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.webContents.send('download-log', { text: line, raw: msg });
+        }
+    };
+
     try {
+        sendLog(`[INIZIO] Richiesta download per: ${filename || 'aggiornamento'}`);
         const updateFolder = path.join(app.getPath('temp'), 'ClassManagement_Updates');
         await fs.promises.mkdir(updateFolder, { recursive: true });
         const targetFile = path.join(updateFolder, filename || 'ClassManagementUpdate.exe');
+        sendLog(`[PERCORSO] Destinazione: ${targetFile}`);
 
         await downloadFileWithRedirects(url, targetFile, (progress) => {
             if (mainWindow && !mainWindow.isDestroyed()) {
                 mainWindow.webContents.send('download-progress', progress);
             }
-        });
+        }, sendLog);
+
+        const stats = await fs.promises.stat(targetFile);
+        sendLog(`[VERIFICA OK] File verificato con successo su disco (${(stats.size / (1024 * 1024)).toFixed(2)} MB).`);
+
+        if (version) {
+            const metaPath = path.join(updateFolder, 'pending_update.json');
+            const meta = {
+                version,
+                filePath: targetFile,
+                releaseInfo,
+                savedAt: new Date().toISOString()
+            };
+            await fs.promises.writeFile(metaPath, JSON.stringify(meta, null, 2), 'utf-8');
+            sendLog(`[AUTO-UPDATE] Registrato come aggiornamento pronto per il prossimo avvio (v${version}).`);
+        }
 
         // Automatically open the folder with the downloaded file highlighted in Explorer if requested
         if (reveal) {
+            sendLog(`[ESPLORA FILE] Apertura cartella con file evidenziato...`);
             try {
                 shell.showItemInFolder(targetFile);
             } catch (openErr) {
-                console.warn('shell.showItemInFolder error:', openErr);
+                sendLog(`[ATTENZIONE] shell.showItemInFolder: ${openErr.message}`);
             }
             try {
                 const { exec } = require('child_process');
@@ -390,10 +480,61 @@ ipcMain.handle('download-update-asset', async (event, { url, filename, reveal = 
             } catch (e) {}
         }
 
+        sendLog(`[SUCCESSO] Download completato e verificato!`);
         return { success: true, filePath: targetFile, folderOpened: !!reveal };
     } catch (err) {
+        sendLog(`[ERRORE FATALE] Download fallito: ${err.message}`);
         console.error('Update download error:', err);
         return { error: err.message };
+    }
+});
+
+// Pending update IPC handlers
+ipcMain.handle('get-pending-update', async () => {
+    try {
+        const updateFolder = path.join(app.getPath('temp'), 'ClassManagement_Updates');
+        const metaPath = path.join(updateFolder, 'pending_update.json');
+        if (fs.existsSync(metaPath)) {
+            const content = await fs.promises.readFile(metaPath, 'utf-8');
+            const data = JSON.parse(content);
+            if (data && data.filePath && fs.existsSync(data.filePath)) {
+                return { success: true, pendingUpdate: data };
+            }
+        }
+        return { success: false };
+    } catch (e) {
+        return { success: false, error: e.message };
+    }
+});
+
+ipcMain.handle('set-pending-update', async (event, { version, filePath, releaseInfo }) => {
+    try {
+        const updateFolder = path.join(app.getPath('temp'), 'ClassManagement_Updates');
+        await fs.promises.mkdir(updateFolder, { recursive: true });
+        const metaPath = path.join(updateFolder, 'pending_update.json');
+        const data = {
+            version,
+            filePath,
+            releaseInfo,
+            savedAt: new Date().toISOString()
+        };
+        await fs.promises.writeFile(metaPath, JSON.stringify(data, null, 2), 'utf-8');
+        return { success: true };
+    } catch (e) {
+        return { error: e.message };
+    }
+});
+
+ipcMain.handle('clear-pending-update', async () => {
+    try {
+        const updateFolder = path.join(app.getPath('temp'), 'ClassManagement_Updates');
+        const metaPath = path.join(updateFolder, 'pending_update.json');
+        if (fs.existsSync(metaPath)) {
+            await fs.promises.unlink(metaPath);
+        }
+        return { success: true };
+    } catch (e) {
+        return { error: e.message };
     }
 });
 
@@ -528,9 +669,22 @@ function buildAppMenu() {
 async function cleanupOldUpdates() {
     try {
         const updateFolder = path.join(app.getPath('temp'), 'ClassManagement_Updates');
-        if (fs.existsSync(updateFolder)) {
-            const files = await fs.promises.readdir(updateFolder);
-            for (const f of files) {
+        if (!fs.existsSync(updateFolder)) return;
+
+        const metaPath = path.join(updateFolder, 'pending_update.json');
+        const preserveFiles = new Set(['pending_update.json']);
+        if (fs.existsSync(metaPath)) {
+            try {
+                const data = JSON.parse(await fs.promises.readFile(metaPath, 'utf-8'));
+                if (data && data.filePath) {
+                    preserveFiles.add(path.basename(data.filePath));
+                }
+            } catch (e) {}
+        }
+
+        const files = await fs.promises.readdir(updateFolder);
+        for (const f of files) {
+            if (!preserveFiles.has(f)) {
                 try {
                     await fs.promises.unlink(path.join(updateFolder, f));
                 } catch (e) {}

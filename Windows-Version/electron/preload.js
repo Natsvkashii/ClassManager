@@ -20,11 +20,19 @@ contextBridge.exposeInMainWorld('electronAPI', {
     openPath: (filePath) => ipcRenderer.invoke('open-path', { filePath }),
     getAppVersion: () => ipcRenderer.invoke('get-app-version'),
     checkForUpdatesAPI: () => ipcRenderer.invoke('check-for-updates-api'),
-    downloadUpdateAsset: (url, filename, reveal = false) => ipcRenderer.invoke('download-update-asset', { url, filename, reveal }),
+    downloadUpdateAsset: (url, filename, reveal = false, version = null, releaseInfo = null) => ipcRenderer.invoke('download-update-asset', { url, filename, reveal, version, releaseInfo }),
     installUpdateAndQuit: (filePath) => ipcRenderer.invoke('install-update-and-quit', { filePath }),
     onDownloadProgress: (callback) => {
         const listener = (event, data) => callback(data);
         ipcRenderer.on('download-progress', listener);
         return () => ipcRenderer.removeListener('download-progress', listener);
-    }
+    },
+    onDownloadLog: (callback) => {
+        const listener = (event, data) => callback(data);
+        ipcRenderer.on('download-log', listener);
+        return () => ipcRenderer.removeListener('download-log', listener);
+    },
+    getPendingUpdate: () => ipcRenderer.invoke('get-pending-update'),
+    setPendingUpdate: (data) => ipcRenderer.invoke('set-pending-update', data),
+    clearPendingUpdate: () => ipcRenderer.invoke('clear-pending-update')
 });

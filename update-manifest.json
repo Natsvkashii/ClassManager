@@ -1,12 +1,12 @@
 {
-  "version": "26.10.4-004(unstable)",
-  "tag_name": "v26.10.4-004(unstable)",
+  "version": "26.10.4-005(unstable)",
+  "tag_name": "v26.10.4-005(unstable)",
   "prerelease": true,
-  "published_at": "2026-10-19T04:45:00Z",
-  "name": "Class Management v26.10.4-004(unstable)",
-  "body": "Novità versione 26.10.4-004(unstable):\n- Schermata Home: rimossa la dicitura 'Corsi Attivi', la descrizione e il riquadro di intestazione per una visualizzazione immediata ed essenziale dei corsi.\n- Funzioni di Backup: le opzioni di importazione ed esportazione rimangono attive e accessibili nella sezione Impostazioni (Opzioni).\n- Test dell'aggiornamento automatico con esecuzione disaccoppiata e fallback su browser.",
-  "setupUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.10.4-004(unstable)/Class-Management-26.10.4-004.unstable.-Setup.exe",
-  "setupName": "Class-Management-26.10.4-004.unstable.-Setup.exe",
-  "portableUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.10.4-004(unstable)/Class-Management-26.10.4-004.unstable.-Portable.exe",
-  "portableName": "Class-Management-26.10.4-004.unstable.-Portable.exe"
+  "published_at": "2026-10-19T05:20:00Z",
+  "name": "Class Management v26.10.4-005(unstable)",
+  "body": "Novità versione 26.10.4-005(unstable):\n- Risolto definitivamente il blocco del download degli aggiornamenti su Windows al 0% tramite motore di streaming nativo Node.js con gestione trasparente dei reindirizzamenti AWS S3.\n- Introdotto il Terminale Diagnostico in tempo reale (in stile installatore Ubuntu / Linux) nella finestra di scaricamento dell'aggiornamento, con tracciamento delle richieste di rete, reindirizzamenti, codici HTTP, velocità in MB/s e pulsante dedicato per copiare i log negli appunti.\n- Implementata la funzione di download automatico in background con notifica e installazione guidata al successivo avvio dell'applicazione.\n- Protezione del pacchetto di installazione nei file temporanei e pulizia automatica al completamento.",
+  "setupUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.10.4-005(unstable)/Class-Management-26.10.4-005.unstable.-Setup.exe",
+  "setupName": "Class-Management-26.10.4-005.unstable.-Setup.exe",
+  "portableUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.10.4-005(unstable)/Class-Management-26.10.4-005.unstable.-Portable.exe",
+  "portableName": "Class-Management-26.10.4-005.unstable.-Portable.exe"
 }

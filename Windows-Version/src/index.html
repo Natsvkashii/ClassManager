@@ -306,6 +306,15 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 updateFreqManual: "Manuale",
                 checkUpdatesNowBtn: "Verifica Aggiornamenti Ora",
                 autoBackupBeforeUpdateNote: "Viene eseguito automaticamente un backup di sicurezza dei dati prima di ogni aggiornamento.",
+                autoDownloadUpdatesLabel: "Scarica automaticamente gli aggiornamenti in background",
+                autoDownloadUpdatesDesc: "I nuovi aggiornamenti rilevati verranno scaricati silenziosamente e proposti per l'installazione al successivo avvio.",
+                terminalConsoleTitle: "Terminale Diagnostico di Installazione (Live Output)",
+                copyLogBtn: "Copia Log",
+                pendingUpdateReadyTitle: "Aggiornamento Pronto per l'Installazione",
+                pendingUpdateReadyDesc: "Una nuova versione aggiornata è stata scaricata in background ed è pronta per essere applicata.",
+                pendingUpdateInstallBtn: "Installa e Riavvia Ora",
+                pendingUpdateLaterBtn: "Ricordamelo Più Tardi",
+                pendingUpdateDismissBtn: "Ignora",
                 startupUpdateTitle: "Nuovo Aggiornamento Disponibile",
                 updateNowBtn: "Aggiorna Ora",
                 updateLaterBtn: "Più Tardi",
@@ -564,6 +573,15 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 updateFreqManual: "Manual",
                 checkUpdatesNowBtn: "Check for Updates Now",
                 autoBackupBeforeUpdateNote: "A safety backup of your data is automatically performed before every update.",
+                autoDownloadUpdatesLabel: "Automatically download updates in the background",
+                autoDownloadUpdatesDesc: "Newly detected updates will be silently downloaded and prompted for installation on the next launch.",
+                terminalConsoleTitle: "Diagnostic Installation Terminal (Live Output)",
+                copyLogBtn: "Copy Log",
+                pendingUpdateReadyTitle: "Update Ready for Installation",
+                pendingUpdateReadyDesc: "A new version was downloaded in the background and is ready to be applied.",
+                pendingUpdateInstallBtn: "Install & Restart Now",
+                pendingUpdateLaterBtn: "Remind Me Later",
+                pendingUpdateDismissBtn: "Ignore",
                 startupUpdateTitle: "New Update Available",
                 updateNowBtn: "Update Now",
                 updateLaterBtn: "Later",
@@ -822,6 +840,15 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 updateFreqManual: "Manual",
                 checkUpdatesNowBtn: "Comprobar Actualizaciones Ahora",
                 autoBackupBeforeUpdateNote: "Se realiza automáticamente una copia de seguridad antes de cada actualización.",
+                autoDownloadUpdatesLabel: "Descargar automáticamente actualizaciones en segundo plano",
+                autoDownloadUpdatesDesc: "Las nuevas actualizaciones detectadas se descargarán silenciosamente y se ofrecerán para su instalación en el próximo inicio.",
+                terminalConsoleTitle: "Terminal Diagnóstico de Instalación (Salida en Vivo)",
+                copyLogBtn: "Copiar Registro",
+                pendingUpdateReadyTitle: "Actualización Lista para Instalar",
+                pendingUpdateReadyDesc: "Se descargó una nueva versión en segundo plano y está lista para ser aplicada.",
+                pendingUpdateInstallBtn: "Instalar y Reiniciar Ahora",
+                pendingUpdateLaterBtn: "Recordarme Más Tarde",
+                pendingUpdateDismissBtn: "Ignorar",
                 startupUpdateTitle: "Nueva Actualización Disponible",
                 updateNowBtn: "Actualizar Ahora",
                 updateLaterBtn: "Más Tarde",
@@ -1072,11 +1099,21 @@ Removing, obfuscating, or altering these credits violates the author's attributi
         ];
 
         const INITIAL_DATA = {
-            version: "26.10.4-004(unstable)",
+            version: "26.10.4-005(unstable)",
             deletedItems: [],
             lastUpdated: new Date().toISOString(),
             activeCourseId: "",
             changelog: [
+                {
+                    version: "26.10.4-005(unstable)",
+                    date: "2026-10-19",
+                    changes: [
+                        "Risolto definitivamente il blocco del download degli aggiornamenti su Windows al 0% tramite motore di streaming nativo Node.js con gestione trasparente dei reindirizzamenti AWS S3.",
+                        "Introdotto il Terminale Diagnostico in tempo reale (in stile installatore Ubuntu / Linux) nella finestra di scaricamento dell'aggiornamento, con tracciamento delle richieste di rete, reindirizzamenti, codici HTTP, velocità in MB/s e pulsante dedicato per copiare i log negli appunti.",
+                        "Implementata la funzione di download automatico in background con notifica e installazione guidata al successivo avvio dell'applicazione.",
+                        "Protezione del pacchetto di installazione nei file temporanei e pulizia automatica al completamento."
+                    ]
+                },
                 {
                     version: "26.10.4-004(unstable)",
                     date: "2026-10-19",
@@ -1316,6 +1353,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 defaultHourlyRate: 10,
                 defaultLessonDurationHours: 1.5,
                 defaultVatPercent: 15,
+                autoDownloadUpdates: true,
                 onboardingCompleted: false
             },
             rubrics: [
@@ -1584,7 +1622,10 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 if (this.state.settings && this.state.settings.onboardingCompleted === false) {
                     this.openOnboardingWizard();
                 } else {
-                    setTimeout(() => this.checkUpdatesOnStartupIfNeeded(), 1500);
+                    const hasPending = await this.checkPendingUpdateOnStartup();
+                    if (!hasPending) {
+                        setTimeout(() => this.checkUpdatesOnStartupIfNeeded(), 1500);
+                    }
                 }
             }
 
@@ -1712,6 +1753,10 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 }
                 if (!this.state.settings.updateCheckFrequency) {
                     this.state.settings.updateCheckFrequency = "startup";
+                    migrated = true;
+                }
+                if (this.state.settings.autoDownloadUpdates === undefined) {
+                    this.state.settings.autoDownloadUpdates = true;
                     migrated = true;
                 }
                 if (this.state.settings.onboardingCompleted === undefined) {
@@ -7273,6 +7318,212 @@ Dettagli di Sistema:
                 }
             }
 
+            copyUpdateDownloadLogs() {
+                const logs = (this.downloadLogs || []).join('\n');
+                if (!logs) {
+                    this.showToast("Nessun log disponibile da copiare", "info");
+                    return;
+                }
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard.writeText(logs).then(() => {
+                        this.showToast("Log diagnostici copiati negli appunti!", "success");
+                    }).catch(() => {
+                        this.showToast("Impossibile copiare negli appunti", "error");
+                    });
+                } else {
+                    this.showToast("Funzione appunti non supportata dal sistema", "error");
+                }
+            }
+
+            appendDownloadLog(data) {
+                const text = typeof data === 'string' ? data : (data?.text || data?.raw || JSON.stringify(data));
+                if (!this.downloadLogs) this.downloadLogs = [];
+                this.downloadLogs.push(text);
+
+                const term = document.getElementById("modalTerminalOutput");
+                if (!term) return;
+
+                const line = document.createElement("div");
+                line.className = "whitespace-pre-wrap break-all";
+
+                let tagClass = "text-sky-400 font-bold";
+                let textClass = "text-slate-300";
+
+                if (text.includes("[ERRORE") || text.includes("FALLITO") || text.includes("TIMEOUT")) {
+                    tagClass = "text-rose-400 font-bold";
+                    textClass = "text-rose-300";
+                } else if (text.includes("[SUCCESSO]") || text.includes("[VERIFICA OK]") || text.includes("[COMPLETATO]")) {
+                    tagClass = "text-emerald-400 font-bold";
+                    textClass = "text-emerald-200 font-semibold";
+                } else if (text.includes("[REDIRECT") || text.includes("[ATTENZIONE]")) {
+                    tagClass = "text-amber-400 font-bold";
+                    textClass = "text-amber-200";
+                } else if (text.includes("[HTTP STATUS]") || text.includes("[INFO ASSET]") || text.includes("[IO DISCO]")) {
+                    tagClass = "text-cyan-400 font-bold";
+                    textClass = "text-slate-300";
+                } else if (text.includes("[PROGRESSO]")) {
+                    tagClass = "text-slate-400 font-bold";
+                    textClass = "text-slate-400";
+                }
+
+                const m = text.match(/^(\[[0-9:]+\])\s*(\[[^\]]+\])?\s*(.*)$/);
+                if (m) {
+                    const timePart = `<span class="text-slate-500 font-semibold">${this.escapeHtml(m[1])}</span>`;
+                    const tagPart = m[2] ? ` <span class="${tagClass}">${this.escapeHtml(m[2])}</span>` : '';
+                    const restPart = ` <span class="${textClass}">${this.escapeHtml(m[3])}</span>`;
+                    line.innerHTML = timePart + tagPart + restPart;
+                } else {
+                    line.className += ` ${textClass}`;
+                    line.textContent = text;
+                }
+
+                term.appendChild(line);
+                term.scrollTop = term.scrollHeight;
+            }
+
+            async checkPendingUpdateOnStartup() {
+                if (!window.electronAPI || typeof window.electronAPI.getPendingUpdate !== "function") return false;
+                try {
+                    const res = await window.electronAPI.getPendingUpdate();
+                    if (res && res.success && res.pendingUpdate && res.pendingUpdate.filePath) {
+                        const pending = res.pendingUpdate;
+                        const curVer = this.parseAppVersion(this.state.version || INITIAL_DATA.version || "26.10.4-005(unstable)");
+                        const pendingVer = this.parseAppVersion(pending.version || "");
+                        if (this.compareAppVersions(pendingVer, curVer) > 0) {
+                            this.pendingUpdate = pending;
+                            this.promptPendingUpdateModal(pending);
+                            return true;
+                        } else {
+                            await window.electronAPI.clearPendingUpdate();
+                            this.pendingUpdate = null;
+                        }
+                    }
+                } catch (e) {
+                    console.warn("checkPendingUpdateOnStartup error:", e);
+                }
+                return false;
+            }
+
+            promptPendingUpdateModal(pending) {
+                const escapedPath = this.escapeHtml(pending.filePath).replace(/\\/g, '\\\\');
+                this.openModal(`
+                    <div class="p-6 sm:p-7 space-y-4 text-xs max-w-md text-center">
+                        <div class="w-14 h-14 mx-auto rounded-2xl bg-emerald-500/15 text-emerald-500 flex items-center justify-center text-3xl border border-emerald-500/25 shadow-xs">
+                            <i class="fa-solid fa-sparkles text-amber-400"></i>
+                        </div>
+                        <div>
+                            <div class="flex items-center justify-center gap-2 mb-1">
+                                <h4 class="text-base font-extrabold text-slate-900 dark:text-white">${this.t("pendingUpdateReadyTitle")}</h4>
+                                <span class="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 text-[10px] font-extrabold">v${this.escapeHtml(pending.version)}</span>
+                            </div>
+                            <p class="text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
+                                Un nuovo aggiornamento è stato scaricato automaticamente in background ed è verificato e pronto per essere installato sul tuo computer.
+                            </p>
+                        </div>
+
+                        <div class="p-3.5 rounded-xl bg-slate-50 dark:bg-navy-950 border border-slate-200 dark:border-slate-800 text-left text-[11px] text-slate-600 dark:text-slate-400 space-y-1.5">
+                            <div class="font-bold flex items-center gap-1.5 text-slate-700 dark:text-slate-300">
+                                <i class="fa-solid fa-file-shield text-emerald-500"></i> Pacchetto installer verificato su disco:
+                            </div>
+                            <div class="font-mono text-[10px] break-all text-sky-600 dark:text-sky-400 font-bold bg-white dark:bg-navy-900 p-2 rounded-lg border border-sky-100 dark:border-slate-800">
+                                ${this.escapeHtml(pending.filePath)}
+                            </div>
+                            <div class="flex items-center gap-1.5 text-[10px] text-emerald-600 dark:text-emerald-400 pt-0.5">
+                                <i class="fa-solid fa-shield-check"></i>
+                                <span>Un backup di sicurezza dei tuoi dati verrà creato automaticamente prima dell'avvio.</span>
+                            </div>
+                        </div>
+
+                        <div class="flex flex-col sm:flex-row items-center justify-center gap-2 pt-2">
+                            <button type="button" onclick="app.installPendingUpdateNow('${escapedPath}')" class="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold shadow-md flex items-center justify-center gap-2 transition">
+                                <i class="fa-solid fa-arrows-rotate"></i> ${this.t("pendingUpdateInstallBtn")}
+                            </button>
+                            <button type="button" onclick="app.closeModal()" class="w-full sm:w-auto px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 font-bold hover:bg-slate-100 dark:hover:bg-navy-800 transition">
+                                ${this.t("pendingUpdateLaterBtn")}
+                            </button>
+                            <button type="button" onclick="app.dismissPendingUpdate()" class="w-full sm:w-auto px-3 py-2.5 rounded-xl text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 font-bold text-[11px] transition">
+                                ${this.t("pendingUpdateDismissBtn")}
+                            </button>
+                        </div>
+                    </div>
+                `, "max-w-md", true);
+            }
+
+            async installPendingUpdateNow(filePath) {
+                const target = filePath || this.pendingUpdate?.filePath;
+                if (!target) {
+                    this.showToast("Percorso installer non valido", "error");
+                    return;
+                }
+
+                await this.performPreUpdateBackup();
+
+                this.openModal(`
+                    <div class="p-6 space-y-4 text-xs max-w-md text-center">
+                        <div class="w-14 h-14 mx-auto rounded-2xl bg-emerald-500/15 text-emerald-500 flex items-center justify-center text-3xl border border-emerald-500/25 shadow-xs">
+                            <i class="fa-solid fa-arrows-rotate fa-spin"></i>
+                        </div>
+                        <div>
+                            <h4 class="text-base font-extrabold text-slate-900 dark:text-white">Avvio Installazione...</h4>
+                            <p class="text-slate-500 dark:text-slate-400 mt-1">L'applicazione si sta chiudendo per consentire l'installazione automatica dell'aggiornamento.</p>
+                        </div>
+                    </div>
+                `, "max-w-md", true);
+
+                setTimeout(() => {
+                    if (window.electronAPI && typeof window.electronAPI.installUpdateAndQuit === "function") {
+                        window.electronAPI.installUpdateAndQuit(target);
+                    }
+                }, 800);
+            }
+
+            async dismissPendingUpdate() {
+                if (window.electronAPI && typeof window.electronAPI.clearPendingUpdate === "function") {
+                    await window.electronAPI.clearPendingUpdate();
+                }
+                this.pendingUpdate = null;
+                this.closeModal();
+                this.showToast("Aggiornamento rimosso dai pacchetti pronti", "info");
+                if (this.activeTab === "credits") {
+                    this.renderCreditsView(document.getElementById("mainContentArea"));
+                }
+            }
+
+            async startBackgroundDownload(release, url, filename) {
+                if (this.isDownloadingUpdate || this.isBackgroundDownloading) return;
+                if (!window.electronAPI || typeof window.electronAPI.downloadUpdateAsset !== "function") return;
+
+                this.isBackgroundDownloading = true;
+                console.log(`[Auto-Update] Inizio download in background di ${filename} (${release.tag_name})...`);
+
+                try {
+                    const res = await window.electronAPI.downloadUpdateAsset(
+                        url,
+                        filename,
+                        false,
+                        release.tag_name || release.name,
+                        release
+                    );
+                    this.isBackgroundDownloading = false;
+
+                    if (res && res.success && res.filePath) {
+                        this.pendingUpdate = {
+                            version: release.tag_name || release.name,
+                            filePath: res.filePath,
+                            releaseInfo: release
+                        };
+                        console.log("[Auto-Update] Download in background completato con successo!");
+                        this.showToast(`Nuova versione ${this.pendingUpdate.version} scaricata in background. Verrà installata al prossimo avvio.`, "success", 7000);
+                        if (this.activeTab === "credits") {
+                            this.renderCreditsView(document.getElementById("mainContentArea"));
+                        }
+                    }
+                } catch (e) {
+                    this.isBackgroundDownloading = false;
+                    console.warn("[Auto-Update] Errore durante il download in background:", e);
+                }
+            }
+
             async startUpdateDownload(url, fileName, mode = 'direct') {
                 if (!window.electronAPI || typeof window.electronAPI.downloadUpdateAsset !== "function") {
                     if (window.electronAPI && typeof window.electronAPI.openExternal === "function") {
@@ -7283,6 +7534,8 @@ Dettagli di Sistema:
                     return;
                 }
 
+                this.downloadLogs = [];
+                this.isDownloadingUpdate = true;
                 this.updateState = {
                     isDownloading: true,
                     downloadPercent: 0,
@@ -7295,20 +7548,28 @@ Dettagli di Sistema:
                     : "Al termine dello scaricamento, la cartella temporanea con il file verrà aperta automaticamente in Esplora File.";
 
                 this.openModal(`
-                    <div class="p-6 space-y-5 text-xs max-w-md">
-                        <div class="flex items-center gap-3">
-                            <div class="w-11 h-11 rounded-xl bg-gradient-to-tr from-sky-500 to-indigo-600 text-white flex items-center justify-center text-xl shrink-0 shadow-sm">
-                                <i class="fa-solid fa-cloud-arrow-down fa-bounce"></i>
+                    <div class="p-6 space-y-4 text-xs max-w-xl">
+                        <!-- Header -->
+                        <div class="flex items-center justify-between gap-3 pb-1 border-b border-sky-100 dark:border-slate-800">
+                            <div class="flex items-center gap-3">
+                                <div class="w-11 h-11 rounded-xl bg-gradient-to-tr from-sky-500 to-indigo-600 text-white flex items-center justify-center text-xl shrink-0 shadow-sm">
+                                    <i class="fa-solid fa-cloud-arrow-down fa-bounce"></i>
+                                </div>
+                                <div>
+                                    <h4 class="text-sm font-extrabold text-slate-900 dark:text-white">Download Aggiornamento in Corso</h4>
+                                    <p class="text-slate-400 text-[11px] truncate max-w-sm">${this.escapeHtml(fileName || "Class-Management-Update.exe")}</p>
+                                </div>
                             </div>
-                            <div>
-                                <h4 class="text-sm font-extrabold text-slate-900 dark:text-white">Download Aggiornamento in Corso</h4>
-                                <p class="text-slate-400 text-[11px] truncate max-w-[260px]">${this.escapeHtml(fileName || "Class-Management-Update.exe")}</p>
+                            <div id="modalUpdateSpeedBadge" class="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-sky-50 dark:bg-navy-950 text-sky-700 dark:text-sky-300 font-mono text-[11px] font-bold border border-sky-100 dark:border-slate-800">
+                                <i class="fa-solid fa-gauge-high text-sky-500"></i>
+                                <span id="modalUpdateSpeedText">0.0 MB/s</span>
                             </div>
                         </div>
 
-                        <div class="space-y-2 pt-1">
-                            <div class="w-full bg-slate-200 dark:bg-navy-950 h-3.5 rounded-full overflow-hidden p-0.5 border border-sky-200/50 dark:border-slate-800">
-                                <div id="modalUpdateProgressBar" class="bg-gradient-to-r from-sky-500 to-indigo-600 h-full rounded-full transition-all duration-150" style="width: 0%;"></div>
+                        <!-- Progress Bar -->
+                        <div class="space-y-1.5 pt-0.5">
+                            <div class="w-full bg-slate-200 dark:bg-navy-950 h-3 rounded-full overflow-hidden p-0.5 border border-sky-200/50 dark:border-slate-800">
+                                <div id="modalUpdateProgressBar" class="bg-gradient-to-r from-sky-500 via-indigo-500 to-sky-600 h-full rounded-full transition-all duration-150" style="width: 0%;"></div>
                             </div>
                             <div class="flex items-center justify-between text-[11px] text-slate-500">
                                 <span id="modalUpdateProgressText">Connessione ai server di download...</span>
@@ -7316,12 +7577,51 @@ Dettagli di Sistema:
                             </div>
                         </div>
 
+                        <!-- Ubuntu / Linux Style Real-time Diagnostic Terminal -->
+                        <div class="rounded-xl overflow-hidden border border-slate-700/80 bg-[#0d1117] shadow-inner text-left font-mono">
+                            <div class="px-3 py-2 bg-[#161b22] border-b border-slate-800 flex items-center justify-between text-[11px] text-slate-400 select-none">
+                                <div class="flex items-center gap-2">
+                                    <div class="flex items-center gap-1.5">
+                                        <span class="w-2.5 h-2.5 rounded-full bg-rose-500/80 inline-block"></span>
+                                        <span class="w-2.5 h-2.5 rounded-full bg-amber-500/80 inline-block"></span>
+                                        <span class="w-2.5 h-2.5 rounded-full bg-emerald-500/80 inline-block"></span>
+                                    </div>
+                                    <span class="font-bold text-slate-300 ml-1.5 flex items-center gap-1.5">
+                                        <i class="fa-solid fa-terminal text-sky-400 text-[10px]"></i>
+                                        <span>${this.t("terminalConsoleTitle")}</span>
+                                    </span>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <span id="modalTerminalStatus" class="flex items-center gap-1 text-[10px] text-emerald-400 font-bold">
+                                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span> Live
+                                    </span>
+                                    <button type="button" onclick="app.copyUpdateDownloadLogs()" class="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-[10px] font-bold text-slate-300 border border-slate-700 transition flex items-center gap-1" title="Copia l'intero output diagnostico">
+                                        <i class="fa-regular fa-copy"></i> ${this.t("copyLogBtn")}
+                                    </button>
+                                </div>
+                            </div>
+                            <div id="modalTerminalOutput" class="p-3 text-[11px] font-mono leading-relaxed h-44 overflow-y-auto custom-scrollbar text-slate-300 space-y-1 select-text">
+                                <div class="text-slate-500"><span class="text-sky-400 font-bold">[INIZIO]</span> Inizializzazione stream di rete per il download dell'aggiornamento...</div>
+                            </div>
+                        </div>
+
+                        <!-- Mode Information Note -->
                         <div class="p-3 rounded-xl bg-sky-50/70 dark:bg-navy-800/60 border border-sky-100 dark:border-slate-800 text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-2">
                             <i class="fa-solid fa-info-circle text-sky-600 shrink-0"></i>
                             <span>${modeNote}</span>
                         </div>
+
+                        <!-- Footer Actions / Browser Fallback -->
+                        <div class="flex flex-col sm:flex-row items-center justify-between gap-2 pt-1 border-t border-sky-100 dark:border-slate-800">
+                            <button type="button" onclick="if(window.electronAPI){window.electronAPI.openExternal('${url}');}else{window.open('${url}','_blank');}" class="w-full sm:w-auto px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-bold hover:bg-slate-100 dark:hover:bg-navy-800 transition flex items-center justify-center gap-1.5 text-[11px]" title="Scarica l'installer direttamente con il browser web">
+                                <i class="fa-solid fa-globe text-sky-600 dark:text-sky-400"></i> Fallback Browser (.exe)
+                            </button>
+                            <button type="button" onclick="app.closeModal()" class="w-full sm:w-auto px-4 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700 font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-navy-800 transition">
+                                Annulla
+                            </button>
+                        </div>
                     </div>
-                `, "max-w-md", true);
+                `, "max-w-xl", true);
 
                 if (this.activeTab === "credits") {
                     this.renderCreditsView(document.getElementById("mainContentArea"));
@@ -7330,36 +7630,52 @@ Dettagli di Sistema:
                 // Automatic safety backup before downloading
                 await this.performPreUpdateBackup();
 
-                const removeListener = window.electronAPI.onDownloadProgress((data) => {
-                    const percent = data.percent || 0;
-                    const recMB = (data.receivedBytes / (1024 * 1024)).toFixed(1);
-                    const totMB = (data.totalBytes / (1024 * 1024)).toFixed(1);
-                    const msg = `Scaricamento: ${recMB} MB di ${totMB} MB (${percent}%)`;
+                let removeLogListener = null;
+                if (window.electronAPI && typeof window.electronAPI.onDownloadLog === "function") {
+                    removeLogListener = window.electronAPI.onDownloadLog((logData) => {
+                        this.appendDownloadLog(logData);
+                    });
+                }
 
-                    if (this.updateState) {
-                        this.updateState.downloadPercent = percent;
-                        this.updateState.statusText = msg;
-                    }
+                let removeProgListener = null;
+                if (window.electronAPI && typeof window.electronAPI.onDownloadProgress === "function") {
+                    removeProgListener = window.electronAPI.onDownloadProgress((data) => {
+                        const percent = data.percent || 0;
+                        const recMB = (data.receivedBytes / (1024 * 1024)).toFixed(1);
+                        const totMB = (data.totalBytes / (1024 * 1024)).toFixed(1);
+                        const speed = data.speedMbps || '0.0';
+                        const msg = `Scaricamento: ${recMB} MB di ${totMB} MB (${percent}%)`;
 
-                    // Update modal UI
-                    const mBar = document.getElementById("modalUpdateProgressBar");
-                    const mText = document.getElementById("modalUpdateProgressText");
-                    const mPct = document.getElementById("modalUpdatePercentText");
-                    if (mBar) mBar.style.width = `${percent}%`;
-                    if (mText) mText.textContent = `Scaricamento: ${recMB} MB / ${totMB} MB`;
-                    if (mPct) mPct.textContent = `${percent}%`;
+                        if (this.updateState) {
+                            this.updateState.downloadPercent = percent;
+                            this.updateState.statusText = msg;
+                        }
 
-                    // Update credits view card UI
-                    const pBar = document.getElementById("updateProgressBar");
-                    const pText = document.getElementById("updateProgressText");
-                    if (pBar) pBar.style.width = `${percent}%`;
-                    if (pText) pText.textContent = msg;
-                });
+                        // Update modal UI
+                        const mBar = document.getElementById("modalUpdateProgressBar");
+                        const mText = document.getElementById("modalUpdateProgressText");
+                        const mPct = document.getElementById("modalUpdatePercentText");
+                        const mSpd = document.getElementById("modalUpdateSpeedText");
+                        if (mBar) mBar.style.width = `${percent}%`;
+                        if (mText) mText.textContent = `Scaricamento: ${recMB} MB / ${totMB} MB`;
+                        if (mPct) mPct.textContent = `${percent}%`;
+                        if (mSpd) mSpd.textContent = `${speed} MB/s`;
+
+                        // Update credits view card UI
+                        const pBar = document.getElementById("updateProgressBar");
+                        const pText = document.getElementById("updateProgressText");
+                        if (pBar) pBar.style.width = `${percent}%`;
+                        if (pText) pText.textContent = msg;
+                    });
+                }
 
                 try {
                     const revealInFolder = (mode === 'explorer');
                     const res = await window.electronAPI.downloadUpdateAsset(url, fileName || "Class-Management-Update.exe", revealInFolder);
-                    removeListener();
+                    if (removeProgListener) removeProgListener();
+                    if (removeLogListener) removeLogListener();
+                    this.isDownloadingUpdate = false;
+
                     if (res && res.success && res.filePath) {
                         if (this.updateState) {
                             this.updateState.isDownloading = false;
@@ -7446,13 +7762,18 @@ Dettagli di Sistema:
                                     <button type="button" onclick="if(window.electronAPI){window.electronAPI.openExternal('${url}');}else{window.open('${url}','_blank');}app.closeModal();" class="w-full sm:w-auto px-4 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-extrabold shadow-sm transition flex items-center justify-center gap-1.5">
                                         <i class="fa-solid fa-globe"></i> Scarica con il Browser
                                     </button>
+                                    <button type="button" onclick="app.copyUpdateDownloadLogs()" class="w-full sm:w-auto px-3.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-bold hover:bg-slate-100 dark:hover:bg-navy-800 transition">
+                                        <i class="fa-regular fa-copy"></i> Copia Log
+                                    </button>
                                     <button type="button" onclick="app.closeModal()" class="w-full sm:w-auto px-4 py-2 rounded-xl border border-slate-300 dark:border-slate-700 font-bold">Chiudi</button>
                                 </div>
                             </div>
                         `, "max-w-md");
                     }
                 } catch (err) {
-                    removeListener();
+                    if (removeProgListener) removeProgListener();
+                    if (removeLogListener) removeLogListener();
+                    this.isDownloadingUpdate = false;
                     if (this.updateState) {
                         this.updateState.isDownloading = false;
                         this.updateState.statusText = "Errore: " + err.message;
@@ -7470,6 +7791,9 @@ Dettagli di Sistema:
                             <div class="pt-2 flex flex-col sm:flex-row items-center justify-center gap-2">
                                 <button type="button" onclick="if(window.electronAPI){window.electronAPI.openExternal('${url}');}else{window.open('${url}','_blank');}app.closeModal();" class="w-full sm:w-auto px-4 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-extrabold shadow-sm transition flex items-center justify-center gap-1.5">
                                     <i class="fa-solid fa-globe"></i> Scarica con il Browser
+                                </button>
+                                <button type="button" onclick="app.copyUpdateDownloadLogs()" class="w-full sm:w-auto px-3.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-bold hover:bg-slate-100 dark:hover:bg-navy-800 transition">
+                                    <i class="fa-regular fa-copy"></i> Copia Log
                                 </button>
                                 <button type="button" onclick="app.closeModal()" class="w-full sm:w-auto px-4 py-2 rounded-xl border border-slate-300 dark:border-slate-700 font-bold">Chiudi</button>
                             </div>
@@ -7587,7 +7911,7 @@ Dettagli di Sistema:
                         return;
                     }
 
-                    const currentVer = this.parseAppVersion(this.state.version || INITIAL_DATA.version || "26.10.4-004(unstable)");
+                    const currentVer = this.parseAppVersion(this.state.version || INITIAL_DATA.version || "26.10.4-005(unstable)");
                     // Beta versions receive beta updates even if toggle is off until next stable arrives
                     const isCurrentBeta = this.isBetaVersion();
                     const includeBeta = (this.state.settings?.includeBetaUpdates === true) || isCurrentBeta;
@@ -7622,6 +7946,22 @@ Dettagli di Sistema:
 
                         if (this.activeTab === "credits") {
                             this.renderCreditsView(document.getElementById("mainContentArea"));
+                        }
+
+                        // If already pending and downloaded, prompt pending modal on manual check
+                        if (this.pendingUpdate && this.pendingUpdate.version === (rel.tag_name || rel.name)) {
+                            if (manual) {
+                                this.promptPendingUpdateModal(this.pendingUpdate);
+                            }
+                            return;
+                        }
+
+                        // On automatic startup/periodic check, trigger silent background download
+                        if (!manual) {
+                            if (this.state.settings?.autoDownloadUpdates !== false && !this.isDownloadingUpdate && !this.isBackgroundDownloading) {
+                                this.startBackgroundDownload(rel, primaryUrl, primaryName);
+                            }
+                            return;
                         }
 
                         // Present update modal with TWO distinct options (Direct or Explorer)
@@ -7688,7 +8028,7 @@ Dettagli di Sistema:
                                     </div>
                                     <div>
                                         <h4 class="text-sm font-extrabold text-slate-900 dark:text-white">Class Management è Aggiornato!</h4>
-                                        <p class="text-slate-500 mt-1">Stai già utilizzando l'ultima versione disponibile (<strong>v${this.escapeHtml(this.state.version || INITIAL_DATA.version || "26.10.4-004(unstable)")}</strong>). Non sono necessari aggiornamenti.</p>
+                                        <p class="text-slate-500 mt-1">Stai già utilizzando l'ultima versione disponibile (<strong>v${this.escapeHtml(this.state.version || INITIAL_DATA.version || "26.10.4-005(unstable)")}</strong>). Non sono necessari aggiornamenti.</p>
                                     </div>
                                     <div class="pt-2">
                                         <button type="button" onclick="app.closeModal()" class="px-5 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-extrabold shadow-sm transition">OK</button>
@@ -7876,7 +8216,7 @@ Dettagli di Sistema:
              */
             renderCreditsView(container) {
                 const s = this.state.settings || {};
-                const currentVer = this.state.version || "26.10.1-1";
+                const currentVer = this.state.version || INITIAL_DATA.version || "26.10.4-005(unstable)";
                 const latestChangelog = (this.state.changelog && this.state.changelog.length > 0) ? this.state.changelog[0] : null;
                 const update = this.availableUpdate;
                 const isDownloading = this.updateState?.isDownloading;
@@ -7921,7 +8261,7 @@ Dettagli di Sistema:
                             </div>
 
                             <!-- Update Settings -->
-                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
                                 <div>
                                     <label class="block font-bold mb-1.5">${this.t("updateCheckFrequencyLabel")}</label>
                                     <select onchange="app.updateSetting('updateCheckFrequency', this.value)" class="w-full rounded-xl border border-sky-200 dark:border-slate-700 bg-transparent px-3 py-2 font-bold">
@@ -7937,6 +8277,12 @@ Dettagli di Sistema:
                                         <span class="font-bold text-slate-700 dark:text-slate-300">Includi versioni beta e anteprime</span>
                                     </label>
                                 </div>
+                                <div class="flex items-center">
+                                    <label class="flex items-center gap-2.5 cursor-pointer pt-3 sm:pt-4">
+                                        <input type="checkbox" ${s.autoDownloadUpdates !== false ? 'checked' : ''} onchange="app.updateSetting('autoDownloadUpdates', this.checked)" class="w-4 h-4 rounded border-sky-300 text-sky-600 focus:ring-sky-500">
+                                        <span class="font-bold text-slate-700 dark:text-slate-300" title="${this.t('autoDownloadUpdatesDesc')}">${this.t("autoDownloadUpdatesLabel")}</span>
+                                    </label>
+                                </div>
                             </div>
 
                             <!-- Pre-update backup info -->
@@ -7949,6 +8295,35 @@ Dettagli di Sistema:
                                     Esegui backup ora
                                 </button>
                             </div>
+
+                            <!-- Pending Update Ready Banner -->
+                            ${this.pendingUpdate ? `
+                                <div class="p-4 rounded-2xl bg-gradient-to-r from-emerald-500/15 via-teal-500/10 to-sky-500/10 border border-emerald-500/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs">
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-10 h-10 rounded-xl bg-emerald-500 text-white flex items-center justify-center text-lg shrink-0 shadow-sm">
+                                            <i class="fa-solid fa-sparkles text-amber-300"></i>
+                                        </div>
+                                        <div>
+                                            <div class="flex items-center gap-2">
+                                                <h4 class="text-xs font-extrabold text-slate-900 dark:text-white">Aggiornamento Pronto per l'Installazione (${this.escapeHtml(this.pendingUpdate.version)})</h4>
+                                                <span class="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 text-[10px] font-extrabold">Scaricato</span>
+                                            </div>
+                                            <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Il file di installazione è già stato scaricato e verificato sul computer. Puoi installarlo subito con riavvio dell'applicazione.</p>
+                                        </div>
+                                    </div>
+                                    <div class="flex items-center gap-2 shrink-0 w-full sm:w-auto justify-end">
+                                        <button type="button" onclick="app.installPendingUpdateNow()" class="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold shadow-sm flex items-center gap-1.5 transition text-xs">
+                                            <i class="fa-solid fa-arrows-rotate"></i> Installa e Riavvia Ora
+                                        </button>
+                                        <button type="button" onclick="if(window.electronAPI && window.electronAPI.showItemInFolder){window.electronAPI.showItemInFolder('${this.escapeHtml(this.pendingUpdate.filePath).replace(/\\/g, '\\\\')}');}" class="px-3 py-2 rounded-xl border border-emerald-300 dark:border-emerald-700 bg-white dark:bg-navy-800 text-emerald-700 dark:text-emerald-300 font-bold transition text-xs" title="Mostra in Esplora File">
+                                            <i class="fa-solid fa-folder-open"></i>
+                                        </button>
+                                        <button type="button" onclick="app.dismissPendingUpdate()" class="px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 text-slate-500 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 font-bold transition text-xs" title="Elimina aggiornamento scaricato">
+                                            <i class="fa-regular fa-trash-can"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            ` : ''}
 
                             <!-- If Update is Available Banner -->
                             ${update ? `

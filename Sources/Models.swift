@@ -18,7 +18,7 @@ public enum AuthorAttribution {
     public static let authorName = "Guaira Jaramillo Nitoglia"
     public static let authorEmail = "guaira.jaramillo.nitoglia@gmail.com"
     public static let appName = "Class Management"
-    public static let appVersion = "26.10.4-004(unstable)"
+    public static let appVersion = "26.10.4-005(unstable)"
     public static let licenseName = "GNU General Public License v3.0 (GPL-3.0)"
 
     public static var isBeta: Bool {
@@ -1548,6 +1548,22 @@ public struct AppState: Codable, Equatable {
     ]
 
     public static let defaultChangelog: [ChangelogEntry] = [
+        ChangelogEntry(version: "26.10.4-005(unstable)", date: "2026-10-19", changes: [
+            "Risolto definitivamente il blocco del download degli aggiornamenti su Windows al 0% tramite motore di streaming nativo Node.js con gestione trasparente dei reindirizzamenti AWS S3.",
+            "Introdotto il Terminale Diagnostico in tempo reale (in stile installatore Ubuntu / Linux) nella finestra di scaricamento dell'aggiornamento, con tracciamento delle richieste di rete, reindirizzamenti, codici HTTP, velocità in MB/s e pulsante dedicato per copiare i log negli appunti.",
+            "Implementata la funzione di download automatico in background con notifica e installazione guidata al successivo avvio dell'applicazione.",
+            "Protezione del pacchetto di installazione nei file temporanei e pulizia automatica al completamento."
+        ]),
+        ChangelogEntry(version: "26.10.4-004(unstable)", date: "2026-10-19", changes: [
+            "Rimossa la dicitura 'Corsi Attivi', la spiegazione e il riquadro di intestazione dalla schermata principale (Home) per una visualizzazione più pulita e diretta dei corsi.",
+            "Le opzioni di esportazione e importazione dei dati rimangono completamente disponibili e accessibili nella sezione Impostazioni (Opzioni)."
+        ]),
+        ChangelogEntry(version: "26.10.4-003(unstable)", date: "2026-10-19", changes: [
+            "Risolto il problema di avvio dell'installatore aggiornamenti su Windows tramite esecuzione disaccoppiata (detached spawn) e unref.",
+            "Aggiunto fallback avanzato per l'apertura in Esplora File con evidenziazione automatica dell'installer scaricato.",
+            "Introdotto il pulsante rapido di download diretto via browser web sia nella finestra di dialogo che nella scheda Crediti.",
+            "Migliorato il feedback visivo istantaneo all'avvio dello scaricamento dell'aggiornamento."
+        ]),
         ChangelogEntry(version: "26.10.4-002(unstable)", date: "2026-10-19", changes: [
             "Rimossa la dicitura 'Aperto' dalle schede modulo visualizzate per una resa visiva più pulita ed essenziale.",
             "Struttura Corso (Gruppo/Studente): rimossa la dicitura 'Selezionato' e il pulsante 'Attiva'. L'intero riquadro del modulo è ora cliccabile per attivarlo direttamente.",
