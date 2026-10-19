@@ -1,12 +1,12 @@
 {
-  "version": "26.10.1-1",
-  "tag_name": "v26.10.1-1",
-  "prerelease": false,
-  "published_at": "2026-10-18T23:35:00Z",
-  "name": "Class Management v26.10.1-1",
-  "body": "Novità versione 26.10.1-1:\n- Sistema di aggiornamento automatico per Windows completamente integrato con finestra interattiva.\n- Download con barra di avanzamento e percentuale in tempo reale.\n- Avvio dell'installer NSIS con corretta elevazione permessi e chiusura pulita dell'app.\n- Mantenimento garantito di tutte le versioni precedenti su GitHub.",
-  "setupUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.10.1-1/Class-Management-26.10.1-1-Setup.exe",
-  "setupName": "Class-Management-26.10.1-1-Setup.exe",
-  "portableUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.10.1-1/Class-Management-26.10.1-1-Portable.exe",
-  "portableName": "Class-Management-26.10.1-1-Portable.exe"
+  "version": "26.10.2b",
+  "tag_name": "v26.10.2b",
+  "prerelease": true,
+  "published_at": "2026-10-19T00:15:00Z",
+  "name": "Class Management v26.10.2b (Beta)",
+  "body": "Novità versione 26.10.2b (Beta):\n- Riprogettazione completa sezione Fatturazione con panoramica ore totali effettuate e totale speso/fatturato.\n- Finestra a comparsa dedicata per visualizzazione e modifica dei dati fiscali del corso.\n- Schede moduli e livelli con indicazione del costo per ciascun modulo.\n- Calendario fatturazione interattivo con prezzo lordo, aliquota IVA e sconto applicato per ogni specifica lezione.\n- Editor prezzi per singola lezione e strumento globale di blocco per il modulo.\n- Esportazione calendario fatturazione del modulo in formato immagine PNG ad alta risoluzione.\n- Impostazione tariffe base e IVA predefinita nelle Opzioni.\n- Attribuzione autore nella barra grigia superiore: creato da Guaira Jaramillo Nitoglia.",
+  "setupUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.10.2b/Class-Management-26.10.2b-Setup.exe",
+  "setupName": "Class-Management-26.10.2b-Setup.exe",
+  "portableUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.10.2b/Class-Management-26.10.2b-Portable.exe",
+  "portableName": "Class-Management-26.10.2b-Portable.exe"
 }

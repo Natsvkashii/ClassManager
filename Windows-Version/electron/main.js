@@ -67,56 +67,50 @@ function createMainWindow() {
     });
 }
 
-// Helper: Stream download with redirect support
-function downloadFileWithRedirects(fileUrl, destPath, onProgress) {
+// Helper: Stream download with redirect support using native fetch
+async function downloadFileWithRedirects(fileUrl, destPath, onProgress) {
+    const res = await fetch(fileUrl, {
+        headers: {
+            'User-Agent': 'Class-Management-Updater/26.10'
+        },
+        redirect: 'follow'
+    });
+
+    if (!res.ok) {
+        throw new Error(`Download fallito con codice di stato HTTP ${res.status}`);
+    }
+
+    const totalBytes = parseInt(res.headers.get('content-length') || '0', 10);
+    let receivedBytes = 0;
+
+    const fileStream = fs.createWriteStream(destPath);
+    const { Readable } = require('stream');
+    const nodeReadable = Readable.fromWeb(res.body);
+
     return new Promise((resolve, reject) => {
-        const download = (currentUrl, redirectCount = 0) => {
-            if (redirectCount > 10) {
-                return reject(new Error('Troppi reindirizzamenti durante il download.'));
+        nodeReadable.on('data', (chunk) => {
+            receivedBytes += chunk.length;
+            if (onProgress) {
+                const percent = totalBytes > 0 ? Math.round((receivedBytes / totalBytes) * 100) : 0;
+                onProgress({ receivedBytes, totalBytes, percent });
             }
-            const protocol = currentUrl.startsWith('https') ? require('https') : require('http');
-            const req = protocol.get(currentUrl, {
-                headers: {
-                    'User-Agent': 'Class-Management-Updater'
-                }
-            }, (res) => {
-                if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
-                    return download(res.headers.location, redirectCount + 1);
-                }
-                if (res.statusCode !== 200) {
-                    return reject(new Error(`Download fallito con codice di stato HTTP ${res.statusCode}`));
-                }
-                const totalBytes = parseInt(res.headers['content-length'] || '0', 10);
-                let receivedBytes = 0;
-                const fileStream = fs.createWriteStream(destPath);
+        });
 
-                res.on('data', (chunk) => {
-                    receivedBytes += chunk.length;
-                    if (onProgress) {
-                        const percent = totalBytes > 0 ? Math.round((receivedBytes / totalBytes) * 100) : 0;
-                        onProgress({ receivedBytes, totalBytes, percent });
-                    }
-                });
+        nodeReadable.pipe(fileStream);
 
-                res.pipe(fileStream);
+        fileStream.on('finish', () => {
+            fileStream.close(() => resolve(destPath));
+        });
 
-                fileStream.on('finish', () => {
-                    fileStream.close(() => resolve(destPath));
-                });
+        fileStream.on('error', (err) => {
+            fs.unlink(destPath, () => {});
+            reject(err);
+        });
 
-                fileStream.on('error', (err) => {
-                    fs.unlink(destPath, () => {});
-                    reject(err);
-                });
-            });
-
-            req.on('error', (err) => {
-                fs.unlink(destPath, () => {});
-                reject(err);
-            });
-        };
-
-        download(fileUrl);
+        nodeReadable.on('error', (err) => {
+            fs.unlink(destPath, () => {});
+            reject(err);
+        });
     });
 }
 
@@ -182,83 +176,64 @@ ipcMain.handle('save-auto-backup', async (event, { filename, data }) => {
     }
 });
 
-function fetchJsonWithRedirects(targetUrl, timeoutMs = 8000) {
-    return new Promise((resolve, reject) => {
-        const fetchUrl = (currentUrl, redirectCount = 0) => {
-            if (redirectCount > 8) return reject(new Error('Troppi reindirizzamenti.'));
-            const protocol = currentUrl.startsWith('https') ? require('https') : require('http');
-            const req = protocol.get(currentUrl, {
-                headers: {
-                    'User-Agent': 'Class-Management-App/26.10',
-                    'Accept': 'application/json'
-                },
-                timeout: timeoutMs
-            }, (res) => {
-                if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
-                    return fetchUrl(res.headers.location, redirectCount + 1);
-                }
-                if (res.statusCode !== 200) {
-                    return reject(new Error(`HTTP ${res.statusCode}`));
-                }
-                let data = '';
-                res.on('data', chunk => { data += chunk; });
-                res.on('end', () => {
-                    try {
-                        const parsed = JSON.parse(data);
-                        resolve(parsed);
-                    } catch (e) {
-                        reject(new Error('Invalid JSON'));
-                    }
-                });
-            });
-            req.on('timeout', () => {
-                req.destroy();
-                reject(new Error('Timeout richiesta aggiornamento'));
-            });
-            req.on('error', reject);
-        };
-        fetchUrl(targetUrl);
-    });
-}
-
 ipcMain.handle('check-for-updates-api', async () => {
     try {
         // 1. Try official GitHub releases API
         try {
-            const releases = await fetchJsonWithRedirects('https://api.github.com/repos/Natsvkashii/ClassManager/releases', 7000);
-            if (Array.isArray(releases) && releases.length > 0) {
-                return { success: true, releases, source: 'github_api' };
+            const res = await fetch('https://api.github.com/repos/Natsvkashii/ClassManager/releases', {
+                headers: {
+                    'User-Agent': 'Class-Management-Updater/26.10',
+                    'Accept': 'application/vnd.github.v3+json'
+                },
+                signal: AbortSignal.timeout(6000)
+            });
+            if (res.ok) {
+                const releases = await res.json();
+                if (Array.isArray(releases) && releases.length > 0) {
+                    return { success: true, releases, source: 'github_api' };
+                }
+            } else {
+                console.warn('GitHub Releases API returned HTTP status:', res.status);
             }
         } catch (apiErr) {
             console.warn('GitHub Releases API check failed, trying manifest fallback:', apiErr.message);
         }
 
-        // 2. Fallback to raw manifest on stable branch (never rate-limited)
-        try {
-            const manifest = await fetchJsonWithRedirects('https://raw.githubusercontent.com/Natsvkashii/ClassManager/stable/update-manifest.json', 7000);
-            if (manifest && manifest.version) {
-                const simulatedRelease = {
-                    tag_name: manifest.tag_name || `v${manifest.version}`,
-                    name: `Class Management v${manifest.version}`,
-                    prerelease: manifest.prerelease === true,
-                    published_at: manifest.published_at || new Date().toISOString(),
-                    body: manifest.body || '',
-                    html_url: `https://github.com/Natsvkashii/ClassManager/releases/tag/${manifest.tag_name || 'v' + manifest.version}`,
-                    assets: [
-                        {
-                            name: manifest.setupName || `Class-Management-${manifest.version}-Setup.exe`,
-                            browser_download_url: manifest.setupUrl
-                        },
-                        ...(manifest.portableUrl ? [{
-                            name: manifest.portableName || `Class-Management-${manifest.version}-Portable.exe`,
-                            browser_download_url: manifest.portableUrl
-                        }] : [])
-                    ]
-                };
-                return { success: true, releases: [simulatedRelease], source: 'raw_manifest' };
+        // 2. Fallback to raw manifest on unstable (beta) or stable branch
+        const branches = ['unstable', 'stable'];
+        for (const branch of branches) {
+            try {
+                const resM = await fetch(`https://raw.githubusercontent.com/Natsvkashii/ClassManager/${branch}/update-manifest.json`, {
+                    headers: { 'User-Agent': 'Class-Management-Updater/26.10' },
+                    signal: AbortSignal.timeout(5000)
+                });
+                if (resM.ok) {
+                    const manifest = await resM.json();
+                    if (manifest && manifest.version) {
+                        const simulatedRelease = {
+                            tag_name: manifest.tag_name || `v${manifest.version}`,
+                            name: manifest.name || `Class Management v${manifest.version}`,
+                            prerelease: manifest.prerelease === true,
+                            published_at: manifest.published_at || new Date().toISOString(),
+                            body: manifest.body || '',
+                            html_url: manifest.html_url || `https://github.com/Natsvkashii/ClassManager/releases/tag/${manifest.tag_name || 'v' + manifest.version}`,
+                            assets: [
+                                {
+                                    name: manifest.setupName || `Class-Management-${manifest.version}-Setup.exe`,
+                                    browser_download_url: manifest.setupUrl
+                                },
+                                ...(manifest.portableUrl ? [{
+                                    name: manifest.portableName || `Class-Management-${manifest.version}-Portable.exe`,
+                                    browser_download_url: manifest.portableUrl
+                                }] : [])
+                            ]
+                        };
+                        return { success: true, releases: [simulatedRelease], source: `raw_manifest_${branch}` };
+                    }
+                }
+            } catch (manifestErr) {
+                console.warn(`Manifest check failed for ${branch}:`, manifestErr.message);
             }
-        } catch (manifestErr) {
-            console.warn('Raw manifest check failed:', manifestErr.message);
         }
 
         return { error: 'Nessuna risposta disponibile dai server di aggiornamento.' };
