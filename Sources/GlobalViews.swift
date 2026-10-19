@@ -783,39 +783,6 @@ public struct BillingView: View {
         return AnyView(
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
-                    // Course Selector Pills Bar
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 10) {
-                            ForEach(store.activeCourses) { c in
-                                let cPal = store.palette(for: c.color)
-                                let isSel = c.id == course.id
-                                Button {
-                                    store.switchCourse(c.id, tab: .billing)
-                                    selectedModuleId = nil
-                                } label: {
-                                    HStack(spacing: 6) {
-                                        Circle().fill(isSel ? .white : cPal.color).frame(width: 8, height: 8)
-                                        Text(c.name).font(.caption.bold())
-                                    }
-                                    .padding(.horizontal, 12)
-                                    .padding(.vertical, 8)
-                                    .background(
-                                        RoundedRectangle(cornerRadius: 10)
-                                            .fill(isSel ? cPal.color : Color.secondary.opacity(0.08))
-                                    )
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 10)
-                                            .strokeBorder(isSel ? cPal.color : Color.secondary.opacity(0.26), lineWidth: 1)
-                                    )
-                                    .foregroundStyle(isSel ? .white : .primary)
-                                }
-                                .buttonStyle(.plain)
-                            }
-                        }
-                    }
-                    .padding(12)
-                    .appCardStyle(cornerRadius: 12)
-
                     // 1. GENERAL OVERVIEW SPACE (Summary card of hours, total spent, and fiscal data modal button)
                     VStack(alignment: .leading, spacing: 14) {
                         HStack(alignment: .center) {

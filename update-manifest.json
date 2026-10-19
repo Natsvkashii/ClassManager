@@ -1,12 +1,12 @@
 {
-  "version": "26.10.4-007(unstable)",
-  "tag_name": "v26.10.4-007(unstable)",
+  "version": "26.10.4-008(unstable)",
+  "tag_name": "v26.10.4-008(unstable)",
   "prerelease": true,
-  "published_at": "2026-10-19T05:45:00Z",
-  "name": "Class Management v26.10.4-007(unstable)",
-  "body": "Novità versione 26.10.4-007(unstable):\n- Risolto il blocco di inizializzazione dello stream di download nella finestra di dialogo tramite aggancio immediato dei listener IPC e disaccoppiamento non bloccante del backup preventivo con timeout a 2 secondi.\n- Potenziato il motore di download con doppio canale IPC diretto (event.sender + webContents), gestione file temporaneo con estensione '.downloading' per prevenire lock di sistema e fallback automatico trasparente su utility nativa di sistema ('curl.exe').\n- Telemetria diagnostica estesa con tracciamento immediato dei parametri dal processo renderer e compatibilità del parser log con qualsiasi formato orario (12h AM/PM e 24h).",
-  "setupUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.10.4-007(unstable)/Class-Management-26.10.4-007.unstable.-Setup.exe",
-  "setupName": "Class-Management-26.10.4-007.unstable.-Setup.exe",
-  "portableUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.10.4-007(unstable)/Class-Management-26.10.4-007.unstable.-Portable.exe",
-  "portableName": "Class-Management-26.10.4-007.unstable.-Portable.exe"
+  "published_at": "2026-10-19T11:00:00Z",
+  "name": "Class Management v26.10.4-008(unstable)",
+  "body": "Novità versione 26.10.4-008(unstable):\n- Nuovo logo e icona moderna/minimalista Fluent/macOS (mortarboard e libro aperto con sfumature blu reale, ciano e accento smeraldo).\n- Rimozione del selettore ridondante gruppi/corsi con pallini e nomi dalla schermata di Fatturazione (gestito nella barra superiore).\n- Supporto alla consultazione dei mesi precedenti nel Piano Lezioni, con focus e scroll automatico immediato sul mese corrente.\n- Visualizzazione in grigio delle lezioni passate di altri moduli nel calendario (escluse automaticamente da esportazione PNG e WhatsApp).\n- Badge di stato lezione: pallino grigio con spunta (✓) se sono state segnate presenze; pallino con X rossa (✕) se la data è passata senza presenze registrate.",
+  "setupUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.10.4-008(unstable)/Class-Management-26.10.4-008.unstable.-Setup.exe",
+  "setupName": "Class-Management-26.10.4-008.unstable.-Setup.exe",
+  "portableUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.10.4-008(unstable)/Class-Management-26.10.4-008.unstable.-Portable.exe",
+  "portableName": "Class-Management-26.10.4-008.unstable.-Portable.exe"
 }

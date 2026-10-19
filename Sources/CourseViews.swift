@@ -1570,58 +1570,99 @@ public struct ModuleCalendarView: View {
                                                                     }
                                                                 }
 
-                                                                ForEach(day.sessions) { sess in
-                                                                    Button {
-                                                                        activeSheet = .lessonPlan(courseId: course.id, sectionId: mod.id, slotKey: sess.slotKey)
-                                                                    } label: {
+                                                                 ForEach(day.sessions) { sess in
+                                                                    if sess.isOtherModule {
                                                                         VStack(alignment: .leading, spacing: 2) {
                                                                             HStack {
-                                                                                Text("\(sess.lessonNum)")
-                                                                                    .font(.caption2.bold())
-                                                                                    .padding(.horizontal, 5)
+                                                                                Text("\(sess.otherModuleName) #\(sess.lessonNum)")
+                                                                                    .font(.system(size: 9, weight: .bold))
+                                                                                    .padding(.horizontal, 4)
                                                                                     .padding(.vertical, 1)
-                                                                                    .background(RoundedRectangle(cornerRadius: 4).fill(Color.white.opacity(0.25)))
+                                                                                    .background(RoundedRectangle(cornerRadius: 4).fill(Color.secondary.opacity(0.18)))
                                                                                 Spacer()
                                                                                 Text("\(store.formatTimeDisplay(sess.time))-\(store.formatTimeDisplay(sess.endTime))")
-                                                                                    .font(.system(size: 9, weight: .bold))
+                                                                                    .font(.system(size: 8.5, weight: .medium))
                                                                             }
                                                                             if !sess.title.isEmpty {
                                                                                 Text(sess.title)
-                                                                                    .font(.system(size: 10, weight: .semibold))
+                                                                                    .font(.system(size: 9.5))
                                                                                     .lineLimit(1)
                                                                             }
                                                                         }
                                                                         .padding(6)
                                                                         .frame(maxWidth: .infinity, alignment: .leading)
-                                                                        .background(RoundedRectangle(cornerRadius: 7).fill(pal.color))
-                                                                        .foregroundStyle(.white)
-                                                                    }
-                                                                    .buttonStyle(.plain)
-                                                                    .draggable(sess.slotKey) {
-                                                                        HStack(spacing: 8) {
-                                                                            Image(systemName: "calendar.badge.clock")
-                                                                                .font(.system(size: 13, weight: .bold))
+                                                                        .background(RoundedRectangle(cornerRadius: 7).fill(Color.secondary.opacity(0.12)))
+                                                                        .foregroundStyle(.secondary)
+                                                                    } else {
+                                                                        Button {
+                                                                            activeSheet = .lessonPlan(courseId: course.id, sectionId: mod.id, slotKey: sess.slotKey)
+                                                                        } label: {
                                                                             VStack(alignment: .leading, spacing: 2) {
-                                                                                Text("\(store.t("navHome")) • Lez. \(sess.lessonNum)")
-                                                                                    .font(.caption.bold())
+                                                                                HStack {
+                                                                                    HStack(spacing: 4) {
+                                                                                        Text("\(sess.lessonNum)")
+                                                                                            .font(.caption2.bold())
+                                                                                            .padding(.horizontal, 5)
+                                                                                            .padding(.vertical, 1)
+                                                                                            .background(RoundedRectangle(cornerRadius: 4).fill(Color.white.opacity(0.25)))
+
+                                                                                        if sess.isHeld {
+                                                                                            Image(systemName: "checkmark")
+                                                                                                .font(.system(size: 7, weight: .black))
+                                                                                                .foregroundStyle(.white)
+                                                                                                .frame(width: 13, height: 13)
+                                                                                                .background(Circle().fill(Color.gray))
+                                                                                        } else if sess.isPast {
+                                                                                            Image(systemName: "xmark")
+                                                                                                .font(.system(size: 7, weight: .black))
+                                                                                                .foregroundStyle(.red)
+                                                                                                .frame(width: 13, height: 13)
+                                                                                                .background(Circle().fill(Color.white))
+                                                                                                .overlay(Circle().strokeBorder(Color.red, lineWidth: 1))
+                                                                                        }
+                                                                                    }
+                                                                                    Spacer()
+                                                                                    Text("\(store.formatTimeDisplay(sess.time))-\(store.formatTimeDisplay(sess.endTime))")
+                                                                                        .font(.system(size: 9, weight: .bold))
+                                                                                }
                                                                                 if !sess.title.isEmpty {
                                                                                     Text(sess.title)
-                                                                                        .font(.system(size: 10, weight: .medium))
+                                                                                        .font(.system(size: 10, weight: .semibold))
                                                                                         .lineLimit(1)
                                                                                 }
-                                                                                Text("\(store.formatTimeDisplay(sess.time)) - \(store.formatTimeDisplay(sess.endTime))")
-                                                                                    .font(.system(size: 9))
-                                                                                    .opacity(0.85)
                                                                             }
+                                                                            .padding(6)
+                                                                            .frame(maxWidth: .infinity, alignment: .leading)
+                                                                            .background(RoundedRectangle(cornerRadius: 7).fill(pal.color))
+                                                                            .foregroundStyle(.white)
                                                                         }
-                                                                        .padding(.horizontal, 10)
-                                                                        .padding(.vertical, 6)
-                                                                        .background(
-                                                                            RoundedRectangle(cornerRadius: 8)
-                                                                                .fill(pal.color)
-                                                                                .shadow(color: .black.opacity(0.25), radius: 6, y: 3)
-                                                                        )
-                                                                        .foregroundStyle(.white)
+                                                                        .buttonStyle(.plain)
+                                                                        .draggable(sess.slotKey) {
+                                                                            HStack(spacing: 8) {
+                                                                                Image(systemName: "calendar.badge.clock")
+                                                                                    .font(.system(size: 13, weight: .bold))
+                                                                                VStack(alignment: .leading, spacing: 2) {
+                                                                                    Text("\(store.t("navHome")) • Lez. \(sess.lessonNum)")
+                                                                                        .font(.caption.bold())
+                                                                                    if !sess.title.isEmpty {
+                                                                                        Text(sess.title)
+                                                                                            .font(.system(size: 10, weight: .medium))
+                                                                                            .lineLimit(1)
+                                                                                    }
+                                                                                    Text("\(store.formatTimeDisplay(sess.time)) - \(store.formatTimeDisplay(sess.endTime))")
+                                                                                        .font(.system(size: 9))
+                                                                                        .opacity(0.85)
+                                                                                }
+                                                                            }
+                                                                            .padding(.horizontal, 10)
+                                                                            .padding(.vertical, 6)
+                                                                            .background(
+                                                                                RoundedRectangle(cornerRadius: 8)
+                                                                                    .fill(pal.color)
+                                                                                    .shadow(color: .black.opacity(0.25), radius: 6, y: 3)
+                                                                            )
+                                                                            .foregroundStyle(.white)
+                                                                        }
                                                                     }
                                                                 }
 
@@ -1690,6 +1731,18 @@ public struct ModuleCalendarView: View {
                         .onChange(of: currentMonthScrollIndex) { _, newIdx in
                             withAnimation(.easeInOut(duration: 0.3)) {
                                 scrollProxy.scrollTo("month-\(newIdx)", anchor: .top)
+                            }
+                        }
+                        .onAppear {
+                            let cal = Calendar.current
+                            let now = Date()
+                            let curY = cal.component(.year, from: now)
+                            let curM = cal.component(.month, from: now)
+                            if let idx = monthSections.firstIndex(where: { $0.year == curY && $0.month == curM }) {
+                                currentMonthScrollIndex = idx
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                                    scrollProxy.scrollTo("month-\(idx)", anchor: .top)
+                                }
                             }
                         }
 
@@ -1791,12 +1844,25 @@ public struct ModuleCalendarView: View {
     }
 
     fileprivate struct DaySession: Identifiable {
-        var id: String { slotKey }
+        var id: String { "\(slotKey)_\(isOtherModule ? otherModuleName : "cur")" }
         let slotKey: String
         let lessonNum: Int
         let time: String
         let endTime: String
         let title: String
+        var isOtherModule: Bool = false
+        var otherModuleName: String = ""
+        var isHeld: Bool = false
+        var isPast: Bool = false
+    }
+
+    private func hasAttendanceRecord(module: CourseModule, slotKey: String) -> Bool {
+        for (_, studentSlots) in module.attendance {
+            if let val = studentSlots[slotKey], !val.trimmingCharacters(in: .whitespaces).isEmpty {
+                return true
+            }
+        }
+        return false
     }
 
     fileprivate struct CalendarDayCell: Identifiable {
@@ -1870,30 +1936,72 @@ public struct ModuleCalendarView: View {
         df.dateFormat = "yyyy-MM-dd"
         df.locale = Locale(identifier: "en_US_POSIX")
 
-        var byDate: [String: [DaySession]] = [:]
-        for (idx, sk) in slots.enumerated() {
-            let dOnly = store.extractDate(from: sk)
-            let les = store.findLesson(in: course, sectionId: module.id, slotKey: sk)
-            let sess = DaySession(
-                slotKey: sk,
-                lessonNum: idx + 1,
-                time: les?.time ?? module.startTime,
-                endTime: les?.endTime ?? module.endTime,
-                title: les?.title ?? ""
-            )
-            byDate[dOnly, default: []].append(sess)
-        }
+        let tf = DateFormatter()
+        tf.dateFormat = "HH:mm"
 
         let cal = Calendar.current
         let today = Date()
         let todayIso = df.string(from: today)
+        let nowTime = tf.string(from: today)
 
-        // Find earliest reference date (first lesson or today, whichever is earlier)
-        var refDate = today
-        if let firstStr = slots.first.map({ store.extractDate(from: $0) }),
-           let firstDate = df.date(from: firstStr) {
-            if firstDate < today {
-                refDate = firstDate
+        var byDate: [String: [DaySession]] = [:]
+
+        // 1. Current module slots
+        for (idx, sk) in slots.enumerated() {
+            let dOnly = store.extractDate(from: sk)
+            let les = store.findLesson(in: course, sectionId: module.id, slotKey: sk)
+            let eTime = les?.endTime ?? module.endTime
+            let isPast = (dOnly < todayIso) || (dOnly == todayIso && eTime < nowTime)
+            let isHeld = hasAttendanceRecord(module: module, slotKey: sk)
+
+            let sess = DaySession(
+                slotKey: sk,
+                lessonNum: idx + 1,
+                time: les?.time ?? module.startTime,
+                endTime: eTime,
+                title: les?.title ?? "",
+                isOtherModule: false,
+                otherModuleName: "",
+                isHeld: isHeld,
+                isPast: isPast
+            )
+            byDate[dOnly, default: []].append(sess)
+        }
+
+        // 2. Past lessons of other modules in course (displayed in gray)
+        for lvl in course.levels {
+            for otherMod in lvl.modules where otherMod.id != module.id {
+                let sortedOther = store.sortedSlots(for: course, module: otherMod)
+                for (oIdx, oSk) in sortedOther.enumerated() {
+                    let oDate = store.extractDate(from: oSk)
+                    if oDate <= todayIso {
+                        let oLes = store.findLesson(in: course, sectionId: otherMod.id, slotKey: oSk)
+                        let otherSess = DaySession(
+                            slotKey: oSk,
+                            lessonNum: oIdx + 1,
+                            time: oLes?.time ?? otherMod.startTime,
+                            endTime: oLes?.endTime ?? otherMod.endTime,
+                            title: oLes?.title ?? "",
+                            isOtherModule: true,
+                            otherModuleName: otherMod.name,
+                            isHeld: false,
+                            isPast: true
+                        )
+                        byDate[oDate, default: []].append(otherSess)
+                    }
+                }
+            }
+        }
+
+        // Earliest reference date: go back at least 2 months prior to today, or earliest lesson in any module
+        var refDate = cal.date(byAdding: .month, value: -2, to: today) ?? today
+        for lvl in course.levels {
+            for m in lvl.modules {
+                for dStr in m.dates.map({ store.extractDate(from: $0) }) {
+                    if let d = df.date(from: dStr), d < refDate {
+                        refDate = d
+                    }
+                }
             }
         }
 
@@ -1961,7 +2069,7 @@ public struct ModuleCalendarView: View {
                 let cellIso = String(format: "%04d-%02d-%02d", y, mNum, d)
                 let isToday = (cellIso == todayIso)
                 let sessList = byDate[cellIso] ?? []
-                monthSessionCount += sessList.count
+                monthSessionCount += sessList.filter { !$0.isOtherModule }.count
                 let mShort = String(mName.prefix(3))
                 allCells.append(
                     CalendarDayCell(

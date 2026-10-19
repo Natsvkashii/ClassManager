@@ -18,7 +18,7 @@ public enum AuthorAttribution {
     public static let authorName = "Guaira Jaramillo Nitoglia"
     public static let authorEmail = "guaira.jaramillo.nitoglia@gmail.com"
     public static let appName = "Class Management"
-    public static let appVersion = "26.10.4-007(unstable)"
+    public static let appVersion = "26.10.4-008(unstable)"
     public static let licenseName = "GNU General Public License v3.0 (GPL-3.0)"
 
     public static var isBeta: Bool {
@@ -1548,6 +1548,13 @@ public struct AppState: Codable, Equatable {
     ]
 
     public static let defaultChangelog: [ChangelogEntry] = [
+        ChangelogEntry(version: "26.10.4-008(unstable)", date: "2026-10-19", changes: [
+            "Nuovo logo e icona moderna/minimalista Fluent/macOS (mortarboard e libro aperto con sfumature blu reale, ciano e accento smeraldo).",
+            "Rimozione del selettore ridondante gruppi/corsi con pallini e nomi dalla schermata di Fatturazione (gestito nella barra superiore).",
+            "Supporto alla consultazione dei mesi precedenti nel Piano Lezioni, con focus e scroll automatico immediato sul mese corrente.",
+            "Visualizzazione in grigio delle lezioni passate di altri moduli nel calendario (escluse automaticamente da esportazione PNG e WhatsApp).",
+            "Badge di stato lezione: pallino grigio con spunta (✓) se sono state segnate presenze; pallino con X rossa (✕) se la data è passata senza presenze registrate."
+        ]),
         ChangelogEntry(version: "26.10.4-007(unstable)", date: "2026-10-19", changes: [
             "Risolto il blocco di inizializzazione dello stream di download nella finestra di dialogo tramite aggancio immediato dei listener IPC e disaccoppiamento non bloccante del backup preventivo con timeout a 2 secondi.",
             "Potenziato il motore di download con doppio canale IPC diretto (event.sender + webContents), gestione file temporaneo con estensione '.downloading' per prevenire lock di sistema e fallback automatico trasparente su utility nativa di sistema ('curl.exe').",

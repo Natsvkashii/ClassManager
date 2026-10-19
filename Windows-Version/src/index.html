@@ -1099,11 +1099,22 @@ Removing, obfuscating, or altering these credits violates the author's attributi
         ];
 
         const INITIAL_DATA = {
-            version: "26.10.4-007(unstable)",
+            version: "26.10.4-008(unstable)",
             deletedItems: [],
             lastUpdated: new Date().toISOString(),
             activeCourseId: "",
             changelog: [
+                {
+                    version: "26.10.4-008(unstable)",
+                    date: "2026-10-19",
+                    changes: [
+                        "Nuovo logo e icona moderna/minimalista Fluent/macOS (mortarboard e libro aperto con sfumature blu reale, ciano e accento smeraldo).",
+                        "Rimozione del selettore ridondante gruppi/corsi con pallini e nomi dalla schermata di Fatturazione (gestito nella barra superiore).",
+                        "Supporto alla consultazione dei mesi precedenti nel Piano Lezioni, con focus e scroll automatico immediato sul mese corrente.",
+                        "Visualizzazione in grigio delle lezioni passate di altri moduli nel calendario (escluse automaticamente da esportazione PNG e WhatsApp).",
+                        "Badge di stato lezione: pallino grigio con spunta (✓) se sono state segnate presenze; pallino con X rossa (✕) se la data è passata senza presenze registrate."
+                    ]
+                },
                 {
                     version: "26.10.4-007(unstable)",
                     date: "2026-10-19",
@@ -1906,6 +1917,17 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                     return String(a).localeCompare(String(b));
                 });
                 return mod.dates;
+            }
+
+            hasAttendanceRecord(section, slotKey) {
+                if (!section || !section.attendance) return false;
+                for (const stId of Object.keys(section.attendance)) {
+                    const val = section.attendance[stId]?.[slotKey];
+                    if (val && typeof val === "string" && val.trim() !== "") {
+                        return true;
+                    }
+                }
+                return false;
             }
 
             parseStudentWhatsAppPhone(rawPhone) {
@@ -4994,17 +5016,19 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                     return;
                 }
 
+                if (!this.calendarAdditionalPastMonths) this.calendarAdditionalPastMonths = 0;
                 if (!this.calendarAdditionalMonths) this.calendarAdditionalMonths = 0;
+
+                const now = new Date();
+                const nowY = now.getFullYear();
+                const nowM = now.getMonth();
+                const todayIso = `${nowY}-${String(nowM + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+                const nowTime = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
 
                 const startFirstDayMon = (this.state?.settings?.firstDayOfWeek || "monday") === "monday";
                 const dayHeaders = startFirstDayMon ? this.t("daysShortMon") : this.t("daysShortSun");
 
-                const firstDateStr = this.extractDateFromSlotKey(slots[0]);
-                const lastDateStr = this.extractDateFromSlotKey(slots[slots.length - 1]);
-                const firstDate = new Date(firstDateStr + "T12:00:00");
-                const lastDate = new Date(lastDateStr + "T12:00:00");
-
-                // Map slots by ISO date
+                // Map current module slots by ISO date
                 const slotsByDate = {};
                 slots.forEach((slotKey, idx) => {
                     const dStr = this.extractDateFromSlotKey(slotKey);
@@ -5012,6 +5036,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                     const les = this.findLessonForSlot(course, activeSection.id, slotKey);
                     slotsByDate[dStr].push({
                         slotKey,
+                        iso: dStr,
                         lessonNumber: idx + 1,
                         time: les?.time || activeSection.startTime || course.startTime || "19:00",
                         endTime: les?.endTime || activeSection.endTime || course.endTime || "20:30",
@@ -5019,10 +5044,51 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                     });
                 });
 
-                // Generate Month Sections from start month to end month + additionalMonths
+                // Map past lessons from other modules by ISO date (to show in gray, excluded from PNG & WhatsApp)
+                const otherPastLessonsByDate = {};
+                (course.levels || []).forEach(lvl => {
+                    (lvl.modules || []).forEach(m => {
+                        if (m.id !== activeSection.id) {
+                            (m.dates || []).forEach((sk, sIdx) => {
+                                const dStr = this.extractDateFromSlotKey(sk);
+                                if (dStr <= todayIso) {
+                                    if (!otherPastLessonsByDate[dStr]) otherPastLessonsByDate[dStr] = [];
+                                    const les = this.findLessonForSlot(course, m.id, sk);
+                                    otherPastLessonsByDate[dStr].push({
+                                        slotKey: sk,
+                                        iso: dStr,
+                                        moduleName: m.name || `M`,
+                                        lessonNumber: sIdx + 1,
+                                        time: les?.time || m.startTime || course.startTime || "19:00",
+                                        endTime: les?.endTime || m.endTime || course.endTime || "20:30",
+                                        title: les?.title || "",
+                                        isOtherModule: true
+                                    });
+                                }
+                            });
+                        }
+                    });
+                });
+
+                // Compute minDateObj and maxDateObj across all modules in course + current month
+                let minDateObj = new Date(nowY, nowM - 2, 1);
+                let maxDateObj = new Date(nowY, nowM + 2, 1);
+
+                (course.levels || []).forEach(lvl => {
+                    (lvl.modules || []).forEach(m => {
+                        (m.dates || []).forEach(sk => {
+                            const dStr = this.extractDateFromSlotKey(sk);
+                            const d = new Date(dStr + "T12:00:00");
+                            if (d < minDateObj) minDateObj = d;
+                            if (d > maxDateObj) maxDateObj = d;
+                        });
+                    });
+                });
+
+                // Generate Month Sections from earliest month to latest month
                 const monthsData = [];
-                let mCursor = new Date(firstDate.getFullYear(), firstDate.getMonth(), 1);
-                const maxMonth = new Date(lastDate.getFullYear(), lastDate.getMonth() + this.calendarAdditionalMonths + 1, 1);
+                let mCursor = new Date(minDateObj.getFullYear(), minDateObj.getMonth() - this.calendarAdditionalPastMonths, 1);
+                const maxMonth = new Date(maxDateObj.getFullYear(), maxDateObj.getMonth() + this.calendarAdditionalMonths + 1, 1);
 
                 const monthNames = this.t("months");
 
@@ -5030,6 +5096,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                     const y = mCursor.getFullYear();
                     const m = mCursor.getMonth();
                     const monthTitle = `${monthNames[m]} ${y}`;
+                    const isCurrentMonthCalendar = (y === nowY && m === nowM);
 
                     // Build weeks for this specific month
                     const firstDayOfMonth = new Date(y, m, 1);
@@ -5057,14 +5124,16 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                             const curD = String(wCursor.getDate()).padStart(2, "0");
                             const iso = `${curY}-${curM}-${curD}`;
                             const isCurrentMonth = wCursor.getMonth() === m;
-                            const sessions = slotsByDate[iso] || [];
-                            if (isCurrentMonth) monthSessionCount += sessions.length;
+                            const currentSessions = slotsByDate[iso] || [];
+                            const otherPastSessions = otherPastLessonsByDate[iso] || [];
+                            if (isCurrentMonth) monthSessionCount += currentSessions.length;
 
                             weekDays.push({
                                 iso,
                                 dayNum: wCursor.getDate(),
                                 isCurrentMonth,
-                                sessions
+                                sessions: currentSessions,
+                                otherPastSessions
                             });
                             wCursor.setDate(wCursor.getDate() + 1);
                         }
@@ -5074,6 +5143,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                     monthsData.push({
                         id: `month-${y}-${m}`,
                         title: monthTitle,
+                        isCurrentMonthCalendar,
                         sessionCount: monthSessionCount,
                         weeks
                     });
@@ -5113,12 +5183,24 @@ Removing, obfuscating, or altering these credits violates the author's attributi
 
                         <!-- Multi-Month Scroll View -->
                         <div id="calendarScrollContainer" class="space-y-6 max-h-[72vh] overflow-y-auto custom-scrollbar p-1">
+                            <!-- Load More Past Months Button -->
+                            <div class="text-center pt-1 pb-1">
+                                <button onclick="app.calendarAdditionalPastMonths = (app.calendarAdditionalPastMonths || 0) + 6; app.renderModuleStudentCalendarView(document.getElementById('mainViewContainer'));"
+                                    class="px-5 py-2 rounded-xl border border-sky-200 dark:border-slate-700 bg-white dark:bg-navy-900 hover:bg-sky-50 dark:hover:bg-navy-800 text-sky-700 dark:text-sky-300 font-bold text-xs shadow-xs inline-flex items-center gap-2">
+                                    <i class="fa-solid fa-clock-rotate-left"></i>
+                                    <span>Mostra altri mesi precedenti</span>
+                                </button>
+                            </div>
+
                             ${monthsData.map(mSec => `
-                                <div id="${mSec.id}" class="bg-white dark:bg-navy-900 rounded-2xl border border-sky-100 dark:border-slate-800 p-5 shadow-xs space-y-3">
+                                <div id="${mSec.id}" class="bg-white dark:bg-navy-900 rounded-2xl border ${mSec.isCurrentMonthCalendar ? 'border-sky-400 dark:border-sky-600 ring-2 ring-sky-400/20 shadow-md' : 'border-sky-100 dark:border-slate-800 shadow-xs'} p-5 space-y-3">
                                     <!-- Month Header Banner -->
                                     <div class="flex items-center justify-between border-b border-sky-100 dark:border-slate-800 pb-2.5">
                                         <div class="flex items-center gap-2">
                                             <h3 class="text-sm font-extrabold text-slate-900 dark:text-white">${this.escapeHtml(mSec.title)}</h3>
+                                            ${mSec.isCurrentMonthCalendar ? `
+                                                <span class="px-2 py-0.5 rounded-full bg-sky-600 text-white text-[10px] font-extrabold uppercase">Mese Corrente</span>
+                                            ` : ''}
                                             ${mSec.sessionCount > 0 ? `
                                                 <span class="px-2 py-0.5 rounded-full bg-sky-100 dark:bg-navy-800 text-sky-700 dark:text-sky-300 text-[10px] font-extrabold">${mSec.sessionCount} lezioni</span>
                                             ` : ''}
@@ -5139,27 +5221,52 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                                                         return `<div class="min-h-[92px] rounded-xl bg-slate-50/50 dark:bg-navy-950/40 border border-transparent"></div>`;
                                                     }
                                                     const hasLessons = day.sessions.length > 0;
+                                                    const hasOtherPast = day.otherPastSessions.length > 0;
                                                     return `
                                                         <div ondragover="app.handleDayDragOver(event, '${day.iso}')"
                                                              ondragleave="app.handleDayDragLeave(event, '${day.iso}')"
                                                              ondrop="app.handleDayDrop(event, '${day.iso}')"
-                                                             class="calendar-day-cell min-h-[92px] rounded-xl p-2 border transition flex flex-col justify-between gap-1.5 ${hasLessons ? 'border-sky-300 dark:border-sky-800 bg-sky-50/30 dark:bg-navy-800/40' : 'border-sky-100 dark:border-slate-800 bg-white dark:bg-navy-900'}">
+                                                             class="calendar-day-cell min-h-[92px] rounded-xl p-2 border transition flex flex-col justify-between gap-1.5 ${hasLessons ? 'border-sky-300 dark:border-sky-800 bg-sky-50/30 dark:bg-navy-800/40' : (hasOtherPast ? 'border-slate-200 dark:border-slate-800 bg-slate-50/40 dark:bg-navy-950/20' : 'border-sky-100 dark:border-slate-800 bg-white dark:bg-navy-900')}">
                                                             <div class="flex items-center justify-between">
                                                                 <span class="text-xs font-bold text-slate-700 dark:text-slate-300">${day.dayNum}</span>
                                                             </div>
                                                             <div class="space-y-1.5">
-                                                                ${day.sessions.map(sess => `
-                                                                    <div draggable="true"
-                                                                         ondragstart="app.handleLessonDragStart(event, '${sess.slotKey}')"
-                                                                         ondragend="app.handleLessonDragEnd(event)"
-                                                                         onclick="app.openLessonPlanModal('${course.id}', '${activeSection.id}', '${sess.slotKey}')"
-                                                                         class="cursor-grab active:cursor-grabbing p-1.5 rounded-lg text-white shadow-2xs transition hover:brightness-110 select-none text-[10px]"
-                                                                         style="background-color: ${pal.hex || '#0284c7'}">
-                                                                        <div class="flex items-center justify-between font-extrabold">
-                                                                            <span class="px-1 rounded bg-black/20">${sess.lessonNumber}</span>
-                                                                            <span class="opacity-90">${this.formatTimeDisplay(sess.time)}</span>
+                                                                ${day.sessions.map(sess => {
+                                                                    const isPast = sess.iso < todayIso || (sess.iso === todayIso && (sess.endTime || "23:59") < nowTime);
+                                                                    const hasAtt = this.hasAttendanceRecord(activeSection, sess.slotKey);
+                                                                    let statusBadge = "";
+                                                                    if (hasAtt) {
+                                                                        statusBadge = `<span class="w-3.5 h-3.5 rounded-full bg-slate-500/80 text-white inline-flex items-center justify-center text-[9px] font-black shrink-0" title="Lezione svolta (presenze registrate)">✓</span>`;
+                                                                    } else if (isPast) {
+                                                                        statusBadge = `<span class="w-3.5 h-3.5 rounded-full bg-white dark:bg-slate-900 border border-red-500 text-red-500 inline-flex items-center justify-center text-[9px] font-black shrink-0" title="Lezione non svolta (nessuna presenza)">✕</span>`;
+                                                                    }
+                                                                    return `
+                                                                        <div draggable="true"
+                                                                             ondragstart="app.handleLessonDragStart(event, '${sess.slotKey}')"
+                                                                             ondragend="app.handleLessonDragEnd(event)"
+                                                                             onclick="app.openLessonPlanModal('${course.id}', '${activeSection.id}', '${sess.slotKey}')"
+                                                                             class="cursor-grab active:cursor-grabbing p-1.5 rounded-lg text-white shadow-2xs transition hover:brightness-110 select-none text-[10px]"
+                                                                             style="background-color: ${pal.hex || '#0284c7'}">
+                                                                            <div class="flex items-center justify-between font-extrabold">
+                                                                                <div class="flex items-center gap-1">
+                                                                                    <span class="px-1 rounded bg-black/20">${sess.lessonNumber}</span>
+                                                                                    ${statusBadge}
+                                                                                </div>
+                                                                                <span class="opacity-90">${this.formatTimeDisplay(sess.time)}</span>
+                                                                            </div>
+                                                                            ${sess.title ? `<div class="truncate font-semibold mt-0.5">${this.escapeHtml(sess.title)}</div>` : ''}
                                                                         </div>
-                                                                        ${sess.title ? `<div class="truncate font-semibold mt-0.5">${this.escapeHtml(sess.title)}</div>` : ''}
+                                                                    `;
+                                                                }).join("")}
+
+                                                                ${day.otherPastSessions.map(osess => `
+                                                                    <div class="p-1.5 rounded-lg bg-slate-100 dark:bg-navy-800/80 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700 select-none text-[10px] opacity-80"
+                                                                         title="${this.escapeHtml(osess.moduleName)}: ${osess.title ? this.escapeHtml(osess.title) : 'Lezione'}">
+                                                                        <div class="flex items-center justify-between font-extrabold text-slate-700 dark:text-slate-300">
+                                                                            <span class="px-1 rounded bg-black/10 dark:bg-white/10 text-[9px]">${this.escapeHtml(osess.moduleName)} #${osess.lessonNumber}</span>
+                                                                            <span class="text-[9px] opacity-75">${this.formatTimeDisplay(osess.time)}</span>
+                                                                        </div>
+                                                                        ${osess.title ? `<div class="truncate text-[9px] mt-0.5 opacity-90">${this.escapeHtml(osess.title)}</div>` : ''}
                                                                     </div>
                                                                 `).join("")}
                                                             </div>
@@ -5198,6 +5305,18 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                         if (el) el.scrollTop = savedScrollTop;
                         if (savedWinScroll > 0) window.scrollTo({ top: savedWinScroll, behavior: "instant" });
                     });
+                } else {
+                    const curMonthId = `month-${nowY}-${nowM}`;
+                    const scrollToCurrent = () => {
+                        const curMonthEl = document.getElementById(curMonthId);
+                        const scrollCont = document.getElementById("calendarScrollContainer");
+                        if (curMonthEl && scrollCont) {
+                            scrollCont.scrollTop = curMonthEl.offsetTop - scrollCont.offsetTop - 10;
+                        }
+                    };
+                    scrollToCurrent();
+                    requestAnimationFrame(scrollToCurrent);
+                    setTimeout(scrollToCurrent, 30);
                 }
             }
 
@@ -6123,22 +6242,6 @@ Removing, obfuscating, or altering these credits violates the author's attributi
 
                 container.innerHTML = `
                     <div class="space-y-5 text-xs">
-                        <!-- Course Selector Pills -->
-                        <div class="flex flex-wrap items-center gap-2">
-                            ${activeCourses.map(c => {
-                                const cPal = this.getCourseColorObj(c.color);
-                                const isSel = c.id === course.id;
-                                return `
-                                    <button onclick="app.selectedBillingCourseId = '${c.id}'; app.selectedBillingModuleId = ''; app.switchCourse('${c.id}', 'billing');"
-                                        class="px-3.5 py-2 rounded-xl border font-extrabold flex items-center gap-2 transition ${isSel ? 'text-white shadow-xs' : 'bg-white dark:bg-navy-900 border-sky-100 dark:border-slate-800'}"
-                                        style="${isSel ? `background-color:${cPal.hex}; border-color:${cPal.hex}` : ''}">
-                                        <span class="w-2.5 h-2.5 rounded-full" style="background-color:${isSel ? '#fff' : cPal.hex}"></span>
-                                        <span>${this.escapeHtml(c.name)}</span>
-                                    </button>
-                                `;
-                            }).join("")}
-                        </div>
-
                         <!-- 1. GENERAL OVERVIEW SPACE -->
                         <div class="bg-white dark:bg-navy-900 rounded-2xl border border-sky-100 dark:border-slate-800 p-5 shadow-xs space-y-4">
                             <div class="flex flex-wrap items-center justify-between gap-3 border-b border-sky-100 dark:border-slate-800 pb-3">
@@ -7416,7 +7519,7 @@ Dettagli di Sistema:
                     const res = await window.electronAPI.getPendingUpdate();
                     if (res && res.success && res.pendingUpdate && res.pendingUpdate.filePath) {
                         const pending = res.pendingUpdate;
-                        const curVer = this.parseAppVersion(this.state.version || INITIAL_DATA.version || "26.10.4-007(unstable)");
+                        const curVer = this.parseAppVersion(this.state.version || INITIAL_DATA.version || "26.10.4-008(unstable)");
                         const pendingVer = this.parseAppVersion(pending.version || "");
                         if (this.compareAppVersions(pendingVer, curVer) > 0) {
                             this.pendingUpdate = pending;
@@ -7958,7 +8061,7 @@ Dettagli di Sistema:
                         return;
                     }
 
-                    const currentVer = this.parseAppVersion(this.state.version || INITIAL_DATA.version || "26.10.4-007(unstable)");
+                    const currentVer = this.parseAppVersion(this.state.version || INITIAL_DATA.version || "26.10.4-008(unstable)");
                     // Beta versions receive beta updates even if toggle is off until next stable arrives
                     const isCurrentBeta = this.isBetaVersion();
                     const includeBeta = (this.state.settings?.includeBetaUpdates === true) || isCurrentBeta;
@@ -8075,7 +8178,7 @@ Dettagli di Sistema:
                                     </div>
                                     <div>
                                         <h4 class="text-sm font-extrabold text-slate-900 dark:text-white">Class Management è Aggiornato!</h4>
-                                        <p class="text-slate-500 mt-1">Stai già utilizzando l'ultima versione disponibile (<strong>v${this.escapeHtml(this.state.version || INITIAL_DATA.version || "26.10.4-007(unstable)")}</strong>). Non sono necessari aggiornamenti.</p>
+                                        <p class="text-slate-500 mt-1">Stai già utilizzando l'ultima versione disponibile (<strong>v${this.escapeHtml(this.state.version || INITIAL_DATA.version || "26.10.4-008(unstable)")}</strong>). Non sono necessari aggiornamenti.</p>
                                     </div>
                                     <div class="pt-2">
                                         <button type="button" onclick="app.closeModal()" class="px-5 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-extrabold shadow-sm transition">OK</button>
@@ -8263,7 +8366,7 @@ Dettagli di Sistema:
              */
             renderCreditsView(container) {
                 const s = this.state.settings || {};
-                const currentVer = this.state.version || INITIAL_DATA.version || "26.10.4-007(unstable)";
+                const currentVer = this.state.version || INITIAL_DATA.version || "26.10.4-008(unstable)";
                 const latestChangelog = (this.state.changelog && this.state.changelog.length > 0) ? this.state.changelog[0] : null;
                 const update = this.availableUpdate;
                 const isDownloading = this.updateState?.isDownloading;
