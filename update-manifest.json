@@ -1,12 +1,12 @@
 {
-  "version": "26.10.4-003(unstable)",
-  "tag_name": "v26.10.4-003(unstable)",
+  "version": "26.10.4-004(unstable)",
+  "tag_name": "v26.10.4-004(unstable)",
   "prerelease": true,
-  "published_at": "2026-10-19T04:30:00Z",
-  "name": "Class Management v26.10.4-003(unstable)",
-  "body": "Novità versione 26.10.4-003(unstable):\n- Risolto il problema di avvio dell'installer su Windows: implementata l'esecuzione disaccoppiata (detached spawn) e unref per prevenire la chiusura prematura dell'installer e della richiesta UAC al termine del processo Electron.\n- Esplora File potenziato: apertura affidabile della cartella temporanea con evidenziazione automatica del file d'installazione.\n- Download Diretto da Browser: aggiunto pulsante rapido per scaricare l'eseguibile (.exe) tramite il browser web predefinito in caso di blocchi di rete o filtri di sistema.\n- Migliorata la reattività visiva all'avvio del download dell'aggiornamento.",
-  "setupUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.10.4-003(unstable)/Class-Management-26.10.4-003.unstable.-Setup.exe",
-  "setupName": "Class-Management-26.10.4-003.unstable.-Setup.exe",
-  "portableUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.10.4-003(unstable)/Class-Management-26.10.4-003.unstable.-Portable.exe",
-  "portableName": "Class-Management-26.10.4-003.unstable.-Portable.exe"
+  "published_at": "2026-10-19T04:45:00Z",
+  "name": "Class Management v26.10.4-004(unstable)",
+  "body": "Novità versione 26.10.4-004(unstable):\n- Schermata Home: rimossa la dicitura 'Corsi Attivi', la descrizione e il riquadro di intestazione per una visualizzazione immediata ed essenziale dei corsi.\n- Funzioni di Backup: le opzioni di importazione ed esportazione rimangono attive e accessibili nella sezione Impostazioni (Opzioni).\n- Test dell'aggiornamento automatico con esecuzione disaccoppiata e fallback su browser.",
+  "setupUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.10.4-004(unstable)/Class-Management-26.10.4-004.unstable.-Setup.exe",
+  "setupName": "Class-Management-26.10.4-004.unstable.-Setup.exe",
+  "portableUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.10.4-004(unstable)/Class-Management-26.10.4-004.unstable.-Portable.exe",
+  "portableName": "Class-Management-26.10.4-004.unstable.-Portable.exe"
 }

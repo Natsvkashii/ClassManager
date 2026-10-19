@@ -1072,11 +1072,19 @@ Removing, obfuscating, or altering these credits violates the author's attributi
         ];
 
         const INITIAL_DATA = {
-            version: "26.10.4-003(unstable)",
+            version: "26.10.4-004(unstable)",
             deletedItems: [],
             lastUpdated: new Date().toISOString(),
             activeCourseId: "",
             changelog: [
+                {
+                    version: "26.10.4-004(unstable)",
+                    date: "2026-10-19",
+                    changes: [
+                        "Rimossa la dicitura 'Corsi Attivi', la spiegazione e il riquadro di intestazione dalla schermata principale (Home) per una visualizzazione più pulita e diretta dei corsi.",
+                        "Le opzioni di esportazione e importazione dei dati rimangono completamente disponibili e accessibili nella sezione Impostazioni (Opzioni)."
+                    ]
+                },
                 {
                     version: "26.10.4-003(unstable)",
                     date: "2026-10-19",
@@ -2552,18 +2560,6 @@ Removing, obfuscating, or altering these credits violates the author's attributi
 
                 container.innerHTML = `
                     <div class="space-y-6">
-                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                            <div>
-                                <h2 class="text-lg sm:text-xl font-extrabold text-slate-900 dark:text-white">${this.t("activeCoursesHeading")}</h2>
-                                <p class="text-xs text-slate-500 dark:text-slate-400">${this.t("selectCoursePrompt")}</p>
-                            </div>
-                            <div class="flex flex-wrap items-center gap-2">
-                                <button onclick="app.openExportModal()" class="px-3.5 py-2 rounded-xl border border-sky-200 dark:border-slate-700 bg-white dark:bg-navy-900 text-xs font-bold flex items-center gap-1.5 hover:bg-sky-50 dark:hover:bg-navy-800">
-                                    <i class="fa-solid fa-file-export text-sky-600"></i> ${this.t("exportBtn")}
-                                </button>
-                            </div>
-                        </div>
-
                         <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                             ${activeCourses.map(c => {
                                 const lvl = this.getActiveLevel(c);
@@ -7591,7 +7587,7 @@ Dettagli di Sistema:
                         return;
                     }
 
-                    const currentVer = this.parseAppVersion(this.state.version || INITIAL_DATA.version || "26.10.4-003(unstable)");
+                    const currentVer = this.parseAppVersion(this.state.version || INITIAL_DATA.version || "26.10.4-004(unstable)");
                     // Beta versions receive beta updates even if toggle is off until next stable arrives
                     const isCurrentBeta = this.isBetaVersion();
                     const includeBeta = (this.state.settings?.includeBetaUpdates === true) || isCurrentBeta;
@@ -7692,7 +7688,7 @@ Dettagli di Sistema:
                                     </div>
                                     <div>
                                         <h4 class="text-sm font-extrabold text-slate-900 dark:text-white">Class Management è Aggiornato!</h4>
-                                        <p class="text-slate-500 mt-1">Stai già utilizzando l'ultima versione disponibile (<strong>v${this.escapeHtml(this.state.version || INITIAL_DATA.version || "26.10.4-003(unstable)")}</strong>). Non sono necessari aggiornamenti.</p>
+                                        <p class="text-slate-500 mt-1">Stai già utilizzando l'ultima versione disponibile (<strong>v${this.escapeHtml(this.state.version || INITIAL_DATA.version || "26.10.4-004(unstable)")}</strong>). Non sono necessari aggiornamenti.</p>
                                     </div>
                                     <div class="pt-2">
                                         <button type="button" onclick="app.closeModal()" class="px-5 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-extrabold shadow-sm transition">OK</button>

@@ -27,7 +27,7 @@ function createMainWindow() {
         height: 900,
         minWidth: 980,
         minHeight: 650,
-        title: 'Class Management v26.10.4-003(unstable)',
+        title: 'Class Management v26.10.4-004(unstable)',
         icon: getIconPath(),
         backgroundColor: '#090e1a',
         show: false,

@@ -94,29 +94,6 @@ public struct HomeView: View {
                 if store.activeCourses.isEmpty {
                     emptyCoursesCard
                 } else {
-                    HStack {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(store.t("activeCoursesHeading"))
-                                .font(.title2.bold())
-                            Text(store.t("selectCoursePrompt"))
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                        Spacer()
-                        Button {
-                            store.exportBackupJSONWithSavePanel()
-                        } label: {
-                            Label(store.t("exportBtn"), systemImage: "square.and.arrow.up")
-                        }
-                        Button {
-                            store.importBackupJSONWithOpenPanel()
-                        } label: {
-                            Label(store.t("importBackupBtn"), systemImage: "square.and.arrow.down")
-                        }
-                    }
-                    .padding(14)
-                    .appCardStyle(cornerRadius: 12)
-
                     LazyVGrid(columns: [GridItem(.adaptive(minimum: 290, maximum: 420), spacing: 16)], spacing: 16) {
                         ForEach(store.activeCourses) { course in
                             courseCard(course)
