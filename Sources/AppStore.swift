@@ -1124,6 +1124,65 @@ public final class AppStore {
             }
         }
     }
+
+    // MARK: - Beta Periodic Auto-Backup & Diagnostics
+
+    private var betaBackupTimer: Timer?
+
+    public func setupBetaBackupTimer() {
+        guard AuthorAttribution.isBeta else { return }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 15) { [weak self] in
+            self?.performBetaAutoBackup()
+        }
+        betaBackupTimer = Timer.scheduledTimer(withTimeInterval: 300, repeats: true) { [weak self] _ in
+            Task { @MainActor in
+                self?.performBetaAutoBackup()
+            }
+        }
+    }
+
+    public func performBetaAutoBackup() {
+        guard let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else { return }
+        let classManagerDir = docs.appendingPathComponent("Class Manager", isDirectory: true)
+        let backupDir = classManagerDir.appendingPathComponent("Backup", isDirectory: true)
+        try? FileManager.default.createDirectory(at: backupDir, withIntermediateDirectories: true)
+
+        let df = DateFormatter()
+        df.dateFormat = "yyyy-MM-dd_HH-mm-ss"
+        let timestamp = df.string(from: Date())
+        let fileUrl = backupDir.appendingPathComponent("ClassManagement_BetaBackup_\(timestamp).json")
+
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        if let data = try? encoder.encode(self.state) {
+            try? data.write(to: fileUrl, options: .atomic)
+        }
+    }
+
+    public static func saveDiagnosticReport(_ message: String, error: Error? = nil) {
+        guard let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else { return }
+        let classManagerDir = docs.appendingPathComponent("Class Manager", isDirectory: true)
+        let diagDir = classManagerDir.appendingPathComponent("Report Diagnostici", isDirectory: true)
+        try? FileManager.default.createDirectory(at: diagDir, withIntermediateDirectories: true)
+
+        let df = DateFormatter()
+        df.dateFormat = "yyyy-MM-dd_HH-mm-ss"
+        let timestamp = df.string(from: Date())
+        let fileUrl = diagDir.appendingPathComponent("Report_Diagnostico_\(timestamp).txt")
+
+        let errDesc = error != nil ? "\(error!)" : "Nessun dettaglio errore"
+        let content = """
+        ================================================================================
+        Class Management Diagnostic Report
+        App Version: \(AuthorAttribution.appVersion)
+        Timestamp: \(Date())
+        OS: macOS \(ProcessInfo.processInfo.operatingSystemVersionString)
+        ================================================================================
+        Messaggio: \(message)
+        Errore: \(errDesc)
+        """
+        try? content.write(to: fileUrl, atomically: true, encoding: .utf8)
+    }
 }
 
 extension Collection {

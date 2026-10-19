@@ -28,4 +28,4 @@ Windows-Version/dist/
 Windows-Version/*.exe
 dist/
 *.log
-
+Versions/

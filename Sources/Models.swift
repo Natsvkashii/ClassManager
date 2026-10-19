@@ -18,8 +18,13 @@ public enum AuthorAttribution {
     public static let authorName = "Guaira Jaramillo Nitoglia"
     public static let authorEmail = "guaira.jaramillo.nitoglia@gmail.com"
     public static let appName = "Class Management"
-    public static let appVersion = "26.10.2b"
+    public static let appVersion = "26.10.2-001b"
     public static let licenseName = "GNU General Public License v3.0 (GPL-3.0)"
+
+    public static var isBeta: Bool {
+        let v = appVersion.lowercased()
+        return v.contains("b") || v.contains("beta")
+    }
 }
 
 public enum NavigationTab: String, CaseIterable, Identifiable {
@@ -319,11 +324,12 @@ public struct AppSettings: Codable, Equatable {
     public var includeBetaUpdates: Bool = false
     public var updateCheckFrequency: String = "startup" // "startup", "daily", "weekly", "manual"
     public var lastUpdateCheckDate: Double = 0.0
+    public var onboardingCompleted: Bool = false
 
     public init() {}
 
     enum CodingKeys: String, CodingKey {
-        case language, theme, sidebarMini, firstDayOfWeek, dateFormat, timeFormat, currency, passThreshold, defaultLessonDuration, defaultHourlyRate, defaultLessonDurationHours, defaultVatPercent, autoSyncAppleCalendar, calendarSyncMode, iCloudSyncEnabled, checkForUpdatesAutomatically, includeBetaUpdates, updateCheckFrequency, lastUpdateCheckDate
+        case language, theme, sidebarMini, firstDayOfWeek, dateFormat, timeFormat, currency, passThreshold, defaultLessonDuration, defaultHourlyRate, defaultLessonDurationHours, defaultVatPercent, autoSyncAppleCalendar, calendarSyncMode, iCloudSyncEnabled, checkForUpdatesAutomatically, includeBetaUpdates, updateCheckFrequency, lastUpdateCheckDate, onboardingCompleted
     }
 
     public init(from decoder: Decoder) throws {
@@ -348,6 +354,7 @@ public struct AppSettings: Codable, Equatable {
         includeBetaUpdates = c.flexBool(.includeBetaUpdates, default: false)
         updateCheckFrequency = c.flexString(.updateCheckFrequency, default: "startup")
         lastUpdateCheckDate = c.flexDouble(.lastUpdateCheckDate, default: 0.0)
+        onboardingCompleted = c.flexBool(.onboardingCompleted, default: false)
     }
 
     public init(dict: [String: Any]) {
@@ -371,6 +378,7 @@ public struct AppSettings: Codable, Equatable {
         includeBetaUpdates = JSONDictHelper.bool(dict["includeBetaUpdates"], default: false)
         updateCheckFrequency = JSONDictHelper.str(dict["updateCheckFrequency"], default: "startup")
         lastUpdateCheckDate = JSONDictHelper.dbl(dict["lastUpdateCheckDate"], default: 0.0)
+        onboardingCompleted = JSONDictHelper.bool(dict["onboardingCompleted"], default: false)
     }
 }
 
@@ -1534,6 +1542,18 @@ public struct AppState: Codable, Equatable {
     ]
 
     public static let defaultChangelog: [ChangelogEntry] = [
+        ChangelogEntry(version: "26.10.2-001b", date: "2026-10-18", changes: [
+            "Rinnovato il sistema di aggiornamento per Windows: download dell'installer nella cartella temporanea dedicata con apertura automatica in Esplora File e pulizia automatica all'avvio.",
+            "Adottato il nuovo schema di versionamento progressivo per le versioni beta (es. 26.10.2-001b) con ordinamento matematico rigoroso.",
+            "Introdotto il messaggio modale di conferma sui rischi nell'abilitazione delle versioni beta prima di attivare gli aggiornamenti anteprima.",
+            "Implementato il salvataggio automatico di sicurezza ogni 5 minuti per le versioni beta nella cartella 'Documenti/Class Manager/Backup'.",
+            "Generazione automatica di report diagnostici dettagliati in caso di errori imprevisti in 'Documenti/Class Manager/Report Diagnostici'.",
+            "Aggiunta la configurazione iniziale guidata (Onboarding Wizard) al primo avvio per la scelta di lingua, valuta, formati data/ora e ripristino backup (per il canale beta).",
+            "Riprogettata la sezione Fatturazione con panoramica generale (ore totali svolte, spesa totale e dati fiscali in finestra a comparsa).",
+            "Aggiunta panoramica di tutti i moduli e livelli del corso con relativo costo totale del modulo.",
+            "Introdotto il Calendario Fatturazione per ogni modulo con dettaglio dei costi a lezione, aliquota IVA e sconti applicati con esportazione PNG.",
+            "Aggiunta l'indicazione 'creato da Guaira Jaramillo Nitoglia' nella barra superiore accanto al nome dell'applicazione (in IT, EN ed ES)."
+        ]),
         ChangelogEntry(version: "26.10.1-1", date: "2026-10-18", changes: [
             "Perfezionato il sistema di aggiornamento automatico per Windows con finestra interattiva dedicata per la verifica, visualizzazione dei dettagli e download.",
             "Visualizzazione della barra di avanzamento e percentuale di download in tempo reale direttamente nella finestra di aggiornamento.",

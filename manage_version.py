@@ -111,18 +111,24 @@ def set_version(version: str):
 
 
 def bump_beta():
-    cur = get_swift_version() or "26.10.0"
-    match = re.match(r"^(\d+\.\d+)\.(\d+)(?:b(\d*))?$", cur)
-    if match:
-        ym, rel_num, b_sub = match.groups()
-        rel_int = int(rel_num)
-        if "b" in cur:
-            b_val = int(b_sub) + 1 if b_sub else 2
-            new_ver = f"{ym}.{rel_int}b{b_val}"
+    cur = get_swift_version() or "26.10.2-001b"
+    # Matches YY.MM.PATCH-NUMb (e.g. 26.10.2-001b) or stable YY.MM.PATCH-NUM
+    m = re.match(r"^(\d+\.\d+\.\d+)-(\d+)(b)?$", cur)
+    if m:
+        base, num_str, is_b = m.groups()
+        num = int(num_str)
+        if is_b:
+            new_ver = f"{base}-{num + 1:03d}b"
         else:
-            new_ver = f"{ym}.{rel_int + 1}b"
+            new_ver = f"{base}-001b"
     else:
-        new_ver = "26.10.1b"
+        m_old = re.match(r"^(\d+\.\d+\.\d+)(?:b(\d*))?$", cur)
+        if m_old:
+            base, sub = m_old.groups()
+            sub_int = int(sub) if sub else 1
+            new_ver = f"{base}-{sub_int:03d}b"
+        else:
+            new_ver = "26.10.2-001b"
 
     set_version(new_ver)
     return new_ver
@@ -285,6 +291,15 @@ def publish_release(is_beta: bool = False):
 
     # 5. Create GitHub Release
     token = os.environ.get("GITHUB_TOKEN")
+    if not token:
+        try:
+            remote_url = subprocess.check_output(["git", "config", "--get", "remote.origin.url"], cwd=PROJECT_ROOT, text=True).strip()
+            m = re.search(r"x-access-token:([^@]+)@", remote_url)
+            if m:
+                token = m.group(1)
+        except Exception:
+            pass
+
     if token:
         print("\n=== Publishing Release on GitHub via API ===")
         rel_data = {
@@ -312,14 +327,16 @@ def publish_release(is_beta: bool = False):
                 release_id = res_obj.get("id")
                 print(f"✓ Created GitHub release ID: {release_id}")
 
-                # Upload pkg asset
-                if os.path.exists(pkg_path) and upload_url:
-                    print(f"Uploading installer asset {pkg_name} ({os.path.getsize(pkg_path)} bytes)...")
-                    with open(pkg_path, "rb") as f:
-                        pkg_bytes = f.read()
+                # Upload all matching assets (.pkg, -Setup.exe, -Portable.exe)
+                assets_to_upload = sorted(glob.glob(os.path.join(PROJECT_ROOT, f"Class-Management-{cur_ver}*.*")))
+                for asset_path in assets_to_upload:
+                    asset_filename = os.path.basename(asset_path)
+                    print(f"Uploading asset {asset_filename} ({os.path.getsize(asset_path)} bytes)...")
+                    with open(asset_path, "rb") as f:
+                        asset_bytes = f.read()
                     upload_req = urllib.request.Request(
-                        f"{upload_url}?name={pkg_name}",
-                        data=pkg_bytes,
+                        f"{upload_url}?name={asset_filename}",
+                        data=asset_bytes,
                         headers={
                             "Authorization": f"token {token}",
                             "Content-Type": "application/octet-stream",
@@ -328,7 +345,7 @@ def publish_release(is_beta: bool = False):
                         method="POST"
                     )
                     with urllib.request.urlopen(upload_req) as up_resp:
-                        print("✓ Installer .pkg uploaded successfully to GitHub Release!")
+                        print(f"✓ {asset_filename} uploaded successfully to GitHub Release!")
         except Exception as err:
             print(f"[!] GitHub API release creation failed: {err}")
     else:

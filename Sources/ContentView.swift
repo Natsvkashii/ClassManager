@@ -85,6 +85,7 @@ public struct ContentView: View {
     @Environment(\.colorScheme) private var colorScheme
     @State private var activeSheet: ActiveModalSheet? = nil
     @State private var updateManager = UpdateManager.shared
+    @State private var showOnboardingSheet: Bool = false
 
     public init() {}
 
@@ -168,8 +169,17 @@ public struct ContentView: View {
             StartupUpdatePromptSheet()
                 .environment(store)
         }
+        .sheet(isPresented: $showOnboardingSheet) {
+            OnboardingWizardView()
+                .environment(store)
+        }
         .onAppear {
-            checkUpdatesOnStartupIfNeeded()
+            store.setupBetaBackupTimer()
+            if !store.state.settings.onboardingCompleted {
+                showOnboardingSheet = true
+            } else {
+                checkUpdatesOnStartupIfNeeded()
+            }
         }
     }
 

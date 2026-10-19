@@ -2143,6 +2143,7 @@ public struct SettingsView: View {
 public struct CreditsView: View {
     @Environment(AppStore.self) private var store
     @State private var showInfoSheet: Bool = false
+    @State private var showBetaWarningAlert: Bool = false
     @State private var updateManager = UpdateManager.shared
 
     public var body: some View {
@@ -2236,7 +2237,14 @@ public struct CreditsView: View {
 
                         Toggle(store.t("includeBetaUpdatesLabel"), isOn: Binding(
                             get: { store.state.settings.includeBetaUpdates },
-                            set: { store.state.settings.includeBetaUpdates = $0; store.persist() }
+                            set: { newValue in
+                                if newValue {
+                                    showBetaWarningAlert = true
+                                } else {
+                                    store.state.settings.includeBetaUpdates = false
+                                    store.persist()
+                                }
+                            }
                         ))
 
                         HStack {
@@ -2346,6 +2354,16 @@ public struct CreditsView: View {
         .sheet(isPresented: $showInfoSheet) {
             AppInfoAndCreditsSheet()
                 .environment(store)
+        }
+        .alert("Avviso Rischi Canale Beta", isPresented: $showBetaWarningAlert) {
+            Button("Attiva Canale Beta", role: .destructive) {
+                store.state.settings.includeBetaUpdates = true
+                store.persist()
+                updateManager.checkForUpdates(includeBeta: true, silent: false)
+            }
+            Button("Annulla", role: .cancel) {}
+        } message: {
+            Text("Attivare questo canale consente di ricevere e testare le versioni Beta in anteprima. Queste versioni contengono nuove funzionalità sperimentali che potrebbero presentare instabilità o comportamenti imprevisti.\n\nViene eseguito un backup automatico ogni 5 minuti in Documenti/Class Manager/Backup. Desideri procedere?")
         }
     }
 }
@@ -2481,5 +2499,228 @@ public struct AppLogoImageView: View {
             }
         }
         .frame(width: size, height: size)
+    }
+}
+
+// MARK: - First-Run Onboarding Wizard Sheet
+
+public struct OnboardingWizardView: View {
+    @Environment(AppStore.self) private var store
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var selectedLanguage: String = "it"
+    @State private var selectedCurrency: String = "$"
+    @State private var selectedDateFormat: String = "DD/MM/YYYY"
+    @State private var selectedTimeFormat: String = "24h"
+    @State private var backupRestoredNotice: String? = nil
+
+    public init() {}
+
+    public var body: some View {
+        VStack(spacing: 0) {
+            // Header
+            HStack(spacing: 16) {
+                AppLogoImageView(size: 48)
+                VStack(alignment: .leading, spacing: 3) {
+                    HStack(spacing: 8) {
+                        Text("Benvenuto in Class Management")
+                            .font(.title2.bold())
+                        if AuthorAttribution.isBeta {
+                            Text("BETA")
+                                .font(.caption2.bold())
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(Capsule().fill(Color.orange.opacity(0.2)))
+                                .foregroundStyle(.orange)
+                        }
+                    }
+                    Text("Configurazione guidata iniziale delle tue preferenze di lavoro")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+            }
+            .padding(24)
+            .background(Color.secondary.opacity(0.04))
+
+            Divider()
+
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+                    // Settings Form
+                    VStack(alignment: .leading, spacing: 16) {
+                        // Language
+                        VStack(alignment: .leading, spacing: 6) {
+                            Label("Lingua dell'interfaccia", systemImage: "globe")
+                                .font(.caption.bold())
+                            Picker("", selection: $selectedLanguage) {
+                                Text("🇮🇹 Italiano").tag("it")
+                                Text("🇬🇧 English").tag("en")
+                                Text("🇪🇸 Español").tag("es")
+                                Text("🇫🇷 Français").tag("fr")
+                                Text("🇩🇪 Deutsch").tag("de")
+                                Text("🇵🇹 Português").tag("pt")
+                                Text("🇨🇳 中文").tag("zh")
+                                Text("🇯🇵 日本語").tag("ja")
+                                Text("🇷🇺 Русский").tag("ru")
+                                Text("🇸🇦 العربية").tag("ar")
+                            }
+                            .labelsHidden()
+                            .pickerStyle(.menu)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+
+                        // Currency
+                        VStack(alignment: .leading, spacing: 6) {
+                            Label("Valuta Principale", systemImage: "dollarsign.circle")
+                                .font(.caption.bold())
+                            Picker("", selection: $selectedCurrency) {
+                                Text("€ (Euro)").tag("€")
+                                Text("$ (Dollaro)").tag("$")
+                                Text("£ (Sterlina)").tag("£")
+                                Text("¥ (Yen / Yuan)").tag("¥")
+                                Text("CHF (Franco Svizzero)").tag("CHF")
+                            }
+                            .labelsHidden()
+                            .pickerStyle(.menu)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+
+                        // Date Format
+                        VStack(alignment: .leading, spacing: 6) {
+                            Label("Formato Data", systemImage: "calendar")
+                                .font(.caption.bold())
+                            Picker("", selection: $selectedDateFormat) {
+                                Text("DD/MM/YYYY (es. 18/10/2026)").tag("DD/MM/YYYY")
+                                Text("MM/DD/YYYY (es. 10/18/2026)").tag("MM/DD/YYYY")
+                                Text("YYYY-MM-DD (es. 2026-10-18)").tag("YYYY-MM-DD")
+                            }
+                            .labelsHidden()
+                            .pickerStyle(.menu)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+
+                        // Time Format
+                        VStack(alignment: .leading, spacing: 6) {
+                            Label("Formato Orario", systemImage: "clock")
+                                .font(.caption.bold())
+                            Picker("", selection: $selectedTimeFormat) {
+                                Text("24 Ore (es. 14:30)").tag("24h")
+                                Text("12 Ore AM/PM (es. 02:30 PM)").tag("12h")
+                            }
+                            .labelsHidden()
+                            .pickerStyle(.menu)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                    }
+                    .padding(18)
+                    .background(
+                        RoundedRectangle(cornerRadius: 14)
+                            .fill(Color.secondary.opacity(0.06))
+                    )
+
+                    // Beta Recovery Section (ONLY visible in Beta versions)
+                    if AuthorAttribution.isBeta {
+                        VStack(alignment: .leading, spacing: 10) {
+                            HStack(spacing: 8) {
+                                Image(systemName: "flask.fill")
+                                    .foregroundStyle(.orange)
+                                Text("Canale Beta: Ripristino Backup di Sicurezza")
+                                    .font(.subheadline.bold())
+                                    .foregroundStyle(.orange)
+                            }
+
+                            Text("Stai eseguendo una versione di test (Beta). Se disponi già di un backup precedente salvato (es. in Documenti/Class Manager/Backup), puoi ripristinare i tuoi corsi e studenti adesso:")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+
+                            HStack(spacing: 12) {
+                                Button {
+                                    restoreBackupFromPanel()
+                                } label: {
+                                    Label("Seleziona File Backup (.json)", systemImage: "square.and.arrow.down")
+                                }
+                                .buttonStyle(.bordered)
+                                .tint(.orange)
+
+                                if let notice = backupRestoredNotice {
+                                    Text(notice)
+                                        .font(.caption.bold())
+                                        .foregroundStyle(.green)
+                                }
+                            }
+                        }
+                        .padding(16)
+                        .background(
+                            RoundedRectangle(cornerRadius: 14)
+                                .fill(Color.orange.opacity(0.08))
+                                .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Color.orange.opacity(0.25)))
+                        )
+                    }
+
+                    // Complete Button
+                    Button {
+                        completeOnboarding()
+                    } label: {
+                        HStack {
+                            Text("Inizia a usare Class Management")
+                                .font(.headline)
+                            Image(systemName: "arrow.right")
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 8)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(.blue)
+                    .controlSize(.large)
+                }
+                .padding(24)
+            }
+        }
+        .frame(width: 580, height: AuthorAttribution.isBeta ? 640 : 530)
+        .onAppear {
+            selectedLanguage = store.state.settings.language
+            selectedCurrency = store.state.settings.currency
+            selectedDateFormat = store.state.settings.dateFormat
+            selectedTimeFormat = store.state.settings.timeFormat
+        }
+    }
+
+    private func restoreBackupFromPanel() {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.json]
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        if panel.runModal() == .OK, let url = panel.url {
+            let accessed = url.startAccessingSecurityScopedResource()
+            defer { if accessed { url.stopAccessingSecurityScopedResource() } }
+            if let data = try? Data(contentsOf: url),
+               let decoded = AppState.parseFlexibleJSON(from: data) {
+                store.recordUndoSnapshot()
+                store.state = decoded
+                store.ensureDataMigration()
+                selectedLanguage = store.state.settings.language
+                selectedCurrency = store.state.settings.currency
+                selectedDateFormat = store.state.settings.dateFormat
+                selectedTimeFormat = store.state.settings.timeFormat
+                let cCount = store.state.courses.count
+                let sCount = store.state.studentsDirectory.count
+                backupRestoredNotice = "✓ Backup ripristinato: \(cCount) corsi, \(sCount) studenti caricati!"
+                store.showToast("Backup ripristinato con successo!")
+            } else {
+                backupRestoredNotice = "File JSON non valido"
+            }
+        }
+    }
+
+    private func completeOnboarding() {
+        store.state.settings.language = selectedLanguage
+        store.state.settings.currency = selectedCurrency
+        store.state.settings.dateFormat = selectedDateFormat
+        store.state.settings.timeFormat = selectedTimeFormat
+        store.state.settings.onboardingCompleted = true
+        store.persist()
+        dismiss()
+        store.showToast("Configurazione completata con successo!")
     }
 }

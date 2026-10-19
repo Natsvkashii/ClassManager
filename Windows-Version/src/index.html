@@ -1032,21 +1032,24 @@ Removing, obfuscating, or altering these credits violates the author's attributi
         ];
 
         const INITIAL_DATA = {
-            version: "26.10.2b",
+            version: "26.10.2-001b",
             deletedItems: [],
             lastUpdated: new Date().toISOString(),
             activeCourseId: "",
             changelog: [
                 {
-                    version: "26.10.2b",
+                    version: "26.10.2-001b",
                     date: "2026-10-18",
                     changes: [
+                        "Rinnovato il sistema di aggiornamento per Windows: download dell'installer nella cartella temporanea dedicata con apertura automatica in Esplora File e pulizia automatica all'avvio.",
+                        "Adottato il nuovo schema di versionamento progressivo per le versioni beta (es. 26.10.2-001b) con ordinamento matematico rigoroso.",
+                        "Introdotto il messaggio modale di conferma sui rischi nell'abilitazione delle versioni beta prima di attivare gli aggiornamenti anteprima.",
+                        "Implementato il salvataggio automatico di sicurezza ogni 5 minuti per le versioni beta nella cartella 'Documenti/Class Manager/Backup'.",
+                        "Generazione automatica di report diagnostici dettagliati in caso di errori imprevisti in 'Documenti/Class Manager/Report Diagnostici'.",
+                        "Aggiunta la configurazione iniziale guidata (Onboarding Wizard) al primo avvio per la scelta di lingua, valuta, formati data/ora e ripristino backup (per il canale beta).",
                         "Riprogettata la sezione Fatturazione con panoramica generale (ore totali svolte, spesa totale e dati fiscali in finestra a comparsa).",
                         "Aggiunta panoramica di tutti i moduli e livelli del corso con relativo costo totale del modulo.",
-                        "Introdotto il Calendario Fatturazione per ogni modulo con dettaglio dei costi a lezione, aliquota IVA e sconti applicati.",
-                        "Aggiunto lo strumento globale superiore per modificare prezzi, IVA e sconti su tutte le lezioni del modulo e modifica specifica per singola lezione.",
-                        "Aggiunta la funzione di esportazione del calendario di fatturazione del modulo in formato grafico PNG da inviare al cliente.",
-                        "Aggiunta nelle Opzioni la configurazione delle tariffe orarie base e dell'aliquota IVA predefinita.",
+                        "Introdotto il Calendario Fatturazione per ogni modulo con dettaglio dei costi a lezione, aliquota IVA e sconti applicati con esportazione PNG.",
                         "Aggiunta l'indicazione 'creato da Guaira Jaramillo Nitoglia' nella barra superiore accanto al nome dell'applicazione (in IT, EN ed ES)."
                     ]
                 },
@@ -1221,7 +1224,8 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 defaultLessonDuration: 90,
                 defaultHourlyRate: 10,
                 defaultLessonDurationHours: 1.5,
-                defaultVatPercent: 15
+                defaultVatPercent: 15,
+                onboardingCompleted: false
             },
             rubrics: [
                 {
@@ -1481,7 +1485,16 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 }
                 this.state.courses.forEach(c => this.selectLatestLevelAndModule(c));
                 this.renderAll();
-                setTimeout(() => this.checkUpdatesOnStartupIfNeeded(), 1500);
+
+                // Setup beta 5-minute auto backup & diagnostic crash reporting
+                this.setupBetaDiagnosticsAndBackup();
+
+                // Show onboarding wizard on first run, otherwise check updates on startup
+                if (this.state.settings && this.state.settings.onboardingCompleted === false) {
+                    this.openOnboardingWizard();
+                } else {
+                    setTimeout(() => this.checkUpdatesOnStartupIfNeeded(), 1500);
+                }
             }
 
             t(key) {
@@ -1608,6 +1621,12 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 }
                 if (!this.state.settings.updateCheckFrequency) {
                     this.state.settings.updateCheckFrequency = "startup";
+                    migrated = true;
+                }
+                if (this.state.settings.onboardingCompleted === undefined) {
+                    const hasExistingData = (this.state.courses && this.state.courses.length > 0) ||
+                                            (this.state.studentsDirectory && this.state.studentsDirectory.length > 0);
+                    this.state.settings.onboardingCompleted = hasExistingData;
                     migrated = true;
                 }
 
@@ -6639,16 +6658,324 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 if (lhs.major !== rhs.major) return lhs.major - rhs.major;
                 if (lhs.minor !== rhs.minor) return lhs.minor - rhs.minor;
                 if (lhs.patch !== rhs.patch) return lhs.patch - rhs.patch;
-                if (lhs.revision !== rhs.revision) return lhs.revision - rhs.revision;
 
-                // Both have identical major.minor.patch.revision
+                // Both have identical major.minor.patch
                 // A beta is strictly an earlier pre-release of the same stable version:
                 if (lhs.isBeta && !rhs.isBeta) return -1;
                 if (!lhs.isBeta && rhs.isBeta) return 1;
                 if (lhs.isBeta && rhs.isBeta) {
                     return (lhs.betaNumber || 1) - (rhs.betaNumber || 1);
                 }
-                return 0;
+                return (lhs.revision || 0) - (rhs.revision || 0);
+            }
+
+            isBetaVersion() {
+                const v = String(this.state?.version || INITIAL_DATA.version || "");
+                return v.toLowerCase().includes("b") || v.toLowerCase().includes("beta");
+            }
+
+            setupBetaDiagnosticsAndBackup() {
+                // Global error and unhandled rejection listeners for diagnostic reports
+                if (!window._classMgrDiagnosticsSetup) {
+                    window._classMgrDiagnosticsSetup = true;
+
+                    window.addEventListener('error', (event) => {
+                        try {
+                            const errText = `UNCAUGHT ERROR in UI: ${event.message} at ${event.filename}:${event.lineno}:${event.colno}\nStack: ${event.error?.stack || ''}`;
+                            if (window.electronAPI && typeof window.electronAPI.saveDiagnosticReport === 'function') {
+                                window.electronAPI.saveDiagnosticReport(errText, { message: event.message, filename: event.filename, lineno: event.lineno, colno: event.colno });
+                            }
+                        } catch(e) {}
+                    });
+
+                    window.addEventListener('unhandledrejection', (event) => {
+                        try {
+                            const reason = event.reason;
+                            const errText = `UNHANDLED REJECTION in UI: ${reason?.message || reason}\nStack: ${reason?.stack || ''}`;
+                            if (window.electronAPI && typeof window.electronAPI.saveDiagnosticReport === 'function') {
+                                window.electronAPI.saveDiagnosticReport(errText, { reason: String(reason), stack: reason?.stack });
+                            }
+                        } catch(e) {}
+                    });
+                }
+
+                // If running beta version, schedule auto backup every 5 minutes
+                if (this.isBetaVersion() && !window._betaBackupIntervalId) {
+                    // Periodic backup every 5 minutes (300,000 ms)
+                    window._betaBackupIntervalId = setInterval(() => {
+                        this.performBetaAutoBackup();
+                    }, 5 * 60 * 1000);
+
+                    // Also perform one initial safety backup 20 seconds after launch
+                    setTimeout(() => {
+                        this.performBetaAutoBackup();
+                    }, 20 * 1000);
+                }
+            }
+
+            async performBetaAutoBackup() {
+                if (!window.electronAPI || typeof window.electronAPI.saveBetaAutoBackup !== "function") return;
+                try {
+                    const now = new Date();
+                    const dStr = now.toISOString().replace(/[:.]/g, "-");
+                    const filename = `ClassManagement_BetaBackup_${dStr}.json`;
+                    const payload = JSON.stringify(this.state, null, 2);
+                    const res = await window.electronAPI.saveBetaAutoBackup(filename, payload);
+                    if (res && res.success) {
+                        console.log("[Beta Auto-Backup] Salvataggio automatico 5 min completato in Documenti/Class Manager/Backup:", res.path);
+                    }
+                } catch (e) {
+                    console.error("[Beta Auto-Backup] Errore nel salvataggio del backup:", e);
+                }
+            }
+
+            handleBetaToggle(checkbox) {
+                if (checkbox.checked) {
+                    checkbox.checked = false;
+                    this.openBetaRiskWarningModal(checkbox);
+                } else {
+                    this.updateSetting('includeBetaUpdates', false);
+                    this.checkForUpdates(false);
+                }
+            }
+
+            openBetaRiskWarningModal(checkbox) {
+                this.pendingBetaCheckbox = checkbox;
+                this.openModal(`
+                    <div class="p-6 space-y-5 text-xs max-w-md">
+                        <div class="flex items-center gap-3.5">
+                            <div class="w-12 h-12 rounded-2xl bg-amber-500/15 text-amber-500 flex items-center justify-center text-2xl shrink-0 border border-amber-500/30 shadow-xs">
+                                <i class="fa-solid fa-triangle-exclamation"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-base font-extrabold text-slate-900 dark:text-white">Avviso Rischi Canale Beta</h3>
+                                <p class="text-[11px] text-slate-500">Aggiornamenti sperimentali in anteprima</p>
+                            </div>
+                        </div>
+
+                        <p class="text-slate-600 dark:text-slate-300 leading-relaxed text-xs">
+                            Attivare questo canale consente di ricevere e testare le versioni <strong>Beta</strong> prima del loro rilascio stabile. Queste versioni contengono nuove funzionalità sperimentali che potrebbero risultare <strong>instabili o presentare bug imprevisti</strong>.
+                        </p>
+
+                        <div class="p-3.5 rounded-xl bg-amber-500/10 dark:bg-navy-950 border border-amber-500/20 text-[11px] text-slate-600 dark:text-slate-400 space-y-1.5">
+                            <div class="flex items-center gap-1.5 font-bold text-amber-600 dark:text-amber-400">
+                                <i class="fa-solid fa-shield-halved"></i> Protezione di Sicurezza Attiva
+                            </div>
+                            <p>Nelle versioni beta, Class Management crea automaticamente un backup ogni 5 minuti in <em>Documenti/Class Manager/Backup</em> e genera report diagnostici automatici in caso di anomalie.</p>
+                        </div>
+
+                        <div class="flex items-center justify-end gap-2.5 pt-2">
+                            <button type="button" onclick="app.cancelBetaActivation();" class="px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 font-bold hover:bg-slate-100 dark:hover:bg-navy-800 transition">
+                                Annulla
+                            </button>
+                            <button type="button" onclick="app.confirmBetaActivation();" class="px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-extrabold shadow-sm transition flex items-center gap-2">
+                                <i class="fa-solid fa-check"></i> Ho capito, Attiva Canale Beta
+                            </button>
+                        </div>
+                    </div>
+                `, "max-w-md", true);
+            }
+
+            confirmBetaActivation() {
+                if (this.pendingBetaCheckbox) {
+                    this.pendingBetaCheckbox.checked = true;
+                }
+                this.pendingBetaCheckbox = null;
+                this.updateSetting('includeBetaUpdates', true);
+                this.closeModal();
+                this.showToast("Canale aggiornamenti Beta attivato", "info");
+                this.checkForUpdates(false);
+            }
+
+            cancelBetaActivation() {
+                if (this.pendingBetaCheckbox) {
+                    this.pendingBetaCheckbox.checked = false;
+                }
+                this.pendingBetaCheckbox = null;
+                if (this.state.settings) {
+                    this.state.settings.includeBetaUpdates = false;
+                    this.persist();
+                }
+                this.closeModal();
+            }
+
+            openOnboardingWizard() {
+                const s = this.state.settings || INITIAL_DATA.settings;
+                const isBeta = this.isBetaVersion();
+
+                this.openModal(`
+                    <div class="p-6 sm:p-8 space-y-6 text-xs max-w-xl">
+                        <!-- Header -->
+                        <div class="flex items-center gap-4 border-b border-sky-100 dark:border-slate-800 pb-5">
+                            <img src="icon.png" class="w-14 h-14 object-contain shrink-0 drop-shadow-sm" alt="Logo">
+                            <div>
+                                <div class="flex items-center gap-2">
+                                    <h2 class="text-xl font-black text-slate-900 dark:text-white">Benvenuto in Class Management</h2>
+                                    ${isBeta ? '<span class="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-600 dark:text-amber-400 font-black text-[10px] uppercase">Beta</span>' : ''}
+                                </div>
+                                <p class="text-slate-500 dark:text-slate-400 text-xs mt-0.5">Configurazione guidata iniziale delle tue preferenze di lavoro</p>
+                            </div>
+                        </div>
+
+                        <!-- Settings Grid -->
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <!-- Language -->
+                            <div>
+                                <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center gap-1.5">
+                                    <i class="fa-solid fa-language text-sky-500"></i> Lingua dell'interfaccia
+                                </label>
+                                <select id="onboardingLanguage" class="w-full rounded-xl border border-sky-200 dark:border-slate-700 bg-white dark:bg-navy-900 px-3.5 py-2.5 font-bold text-slate-800 dark:text-white">
+                                    <option value="it" ${s.language === 'it' ? 'selected' : ''}>🇮🇹 Italiano</option>
+                                    <option value="en" ${s.language === 'en' ? 'selected' : ''}>🇬🇧 English</option>
+                                    <option value="es" ${s.language === 'es' ? 'selected' : ''}>🇪🇸 Español</option>
+                                    <option value="fr" ${s.language === 'fr' ? 'selected' : ''}>🇫🇷 Français</option>
+                                    <option value="de" ${s.language === 'de' ? 'selected' : ''}>🇩🇪 Deutsch</option>
+                                    <option value="pt" ${s.language === 'pt' ? 'selected' : ''}>🇵🇹 Português</option>
+                                    <option value="zh" ${s.language === 'zh' ? 'selected' : ''}>🇨🇳 中文</option>
+                                    <option value="ja" ${s.language === 'ja' ? 'selected' : ''}>🇯🇵 日本語</option>
+                                    <option value="ru" ${s.language === 'ru' ? 'selected' : ''}>🇷🇺 Русский</option>
+                                    <option value="ar" ${s.language === 'ar' ? 'selected' : ''}>🇸🇦 العربية</option>
+                                </select>
+                            </div>
+
+                            <!-- Currency -->
+                            <div>
+                                <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center gap-1.5">
+                                    <i class="fa-solid fa-coins text-sky-500"></i> Valuta principale
+                                </label>
+                                <select id="onboardingCurrency" class="w-full rounded-xl border border-sky-200 dark:border-slate-700 bg-white dark:bg-navy-900 px-3.5 py-2.5 font-bold text-slate-800 dark:text-white">
+                                    <option value="€" ${s.currency === '€' ? 'selected' : ''}>€ (Euro)</option>
+                                    <option value="$" ${s.currency === '$' ? 'selected' : ''}>$ (Dollaro)</option>
+                                    <option value="£" ${s.currency === '£' ? 'selected' : ''}>£ (Sterlina)</option>
+                                    <option value="¥" ${s.currency === '¥' ? 'selected' : ''}>¥ (Yen / Yuan)</option>
+                                    <option value="CHF" ${s.currency === 'CHF' ? 'selected' : ''}>CHF (Franco Svizzero)</option>
+                                </select>
+                            </div>
+
+                            <!-- Date Format -->
+                            <div>
+                                <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center gap-1.5">
+                                    <i class="fa-regular fa-calendar text-sky-500"></i> Formato Data
+                                </label>
+                                <select id="onboardingDateFormat" class="w-full rounded-xl border border-sky-200 dark:border-slate-700 bg-white dark:bg-navy-900 px-3.5 py-2.5 font-bold text-slate-800 dark:text-white">
+                                    <option value="DD/MM/YYYY" ${s.dateFormat === 'DD/MM/YYYY' ? 'selected' : ''}>DD/MM/YYYY (es. 18/10/2026)</option>
+                                    <option value="MM/DD/YYYY" ${s.dateFormat === 'MM/DD/YYYY' ? 'selected' : ''}>MM/DD/YYYY (es. 10/18/2026)</option>
+                                    <option value="YYYY-MM-DD" ${s.dateFormat === 'YYYY-MM-DD' ? 'selected' : ''}>YYYY-MM-DD (es. 2026-10-18)</option>
+                                </select>
+                            </div>
+
+                            <!-- Time Format -->
+                            <div>
+                                <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center gap-1.5">
+                                    <i class="fa-regular fa-clock text-sky-500"></i> Formato Orario
+                                </label>
+                                <select id="onboardingTimeFormat" class="w-full rounded-xl border border-sky-200 dark:border-slate-700 bg-white dark:bg-navy-900 px-3.5 py-2.5 font-bold text-slate-800 dark:text-white">
+                                    <option value="24h" ${s.timeFormat === '24h' ? 'selected' : ''}>24 Ore (es. 14:30)</option>
+                                    <option value="12h" ${s.timeFormat === '12h' ? 'selected' : ''}>12 Ore AM/PM (es. 02:30 PM)</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Special Beta Recovery Section (ONLY shown if isBeta) -->
+                        ${isBeta ? `
+                        <div class="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/25 space-y-2.5">
+                            <div class="flex items-center gap-2 text-amber-600 dark:text-amber-400 font-extrabold text-xs">
+                                <i class="fa-solid fa-flask-vial"></i>
+                                <span>Canale Beta: Ripristino Backup di Sicurezza</span>
+                            </div>
+                            <p class="text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed">
+                                Stai avviando una versione di test (Beta). Se desideri ripristinare i tuoi corsi e studenti da un file di salvataggio di sicurezza precedente (es. da <em>Documenti/Class Manager/Backup</em>), puoi caricarlo ora:
+                            </p>
+                            <div class="flex flex-col sm:flex-row sm:items-center gap-3 pt-1">
+                                <input type="file" id="onboardingBackupInput" accept=".json" class="hidden" onchange="app.handleOnboardingRestoreBackup(event)">
+                                <button type="button" onclick="document.getElementById('onboardingBackupInput').click()" class="px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs shadow-xs transition flex items-center justify-center gap-2 shrink-0">
+                                    <i class="fa-solid fa-file-import"></i> Seleziona File Backup (.json)
+                                </button>
+                                <span id="onboardingRestoreStatus" class="text-[11px] text-slate-500 italic">Nessun backup ripristinato (inizierai con un database nuovo)</span>
+                            </div>
+                        </div>
+                        ` : ''}
+
+                        <!-- Completion CTA -->
+                        <div class="pt-2">
+                            <button type="button" onclick="app.completeOnboarding()" class="w-full py-3.5 rounded-xl bg-gradient-to-r from-sky-600 to-indigo-600 hover:from-sky-500 hover:to-indigo-500 text-white font-black text-sm shadow-md transition flex items-center justify-center gap-2">
+                                <span>Inizia a usare Class Management</span>
+                                <i class="fa-solid fa-arrow-right"></i>
+                            </button>
+                        </div>
+                    </div>
+                `, "max-w-xl", true);
+            }
+
+            handleOnboardingRestoreBackup(event) {
+                const file = event.target.files && event.target.files[0];
+                if (!file) return;
+
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    try {
+                        const parsed = JSON.parse(e.target.result);
+                        if (!parsed || typeof parsed !== 'object') {
+                            throw new Error('Formato non valido');
+                        }
+                        const coursesCount = Array.isArray(parsed.courses) ? parsed.courses.length : 0;
+                        const studentsCount = Array.isArray(parsed.studentsDirectory) ? parsed.studentsDirectory.length : 0;
+
+                        this.state = parsed;
+                        this.ensureDataMigration();
+
+                        if (this.state.settings) {
+                            const lEl = document.getElementById("onboardingLanguage");
+                            const cEl = document.getElementById("onboardingCurrency");
+                            const dEl = document.getElementById("onboardingDateFormat");
+                            const tEl = document.getElementById("onboardingTimeFormat");
+                            if (lEl && this.state.settings.language) lEl.value = this.state.settings.language;
+                            if (cEl && this.state.settings.currency) cEl.value = this.state.settings.currency;
+                            if (dEl && this.state.settings.dateFormat) dEl.value = this.state.settings.dateFormat;
+                            if (tEl && this.state.settings.timeFormat) tEl.value = this.state.settings.timeFormat;
+                        }
+
+                        const statusEl = document.getElementById("onboardingRestoreStatus");
+                        if (statusEl) {
+                            statusEl.className = "text-[11px] font-bold text-emerald-600 dark:text-emerald-400";
+                            statusEl.innerHTML = `<i class="fa-solid fa-check"></i> Backup ripristinato: ${coursesCount} corsi, ${studentsCount} studenti caricati!`;
+                        }
+                        this.showToast("Backup di sicurezza ripristinato con successo!", "success");
+                    } catch (err) {
+                        const statusEl = document.getElementById("onboardingRestoreStatus");
+                        if (statusEl) {
+                            statusEl.className = "text-[11px] font-bold text-rose-600 dark:text-rose-400";
+                            statusEl.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i> File non valido: ${err.message}`;
+                        }
+                        this.showToast("Errore durante il ripristino del backup", "error");
+                    }
+                };
+                reader.readAsText(file);
+            }
+
+            completeOnboarding() {
+                const lang = document.getElementById("onboardingLanguage")?.value || "it";
+                const curr = document.getElementById("onboardingCurrency")?.value || "$";
+                const dFmt = document.getElementById("onboardingDateFormat")?.value || "DD/MM/YYYY";
+                const tFmt = document.getElementById("onboardingTimeFormat")?.value || "24h";
+
+                if (!this.state.settings) {
+                    this.state.settings = JSON.parse(JSON.stringify(INITIAL_DATA.settings));
+                }
+                this.state.settings.language = lang;
+                this.state.settings.currency = curr;
+                this.state.settings.dateFormat = dFmt;
+                this.state.settings.timeFormat = tFmt;
+                this.state.settings.onboardingCompleted = true;
+
+                this.persist();
+                this.closeModal();
+                this.renderAll();
+                this.showToast("Configurazione completata con successo! Benvenuto!", "success");
+
+                setTimeout(() => {
+                    this.checkUpdatesOnStartupIfNeeded();
+                }, 1500);
             }
 
             async manualBackupNow() {
@@ -6743,28 +7070,49 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                         if (this.updateState) {
                             this.updateState.isDownloading = false;
                             this.updateState.downloadedPath = res.filePath;
-                            this.updateState.statusText = "Download completato! Avvio installazione e chiusura applicazione...";
+                            this.updateState.statusText = "Download completato! Il file è pronto in Esplora File.";
                         }
 
-                        const mBar = document.getElementById("modalUpdateProgressBar");
-                        const mText = document.getElementById("modalUpdateProgressText");
-                        const mPct = document.getElementById("modalUpdatePercentText");
-                        if (mBar) {
-                            mBar.style.width = "100%";
-                            mBar.className = "bg-emerald-500 h-full rounded-full transition-all";
-                        }
-                        if (mText) mText.textContent = "Download completato! Avvio dell'aggiornamento...";
-                        if (mPct) mPct.textContent = "100%";
+                        const escapedPath = this.escapeHtml(res.filePath).replace(/\\/g, '\\\\');
 
-                        this.showToast("Download completato! Avvio installer...", "success");
+                        this.openModal(`
+                            <div class="p-6 sm:p-7 space-y-4 text-xs max-w-md text-center">
+                                <div class="w-14 h-14 mx-auto rounded-2xl bg-emerald-500/15 text-emerald-500 flex items-center justify-center text-3xl border border-emerald-500/25 shadow-xs">
+                                    <i class="fa-solid fa-circle-check"></i>
+                                </div>
+                                <div>
+                                    <h4 class="text-base font-extrabold text-slate-900 dark:text-white">Download Completato!</h4>
+                                    <p class="text-slate-500 dark:text-slate-400 mt-1">L'installer dell'aggiornamento è stato scaricato nei file temporanei ed è stato aperto automaticamente in <strong>Esplora File</strong>.</p>
+                                </div>
+                                
+                                <div class="p-3.5 rounded-xl bg-slate-50 dark:bg-navy-950 border border-slate-200 dark:border-slate-800 text-left text-[11px] text-slate-600 dark:text-slate-400 space-y-1.5">
+                                    <div class="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                                        <i class="fa-solid fa-folder-open text-sky-500"></i> File pronto per l'installazione:
+                                    </div>
+                                    <div class="font-mono text-[10px] break-all text-sky-600 dark:text-sky-400 font-bold bg-white dark:bg-navy-900 p-2 rounded-lg border border-sky-100 dark:border-slate-800">
+                                        ${this.escapeHtml(res.filePath)}
+                                    </div>
+                                    <p class="text-[10px] text-slate-400 pt-0.5">Ti basta fare doppio clic sul file per avviare l'installazione. I file temporanei verranno rimossi automaticamente.</p>
+                                </div>
+
+                                <div class="flex flex-col sm:flex-row items-center justify-center gap-2 pt-2">
+                                    <button type="button" onclick="if(window.electronAPI && window.electronAPI.showItemInFolder){window.electronAPI.showItemInFolder('${escapedPath}');}" class="w-full sm:w-auto px-4 py-2.5 rounded-xl border border-sky-300 dark:border-slate-700 text-sky-600 dark:text-sky-400 font-bold hover:bg-sky-50 dark:hover:bg-navy-800 transition flex items-center justify-center gap-2">
+                                        <i class="fa-solid fa-folder-open"></i> Mostra di nuovo
+                                    </button>
+                                    <button type="button" onclick="if(window.electronAPI && window.electronAPI.installUpdateAndQuit){window.electronAPI.installUpdateAndQuit('${escapedPath}');}" class="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold shadow-sm transition flex items-center justify-center gap-2">
+                                        <i class="fa-solid fa-play"></i> Avvia e Chiudi App
+                                    </button>
+                                    <button type="button" onclick="app.closeModal()" class="w-full sm:w-auto px-3 py-2.5 rounded-xl text-slate-500 hover:text-slate-700 font-bold text-xs">
+                                        Chiudi
+                                    </button>
+                                </div>
+                            </div>
+                        `, "max-w-md", true);
+
+                        this.showToast("Aggiornamento scaricato con successo!", "success");
                         if (this.activeTab === "credits") {
                             this.renderCreditsView(document.getElementById("mainContentArea"));
                         }
-
-                        // Launch installer and quit app gracefully
-                        setTimeout(async () => {
-                            await window.electronAPI.installUpdateAndQuit(res.filePath);
-                        }, 1200);
                     } else {
                         if (this.updateState) {
                             this.updateState.isDownloading = false;
@@ -7249,7 +7597,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                                 </div>
                                 <div class="flex items-center">
                                     <label class="flex items-center gap-2.5 cursor-pointer pt-3 sm:pt-4">
-                                        <input type="checkbox" ${s.includeBetaUpdates ? 'checked' : ''} onchange="app.updateSetting('includeBetaUpdates', this.checked); app.checkForUpdates(false);" class="w-4 h-4 rounded border-sky-300 text-sky-600 focus:ring-sky-500">
+                                        <input type="checkbox" ${s.includeBetaUpdates ? 'checked' : ''} onchange="app.handleBetaToggle(this)" class="w-4 h-4 rounded border-sky-300 text-sky-600 focus:ring-sky-500">
                                         <span class="font-bold text-slate-700 dark:text-slate-300">Includi versioni beta e anteprime</span>
                                     </label>
                                 </div>

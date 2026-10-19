@@ -1,12 +1,12 @@
 {
-  "version": "26.10.2b",
-  "tag_name": "v26.10.2b",
+  "version": "26.10.2-001b",
+  "tag_name": "v26.10.2-001b",
   "prerelease": true,
-  "published_at": "2026-10-19T00:15:00Z",
-  "name": "Class Management v26.10.2b (Beta)",
-  "body": "Novità versione 26.10.2b (Beta):\n- Riprogettazione completa sezione Fatturazione con panoramica ore totali effettuate e totale speso/fatturato.\n- Finestra a comparsa dedicata per visualizzazione e modifica dei dati fiscali del corso.\n- Schede moduli e livelli con indicazione del costo per ciascun modulo.\n- Calendario fatturazione interattivo con prezzo lordo, aliquota IVA e sconto applicato per ogni specifica lezione.\n- Editor prezzi per singola lezione e strumento globale di blocco per il modulo.\n- Esportazione calendario fatturazione del modulo in formato immagine PNG ad alta risoluzione.\n- Impostazione tariffe base e IVA predefinita nelle Opzioni.\n- Attribuzione autore nella barra grigia superiore: creato da Guaira Jaramillo Nitoglia.",
-  "setupUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.10.2b/Class-Management-26.10.2b-Setup.exe",
-  "setupName": "Class-Management-26.10.2b-Setup.exe",
-  "portableUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.10.2b/Class-Management-26.10.2b-Portable.exe",
-  "portableName": "Class-Management-26.10.2b-Portable.exe"
+  "published_at": "2026-10-19T01:10:00Z",
+  "name": "Class Management v26.10.2-001b (Beta)",
+  "body": "Novità versione 26.10.2-001b (Canale Beta/Unstable):\n- Perfezionato il sistema di aggiornamento per Windows: download dell'installer nella cartella temporanea dedicata con apertura automatica in Esplora File e pulizia automatica dei residui all'avvio.\n- Nuovo schema di versionamento progressivo per versioni beta (YY.MM.PATCH-NUMb) con ordinamento matematico rigoroso.\n- Finestra modale di conferma sui rischi nell'abilitazione delle versioni beta prima di attivare gli aggiornamenti di anteprima.\n- Salvataggio automatico di sicurezza ogni 5 minuti per le versioni beta nella cartella 'Documenti/Class Manager/Backup'.\n- Generazione automatica di report diagnostici dettagliati in caso di errori imprevisti in 'Documenti/Class Manager/Report Diagnostici'.\n- Configurazione iniziale guidata (Onboarding Wizard) al primo avvio per lingua, valuta, formato data/ora e ripristino backup (per il canale beta).\n- Riprogettazione completa sezione Fatturazione con panoramica ore totali effettuate e totale speso/fatturato con finestre fiscali dedicate ed esportazione calendario in PNG.",
+  "setupUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.10.2-001b/Class-Management-26.10.2-001b-Setup.exe",
+  "setupName": "Class-Management-26.10.2-001b-Setup.exe",
+  "portableUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.10.2-001b/Class-Management-26.10.2-001b-Portable.exe",
+  "portableName": "Class-Management-26.10.2-001b-Portable.exe"
 }

@@ -27,7 +27,7 @@ function createMainWindow() {
         height: 900,
         minWidth: 980,
         minHeight: 650,
-        title: 'Class Management v26.10.2b',
+        title: 'Class Management v26.10.2-001b',
         icon: getIconPath(),
         backgroundColor: '#090e1a',
         show: false,
@@ -176,6 +176,111 @@ ipcMain.handle('save-auto-backup', async (event, { filename, data }) => {
     }
 });
 
+// Periodic 5-Minute Beta Auto-Backup in Documents/Class Manager/Backup
+ipcMain.handle('save-beta-auto-backup', async (event, { filename, data }) => {
+    try {
+        let baseDir;
+        try {
+            const docsDir = app.getPath('documents');
+            baseDir = path.join(docsDir, 'Class Manager');
+        } catch (e) {
+            baseDir = path.join(app.getPath('userData'), 'Class Manager');
+        }
+        const backupDir = path.join(baseDir, 'Backup');
+        await fs.promises.mkdir(backupDir, { recursive: true });
+
+        const targetPath = path.join(backupDir, filename);
+        await fs.promises.writeFile(targetPath, data, 'utf-8');
+
+        // Retain latest 25 beta snapshots to avoid unbounded disk usage
+        try {
+            const files = await fs.promises.readdir(backupDir);
+            const betaBackups = files.filter(f => f.startsWith('Backup_Beta_') && f.endsWith('.json')).sort();
+            if (betaBackups.length > 25) {
+                const toRemove = betaBackups.slice(0, betaBackups.length - 25);
+                for (const oldFile of toRemove) {
+                    await fs.promises.unlink(path.join(backupDir, oldFile)).catch(() => {});
+                }
+            }
+        } catch (purgeErr) {}
+
+        return { success: true, path: targetPath };
+    } catch (err) {
+        console.error('Error saving beta auto backup:', err);
+        return { error: err.message };
+    }
+});
+
+// Crash & Error Diagnostic Report in Documents/Class Manager/Report Diagnostici
+async function writeDiagnosticReportToFile(reportText, errorDetails = {}) {
+    try {
+        let baseDir;
+        try {
+            const docsDir = app.getPath('documents');
+            baseDir = path.join(docsDir, 'Class Manager');
+        } catch (e) {
+            baseDir = path.join(app.getPath('userData'), 'Class Manager');
+        }
+        const diagDir = path.join(baseDir, 'Report Diagnostici');
+        await fs.promises.mkdir(diagDir, { recursive: true });
+
+        const now = new Date();
+        const pad = n => String(n).padStart(2, '0');
+        const stamp = `${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
+        const targetPath = path.join(diagDir, `Diagnostica_Crash_${stamp}.txt`);
+
+        const os = require('os');
+        const lines = [
+            `===========================================================`,
+            `CLASS MANAGEMENT — REPORT DIAGNOSTICO CRASH / ANOMALIA`,
+            `===========================================================`,
+            `Data e Ora Locale   : ${now.toLocaleString()} (${now.toISOString()})`,
+            `Versione Software   : ${app.getVersion()}`,
+            `Piattaforma Sistema : ${process.platform} (${process.arch})`,
+            `Versione OS         : ${os.type()} ${os.release()}`,
+            `Memoria Totale / Lib: ${(os.totalmem() / (1024*1024*1024)).toFixed(2)} GB / ${(os.freemem() / (1024*1024*1024)).toFixed(2)} GB`,
+            `Node / Electron     : Node ${process.versions.node} | Electron ${process.versions.electron}`,
+            `-----------------------------------------------------------`,
+            `DETTAGLIO ERRORE / STACK TRACE:`,
+            reportText || '',
+            errorDetails ? JSON.stringify(errorDetails, null, 2) : '',
+            `===========================================================`
+        ];
+
+        await fs.promises.writeFile(targetPath, lines.join('\n'), 'utf-8');
+        return { success: true, path: targetPath };
+    } catch (err) {
+        console.error('Error writing diagnostic report file:', err);
+        return { error: err.message };
+    }
+}
+
+ipcMain.handle('save-diagnostic-report', async (event, { reportText, errorDetails }) => {
+    return await writeDiagnosticReportToFile(reportText, errorDetails);
+});
+
+// Shell reveal in File Explorer
+ipcMain.handle('show-item-in-folder', async (event, { filePath }) => {
+    try {
+        if (filePath && fs.existsSync(filePath)) {
+            shell.showItemInFolder(filePath);
+            return { success: true };
+        }
+        return { error: 'File non trovato' };
+    } catch (e) {
+        return { error: e.message };
+    }
+});
+
+ipcMain.handle('open-path', async (event, { filePath }) => {
+    try {
+        const err = await shell.openPath(filePath);
+        return { success: !err, error: err };
+    } catch (e) {
+        return { error: e.message };
+    }
+});
+
 ipcMain.handle('check-for-updates-api', async () => {
     try {
         // 1. Try official GitHub releases API
@@ -243,10 +348,12 @@ ipcMain.handle('check-for-updates-api', async () => {
     }
 });
 
+// Download update file into dedicated system temp folder and reveal in Windows File Explorer
 ipcMain.handle('download-update-asset', async (event, { url, filename }) => {
     try {
-        const targetDir = app.getPath('temp');
-        const targetFile = path.join(targetDir, filename || 'ClassManagementUpdate.exe');
+        const updateFolder = path.join(app.getPath('temp'), 'ClassManagement_Updates');
+        await fs.promises.mkdir(updateFolder, { recursive: true });
+        const targetFile = path.join(updateFolder, filename || 'ClassManagementUpdate.exe');
 
         await downloadFileWithRedirects(url, targetFile, (progress) => {
             if (mainWindow && !mainWindow.isDestroyed()) {
@@ -254,7 +361,14 @@ ipcMain.handle('download-update-asset', async (event, { url, filename }) => {
             }
         });
 
-        return { success: true, filePath: targetFile };
+        // Automatically open the folder with the downloaded file highlighted in Explorer
+        try {
+            shell.showItemInFolder(targetFile);
+        } catch (openErr) {
+            console.warn('shell.showItemInFolder error:', openErr);
+        }
+
+        return { success: true, filePath: targetFile, folderOpened: true };
     } catch (err) {
         console.error('Update download error:', err);
         return { error: err.message };
@@ -268,7 +382,6 @@ ipcMain.handle('install-update-and-quit', async (event, { filePath }) => {
         }
 
         console.log('Launching installer via shell.openPath:', filePath);
-        // Using Electron shell.openPath invokes Windows ShellExecuteEx with proper UAC elevation prompt
         const openErr = await shell.openPath(filePath);
         if (openErr) {
             console.warn('shell.openPath returned error, attempting cmd start fallback:', openErr);
@@ -370,8 +483,23 @@ function buildAppMenu() {
     Menu.setApplicationMenu(menu);
 }
 
-app.whenReady().then(() => {
+async function cleanupOldUpdates() {
+    try {
+        const updateFolder = path.join(app.getPath('temp'), 'ClassManagement_Updates');
+        if (fs.existsSync(updateFolder)) {
+            const files = await fs.promises.readdir(updateFolder);
+            for (const f of files) {
+                try {
+                    await fs.promises.unlink(path.join(updateFolder, f));
+                } catch (e) {}
+            }
+        }
+    } catch (e) {}
+}
+
+app.whenReady().then(async () => {
     buildAppMenu();
+    await cleanupOldUpdates();
     createMainWindow();
 
     app.on('activate', () => {
@@ -385,4 +513,18 @@ app.on('window-all-closed', () => {
     if (process.platform !== 'darwin') {
         app.quit();
     }
+});
+
+process.on('uncaughtException', async (err) => {
+    console.error('CRITICAL UNCAUGHT EXCEPTION:', err);
+    try {
+        await writeDiagnosticReportToFile('UNCAUGHT EXCEPTION: ' + (err?.stack || err?.message || String(err)));
+    } catch (e) {}
+});
+
+process.on('unhandledRejection', async (reason) => {
+    console.error('CRITICAL UNHANDLED REJECTION:', reason);
+    try {
+        await writeDiagnosticReportToFile('UNHANDLED REJECTION: ' + (reason?.stack || reason?.message || String(reason)));
+    } catch (e) {}
 });
