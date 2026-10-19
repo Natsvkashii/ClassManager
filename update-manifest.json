@@ -1,14 +1,13 @@
 {
-  "version": "26.10.4-010",
+  "version": "26.10.4-011",
   "channel": "unstable",
-  "tag_name": "v26.10.4-010",
+  "tag_name": "v26.10.4-011",
   "prerelease": true,
-  "published_at": "2026-10-19T13:30:00Z",
-  "name": "Class Management v26.10.4-010 [UNSTABLE]",
-  "body": "Novità versione 26.10.4-010:\n- Nuova versione nativa C++ promossa a Setup ufficiale per Windows (~2.1 MB invece di 85 MB): eliminato il pesante runtime Electron, installer nativo Win32 con aggiornamento automatico, preservazione integrale dei dati salvati e dei backup storici in Documents/GestioneCorsi_Backups/.\n- Risolto il bug di scorrimento orizzontale su Windows: la modifica di una presenza aggiorna ora la casella in-place senza riavvolgere la schermata all'inizio.\n- Risolto in modo definitivo il controllo aggiornamenti su macOS: la verifica semantica tiene conto del flag di prerelease eliminando la falsa notifica di aggiornamento quando l'app è già all'ultima versione.",
-  "setupUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.10.4-010/Class-Management-26.10.4-010-Setup.exe",
-  "setupName": "Class-Management-26.10.4-010-Setup.exe",
-  "nativeUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.10.4-010/Class-Management-26.10.4-010-Native.exe",
-  "nativeName": "Class-Management-26.10.4-010-Native.exe"
+  "published_at": "2026-10-19T14:35:00Z",
+  "name": "Class Management v26.10.4-011 [UNSTABLE]",
+  "body": "Novità versione 26.10.4-011:\n- Integrazione completa Google Calendar & Google Meet: sincronizzazione lezioni con calendario Google personale con un clic.\n- Creazione e riutilizzo automatico dello stesso link Google Meet permanente per tutte le lezioni dello stesso modulo.\n- Invio automatico degli inviti Google Calendar via email agli iscritti al modulo, con comodo pulsante rapido per inserire gli indirizzi degli studenti.\n- Visualizzazione integrata degli eventi personali di Google Calendar nel Calendario Generale con badge dedicato blu e accesso diretto a Meet/evento.\n- Risolto il problema grafico nella barra laterale su Windows: il titolo dell'applicazione dopo il logo viene visualizzato per intero senza troncature.",
+  "setupUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.10.4-011/Class-Management-26.10.4-011-Setup.exe",
+  "setupName": "Class-Management-26.10.4-011-Setup.exe",
+  "nativeUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.10.4-011/Class-Management-26.10.4-011-Native.exe",
+  "nativeName": "Class-Management-26.10.4-011-Native.exe"
 }
-

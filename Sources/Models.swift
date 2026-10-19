@@ -18,7 +18,7 @@ public enum AuthorAttribution {
     public static let authorName = "Guaira Jaramillo Nitoglia"
     public static let authorEmail = "guaira.jaramillo.nitoglia@gmail.com"
     public static let appName = "Class Management"
-    public static let appVersion = "26.10.4-010"
+    public static let appVersion = "26.10.4-011"
     public static let appChannel = "unstable"
     public static let licenseName = "GNU General Public License v3.0 (GPL-3.0)"
 
@@ -335,11 +335,17 @@ public struct AppSettings: Codable, Equatable {
     public var updateCheckFrequency: String = "startup" // "startup", "daily", "weekly", "manual"
     public var lastUpdateCheckDate: Double = 0.0
     public var onboardingCompleted: Bool = false
+    public var googleCalendarConnected: Bool = false
+    public var googleCalendarEmail: String = ""
+    public var googleAccessToken: String = ""
+    public var googleRefreshToken: String = ""
+    public var googleTokenExpiry: Double = 0.0
+    public var showGoogleCalendarEvents: Bool = true
 
     public init() {}
 
     enum CodingKeys: String, CodingKey {
-        case language, theme, sidebarMini, firstDayOfWeek, dateFormat, timeFormat, currency, passThreshold, defaultLessonDuration, defaultHourlyRate, defaultLessonDurationHours, defaultVatPercent, autoSyncAppleCalendar, calendarSyncMode, iCloudSyncEnabled, checkForUpdatesAutomatically, includeBetaUpdates, updateCheckFrequency, lastUpdateCheckDate, onboardingCompleted
+        case language, theme, sidebarMini, firstDayOfWeek, dateFormat, timeFormat, currency, passThreshold, defaultLessonDuration, defaultHourlyRate, defaultLessonDurationHours, defaultVatPercent, autoSyncAppleCalendar, calendarSyncMode, iCloudSyncEnabled, checkForUpdatesAutomatically, includeBetaUpdates, updateCheckFrequency, lastUpdateCheckDate, onboardingCompleted, googleCalendarConnected, googleCalendarEmail, googleAccessToken, googleRefreshToken, googleTokenExpiry, showGoogleCalendarEvents
     }
 
     public init(from decoder: Decoder) throws {
@@ -365,6 +371,12 @@ public struct AppSettings: Codable, Equatable {
         updateCheckFrequency = c.flexString(.updateCheckFrequency, default: "startup")
         lastUpdateCheckDate = c.flexDouble(.lastUpdateCheckDate, default: 0.0)
         onboardingCompleted = c.flexBool(.onboardingCompleted, default: false)
+        googleCalendarConnected = c.flexBool(.googleCalendarConnected, default: false)
+        googleCalendarEmail = c.flexString(.googleCalendarEmail, default: "")
+        googleAccessToken = c.flexString(.googleAccessToken, default: "")
+        googleRefreshToken = c.flexString(.googleRefreshToken, default: "")
+        googleTokenExpiry = c.flexDouble(.googleTokenExpiry, default: 0.0)
+        showGoogleCalendarEvents = c.flexBool(.showGoogleCalendarEvents, default: true)
     }
 
     public init(dict: [String: Any]) {
@@ -389,6 +401,12 @@ public struct AppSettings: Codable, Equatable {
         updateCheckFrequency = JSONDictHelper.str(dict["updateCheckFrequency"], default: "startup")
         lastUpdateCheckDate = JSONDictHelper.dbl(dict["lastUpdateCheckDate"], default: 0.0)
         onboardingCompleted = JSONDictHelper.bool(dict["onboardingCompleted"], default: false)
+        googleCalendarConnected = JSONDictHelper.bool(dict["googleCalendarConnected"], default: false)
+        googleCalendarEmail = JSONDictHelper.str(dict["googleCalendarEmail"], default: "")
+        googleAccessToken = JSONDictHelper.str(dict["googleAccessToken"], default: "")
+        googleRefreshToken = JSONDictHelper.str(dict["googleRefreshToken"], default: "")
+        googleTokenExpiry = JSONDictHelper.dbl(dict["googleTokenExpiry"], default: 0.0)
+        showGoogleCalendarEvents = JSONDictHelper.bool(dict["showGoogleCalendarEvents"], default: true)
     }
 }
 
@@ -810,9 +828,10 @@ public struct CourseModule: Codable, Identifiable, Equatable {
     public var evaluateAttendance: Bool? = false
     public var attendanceWeight: Double? = 5.0
     public var billing: ModuleBilling? = ModuleBilling()
+    public var googleMeetUrl: String? = nil
 
     enum CodingKeys: String, CodingKey {
-        case id, name, description, startTime, endTime, scheduleNote, studentIds, dates, attendance, evaluateAttendance, attendanceWeight, billing
+        case id, name, description, startTime, endTime, scheduleNote, studentIds, dates, attendance, evaluateAttendance, attendanceWeight, billing, googleMeetUrl
     }
 
     public init(id: String = "sec-" + UUID().uuidString.prefix(6).lowercased(),
@@ -826,7 +845,8 @@ public struct CourseModule: Codable, Identifiable, Equatable {
                 attendance: [String: [String: String]] = [:],
                 evaluateAttendance: Bool? = false,
                 attendanceWeight: Double? = 5.0,
-                billing: ModuleBilling? = ModuleBilling()) {
+                billing: ModuleBilling? = ModuleBilling(),
+                googleMeetUrl: String? = nil) {
         self.id = id
         self.name = name
         self.description = description
@@ -839,6 +859,7 @@ public struct CourseModule: Codable, Identifiable, Equatable {
         self.evaluateAttendance = evaluateAttendance
         self.attendanceWeight = attendanceWeight
         self.billing = billing
+        self.googleMeetUrl = googleMeetUrl
     }
 
     public init(from decoder: Decoder) throws {
@@ -867,6 +888,7 @@ public struct CourseModule: Codable, Identifiable, Equatable {
         evaluateAttendance = c.flexOptBool(.evaluateAttendance)
         attendanceWeight = c.flexOptDouble(.attendanceWeight)
         billing = (try? c.decodeIfPresent(ModuleBilling.self, forKey: .billing)) ?? ModuleBilling()
+        googleMeetUrl = c.flexOptString(.googleMeetUrl)
     }
 
     public init(dict: [String: Any], fallbackIndex: Int = 1) {
@@ -901,6 +923,7 @@ public struct CourseModule: Codable, Identifiable, Equatable {
         } else {
             billing = ModuleBilling()
         }
+        googleMeetUrl = JSONDictHelper.optStr(dict["googleMeetUrl"])
     }
 }
 
@@ -974,9 +997,12 @@ public struct LessonPlan: Codable, Identifiable, Equatable {
     public var homework: String = ""
     public var notes: String = ""
     public var calendarEventIdentifier: String? = nil
+    public var googleMeetUrl: String? = nil
+    public var googleCalendarEventId: String? = nil
+    public var invitedEmails: [String] = []
 
     enum CodingKeys: String, CodingKey {
-        case id, sectionId, date, slotKey, time, endTime, title, objectives, topics, methodology, materials, homework, notes, calendarEventIdentifier
+        case id, sectionId, date, slotKey, time, endTime, title, objectives, topics, methodology, materials, homework, notes, calendarEventIdentifier, googleMeetUrl, googleCalendarEventId, invitedEmails
     }
 
     public init(id: String = "les-" + UUID().uuidString.prefix(6).lowercased(),
@@ -992,7 +1018,10 @@ public struct LessonPlan: Codable, Identifiable, Equatable {
                 materials: String = "",
                 homework: String = "",
                 notes: String = "",
-                calendarEventIdentifier: String? = nil) {
+                calendarEventIdentifier: String? = nil,
+                googleMeetUrl: String? = nil,
+                googleCalendarEventId: String? = nil,
+                invitedEmails: [String] = []) {
         self.id = id
         self.sectionId = sectionId
         self.date = date
@@ -1007,6 +1036,9 @@ public struct LessonPlan: Codable, Identifiable, Equatable {
         self.homework = homework
         self.notes = notes
         self.calendarEventIdentifier = calendarEventIdentifier
+        self.googleMeetUrl = googleMeetUrl
+        self.googleCalendarEventId = googleCalendarEventId
+        self.invitedEmails = invitedEmails
     }
 
     public init(from decoder: Decoder) throws {
@@ -1026,6 +1058,9 @@ public struct LessonPlan: Codable, Identifiable, Equatable {
         homework = c.flexString(.homework, default: "")
         notes = c.flexString(.notes, default: "")
         calendarEventIdentifier = c.flexOptString(.calendarEventIdentifier)
+        googleMeetUrl = c.flexOptString(.googleMeetUrl)
+        googleCalendarEventId = c.flexOptString(.googleCalendarEventId)
+        invitedEmails = (try? c.decodeIfPresent([String].self, forKey: .invitedEmails)) ?? []
     }
 
     public init(dict: [String: Any]) {
@@ -1044,6 +1079,9 @@ public struct LessonPlan: Codable, Identifiable, Equatable {
         homework = JSONDictHelper.str(dict["homework"], default: "")
         notes = JSONDictHelper.str(dict["notes"], default: "")
         calendarEventIdentifier = JSONDictHelper.optStr(dict["calendarEventIdentifier"])
+        googleMeetUrl = JSONDictHelper.optStr(dict["googleMeetUrl"])
+        googleCalendarEventId = JSONDictHelper.optStr(dict["googleCalendarEventId"])
+        invitedEmails = JSONDictHelper.strArray(dict["invitedEmails"])
     }
 }
 
@@ -1552,6 +1590,13 @@ public struct AppState: Codable, Equatable {
     ]
 
     public static let defaultChangelog: [ChangelogEntry] = [
+        ChangelogEntry(version: "26.10.4-011", date: "2026-10-19", changes: [
+            "Integrazione ufficiale con Google Calendar & Google Meet: sincronizzazione sicura delle lezioni e generazione automatica della stanza virtuale Meet.",
+            "Persistenza del link Google Meet per modulo: tutte le lezioni dello stesso modulo condividono sempre la stessa stanza virtuale permanente.",
+            "Gestione e invio automatico degli inviti via email agli studenti partecipanti tramite Google Calendar.",
+            "Visualizzazione aggregata nel Calendario Generale degli impegni personali di Google Calendar con contrassegno dedicato.",
+            "Risolto il troncamento visivo del titolo del programma dopo il logo nella versione Windows con sidebar allargata a 17.5rem."
+        ]),
         ChangelogEntry(version: "26.10.4-010", date: "2026-10-19", changes: [
             "Risolto in modo definitivo il controllo aggiornamenti su macOS: propagazione del flag prerelease al comparatore semantico, eliminando la notifica di aggiornamento persistente a versione già installata.",
             "Versione nativa promossa a release ufficiale per Windows con Setup installer leggero (~2.2 MB): rimossa la versione pesante Electron, migrazione e preservazione automatica di tutti i dati storici e backup pregressi.",

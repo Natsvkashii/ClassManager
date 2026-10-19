@@ -14,6 +14,8 @@
 #define _UNICODE
 #define WIN32_LEAN_AND_MEAN
 
+#include <winsock2.h>
+#include <ws2tcpip.h>
 #include <windows.h>
 #include <commctrl.h>
 #include <commdlg.h>
@@ -29,15 +31,16 @@
 #include <fstream>
 #include <iostream>
 #include <algorithm>
+#include <thread>
 
 #include "include/webview.h"
 #include "assets_bundle.h"
 
 // Version and Metadata Constants
 static const wchar_t* APP_NAME = L"Class Management";
-static const wchar_t* APP_VERSION = L"26.10.4-010";
+static const wchar_t* APP_VERSION = L"26.10.4-011";
 static const wchar_t* APP_CHANNEL = L"UNSTABLE";
-static const wchar_t* WINDOW_TITLE = L"Class Management v26.10.4-010 [UNSTABLE]";
+static const wchar_t* WINDOW_TITLE = L"Class Management v26.10.4-011 [UNSTABLE]";
 static const wchar_t* AUTHOR_NAME = L"Guaira Jaramillo Nitoglia";
 static const wchar_t* AUTHOR_EMAIL = L"guaira.jaramillo.nitoglia@gmail.com";
 static const wchar_t* GITHUB_RELEASES_URL = L"https://github.com/Natsvkashii/ClassManager/releases";
@@ -143,7 +146,7 @@ static bool EnsureAssetFile(const std::wstring& targetPath, const unsigned char*
 // Helper: Perform HTTP GET using WinHTTP
 static std::string WinHttpGet(const std::wstring& host, const std::wstring& path, bool https = true) {
     std::string responseBody;
-    HINTERNET hSession = WinHttpOpen(L"ClassManagement-Native/26.10.4-010",
+    HINTERNET hSession = WinHttpOpen(L"ClassManagement-Native/26.10.4-011",
                                     WINHTTP_ACCESS_TYPE_DEFAULT_PROXY,
                                     WINHTTP_NO_PROXY_NAME,
                                     WINHTTP_NO_PROXY_BYPASS, 0);
@@ -166,7 +169,7 @@ static std::string WinHttpGet(const std::wstring& host, const std::wstring& path
         return "";
     }
 
-    const wchar_t* headers = L"Accept: application/vnd.github.v3+json\r\nUser-Agent: ClassManagement-Native/26.10.4-010\r\n";
+    const wchar_t* headers = L"Accept: application/vnd.github.v3+json\r\nUser-Agent: ClassManagement-Native/26.10.4-011\r\n";
     BOOL sendOk = WinHttpSendRequest(hRequest, headers, (DWORD)-1, NULL, 0, 0, 0);
     if (sendOk && WinHttpReceiveResponse(hRequest, NULL)) {
         DWORD dwSize = 0;
@@ -331,7 +334,7 @@ static int RunSetupInstaller(const wchar_t* currentExePath, bool isSilent) {
     if (!isSilent) {
         MessageBoxW(
             NULL,
-            L"Class Management v26.10.4-010 è stato installato con successo!\n\n"
+            L"Class Management v26.10.4-011 è stato installato con successo!\n\n"
             L"La nuova versione nativa ultra-leggera sostituisce la versione precedente.\n"
             L"Tutti i dati, corsi e backup storici sono stati preservati al 100%.\n\n"
             L"L'applicazione verrà avviata ora.",
@@ -440,7 +443,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     HWND hwnd = (HWND)w.window();
 
     // Set Window Title and Size
-    w.set_title("Class Management v26.10.4-010 [UNSTABLE]");
+    w.set_title("Class Management v26.10.4-011 [UNSTABLE]");
     w.set_size(1400, 900, WEBVIEW_HINT_NONE);
     w.set_size(980, 650, WEBVIEW_HINT_MIN);
 
@@ -545,6 +548,67 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
             std::wstring param = L"/select,\"" + wpath + L"\"";
             ShellExecuteW(NULL, L"open", L"explorer.exe", param.c_str(), NULL, SW_SHOWNORMAL);
         }
+        return "true";
+    });
+
+    // E2. startGoogleOAuth: Starts loopback server on port 8089 and opens browser
+    w.bind("__native_start_google_oauth", [&w](std::string req) -> std::string {
+        std::string authUrl = ParseJsonArg(req, 0);
+        if (authUrl.empty()) return "false";
+
+        std::thread([authUrl, &w]() {
+            WSADATA wsa;
+            if (WSAStartup(MAKEWORD(2,2), &wsa) != 0) return;
+
+            SOCKET serverSock = socket(AF_INET, SOCK_STREAM, 0);
+            if (serverSock != INVALID_SOCKET) {
+                sockaddr_in serverAddr;
+                memset(&serverAddr, 0, sizeof(serverAddr));
+                serverAddr.sin_family = AF_INET;
+                serverAddr.sin_port = htons(8089);
+                serverAddr.sin_addr.s_addr = inet_addr("127.0.0.1");
+
+                int opt = 1;
+                setsockopt(serverSock, SOL_SOCKET, SO_REUSEADDR, (char*)&opt, sizeof(opt));
+
+                if (bind(serverSock, (sockaddr*)&serverAddr, sizeof(serverAddr)) == 0 && listen(serverSock, 1) == 0) {
+                    std::wstring wUrl = Utf8ToWide(authUrl);
+                    ShellExecuteW(NULL, L"open", wUrl.c_str(), NULL, NULL, SW_SHOWNORMAL);
+
+                    DWORD timeout = 120000;
+                    setsockopt(serverSock, SOL_SOCKET, SO_RCVTIMEO, (char*)&timeout, sizeof(timeout));
+
+                    sockaddr_in clientAddr;
+                    int clientLen = sizeof(clientAddr);
+                    SOCKET clientSock = accept(serverSock, (sockaddr*)&clientAddr, &clientLen);
+                    if (clientSock != INVALID_SOCKET) {
+                        char buf[4096] = {0};
+                        int bytes = recv(clientSock, buf, sizeof(buf) - 1, 0);
+                        if (bytes > 0) {
+                            std::string reqStr(buf);
+                            size_t codePos = reqStr.find("code=");
+                            if (codePos != std::string::npos) {
+                                size_t endPos = reqStr.find_first_of(" &\r\n", codePos + 5);
+                                std::string code = reqStr.substr(codePos + 5, endPos - (codePos + 5));
+
+                                std::string html = "<!DOCTYPE html><html lang='it'><head><meta charset='utf-8'><title>Accesso riuscito</title><style>body{font-family:Segoe UI,sans-serif;text-align:center;padding:50px;background:#f8fafc;color:#0f172a;}h2{color:#0284c7;}</style></head><body><h2>✓ Accesso a Google Calendar completato!</h2><p>Puoi chiudere questa scheda e tornare a <strong>Class Management</strong>.</p><script>setTimeout(function(){window.close();},2500);</script></body></html>";
+                                std::string resp = "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: " + std::to_string(html.size()) + "\r\nConnection: close\r\n\r\n" + html;
+                                send(clientSock, resp.c_str(), (int)resp.size(), 0);
+
+                                std::string js = "if(window.app && window.app.onGoogleOAuthSuccess) window.app.onGoogleOAuthSuccess('" + code + "');";
+                                w.dispatch([&w, js]() {
+                                    w.eval(js);
+                                });
+                            }
+                        }
+                        closesocket(clientSock);
+                    }
+                }
+                closesocket(serverSock);
+            }
+            WSACleanup();
+        }).detach();
+
         return "true";
     });
 
@@ -659,7 +723,10 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
                 return window.__native_show_in_folder(filePath);
             },
             getAppVersion: function() {
-                return Promise.resolve('26.10.4-010');
+                return Promise.resolve('26.10.4-011');
+            },
+            startGoogleOAuth: function(authUrl) {
+                return window.__native_start_google_oauth(authUrl);
             },
             checkForUpdatesAPI: function() {
                 return window.__native_check_updates();

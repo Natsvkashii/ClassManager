@@ -288,12 +288,14 @@ public struct ModuleFormSheet: View {
 
     @State private var name: String = "M1"
     @State private var desc: String = ""
+    @State private var googleMeetUrl: String = ""
 
     public init(levelId: String, editingModule: CourseModule?) {
         self.levelId = levelId
         self.editingModule = editingModule
         _name = State(initialValue: editingModule?.name ?? "M1")
         _desc = State(initialValue: editingModule?.description ?? "")
+        _googleMeetUrl = State(initialValue: editingModule?.googleMeetUrl ?? "")
     }
 
     public var body: some View {
@@ -313,6 +315,16 @@ public struct ModuleFormSheet: View {
                 TextField("M1", text: $name).textFieldStyle(.roundedBorder)
                 Text("Descrizione").font(.caption.bold())
                 TextField("Descrizione opzionale...", text: $desc).textFieldStyle(.roundedBorder)
+                Text("Stanza Google Meet Permanente").font(.caption.bold())
+                HStack {
+                    TextField("https://meet.google.com/abc-defg-hij", text: $googleMeetUrl).textFieldStyle(.roundedBorder)
+                    if !googleMeetUrl.trimmingCharacters(in: .whitespaces).isEmpty,
+                       let u = URL(string: googleMeetUrl.trimmingCharacters(in: .whitespaces)) {
+                        Link(destination: u) {
+                            Image(systemName: "arrow.up.right.video.fill")
+                        }
+                    }
+                }
             }
             Divider()
             HStack {
@@ -323,17 +335,21 @@ public struct ModuleFormSheet: View {
                           let lIdx = store.state.courses[cIdx].levels.firstIndex(where: { $0.id == levelId }) else { return }
                     store.recordUndoSnapshot()
                     let cleanName = name.trimmingCharacters(in: .whitespaces)
+                    let cleanMeet = googleMeetUrl.trimmingCharacters(in: .whitespaces)
+                    let finalMeet = cleanMeet.isEmpty ? nil : cleanMeet
                     if let existing = editingModule,
                        let mIdx = store.state.courses[cIdx].levels[lIdx].modules.firstIndex(where: { $0.id == existing.id }) {
                         store.state.courses[cIdx].levels[lIdx].modules[mIdx].name = cleanName.isEmpty ? "M1" : cleanName
                         store.state.courses[cIdx].levels[lIdx].modules[mIdx].description = desc.trimmingCharacters(in: .whitespaces)
+                        store.state.courses[cIdx].levels[lIdx].modules[mIdx].googleMeetUrl = finalMeet
                     } else {
                         let prevStudents = store.getActiveModule(for: store.state.courses[cIdx])?.studentIds ?? []
                         let nextIdx = store.state.courses[cIdx].levels[lIdx].modules.count + 1
                         let newMod = CourseModule(
                             name: cleanName.isEmpty ? "M\(nextIdx)" : cleanName,
                             description: desc.trimmingCharacters(in: .whitespaces),
-                            studentIds: prevStudents
+                            studentIds: prevStudents,
+                            googleMeetUrl: finalMeet
                         )
                         store.state.courses[cIdx].levels[lIdx].modules.append(newMod)
                         store.switchModule(newMod.id)
@@ -345,7 +361,7 @@ public struct ModuleFormSheet: View {
             }
         }
         .padding(20)
-        .frame(width: 400)
+        .frame(width: 440)
         .onAppear {
             if editingModule == nil, let c = store.activeCourse, let lvl = c.levels.first(where: { $0.id == levelId }) {
                 name = "M\(lvl.modules.count + 1)"
@@ -373,6 +389,8 @@ public struct LessonPlanSheet: View {
     @State private var materials: String = ""
     @State private var homework: String = ""
     @State private var notes: String = ""
+    @State private var googleMeetUrl: String = ""
+    @State private var invitedEmailsStr: String = ""
 
     public init(courseId: String, sectionId: String, slotKey: String?) {
         self.courseId = courseId
@@ -426,6 +444,48 @@ public struct LessonPlanSheet: View {
                 }
             }
 
+            // Google Meet & Google Calendar Integration Card
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Label("Google Meet & Google Calendar", systemImage: "video.fill")
+                        .font(.caption.bold())
+                        .foregroundStyle(.blue)
+                    Spacer()
+                    if !googleMeetUrl.trimmingCharacters(in: .whitespaces).isEmpty,
+                       let u = URL(string: googleMeetUrl.trimmingCharacters(in: .whitespaces)) {
+                        Link(destination: u) {
+                            Label("Partecipa a Meet", systemImage: "arrow.up.right.video.fill")
+                                .font(.caption.bold())
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(.blue)
+                    }
+                }
+                HStack(spacing: 12) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Stanza Google Meet Permanente").font(.system(size: 10, weight: .bold)).foregroundStyle(.secondary)
+                        TextField("https://meet.google.com/abc-defg-hij", text: $googleMeetUrl)
+                            .textFieldStyle(.roundedBorder)
+                    }
+                    VStack(alignment: .leading, spacing: 2) {
+                        HStack {
+                            Text("Invitati via Email (separati da virgola)").font(.system(size: 10, weight: .bold)).foregroundStyle(.secondary)
+                            Spacer()
+                            Button("Aggiungi iscritti corso") {
+                                addCourseStudentsEmails()
+                            }
+                            .font(.system(size: 9.5, weight: .bold))
+                            .buttonStyle(.plain)
+                            .foregroundStyle(.blue)
+                        }
+                        TextField("email1@gmail.com, email2@gmail.com...", text: $invitedEmailsStr)
+                            .textFieldStyle(.roundedBorder)
+                    }
+                }
+            }
+            .padding(10)
+            .background(RoundedRectangle(cornerRadius: 10).fill(Color.blue.opacity(0.06)).overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Color.blue.opacity(0.22))))
+
             Divider()
 
             HStack {
@@ -443,7 +503,7 @@ public struct LessonPlanSheet: View {
             }
         }
         .padding(22)
-        .frame(width: 780, height: 540)
+        .frame(width: 800, height: 620)
         .onAppear(perform: loadExisting)
     }
 
@@ -453,10 +513,27 @@ public struct LessonPlanSheet: View {
             Text(label).font(.caption.bold())
             TextEditor(text: text)
                 .font(.body)
-                .frame(minHeight: 75)
+                .frame(minHeight: 65)
                 .padding(4)
                 .background(RoundedRectangle(cornerRadius: 8).strokeBorder(Color.secondary.opacity(0.32)))
         }
+    }
+
+    private func addCourseStudentsEmails() {
+        guard let course = store.state.courses.first(where: { $0.id == courseId }) else { return }
+        var mod: CourseModule? = nil
+        for l in course.levels {
+            if let m = l.modules.first(where: { $0.id == sectionId }) { mod = m; break }
+        }
+        let stIds = mod?.studentIds ?? []
+        let emails = store.state.studentsDirectory
+            .filter { stIds.contains($0.id) && !$0.email.trimmingCharacters(in: .whitespaces).isEmpty }
+            .map { $0.email.trimmingCharacters(in: .whitespaces) }
+        var current = invitedEmailsStr.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+        for em in emails {
+            if !current.contains(em) { current.append(em) }
+        }
+        invitedEmailsStr = current.joined(separator: ", ")
     }
 
     private func loadExisting() {
@@ -467,6 +544,9 @@ public struct LessonPlanSheet: View {
         }
         startTime = mod?.startTime ?? "19:00"
         endTime = mod?.endTime ?? "20:30"
+        if let m = mod, let meet = m.googleMeetUrl, !meet.isEmpty {
+            googleMeetUrl = meet
+        }
 
         if let sk = slotKey {
             let dOnly = store.extractDate(from: sk)
@@ -484,6 +564,12 @@ public struct LessonPlanSheet: View {
                 materials = les.materials
                 homework = les.homework
                 notes = les.notes
+                if let meet = les.googleMeetUrl, !meet.isEmpty {
+                    googleMeetUrl = meet
+                }
+                if !les.invitedEmails.isEmpty {
+                    invitedEmailsStr = les.invitedEmails.joined(separator: ", ")
+                }
             }
         }
     }
@@ -535,6 +621,14 @@ public struct LessonPlanSheet: View {
             }
         }
 
+        let parsedEmails = invitedEmailsStr.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+        let cleanMeet = googleMeetUrl.trimmingCharacters(in: .whitespaces)
+        let finalMeet = cleanMeet.isEmpty ? nil : cleanMeet
+
+        if let fm = finalMeet {
+            store.state.courses[cIdx].levels[lIdx].modules[mIdx].googleMeetUrl = fm
+        }
+
         if let existingLessonIdx = store.state.courses[cIdx].lessons.firstIndex(where: {
             ($0.slotKey == (slotKey ?? finalSlotKey)) && ($0.sectionId == nil || $0.sectionId == sectionId)
         }) {
@@ -549,6 +643,8 @@ public struct LessonPlanSheet: View {
             store.state.courses[cIdx].lessons[existingLessonIdx].materials = materials
             store.state.courses[cIdx].lessons[existingLessonIdx].homework = homework
             store.state.courses[cIdx].lessons[existingLessonIdx].notes = notes
+            store.state.courses[cIdx].lessons[existingLessonIdx].googleMeetUrl = finalMeet
+            store.state.courses[cIdx].lessons[existingLessonIdx].invitedEmails = parsedEmails
         } else {
             let lp = LessonPlan(
                 sectionId: sectionId,
@@ -562,7 +658,9 @@ public struct LessonPlanSheet: View {
                 methodology: methodology,
                 materials: materials,
                 homework: homework,
-                notes: notes
+                notes: notes,
+                googleMeetUrl: finalMeet,
+                invitedEmails: parsedEmails
             )
             store.state.courses[cIdx].lessons.append(lp)
         }
@@ -576,6 +674,47 @@ public struct LessonPlanSheet: View {
         if store.state.settings.autoSyncAppleCalendar {
             store.syncCourseToAppleCalendar(store.state.courses[cIdx], showNotification: false)
         }
+
+        // Automatic Google Calendar & Meet Sync
+        if store.state.settings.googleCalendarConnected {
+            let courseCopy = store.state.courses[cIdx]
+            let modCopy = store.state.courses[cIdx].levels[lIdx].modules[mIdx]
+            let targetSlotKey = finalSlotKey
+            let currentLessonPlan = store.findLesson(in: courseCopy, sectionId: sectionId, slotKey: targetSlotKey)
+            let sIdx = (modCopy.dates.firstIndex(of: targetSlotKey) ?? 0) + 1
+
+            Task {
+                if let res = try? await GoogleCalendarManager.shared.syncLessonToGoogle(
+                    course: courseCopy,
+                    module: modCopy,
+                    lessonPlan: currentLessonPlan,
+                    slotKey: targetSlotKey,
+                    lessonNum: sIdx,
+                    attendees: parsedEmails,
+                    store: self.store
+                ) {
+                    await MainActor.run {
+                        if let cI = self.store.state.courses.firstIndex(where: { $0.id == self.courseId }),
+                           let lI = self.store.state.courses[cI].levels.firstIndex(where: { $0.id == self.store.state.courses[cI].levels[lIdx].id }),
+                           let mI = self.store.state.courses[cI].levels[lI].modules.firstIndex(where: { $0.id == self.sectionId }) {
+                            if let generatedMeet = res.meetUrl, !generatedMeet.isEmpty {
+                                self.store.state.courses[cI].levels[lI].modules[mI].googleMeetUrl = generatedMeet
+                            }
+                            if let lesI = self.store.state.courses[cI].lessons.firstIndex(where: {
+                                $0.slotKey == targetSlotKey && ($0.sectionId == nil || $0.sectionId == self.sectionId)
+                            }) {
+                                self.store.state.courses[cI].lessons[lesI].googleCalendarEventId = res.eventId
+                                if let generatedMeet = res.meetUrl {
+                                    self.store.state.courses[cI].lessons[lesI].googleMeetUrl = generatedMeet
+                                }
+                            }
+                            self.store.persist()
+                        }
+                    }
+                }
+            }
+        }
+
         store.showToast(store.t("saveBtn"))
         dismiss()
     }
@@ -587,15 +726,22 @@ public struct LessonPlanSheet: View {
             if let mIdx = store.state.courses[cIdx].levels[lIdx].modules.firstIndex(where: { $0.id == sectionId }) {
                 let courseCopy = store.state.courses[cIdx]
                 let modCopy = store.state.courses[cIdx].levels[lIdx].modules[mIdx]
-                let savedEvId = store.findLesson(in: courseCopy, sectionId: sectionId, slotKey: slotKey)?.calendarEventIdentifier
+                let foundLesson = store.findLesson(in: courseCopy, sectionId: sectionId, slotKey: slotKey)
+                let savedEvId = foundLesson?.calendarEventIdentifier
+                let savedGoogleId = foundLesson?.googleCalendarEventId
+
                 store.state.courses[cIdx].levels[lIdx].modules[mIdx].dates.removeAll { $0 == slotKey }
                 for stId in store.state.courses[cIdx].levels[lIdx].modules[mIdx].attendance.keys {
                     store.state.courses[cIdx].levels[lIdx].modules[mIdx].attendance[stId]?.removeValue(forKey: slotKey)
                 }
                 store.state.courses[cIdx].lessons.removeAll { $0.slotKey == slotKey && ($0.sectionId == nil || $0.sectionId == sectionId) }
                 store.persist()
+
                 Task {
                     await AppleCalendarManager.shared.removeLessonEvent(course: courseCopy, module: modCopy, slotKey: slotKey, savedEventId: savedEvId)
+                    if let gId = savedGoogleId, !gId.isEmpty {
+                        await GoogleCalendarManager.shared.removeLessonFromGoogle(eventId: gId, store: self.store)
+                    }
                 }
                 break
             }

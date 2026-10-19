@@ -11,6 +11,7 @@ import AppKit
 
 public struct GlobalCalendarView: View {
     @Environment(AppStore.self) private var store
+    @ObservedObject private var googleManager = GoogleCalendarManager.shared
     @Binding var activeSheet: ActiveModalSheet?
 
     public var body: some View {
@@ -21,7 +22,7 @@ public struct GlobalCalendarView: View {
         let cells = buildMonthCells()
 
         VStack(alignment: .leading, spacing: 14) {
-            HStack {
+            HStack(spacing: 10) {
                 Button {
                     store.calendarCursor = cal.date(byAdding: .month, value: -1, to: store.calendarCursor) ?? store.calendarCursor
                 } label: {
@@ -42,6 +43,32 @@ public struct GlobalCalendarView: View {
 
                 Spacer()
 
+                // Google Calendar Quick Action
+                if store.state.settings.googleCalendarConnected {
+                    Button {
+                        Task { await googleManager.refreshCalendarEvents(store: store) }
+                    } label: {
+                        HStack(spacing: 5) {
+                            Image(systemName: "g.circle.fill")
+                                .foregroundStyle(.blue)
+                            Text(googleManager.isSyncing ? "Sincronizzo..." : "Google Sync")
+                        }
+                    }
+                    .buttonStyle(.bordered)
+                    .help("Google Calendar collegato (\(store.state.settings.googleCalendarEmail)). Clicca per sincronizzare.")
+                } else {
+                    Button {
+                        Task { await googleManager.startOAuthFlow(store: store) }
+                    } label: {
+                        HStack(spacing: 5) {
+                            Image(systemName: "g.circle")
+                            Text("Accedi con Google")
+                        }
+                    }
+                    .buttonStyle(.bordered)
+                    .help("Collega Google Calendar per sincronizzare le lezioni e le riunioni Google Meet")
+                }
+
                 Picker("", selection: Binding(
                     get: { store.calendarFilterCourseId },
                     set: { store.calendarFilterCourseId = $0 }
@@ -51,7 +78,7 @@ public struct GlobalCalendarView: View {
                         Text(c.name).tag(c.id)
                     }
                 }
-                .frame(width: 210)
+                .frame(width: 180)
 
                 Button {
                     store.syncAllActiveCoursesToAppleCalendar()
@@ -81,30 +108,64 @@ public struct GlobalCalendarView: View {
                                         .foregroundStyle(cell.inMonth ? .primary : .secondary)
 
                                     ForEach(cell.events, id: \.id) { ev in
-                                        Button {
-                                            activeSheet = .lessonPlan(courseId: ev.courseId, sectionId: ev.sectionId, slotKey: ev.slotKey)
-                                        } label: {
-                                            VStack(alignment: .leading, spacing: 1) {
-                                                HStack(spacing: 4) {
-                                                    Text(ev.courseName).font(.system(size: 10, weight: .bold)).lineLimit(1)
-                                                    Spacer()
-                                                    if ev.conflict {
-                                                        Image(systemName: "exclamationmark.triangle.fill")
-                                                            .font(.system(size: 9))
-                                                            .foregroundStyle(.yellow)
-                                                            .help(store.t("timeConflictWarning"))
-                                                    }
+                                        if ev.isGoogleEvent {
+                                            Button {
+                                                if let meet = ev.meetUrl, !meet.isEmpty, let u = URL(string: meet) {
+                                                    NSWorkspace.shared.open(u)
+                                                } else if let link = ev.htmlLink, !link.isEmpty, let u = URL(string: link) {
+                                                    NSWorkspace.shared.open(u)
                                                 }
-                                                Text("\(store.formatTimeDisplay(ev.time))-\(store.formatTimeDisplay(ev.endTime))")
-                                                    .font(.system(size: 9))
-                                                    .opacity(0.9)
+                                            } label: {
+                                                VStack(alignment: .leading, spacing: 1) {
+                                                    HStack(spacing: 4) {
+                                                        Image(systemName: "g.circle.fill")
+                                                            .font(.system(size: 9))
+                                                        Text(ev.courseName)
+                                                            .font(.system(size: 9.5, weight: .bold))
+                                                            .lineLimit(1)
+                                                        Spacer(minLength: 0)
+                                                        if ev.meetUrl != nil {
+                                                            Image(systemName: "video.fill")
+                                                                .font(.system(size: 8))
+                                                        }
+                                                    }
+                                                    Text(ev.isAllDay ? "Tutto il giorno" : "\(ev.time) - \(ev.endTime)")
+                                                        .font(.system(size: 8.5))
+                                                        .opacity(0.9)
+                                                }
+                                                .padding(4)
+                                                .frame(maxWidth: .infinity, alignment: .leading)
+                                                .background(RoundedRectangle(cornerRadius: 6).fill(Color(red: 0.20, green: 0.45, blue: 0.85)))
+                                                .foregroundStyle(.white)
                                             }
-                                            .padding(5)
-                                            .frame(maxWidth: .infinity, alignment: .leading)
-                                            .background(RoundedRectangle(cornerRadius: 6).fill(ev.color))
-                                            .foregroundStyle(.white)
+                                            .buttonStyle(.plain)
+                                            .help(ev.meetUrl != nil ? "Google Calendar: \(ev.courseName)\nClicca per aprire la riunione Google Meet" : "Google Calendar: \(ev.courseName)")
+                                        } else {
+                                            Button {
+                                                activeSheet = .lessonPlan(courseId: ev.courseId, sectionId: ev.sectionId, slotKey: ev.slotKey)
+                                            } label: {
+                                                VStack(alignment: .leading, spacing: 1) {
+                                                    HStack(spacing: 4) {
+                                                        Text(ev.courseName).font(.system(size: 10, weight: .bold)).lineLimit(1)
+                                                        Spacer()
+                                                        if ev.conflict {
+                                                            Image(systemName: "exclamationmark.triangle.fill")
+                                                                .font(.system(size: 9))
+                                                                .foregroundStyle(.yellow)
+                                                                .help(store.t("timeConflictWarning"))
+                                                        }
+                                                    }
+                                                    Text("\(store.formatTimeDisplay(ev.time))-\(store.formatTimeDisplay(ev.endTime))")
+                                                        .font(.system(size: 9))
+                                                        .opacity(0.9)
+                                                }
+                                                .padding(5)
+                                                .frame(maxWidth: .infinity, alignment: .leading)
+                                                .background(RoundedRectangle(cornerRadius: 6).fill(ev.color))
+                                                .foregroundStyle(.white)
+                                            }
+                                            .buttonStyle(.plain)
                                         }
-                                        .buttonStyle(.plain)
                                     }
                                     Spacer(minLength: 0)
                                 }
@@ -120,10 +181,15 @@ public struct GlobalCalendarView: View {
             }
         }
         .padding(20)
+        .task {
+            if store.state.settings.googleCalendarConnected {
+                await googleManager.refreshCalendarEvents(store: store)
+            }
+        }
     }
 
     private struct CalEvent: Identifiable {
-        var id: String { "\(courseId)_\(sectionId)_\(slotKey)" }
+        var id: String
         let courseId: String
         let courseName: String
         let sectionId: String
@@ -132,6 +198,10 @@ public struct GlobalCalendarView: View {
         let endTime: String
         let color: Color
         var conflict: Bool = false
+        var isGoogleEvent: Bool = false
+        var meetUrl: String? = nil
+        var htmlLink: String? = nil
+        var isAllDay: Bool = false
     }
 
     private struct MonthCell {
@@ -153,11 +223,49 @@ public struct GlobalCalendarView: View {
                         let les = store.findLesson(in: c, sectionId: m.id, slotKey: sk)
                         let sTime = les?.time ?? m.startTime
                         let eTime = les?.endTime ?? m.endTime
+                        let cEvId = "\(c.id)_\(m.id)_\(sk)"
                         byDate[dOnly, default: []].append(
-                            CalEvent(courseId: c.id, courseName: c.name, sectionId: m.id, slotKey: sk, time: sTime, endTime: eTime, color: pal.color)
+                            CalEvent(
+                                id: cEvId,
+                                courseId: c.id,
+                                courseName: c.name,
+                                sectionId: m.id,
+                                slotKey: sk,
+                                time: sTime,
+                                endTime: eTime,
+                                color: pal.color,
+                                conflict: false,
+                                isGoogleEvent: false,
+                                meetUrl: les?.googleMeetUrl ?? m.googleMeetUrl,
+                                htmlLink: nil,
+                                isAllDay: false
+                            )
                         )
                     }
                 }
+            }
+        }
+
+        // Add Google Calendar Events if enabled
+        if store.state.settings.googleCalendarConnected && store.state.settings.showGoogleCalendarEvents {
+            for gEv in googleManager.cachedGoogleEvents {
+                byDate[gEv.dateOnly, default: []].append(
+                    CalEvent(
+                        id: "google_\(gEv.id)",
+                        courseId: "",
+                        courseName: gEv.summary,
+                        sectionId: "",
+                        slotKey: "",
+                        time: gEv.startTimeDisplay,
+                        endTime: gEv.endTimeDisplay,
+                        color: Color(red: 0.26, green: 0.52, blue: 0.96),
+                        conflict: false,
+                        isGoogleEvent: true,
+                        meetUrl: gEv.hangoutLink,
+                        htmlLink: gEv.htmlLink,
+                        isAllDay: gEv.isAllDay
+                    )
+                )
             }
         }
 
@@ -2225,7 +2333,73 @@ public struct SettingsView: View {
                             .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color.blue.opacity(0.30)))
                     )
 
-                    // GitHub Software Updates Section (Centralized in Informazioni e aggiornamenti)
+                    // Google Calendar & Google Meet Section Card
+                    VStack(alignment: .leading, spacing: 12) {
+                        HStack {
+                            VStack(alignment: .leading, spacing: 3) {
+                                HStack(spacing: 6) {
+                                    Image(systemName: "g.circle.fill")
+                                        .font(.title3)
+                                        .foregroundStyle(.blue)
+                                    Text("Google Calendar & Google Meet")
+                                        .font(.headline)
+                                        .foregroundStyle(.blue)
+                                }
+                                Text("Sincronizza le lezioni sul tuo calendario Google personale, genera stanze Meet permanenti per modulo e invia inviti via email agli studenti.")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            Spacer()
+
+                            if store.state.settings.googleCalendarConnected {
+                                HStack(spacing: 8) {
+                                    Button {
+                                        Task { await GoogleCalendarManager.shared.refreshCalendarEvents(store: store) }
+                                    } label: {
+                                        Label(GoogleCalendarManager.shared.isSyncing ? "Sincronizzo..." : "Sincronizza", systemImage: "arrow.triangle.2.circlepath")
+                                    }
+                                    .buttonStyle(.bordered)
+
+                                    Button(role: .destructive) {
+                                        GoogleCalendarManager.shared.disconnect(store: store)
+                                    } label: {
+                                        Label("Disconnetti", systemImage: "xmark.circle")
+                                    }
+                                    .buttonStyle(.bordered)
+                                }
+                            } else {
+                                Button {
+                                    Task { await GoogleCalendarManager.shared.startOAuthFlow(store: store) }
+                                } label: {
+                                    Label(GoogleCalendarManager.shared.isAuthenticating ? "In attesa..." : "Accedi con Google", systemImage: "g.circle.fill")
+                                }
+                                .buttonStyle(.borderedProminent)
+                                .tint(.blue)
+                            }
+                        }
+
+                        if store.state.settings.googleCalendarConnected {
+                            Divider()
+                            HStack {
+                                Text("Account Google collegato:").font(.caption.bold())
+                                Text(store.state.settings.googleCalendarEmail.isEmpty ? "Collegato" : store.state.settings.googleCalendarEmail)
+                                    .font(.caption)
+                                    .foregroundStyle(.blue)
+                                Spacer()
+                                Toggle("Mostra impegni personali nel Calendario Generale", isOn: Binding(
+                                    get: { store.state.settings.showGoogleCalendarEvents },
+                                    set: { store.state.settings.showGoogleCalendarEvents = $0; store.persist() }
+                                ))
+                                .font(.caption.bold())
+                            }
+                        }
+                    }
+                    .padding(14)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(Color.blue.opacity(0.06))
+                            .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color.blue.opacity(0.24)))
+                    )
                     HStack {
                         VStack(alignment: .leading, spacing: 3) {
                             Text(store.t("updatesSectionHeader"))

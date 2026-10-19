@@ -10,7 +10,7 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
-VERSION="26.10.4-010"
+VERSION="26.10.4-011"
 if [ -f "$REPO_ROOT/Sources/Models.swift" ]; then
     DETECTED_VER=$(grep -E 'public static let appVersion =' "$REPO_ROOT/Sources/Models.swift" | head -n 1 | sed -E 's/.*"([^"]+)".*/\1/')
     if [ -n "$DETECTED_VER" ]; then
@@ -65,7 +65,8 @@ echo "--> Compiling $SETUP_NAME with x86_64-windows target and -O3 optimization.
     -lcomdlg32 \
     -lwinhttp \
     -ldwmapi \
-    -lgdi32
+    -lgdi32 \
+    -lws2_32
 
 # Create the portable copy as well
 cp -f "$SETUP_PATH" "$NATIVE_PATH"
