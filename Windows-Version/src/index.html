@@ -1072,11 +1072,20 @@ Removing, obfuscating, or altering these credits violates the author's attributi
         ];
 
         const INITIAL_DATA = {
-            version: "26.10.4-001(unstable)",
+            version: "26.10.4-002(unstable)",
             deletedItems: [],
             lastUpdated: new Date().toISOString(),
             activeCourseId: "",
             changelog: [
+                {
+                    version: "26.10.4-002(unstable)",
+                    date: "2026-10-19",
+                    changes: [
+                        "Rimossa la dicitura 'Aperto' dalle schede modulo visualizzate per una resa visiva più pulita ed essenziale.",
+                        "Struttura Corso (Gruppo/Studente): rimossa la dicitura 'Selezionato' e il pulsante 'Attiva'. L'intero riquadro del modulo è ora cliccabile per attivarlo direttamente.",
+                        "Registro Presenze: corretto il disallineamento della colonna Studente pareggiando le dimensioni e i margini del riquadro d'intestazione con le righe sottostanti."
+                    ]
+                },
                 {
                     version: "26.10.4-001(unstable)",
                     date: "2026-10-19",
@@ -4438,24 +4447,19 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                                             ${(lvl.modules || []).map(mod => {
                                                 const isModActive = isLvlActive && activeSection && activeSection.id === mod.id;
                                                 return `
-                                                    <div class="p-4 rounded-xl border ${isModActive ? 'border-sky-500 bg-sky-50/50 dark:bg-navy-800' : 'border-sky-100 dark:border-slate-800 bg-slate-50/50 dark:bg-navy-950/40'} flex flex-col justify-between gap-3">
+                                                    <div onclick="app.switchLevel('${lvl.id}'); app.switchSection('${mod.id}');"
+                                                         class="p-4 rounded-xl border cursor-pointer transition ${isModActive ? 'border-sky-500 bg-sky-50/50 dark:bg-navy-800 ring-2 ring-sky-500/30' : 'border-sky-100 dark:border-slate-800 bg-slate-50/50 dark:bg-navy-950/40 hover:border-sky-300 dark:hover:border-slate-700'} flex flex-col justify-between gap-3">
                                                         <div class="space-y-1">
                                                             <div class="flex items-center justify-between gap-2">
                                                                 <h4 class="font-extrabold text-sm text-slate-900 dark:text-white">${this.escapeHtml(mod.name)}</h4>
-                                                                ${isModActive ? `<span class="px-2 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 text-[10px] font-extrabold">${this.t("selectedBadge")}</span>` : ''}
+                                                                <button type="button" onclick="event.stopPropagation(); app.openEditModuleModal('${lvl.id}', '${mod.id}')" class="px-2.5 py-1 rounded-lg border border-sky-200 dark:border-slate-700 font-bold text-[11px] hover:bg-sky-100 dark:hover:bg-navy-700 transition">
+                                                                    <i class="fa-solid fa-pen mr-1"></i>${this.t("editBtn")}
+                                                                </button>
                                                             </div>
                                                             ${mod.description ? `<p class="text-slate-500">${this.escapeHtml(mod.description)}</p>` : ''}
                                                             <p class="text-[11px] text-slate-400 pt-1">
                                                                 <strong>${(mod.studentIds || []).length}</strong> ${this.t("enrolledLower")} • <strong>${(mod.dates || []).length}</strong> ${this.t("lessonsLower")}
                                                             </p>
-                                                        </div>
-                                                        <div class="flex items-center justify-between gap-2 pt-2 border-t border-sky-100/70 dark:border-slate-800">
-                                                            <button onclick="app.switchLevel('${lvl.id}'); app.switchSection('${mod.id}');" class="px-3 py-1 rounded-lg bg-sky-600 text-white font-bold text-[11px]">
-                                                                ${this.t("activateBtn")}
-                                                            </button>
-                                                            <button onclick="app.openEditModuleModal('${lvl.id}', '${mod.id}')" class="px-2.5 py-1 rounded-lg border border-sky-200 dark:border-slate-700 font-bold text-[11px]">
-                                                                ${this.t("editBtn")}
-                                                            </button>
                                                         </div>
                                                     </div>
                                                 `;
@@ -6140,7 +6144,6 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                                                         </div>
                                                         <div class="flex items-center justify-between text-[11px] text-slate-400">
                                                             <span>${(mod.dates || []).length} ${this.t("lessonsLower")} • ${mHours} h</span>
-                                                            ${isOpened ? `<span class="px-2 py-0.5 rounded text-[9px] font-extrabold text-white" style="background-color: ${pal.hex};">Aperto</span>` : ''}
                                                         </div>
                                                     </button>
                                                 `;

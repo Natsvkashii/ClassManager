@@ -1,12 +1,12 @@
 {
-  "version": "26.10.4-001(unstable)",
-  "tag_name": "v26.10.4-001(unstable)",
+  "version": "26.10.4-002(unstable)",
+  "tag_name": "v26.10.4-002(unstable)",
   "prerelease": true,
-  "published_at": "2026-10-19T03:30:00Z",
-  "name": "Class Management v26.10.4-001(unstable)",
-  "body": "Novità versione 26.10.4-001(unstable):\n- Nuovo schema di versionamento standardizzato YY.MM.PATCH-REV(status) con supporto a '(unstable)' e '(stable)'.\n- Perfezionato il sistema di aggiornamento Windows con due opzioni dedicate: aggiornamento diretto dall'applicazione o download con apertura in Esplora File.\n- Risolto il blocco della finestra di ricerca aggiornamenti su Windows.\n- Esportazione Calendario PNG (1:1): ottimizzato il layout dell'orario delle lezioni per evitare testo a capo o troncature.\n- Esportazione Fatturazione PNG: separazione di Data e Orario in colonne distinte e aggiunta della colonna Durata delle lezioni.\n- Supporto multilingua completo (Italiano, English, Español) selezionabile all'esportazione delle immagini PNG per calendario e fatturazione.",
-  "setupUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.10.4-001(unstable)/Class-Management-26.10.4-001.unstable.-Setup.exe",
-  "setupName": "Class-Management-26.10.4-001.unstable.-Setup.exe",
-  "portableUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.10.4-001(unstable)/Class-Management-26.10.4-001.unstable.-Portable.exe",
-  "portableName": "Class-Management-26.10.4-001.unstable.-Portable.exe"
+  "published_at": "2026-10-19T04:10:00Z",
+  "name": "Class Management v26.10.4-002(unstable)",
+  "body": "Novità versione 26.10.4-002(unstable):\n- Rimossa la dicitura 'Aperto' dalle schede modulo visualizzate per una resa grafica più pulita ed essenziale.\n- Struttura Corso (Gruppo/Studente): rimossa la dicitura 'Selezionato' e il pulsante 'Attiva'. L'intero riquadro del modulo è ora cliccabile per attivarlo direttamente.\n- Registro Presenze: corretto il disallineamento della colonna Studente pareggiando le dimensioni e i margini del riquadro d'intestazione con le righe sottostanti.",
+  "setupUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.10.4-002(unstable)/Class-Management-26.10.4-002.unstable.-Setup.exe",
+  "setupName": "Class-Management-26.10.4-002.unstable.-Setup.exe",
+  "portableUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.10.4-002(unstable)/Class-Management-26.10.4-002.unstable.-Portable.exe",
+  "portableName": "Class-Management-26.10.4-002.unstable.-Portable.exe"
 }

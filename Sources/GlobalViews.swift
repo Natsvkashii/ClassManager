@@ -939,14 +939,6 @@ public struct BillingView: View {
                                                             .font(.caption2)
                                                             .foregroundStyle(.secondary)
                                                         Spacer()
-                                                        if isSelected {
-                                                            Text("Aperto")
-                                                                .font(.system(size: 9, weight: .bold))
-                                                                .padding(.horizontal, 6)
-                                                                .padding(.vertical, 1)
-                                                                .background(Capsule().fill(pal.color))
-                                                                .foregroundStyle(.white)
-                                                        }
                                                     }
                                                 }
                                                 .padding(12)

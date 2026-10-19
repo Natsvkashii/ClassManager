@@ -390,8 +390,7 @@ public struct AttendanceView: View {
                             Text("\(store.t("studentCol")) (\(students.count))")
                                 .font(.caption.bold())
                                 .padding(.horizontal, 12)
-                                .frame(width: 210, alignment: .leading)
-                                .frame(minHeight: 86, maxHeight: .infinity)
+                                .frame(minWidth: 210, maxWidth: 210, minHeight: 86, maxHeight: .infinity, alignment: .leading)
                                 .background(
                                     RoundedRectangle(cornerRadius: 8)
                                         .fill(tableHeaderCellFill(colorScheme))
@@ -481,14 +480,14 @@ public struct AttendanceView: View {
                                         Text(st.fullName)
                                             .font(.caption.bold())
                                             .lineLimit(1)
+                                            .padding(.horizontal, 12)
                                             .frame(width: 210, height: 42, alignment: .leading)
-                                            .padding(.horizontal, 10)
                                     }
                                     .buttonStyle(.plain)
                                     .background(
-                                        RoundedRectangle(cornerRadius: 6)
+                                        RoundedRectangle(cornerRadius: 8)
                                             .fill(tableRowCellFill(colorScheme, isAlt: isAlt))
-                                            .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(tableRowCellStroke(colorScheme)))
+                                            .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(tableRowCellStroke(colorScheme)))
                                     )
 
                                     ForEach(slots, id: \.self) { slotKey in
@@ -2506,14 +2505,13 @@ public struct CourseStructureView: View {
                                         HStack {
                                             Text(mod.name).font(.headline)
                                             Spacer()
-                                            if isSelected {
-                                                Text(store.t("selectedBadge"))
-                                                    .font(.caption2.bold())
-                                                    .padding(.horizontal, 6)
-                                                    .padding(.vertical, 2)
-                                                    .background(Capsule().fill(Color.green.opacity(0.2)))
-                                                    .foregroundStyle(.green)
+                                            Button {
+                                                activeSheet = .editModule(levelId: lvl.id, module: mod)
+                                            } label: {
+                                                Label(store.t("editBtn"), systemImage: "pencil")
+                                                    .font(.caption)
                                             }
+                                            .buttonStyle(.borderless)
                                         }
                                         if !mod.description.isEmpty {
                                             Text(mod.description).font(.caption).foregroundStyle(.secondary)
@@ -2521,25 +2519,17 @@ public struct CourseStructureView: View {
                                         Text("\(mod.studentIds.count) \(store.t("enrolledLower")) • \(mod.dates.count) \(store.t("lessonsLower"))")
                                             .font(.caption2)
                                             .foregroundStyle(.secondary)
-                                        Divider()
-                                        HStack {
-                                            Button(store.t("activateBtn")) {
-                                                store.switchLevel(lvl.id)
-                                                store.switchModule(mod.id)
-                                            }
-                                            .buttonStyle(.borderedProminent)
-                                            .tint(pal.color)
-                                            Spacer()
-                                            Button {
-                                                activeSheet = .editModule(levelId: lvl.id, module: mod)
-                                            } label: {
-                                                Label(store.t("editBtn"), systemImage: "pencil")
-                                                    .font(.caption)
-                                            }
-                                        }
                                     }
                                     .padding(14)
-                                    .background(RoundedRectangle(cornerRadius: 12).fill(Color.secondary.opacity(0.06)))
+                                    .contentShape(RoundedRectangle(cornerRadius: 12))
+                                    .onTapGesture {
+                                        store.switchLevel(lvl.id)
+                                        store.switchModule(mod.id)
+                                    }
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 12)
+                                            .fill(isSelected ? pal.color.opacity(0.12) : Color.secondary.opacity(0.06))
+                                    )
                                     .overlay(
                                         RoundedRectangle(cornerRadius: 12)
                                             .strokeBorder(isSelected ? pal.color : Color.secondary.opacity(0.24), lineWidth: isSelected ? 2 : 1)

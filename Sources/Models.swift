@@ -18,7 +18,7 @@ public enum AuthorAttribution {
     public static let authorName = "Guaira Jaramillo Nitoglia"
     public static let authorEmail = "guaira.jaramillo.nitoglia@gmail.com"
     public static let appName = "Class Management"
-    public static let appVersion = "26.10.4-001(unstable)"
+    public static let appVersion = "26.10.4-002(unstable)"
     public static let licenseName = "GNU General Public License v3.0 (GPL-3.0)"
 
     public static var isBeta: Bool {
@@ -1548,6 +1548,11 @@ public struct AppState: Codable, Equatable {
     ]
 
     public static let defaultChangelog: [ChangelogEntry] = [
+        ChangelogEntry(version: "26.10.4-002(unstable)", date: "2026-10-19", changes: [
+            "Rimossa la dicitura 'Aperto' dalle schede modulo visualizzate per una resa visiva più pulita ed essenziale.",
+            "Struttura Corso (Gruppo/Studente): rimossa la dicitura 'Selezionato' e il pulsante 'Attiva'. L'intero riquadro del modulo è ora cliccabile per attivarlo direttamente.",
+            "Registro Presenze: corretto il disallineamento della colonna Studente pareggiando le dimensioni e i margini del riquadro d'intestazione con le righe sottostanti."
+        ]),
         ChangelogEntry(version: "26.10.4-001(unstable)", date: "2026-10-19", changes: [
             "Adozione del nuovo schema di versionamento standardizzato YY.MM.PATCH-REV(status) con supporto a '(unstable)' e '(stable)'.",
             "Perfezionato il sistema di aggiornamento Windows con due opzioni dedicate: aggiornamento diretto dall'applicazione o download con apertura in Esplora File.",
