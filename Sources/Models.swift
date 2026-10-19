@@ -18,7 +18,7 @@ public enum AuthorAttribution {
     public static let authorName = "Guaira Jaramillo Nitoglia"
     public static let authorEmail = "guaira.jaramillo.nitoglia@gmail.com"
     public static let appName = "Class Management"
-    public static let appVersion = "26.10.2-001b"
+    public static let appVersion = "26.10.3"
     public static let licenseName = "GNU General Public License v3.0 (GPL-3.0)"
 
     public static var isBeta: Bool {
@@ -1542,6 +1542,14 @@ public struct AppState: Codable, Equatable {
     ]
 
     public static let defaultChangelog: [ChangelogEntry] = [
+        ChangelogEntry(version: "26.10.3", date: "2026-10-18", changes: [
+            "Rilascio Ufficiale della Versione Stabile 26.10.3 per macOS e Windows.",
+            "Aggiunto pulsante di invio Feedback e commenti in basso a sinistra nella barra laterale per contattare direttamente l'autore via email con dati di versione e sistema precompilati.",
+            "Nuova politica di aggiornamento continuo: le installazioni beta ricevono aggiornamenti beta ininterrottamente fino all'arrivo della versione stabile successiva, garantendo stabilità a lungo termine.",
+            "Perfezionato il sistema di aggiornamento per Windows con download nella cartella temporanea dedicata, evidenziazione automatica in Esplora Risorse e pulizia automatica dei file temporanei all'avvio.",
+            "Introdotto il backup automatico periodico ogni 5 minuti per le versioni beta e il tracciamento dei report diagnostici in caso di errori.",
+            "Integrata la configurazione guidata iniziale (Onboarding Wizard) per lingua, valuta e preferenze di data/orario."
+        ]),
         ChangelogEntry(version: "26.10.2-001b", date: "2026-10-18", changes: [
             "Rinnovato il sistema di aggiornamento per Windows: download dell'installer nella cartella temporanea dedicata con apertura automatica in Esplora File e pulizia automatica all'avvio.",
             "Adottato il nuovo schema di versionamento progressivo per le versioni beta (es. 26.10.2-001b) con ordinamento matematico rigoroso.",

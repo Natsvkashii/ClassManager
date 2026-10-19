@@ -16,7 +16,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Class Management v26.10.2b (Windows Edition)</title>
+    <title>Class Management v26.10.3 (Windows Edition)</title>
     <link rel="icon" type="image/png" href="logo.png">
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -164,10 +164,14 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 <nav id="sidebarNavContainer" class="p-2.5 space-y-4 overflow-y-auto max-h-[calc(100vh-8.5rem)] custom-scrollbar"></nav>
             </div>
 
-            <!-- Bottom App Badge -->
-            <div class="p-3 border-t border-sky-100 dark:border-slate-800">
-                <div class="sidebar-footer-card p-2 rounded-xl bg-sky-50/70 dark:bg-navy-800/70 border border-sky-200/50 dark:border-slate-700/60 text-[10px] text-center text-slate-500 dark:text-slate-400 font-semibold">
-                    <span>Class Management v26.10.2b</span>
+            <!-- Bottom App Badge & Feedback Action -->
+            <div class="p-2.5 border-t border-sky-100 dark:border-slate-800 space-y-1.5">
+                <button type="button" onclick="app.sendFeedbackEmail()" class="w-full px-2.5 py-2 rounded-xl bg-sky-50/80 dark:bg-navy-800/80 hover:bg-sky-100 dark:hover:bg-navy-700/80 border border-sky-200/60 dark:border-slate-700/60 text-sky-700 dark:text-sky-300 font-extrabold text-xs flex items-center justify-center gap-2 transition shadow-2xs group" title="Invia feedback o commenti via email all'autore">
+                    <i class="fa-solid fa-paper-plane group-hover:translate-x-0.5 transition-transform text-sky-600 dark:text-sky-400"></i>
+                    <span class="sidebar-text" id="sidebarFeedbackBtnText">Invia Feedback</span>
+                </button>
+                <div class="sidebar-footer-card p-1.5 rounded-xl bg-slate-50 dark:bg-navy-950/40 text-[10px] text-center text-slate-400 dark:text-slate-500 font-semibold">
+                    <span id="sidebarVersionBadge">Class Management v26.10.3</span>
                 </div>
             </div>
         </aside>
@@ -211,7 +215,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 <div class="w-full px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-2">
                     <p class="flex items-center gap-2">
                         <span id="footerPlatformDesc" class="text-slate-400 dark:text-slate-500">Piattaforma Accademica Multi-Livello QCER</span>
-                        <span id="footerVersionBadge" class="px-2 py-0.5 rounded-md bg-sky-100 dark:bg-navy-800 text-sky-700 dark:text-sky-300 text-[10px] font-bold">v26.10.2b (Windows Edition)</span>
+                        <span id="footerVersionBadge" class="px-2 py-0.5 rounded-md bg-sky-100 dark:bg-navy-800 text-sky-700 dark:text-sky-300 text-[10px] font-bold">v26.10.3 (Windows Edition)</span>
                     </p>
                     <p><span id="footerDevelopedBy">Concepito e Sviluppato da</span> <span class="font-semibold text-sky-700 dark:text-sky-400">Guaira Jaramillo Nitoglia</span> (<a href="mailto:guaira.jaramillo.nitoglia@gmail.com" class="underline hover:text-sky-600">guaira.jaramillo.nitoglia@gmail.com</a>)</p>
                 </div>
@@ -278,6 +282,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 navCredits: "Informazioni",
                 navRubrics: "Criteri di valutazione",
                 navTrashBin: "Cestino",
+                sendFeedbackBtn: "Invia Feedback",
                 trashEmptyMsg: "Il cestino è vuoto",
                 trashBinSubtitle: "Gli elementi eliminati restano qui per 30 giorni prima di essere rimossi definitivamente.",
                 emptyTrashBtn: "Svuota Cestino",
@@ -524,6 +529,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 navCredits: "About",
                 navRubrics: "Evaluation Criteria",
                 navTrashBin: "Trash Bin",
+                sendFeedbackBtn: "Send Feedback",
                 trashEmptyMsg: "The trash is empty",
                 trashBinSubtitle: "Deleted items remain here for 30 days before being permanently removed.",
                 emptyTrashBtn: "Empty Trash",
@@ -770,6 +776,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 navCredits: "Información",
                 navRubrics: "Criterios de evaluación",
                 navTrashBin: "Papelera",
+                sendFeedbackBtn: "Enviar Comentarios",
                 trashEmptyMsg: "La papelera está vacía",
                 trashBinSubtitle: "Los elementos eliminados permanecen aquí durante 30 días antes de ser eliminados permanentemente.",
                 emptyTrashBtn: "Vaciar Papelera",
@@ -1032,11 +1039,23 @@ Removing, obfuscating, or altering these credits violates the author's attributi
         ];
 
         const INITIAL_DATA = {
-            version: "26.10.2-001b",
+            version: "26.10.3",
             deletedItems: [],
             lastUpdated: new Date().toISOString(),
             activeCourseId: "",
             changelog: [
+                {
+                    version: "26.10.3",
+                    date: "2026-10-18",
+                    changes: [
+                        "Rilascio Ufficiale della Versione Stabile 26.10.3 per macOS e Windows.",
+                        "Aggiunto pulsante di invio Feedback e commenti in basso a sinistra nella barra laterale per contattare direttamente l'autore via email con dati di versione e sistema precompilati.",
+                        "Nuova politica di aggiornamento continuo: le installazioni beta ricevono aggiornamenti beta ininterrottamente fino all'arrivo della versione stabile successiva, garantendo stabilità a lungo termine.",
+                        "Perfezionato il sistema di aggiornamento per Windows con download nella cartella temporanea dedicata, evidenziazione automatica in Esplora Risorse e pulizia automatica dei file temporanei all'avvio.",
+                        "Introdotto il backup automatico periodico ogni 5 minuti per le versioni beta e il tracciamento dei report diagnostici in caso di errori.",
+                        "Integrata la configurazione guidata iniziale (Onboarding Wizard) per lingua, valuta e preferenze di data/orario."
+                    ]
+                },
                 {
                     version: "26.10.2-001b",
                     date: "2026-10-18",
@@ -6983,6 +7002,33 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 this.showToast("Backup preventivo salvato con successo!", "success");
             }
 
+            sendFeedbackEmail() {
+                const authorEmail = "guaira.jaramillo.nitoglia@gmail.com";
+                const currentVer = this.state?.version || INITIAL_DATA.version || "26.10.3";
+                const subject = `FEEDBACK CLASS MANAGEMENT v. ${currentVer}`;
+                const osName = (navigator.userAgent.indexOf("Windows") !== -1) ? "Windows" : (navigator.userAgent.indexOf("Mac") !== -1 ? "macOS" : "Desktop");
+                const lang = this.state?.settings?.language || "it";
+                const body = `Ciao Guaira,
+
+Vorrei inviarti il seguente feedback riguardo a Class Management:
+
+[Scrivi qui i tuoi commenti, suggerimenti o segnalazioni...]
+
+--------------------------------------------------
+Dettagli di Sistema:
+- Versione Applicazione: Class Management v${currentVer}
+- Sistema Operativo: ${osName}
+- Lingua Interfaccia: ${lang}
+--------------------------------------------------`;
+
+                const mailtoUrl = `mailto:${authorEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+                if (window.electronAPI && typeof window.electronAPI.openExternal === "function") {
+                    window.electronAPI.openExternal(mailtoUrl);
+                } else {
+                    window.location.href = mailtoUrl;
+                }
+            }
+
             async startUpdateDownload(url, fileName, inModal = true) {
                 if (!window.electronAPI || typeof window.electronAPI.downloadUpdateAsset !== "function") {
                     if (window.electronAPI && typeof window.electronAPI.openExternal === "function") {
@@ -7256,8 +7302,10 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                         return;
                     }
 
-                    const currentVer = this.parseAppVersion(this.state.version || "26.10.1-1");
-                    const includeBeta = this.state.settings?.includeBetaUpdates === true;
+                    const currentVer = this.parseAppVersion(this.state.version || "26.10.3");
+                    // Beta versions receive beta updates even if toggle is off until next stable arrives
+                    const isCurrentBeta = this.isBetaVersion();
+                    const includeBeta = (this.state.settings?.includeBetaUpdates === true) || isCurrentBeta;
                     let highestCandidate = null;
 
                     for (const rel of releases) {

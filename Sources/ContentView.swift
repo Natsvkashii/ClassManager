@@ -371,8 +371,77 @@ private struct SidebarView: View {
                 }
                 .padding(10)
             }
+
+            Divider()
+
+            // Bottom-Left Feedback Button & App Version Badge
+            VStack(spacing: 6) {
+                Button {
+                    openFeedbackEmail()
+                } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: "paperplane.fill")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(palette.color)
+                        Text(store.t("sendFeedbackBtn"))
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(Color.primary)
+                        Spacer()
+                    }
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 7)
+                    .background(
+                        RoundedRectangle(cornerRadius: 8)
+                            .fill(palette.color.opacity(0.10))
+                    )
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .help("Invia feedback o commenti via email all'autore")
+
+                Text("\(AuthorAttribution.appName) v\(AuthorAttribution.appVersion)")
+                    .font(.system(size: 9.5, weight: .medium))
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .center)
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 8)
         }
         .background(colorScheme == .dark ? Color(nsColor: .windowBackgroundColor) : Color.white)
+    }
+
+    private func openFeedbackEmail() {
+        let authorEmail = AuthorAttribution.authorEmail
+        let currentVer = AuthorAttribution.appVersion
+        let subject = "FEEDBACK CLASS MANAGEMENT v. \(currentVer)"
+        let osName = "macOS \(ProcessInfo.processInfo.operatingSystemVersionString)"
+        let lang = store.state.settings.language
+        let body = """
+        Ciao Guaira,
+
+        Vorrei inviarti il seguente feedback riguardo a Class Management:
+
+        [Scrivi qui i tuoi commenti, suggerimenti o segnalazioni...]
+
+        --------------------------------------------------
+        Dettagli di Sistema:
+        - Versione Applicazione: Class Management v\(currentVer)
+        - Sistema Operativo: \(osName)
+        - Lingua Interfaccia: \(lang)
+        --------------------------------------------------
+        """
+
+        var components = URLComponents()
+        components.scheme = "mailto"
+        components.path = authorEmail
+        components.queryItems = [
+            URLQueryItem(name: "subject", value: subject),
+            URLQueryItem(name: "body", value: body)
+        ]
+
+        if let mailUrl = components.url {
+            NSWorkspace.shared.open(mailUrl)
+        }
     }
 
     private func sidebarSection(titleKey: String, items: [(tab: NavigationTab, icon: String, labelKey: String)]) -> some View {

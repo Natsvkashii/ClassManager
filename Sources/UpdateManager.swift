@@ -186,7 +186,8 @@ public final class UpdateManager: NSObject, URLSessionDownloadDelegate {
     }
 
     /// Checks GitHub Releases for newer versions.
-    /// If `includeBeta` is false, only stable (prerelease == false) releases are evaluated.
+    /// If `includeBeta` is false, only stable (prerelease == false) releases are evaluated,
+    /// unless the currently running application is itself a beta (continuity rule).
     public func checkForUpdates(includeBeta: Bool, silent: Bool = false) {
         guard !isChecking else { return }
         isChecking = true
@@ -237,9 +238,12 @@ public final class UpdateManager: NSObject, URLSessionDownloadDelegate {
 
         let currentVersion = AppVersion(string: AuthorAttribution.appVersion)
 
-        // Filter releases: if includeBeta is false, discard prereleases
+        // Continuity rule: Beta versions continue to receive beta updates until a stable version is installed
+        let effectiveIncludeBeta = includeBeta || AuthorAttribution.isBeta
+
+        // Filter releases: if effectiveIncludeBeta is false, discard prereleases
         let filteredReleases = releases.filter { release in
-            if !includeBeta && release.prerelease {
+            if !effectiveIncludeBeta && release.prerelease {
                 return false
             }
             return true
