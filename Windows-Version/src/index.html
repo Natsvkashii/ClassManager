@@ -1072,11 +1072,21 @@ Removing, obfuscating, or altering these credits violates the author's attributi
         ];
 
         const INITIAL_DATA = {
-            version: "26.10.4-002(unstable)",
+            version: "26.10.4-003(unstable)",
             deletedItems: [],
             lastUpdated: new Date().toISOString(),
             activeCourseId: "",
             changelog: [
+                {
+                    version: "26.10.4-003(unstable)",
+                    date: "2026-10-19",
+                    changes: [
+                        "Risolto il problema di avvio dell'installatore aggiornamenti su Windows tramite esecuzione disaccoppiata (detached spawn) e unref.",
+                        "Aggiunto fallback avanzato per l'apertura in Esplora File con evidenziazione automatica dell'installer scaricato.",
+                        "Introdotto il pulsante rapido di download diretto via browser web sia nella finestra di dialogo che nella scheda Crediti.",
+                        "Migliorato il feedback visivo istantaneo all'avvio dello scaricamento dell'aggiornamento."
+                    ]
+                },
                 {
                     version: "26.10.4-002(unstable)",
                     date: "2026-10-19",
@@ -7277,12 +7287,10 @@ Dettagli di Sistema:
                     return;
                 }
 
-                // Automatic safety backup before downloading
-                await this.performPreUpdateBackup();
                 this.updateState = {
                     isDownloading: true,
                     downloadPercent: 0,
-                    statusText: "Avvio download dell'aggiornamento...",
+                    statusText: "Avvio download dell'aggiornamento in corso...",
                     downloadedPath: null
                 };
 
@@ -7322,6 +7330,9 @@ Dettagli di Sistema:
                 if (this.activeTab === "credits") {
                     this.renderCreditsView(document.getElementById("mainContentArea"));
                 }
+
+                // Automatic safety backup before downloading
+                await this.performPreUpdateBackup();
 
                 const removeListener = window.electronAPI.onDownloadProgress((data) => {
                     const percent = data.percent || 0;
@@ -7435,8 +7446,11 @@ Dettagli di Sistema:
                                     <h4 class="text-sm font-extrabold text-slate-900 dark:text-white">Errore Download</h4>
                                     <p class="text-slate-500 mt-1">${this.escapeHtml(res?.error || "Impossibile scaricare l'aggiornamento.")}</p>
                                 </div>
-                                <div class="pt-2">
-                                    <button type="button" onclick="app.closeModal()" class="px-5 py-2 rounded-xl bg-slate-600 text-white font-bold">Chiudi</button>
+                                <div class="pt-2 flex flex-col sm:flex-row items-center justify-center gap-2">
+                                    <button type="button" onclick="if(window.electronAPI){window.electronAPI.openExternal('${url}');}else{window.open('${url}','_blank');}app.closeModal();" class="w-full sm:w-auto px-4 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-extrabold shadow-sm transition flex items-center justify-center gap-1.5">
+                                        <i class="fa-solid fa-globe"></i> Scarica con il Browser
+                                    </button>
+                                    <button type="button" onclick="app.closeModal()" class="w-full sm:w-auto px-4 py-2 rounded-xl border border-slate-300 dark:border-slate-700 font-bold">Chiudi</button>
                                 </div>
                             </div>
                         `, "max-w-md");
@@ -7448,6 +7462,23 @@ Dettagli di Sistema:
                         this.updateState.statusText = "Errore: " + err.message;
                     }
                     this.showToast("Errore: " + err.message, "error");
+                    this.openModal(`
+                        <div class="p-6 space-y-4 text-xs max-w-md text-center">
+                            <div class="w-12 h-12 mx-auto rounded-full bg-rose-100 dark:bg-rose-950 text-rose-600 dark:text-rose-400 flex items-center justify-center text-xl">
+                                <i class="fa-solid fa-triangle-exclamation"></i>
+                            </div>
+                            <div>
+                                <h4 class="text-sm font-extrabold text-slate-900 dark:text-white">Errore Download</h4>
+                                <p class="text-slate-500 mt-1">${this.escapeHtml(err?.message || "Impossibile scaricare l'aggiornamento.")}</p>
+                            </div>
+                            <div class="pt-2 flex flex-col sm:flex-row items-center justify-center gap-2">
+                                <button type="button" onclick="if(window.electronAPI){window.electronAPI.openExternal('${url}');}else{window.open('${url}','_blank');}app.closeModal();" class="w-full sm:w-auto px-4 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-extrabold shadow-sm transition flex items-center justify-center gap-1.5">
+                                    <i class="fa-solid fa-globe"></i> Scarica con il Browser
+                                </button>
+                                <button type="button" onclick="app.closeModal()" class="w-full sm:w-auto px-4 py-2 rounded-xl border border-slate-300 dark:border-slate-700 font-bold">Chiudi</button>
+                            </div>
+                        </div>
+                    `, "max-w-md");
                     if (this.activeTab === "credits") {
                         this.renderCreditsView(document.getElementById("mainContentArea"));
                     }
@@ -7560,7 +7591,7 @@ Dettagli di Sistema:
                         return;
                     }
 
-                    const currentVer = this.parseAppVersion(this.state.version || INITIAL_DATA.version || "26.10.4-001(unstable)");
+                    const currentVer = this.parseAppVersion(this.state.version || INITIAL_DATA.version || "26.10.4-003(unstable)");
                     // Beta versions receive beta updates even if toggle is off until next stable arrives
                     const isCurrentBeta = this.isBetaVersion();
                     const includeBeta = (this.state.settings?.includeBetaUpdates === true) || isCurrentBeta;
@@ -7633,6 +7664,9 @@ Dettagli di Sistema:
 
                                 <div class="flex flex-col sm:flex-row flex-wrap items-center justify-end gap-2 pt-1">
                                     <button type="button" onclick="app.closeModal()" class="w-full sm:w-auto px-3.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 font-bold hover:bg-slate-100 dark:hover:bg-navy-800 transition">Più tardi</button>
+                                    <button type="button" onclick="if(window.electronAPI){window.electronAPI.openExternal('${primaryUrl}');}else{window.open('${primaryUrl}','_blank');}app.closeModal();" class="w-full sm:w-auto px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 font-bold hover:bg-slate-100 dark:hover:bg-navy-800 transition flex items-center justify-center gap-1.5" title="Scarica il file installer direttamente con il browser web">
+                                        <i class="fa-solid fa-globe text-sky-600 dark:text-sky-400"></i> Browser (.exe)
+                                    </button>
                                     ${portableUrl ? `
                                         <button type="button" onclick="if(window.electronAPI){window.electronAPI.openExternal('${portableUrl}');}else{window.open('${portableUrl}','_blank');}app.closeModal();" class="w-full sm:w-auto px-3 py-2 rounded-xl border border-sky-300 dark:border-sky-700 bg-sky-50 dark:bg-navy-800 text-sky-700 dark:text-sky-300 font-bold hover:bg-sky-100 flex items-center justify-center gap-1.5 transition">
                                             <i class="fa-solid fa-box-archive"></i> Portable (.exe)
@@ -7658,7 +7692,7 @@ Dettagli di Sistema:
                                     </div>
                                     <div>
                                         <h4 class="text-sm font-extrabold text-slate-900 dark:text-white">Class Management è Aggiornato!</h4>
-                                        <p class="text-slate-500 mt-1">Stai già utilizzando l'ultima versione disponibile (<strong>v${this.escapeHtml(this.state.version || INITIAL_DATA.version || "26.10.4-001(unstable)")}</strong>). Non sono necessari aggiornamenti.</p>
+                                        <p class="text-slate-500 mt-1">Stai già utilizzando l'ultima versione disponibile (<strong>v${this.escapeHtml(this.state.version || INITIAL_DATA.version || "26.10.4-003(unstable)")}</strong>). Non sono necessari aggiornamenti.</p>
                                     </div>
                                     <div class="pt-2">
                                         <button type="button" onclick="app.closeModal()" class="px-5 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-extrabold shadow-sm transition">OK</button>
@@ -7960,6 +7994,10 @@ Dettagli di Sistema:
                                             <button type="button" onclick="app.startUpdateDownload('${update.primaryUrl}', '${update.primaryName}', 'explorer')" class="px-3.5 py-2 rounded-xl border border-sky-300 dark:border-sky-700 bg-sky-50 dark:bg-navy-800 text-sky-700 dark:text-sky-300 font-bold hover:bg-sky-100 flex items-center gap-1.5 transition">
                                                 <i class="fa-solid fa-folder-open"></i>
                                                 <span>Scarica e apri in Esplora File</span>
+                                            </button>
+                                            <button type="button" onclick="if(window.electronAPI){window.electronAPI.openExternal('${update.primaryUrl}');}else{window.open('${update.primaryUrl}','_blank');}" class="px-3.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 font-bold hover:bg-slate-100 dark:hover:bg-navy-800 transition flex items-center gap-1.5" title="Scarica l'installer direttamente con il browser web">
+                                                <i class="fa-solid fa-globe text-sky-600 dark:text-sky-400"></i>
+                                                <span>Scarica con il Browser (.exe)</span>
                                             </button>
                                             ${update.portableUrl ? `
                                                 <button type="button" onclick="if(window.electronAPI){window.electronAPI.openExternal('${update.portableUrl}');}else{window.open('${update.portableUrl}','_blank');}" class="px-3.5 py-2 rounded-xl border border-sky-300 dark:border-sky-700 bg-sky-50 dark:bg-navy-800 text-sky-700 dark:text-sky-300 font-bold hover:bg-sky-100 flex items-center gap-1.5 transition">

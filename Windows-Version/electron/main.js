@@ -27,7 +27,7 @@ function createMainWindow() {
         height: 900,
         minWidth: 980,
         minHeight: 650,
-        title: 'Class Management v26.10.4-002(unstable)',
+        title: 'Class Management v26.10.4-003(unstable)',
         icon: getIconPath(),
         backgroundColor: '#090e1a',
         show: false,
@@ -262,11 +262,22 @@ ipcMain.handle('save-diagnostic-report', async (event, { reportText, errorDetail
 // Shell reveal in File Explorer
 ipcMain.handle('show-item-in-folder', async (event, { filePath }) => {
     try {
-        if (filePath && fs.existsSync(filePath)) {
-            shell.showItemInFolder(filePath);
-            return { success: true };
+        if (!filePath || !fs.existsSync(filePath)) {
+            return { error: 'File non trovato: ' + (filePath || '') };
         }
-        return { error: 'File non trovato' };
+        shell.showItemInFolder(filePath);
+        // Fallback: directly invoke Windows Explorer /select
+        try {
+            const { exec } = require('child_process');
+            const winPath = filePath.replace(/\//g, '\\');
+            exec(`explorer.exe /select,"${winPath}"`, (err) => {
+                if (err) {
+                    const folder = path.dirname(winPath);
+                    exec(`explorer.exe "${folder}"`);
+                }
+            });
+        } catch (e) {}
+        return { success: true };
     } catch (e) {
         return { error: e.message };
     }
@@ -368,6 +379,15 @@ ipcMain.handle('download-update-asset', async (event, { url, filename, reveal = 
             } catch (openErr) {
                 console.warn('shell.showItemInFolder error:', openErr);
             }
+            try {
+                const { exec } = require('child_process');
+                const winPath = targetFile.replace(/\//g, '\\');
+                exec(`explorer.exe /select,"${winPath}"`, (err) => {
+                    if (err) {
+                        exec(`explorer.exe "${updateFolder.replace(/\//g, '\\')}"`);
+                    }
+                });
+            } catch (e) {}
         }
 
         return { success: true, filePath: targetFile, folderOpened: !!reveal };
@@ -383,15 +403,35 @@ ipcMain.handle('install-update-and-quit', async (event, { filePath }) => {
             return { error: 'File di aggiornamento non trovato: ' + filePath };
         }
 
-        console.log('Launching installer via shell.openPath:', filePath);
-        const openErr = await shell.openPath(filePath);
-        if (openErr) {
-            console.warn('shell.openPath returned error, attempting cmd start fallback:', openErr);
-            const { exec } = require('child_process');
-            exec(`start "" "${filePath}"`);
+        console.log('Launching installer with detached execution:', filePath);
+        const { spawn, exec } = require('child_process');
+        const winPath = filePath.replace(/\//g, '\\');
+
+        let launched = false;
+        try {
+            // Detached spawn untethers child process from Electron's Job Object
+            const child = spawn(winPath, [], {
+                detached: true,
+                stdio: 'ignore',
+                shell: false
+            });
+            child.unref();
+            launched = true;
+        } catch (spawnErr) {
+            console.warn('Direct spawn failed, attempting cmd start fallback:', spawnErr);
         }
 
-        // Cleanly exit application to release all file locks on the binaries
+        if (!launched) {
+            try {
+                exec(`start "" "${winPath}"`);
+                launched = true;
+            } catch (execErr) {
+                console.warn('cmd start failed, attempting shell.openPath fallback:', execErr);
+                await shell.openPath(filePath);
+            }
+        }
+
+        // Graceful exit with delay to allow Windows to register UAC elevation dialog
         setTimeout(() => {
             app.isQuitting = true;
             try {
@@ -400,7 +440,7 @@ ipcMain.handle('install-update-and-quit', async (event, { filePath }) => {
                 }
             } catch (e) {}
             app.exit(0);
-        }, 800);
+        }, 1200);
 
         return { success: true };
     } catch (err) {
