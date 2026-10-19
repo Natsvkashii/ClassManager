@@ -27,6 +27,8 @@ Windows-Version/node_modules/
 Windows-Version/dist/
 Windows-Version/*.exe
 dist/
-*.log
 Versions/
 .build/
+*.pdb
+*.lib
+Windows-Version/native/assets_bundle.h
