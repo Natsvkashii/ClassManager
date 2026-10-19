@@ -18,7 +18,7 @@ public enum AuthorAttribution {
     public static let authorName = "Guaira Jaramillo Nitoglia"
     public static let authorEmail = "guaira.jaramillo.nitoglia@gmail.com"
     public static let appName = "Class Management"
-    public static let appVersion = "26.10.4-006(unstable)"
+    public static let appVersion = "26.10.4-007(unstable)"
     public static let licenseName = "GNU General Public License v3.0 (GPL-3.0)"
 
     public static var isBeta: Bool {
@@ -1548,6 +1548,11 @@ public struct AppState: Codable, Equatable {
     ]
 
     public static let defaultChangelog: [ChangelogEntry] = [
+        ChangelogEntry(version: "26.10.4-007(unstable)", date: "2026-10-19", changes: [
+            "Risolto il blocco di inizializzazione dello stream di download nella finestra di dialogo tramite aggancio immediato dei listener IPC e disaccoppiamento non bloccante del backup preventivo con timeout a 2 secondi.",
+            "Potenziato il motore di download con doppio canale IPC diretto (event.sender + webContents), gestione file temporaneo con estensione '.downloading' per prevenire lock di sistema e fallback automatico trasparente su utility nativa di sistema ('curl.exe').",
+            "Telemetria diagnostica estesa con tracciamento immediato dei parametri dal processo renderer e compatibilità del parser log con qualsiasi formato orario (12h AM/PM e 24h)."
+        ]),
         ChangelogEntry(version: "26.10.4-006(unstable)", date: "2026-10-19", changes: [
             "Versione di collaudo e verifica del nuovo sistema di aggiornamento in-app per Windows.",
             "Test del motore di download in streaming asincrono Node.js per verificare l'assenza di blocchi allo 0% durante i salti di reindirizzamento AWS S3.",

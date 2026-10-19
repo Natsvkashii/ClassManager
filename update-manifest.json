@@ -1,12 +1,12 @@
 {
-  "version": "26.10.4-006(unstable)",
-  "tag_name": "v26.10.4-006(unstable)",
+  "version": "26.10.4-007(unstable)",
+  "tag_name": "v26.10.4-007(unstable)",
   "prerelease": true,
-  "published_at": "2026-10-19T05:35:00Z",
-  "name": "Class Management v26.10.4-006(unstable)",
-  "body": "Novità versione 26.10.4-006(unstable):\n- Versione di collaudo e verifica del nuovo sistema di aggiornamento in-app per Windows.\n- Test del motore di download in streaming asincrono Node.js per verificare l'assenza di blocchi allo 0% durante i salti di reindirizzamento AWS S3.\n- Test del Terminale Diagnostico live nella modale di scaricamento con monitoraggio in tempo reale di throughput e stato connessione.\n- Test del sistema di download automatico trasparente in background con avviso di installazione al successivo avvio.",
-  "setupUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.10.4-006(unstable)/Class-Management-26.10.4-006.unstable.-Setup.exe",
-  "setupName": "Class-Management-26.10.4-006.unstable.-Setup.exe",
-  "portableUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.10.4-006(unstable)/Class-Management-26.10.4-006.unstable.-Portable.exe",
-  "portableName": "Class-Management-26.10.4-006.unstable.-Portable.exe"
+  "published_at": "2026-10-19T05:45:00Z",
+  "name": "Class Management v26.10.4-007(unstable)",
+  "body": "Novità versione 26.10.4-007(unstable):\n- Risolto il blocco di inizializzazione dello stream di download nella finestra di dialogo tramite aggancio immediato dei listener IPC e disaccoppiamento non bloccante del backup preventivo con timeout a 2 secondi.\n- Potenziato il motore di download con doppio canale IPC diretto (event.sender + webContents), gestione file temporaneo con estensione '.downloading' per prevenire lock di sistema e fallback automatico trasparente su utility nativa di sistema ('curl.exe').\n- Telemetria diagnostica estesa con tracciamento immediato dei parametri dal processo renderer e compatibilità del parser log con qualsiasi formato orario (12h AM/PM e 24h).",
+  "setupUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.10.4-007(unstable)/Class-Management-26.10.4-007.unstable.-Setup.exe",
+  "setupName": "Class-Management-26.10.4-007.unstable.-Setup.exe",
+  "portableUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.10.4-007(unstable)/Class-Management-26.10.4-007.unstable.-Portable.exe",
+  "portableName": "Class-Management-26.10.4-007.unstable.-Portable.exe"
 }

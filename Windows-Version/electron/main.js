@@ -27,7 +27,7 @@ function createMainWindow() {
         height: 900,
         minWidth: 980,
         minHeight: 650,
-        title: 'Class Management v26.10.4-006(unstable)',
+        title: 'Class Management v26.10.4-007(unstable)',
         icon: getIconPath(),
         backgroundColor: '#090e1a',
         show: false,
@@ -74,11 +74,18 @@ function downloadFileWithRedirects(fileUrl, destPath, onProgress, onLog, maxRedi
     }
 
     return new Promise((resolve, reject) => {
-        const isHttps = fileUrl.startsWith('https:');
-        const client = isHttps ? require('https') : require('http');
-        if (onLog) onLog(`[RETE GET] Connessione a: ${fileUrl.split('?')[0]}`);
+        let urlObj;
+        try {
+            urlObj = new URL(fileUrl);
+        } catch (e) {
+            return reject(new Error('URL di download non valido: ' + fileUrl));
+        }
 
-        const req = client.get(fileUrl, {
+        const isHttps = urlObj.protocol === 'https:';
+        const client = isHttps ? require('https') : require('http');
+        if (onLog) onLog(`[RETE GET] Connessione a: ${urlObj.origin}${urlObj.pathname}`);
+
+        const req = client.get(urlObj, {
             headers: {
                 'User-Agent': 'Class-Management-Updater/26.10',
                 'Accept': '*/*'
@@ -91,11 +98,13 @@ function downloadFileWithRedirects(fileUrl, destPath, onProgress, onLog, maxRedi
                 let redirectUrl = res.headers.location;
                 if (!redirectUrl.startsWith('http')) {
                     try {
-                        const origin = new URL(fileUrl).origin;
-                        redirectUrl = origin + redirectUrl;
-                    } catch (e) {}
+                        redirectUrl = new URL(redirectUrl, urlObj.origin).toString();
+                    } catch (e) {
+                        redirectUrl = urlObj.origin + redirectUrl;
+                    }
                 }
-                if (onLog) onLog(`[REDIRECT ${res.statusCode}] Reindirizzamento verso server asset: ${redirectUrl.split('?')[0]}`);
+                const redirectClean = redirectUrl.split('?')[0];
+                if (onLog) onLog(`[REDIRECT ${res.statusCode}] Reindirizzamento verso server asset: ${redirectClean}`);
                 res.resume(); // Discard buffer to prevent memory leaks
                 return downloadFileWithRedirects(redirectUrl, destPath, onProgress, onLog, maxRedirects - 1)
                     .then(resolve)
@@ -123,6 +132,11 @@ function downloadFileWithRedirects(fileUrl, destPath, onProgress, onLog, maxRedi
             res.on('data', (chunk) => {
                 receivedBytes += chunk.length;
                 fileStream.write(chunk);
+
+                // Reset socket inactivity timeout on each received chunk
+                if (req.socket) {
+                    req.socket.setTimeout(60000);
+                }
 
                 const now = Date.now();
                 if (now - lastReportTime >= 150 || receivedBytes === totalBytes) {
@@ -171,8 +185,56 @@ function downloadFileWithRedirects(fileUrl, destPath, onProgress, onLog, maxRedi
             reject(err);
         });
 
-        req.setTimeout(35000, () => {
-            req.destroy(new Error('Timeout di connessione (35 secondi superati senza risposta).'));
+        req.setTimeout(60000, () => {
+            req.destroy(new Error('Timeout di connessione (60 secondi superati senza dati dal server).'));
+        });
+    });
+}
+
+// Fallback helper using Windows system curl if Node stream encounters issues
+function downloadWithCurlFallback(fileUrl, destPath, onProgress, onLog) {
+    return new Promise((resolve, reject) => {
+        const { spawn } = require('child_process');
+        if (onLog) onLog(`[FALLBACK] Avvio download alternativo tramite utility nativa curl...`);
+
+        // curl -L (follow redirects), -f (fail on HTTP errors), -s (silent), -S (show error)
+        const curlProc = spawn('curl.exe', ['-L', '-f', '-s', '-S', '--connect-timeout', '20', '-o', destPath, fileUrl]);
+
+        let lastReport = Date.now();
+        const pollInterval = setInterval(async () => {
+            try {
+                if (fs.existsSync(destPath)) {
+                    const stats = await fs.promises.stat(destPath);
+                    const mb = (stats.size / (1024 * 1024)).toFixed(1);
+                    if (Date.now() - lastReport >= 1000) {
+                        lastReport = Date.now();
+                        if (onLog) onLog(`[CURL LIVE] Scaricati ${mb} MB su disco...`);
+                    }
+                }
+            } catch (e) {}
+        }, 1000);
+
+        let errorOutput = '';
+        if (curlProc.stderr) {
+            curlProc.stderr.on('data', (d) => { errorOutput += d.toString(); });
+        }
+
+        curlProc.on('error', (err) => {
+            clearInterval(pollInterval);
+            if (onLog) onLog(`[CURL NON DISPONIBILE] ${err.message}`);
+            reject(err);
+        });
+
+        curlProc.on('close', (code) => {
+            clearInterval(pollInterval);
+            if (code === 0 && fs.existsSync(destPath)) {
+                if (onLog) onLog(`[FALLBACK COMPLETATO] Download terminato con successo tramite curl.`);
+                resolve(destPath);
+            } else {
+                const err = new Error(`curl ha terminato con codice ${code}: ${errorOutput.trim() || 'Nessun dettaglio'}`);
+                if (onLog) onLog(`[CURL ERRORE] ${err.message}`);
+                reject(err);
+            }
         });
     });
 }
@@ -428,8 +490,15 @@ ipcMain.handle('download-update-asset', async (event, { url, filename, reveal = 
         const time = new Date().toLocaleTimeString();
         const line = `[${time}] ${msg}`;
         console.log(line);
-        if (mainWindow && !mainWindow.isDestroyed()) {
-            mainWindow.webContents.send('download-log', { text: line, raw: msg });
+        try {
+            if (event && event.sender && !event.sender.isDestroyed()) {
+                event.sender.send('download-log', { text: line, raw: msg });
+            }
+            if (mainWindow && !mainWindow.isDestroyed() && (!event || !event.sender || event.sender !== mainWindow.webContents)) {
+                mainWindow.webContents.send('download-log', { text: line, raw: msg });
+            }
+        } catch (e) {
+            console.error('Error sending download-log:', e);
         }
     };
 
@@ -438,13 +507,40 @@ ipcMain.handle('download-update-asset', async (event, { url, filename, reveal = 
         const updateFolder = path.join(app.getPath('temp'), 'ClassManagement_Updates');
         await fs.promises.mkdir(updateFolder, { recursive: true });
         const targetFile = path.join(updateFolder, filename || 'ClassManagementUpdate.exe');
+        const tempFile = targetFile + '.downloading';
         sendLog(`[PERCORSO] Destinazione: ${targetFile}`);
 
-        await downloadFileWithRedirects(url, targetFile, (progress) => {
-            if (mainWindow && !mainWindow.isDestroyed()) {
-                mainWindow.webContents.send('download-progress', progress);
+        // Clean up any stale partial download
+        try { await fs.promises.unlink(tempFile); } catch (e) {}
+        try { await fs.promises.unlink(targetFile); } catch (e) {}
+
+        const onProgressCallback = (progress) => {
+            try {
+                if (event && event.sender && !event.sender.isDestroyed()) {
+                    event.sender.send('download-progress', progress);
+                }
+                if (mainWindow && !mainWindow.isDestroyed() && (!event || !event.sender || event.sender !== mainWindow.webContents)) {
+                    mainWindow.webContents.send('download-progress', progress);
+                }
+            } catch (e) {}
+        };
+
+        try {
+            await downloadFileWithRedirects(url, tempFile, onProgressCallback, sendLog);
+        } catch (streamErr) {
+            sendLog(`[AVVISO STREAM] Motore primario Node: ${streamErr.message}. Tentativo di fallback con utility di sistema...`);
+            try {
+                await downloadWithCurlFallback(url, tempFile, onProgressCallback, sendLog);
+            } catch (curlErr) {
+                sendLog(`[ERRORE FALLBACK] Anche il motore secondario è fallito: ${curlErr.message}`);
+                throw streamErr; // Throw original stream error
             }
-        }, sendLog);
+        }
+
+        // Atomically rename downloaded temp file to final target
+        if (fs.existsSync(tempFile)) {
+            await fs.promises.rename(tempFile, targetFile);
+        }
 
         const stats = await fs.promises.stat(targetFile);
         sendLog(`[VERIFICA OK] File verificato con successo su disco (${(stats.size / (1024 * 1024)).toFixed(2)} MB).`);

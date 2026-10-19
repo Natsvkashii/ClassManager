@@ -1099,11 +1099,20 @@ Removing, obfuscating, or altering these credits violates the author's attributi
         ];
 
         const INITIAL_DATA = {
-            version: "26.10.4-006(unstable)",
+            version: "26.10.4-007(unstable)",
             deletedItems: [],
             lastUpdated: new Date().toISOString(),
             activeCourseId: "",
             changelog: [
+                {
+                    version: "26.10.4-007(unstable)",
+                    date: "2026-10-19",
+                    changes: [
+                        "Risolto il blocco di inizializzazione dello stream di download nella finestra di dialogo tramite aggancio immediato dei listener IPC e disaccoppiamento non bloccante del backup preventivo con timeout a 2 secondi.",
+                        "Potenziato il motore di download con doppio canale IPC diretto (event.sender + webContents), gestione file temporaneo con estensione '.downloading' per prevenire lock di sistema e fallback automatico trasparente su utility nativa di sistema ('curl.exe').",
+                        "Telemetria diagnostica estesa con tracciamento immediato dei parametri dal processo renderer e compatibilità del parser log con qualsiasi formato orario (12h AM/PM e 24h)."
+                    ]
+                },
                 {
                     version: "26.10.4-006(unstable)",
                     date: "2026-10-19",
@@ -7361,27 +7370,37 @@ Dettagli di Sistema:
 
                 if (text.includes("[ERRORE") || text.includes("FALLITO") || text.includes("TIMEOUT")) {
                     tagClass = "text-rose-400 font-bold";
-                    textClass = "text-rose-300";
-                } else if (text.includes("[SUCCESSO]") || text.includes("[VERIFICA OK]") || text.includes("[COMPLETATO]")) {
+                    textClass = "text-rose-300 font-semibold";
+                } else if (text.includes("[SUCCESSO]") || text.includes("[VERIFICA OK]") || text.includes("[COMPLETATO]") || text.includes("[FALLBACK COMPLETATO]")) {
                     tagClass = "text-emerald-400 font-bold";
                     textClass = "text-emerald-200 font-semibold";
-                } else if (text.includes("[REDIRECT") || text.includes("[ATTENZIONE]")) {
+                } else if (text.includes("[REDIRECT") || text.includes("[ATTENZIONE]") || text.includes("[AVVISO") || text.includes("[FALLBACK")) {
                     tagClass = "text-amber-400 font-bold";
                     textClass = "text-amber-200";
-                } else if (text.includes("[HTTP STATUS]") || text.includes("[INFO ASSET]") || text.includes("[IO DISCO]")) {
+                } else if (text.includes("[HTTP STATUS]") || text.includes("[INFO ASSET]") || text.includes("[IO DISCO]") || text.includes("[TARGET]")) {
                     tagClass = "text-cyan-400 font-bold";
+                    textClass = "text-slate-200";
+                } else if (text.includes("[SICUREZZA]") || text.includes("[SISTEMA]")) {
+                    tagClass = "text-indigo-400 font-bold";
                     textClass = "text-slate-300";
-                } else if (text.includes("[PROGRESSO]")) {
+                } else if (text.includes("[PROGRESSO]") || text.includes("[CURL LIVE]")) {
                     tagClass = "text-slate-400 font-bold";
                     textClass = "text-slate-400";
                 }
 
-                const m = text.match(/^(\[[0-9:]+\])\s*(\[[^\]]+\])?\s*(.*)$/);
-                if (m) {
-                    const timePart = `<span class="text-slate-500 font-semibold">${this.escapeHtml(m[1])}</span>`;
-                    const tagPart = m[2] ? ` <span class="${tagClass}">${this.escapeHtml(m[2])}</span>` : '';
-                    const restPart = ` <span class="${textClass}">${this.escapeHtml(m[3])}</span>`;
+                // Check for [TIME] [TAG] Message or [TAG] Message
+                const matchTimeTag = text.match(/^(\[[^\]]+\])\s+(\[[^\]]+\])\s*(.*)$/);
+                const matchSingleTag = !matchTimeTag ? text.match(/^(\[[^\]]+\])\s*(.*)$/) : null;
+
+                if (matchTimeTag) {
+                    const timePart = `<span class="text-slate-500 font-semibold">${this.escapeHtml(matchTimeTag[1])}</span>`;
+                    const tagPart = ` <span class="${tagClass}">${this.escapeHtml(matchTimeTag[2])}</span>`;
+                    const restPart = ` <span class="${textClass}">${this.escapeHtml(matchTimeTag[3] || '')}</span>`;
                     line.innerHTML = timePart + tagPart + restPart;
+                } else if (matchSingleTag) {
+                    const tagPart = `<span class="${tagClass}">${this.escapeHtml(matchSingleTag[1])}</span>`;
+                    const restPart = ` <span class="${textClass}">${this.escapeHtml(matchSingleTag[2] || '')}</span>`;
+                    line.innerHTML = tagPart + restPart;
                 } else {
                     line.className += ` ${textClass}`;
                     line.textContent = text;
@@ -7397,7 +7416,7 @@ Dettagli di Sistema:
                     const res = await window.electronAPI.getPendingUpdate();
                     if (res && res.success && res.pendingUpdate && res.pendingUpdate.filePath) {
                         const pending = res.pendingUpdate;
-                        const curVer = this.parseAppVersion(this.state.version || INITIAL_DATA.version || "26.10.4-006(unstable)");
+                        const curVer = this.parseAppVersion(this.state.version || INITIAL_DATA.version || "26.10.4-007(unstable)");
                         const pendingVer = this.parseAppVersion(pending.version || "");
                         if (this.compareAppVersions(pendingVer, curVer) > 0) {
                             this.pendingUpdate = pending;
@@ -7633,13 +7652,11 @@ Dettagli di Sistema:
                     </div>
                 `, "max-w-xl", true);
 
-                if (this.activeTab === "credits") {
+                if (this.currentTab === "credits") {
                     this.renderCreditsView(document.getElementById("mainContentArea"));
                 }
 
-                // Automatic safety backup before downloading
-                await this.performPreUpdateBackup();
-
+                // 1. Attach IPC listeners IMMEDIATELY so no main process events are missed
                 let removeLogListener = null;
                 if (window.electronAPI && typeof window.electronAPI.onDownloadLog === "function") {
                     removeLogListener = window.electronAPI.onDownloadLog((logData) => {
@@ -7678,6 +7695,24 @@ Dettagli di Sistema:
                         if (pText) pText.textContent = msg;
                     });
                 }
+
+                // 2. Direct renderer terminal telemetry
+                this.appendDownloadLog(`[SISTEMA] Inizializzazione download per: ${fileName || "Class-Management-Update.exe"}`);
+                this.appendDownloadLog(`[SISTEMA] Modalità: ${mode === 'direct' ? 'Installazione automatica' : 'Salva e apri in Esplora File'}`);
+
+                // 3. Safety pre-update backup with non-blocking 2s timeout
+                this.appendDownloadLog(`[SICUREZZA] Salvataggio backup preventivo dei dati utente...`);
+                try {
+                    await Promise.race([
+                        this.performPreUpdateBackup(),
+                        new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout backup (salvato in background)")), 2000))
+                    ]);
+                    this.appendDownloadLog(`[SICUREZZA] Backup preventivo completato con successo.`);
+                } catch (bkErr) {
+                    this.appendDownloadLog(`[SICUREZZA] Nota: ${bkErr.message || 'Backup terminato'}. Procedo con il download.`);
+                }
+
+                this.appendDownloadLog(`[RETE] Richiesta stream al processo principale Electron...`);
 
                 try {
                     const revealInFolder = (mode === 'explorer');
@@ -7754,6 +7789,7 @@ Dettagli di Sistema:
                             this.renderCreditsView(document.getElementById("mainContentArea"));
                         }
                     } else {
+                        this.appendDownloadLog(`[ERRORE MAIN] Download non riuscito: ${res?.error || 'Sconosciuto'}`);
                         if (this.updateState) {
                             this.updateState.isDownloading = false;
                             this.updateState.statusText = "Errore durante il download: " + (res?.error || "Sconosciuto");
@@ -7783,6 +7819,7 @@ Dettagli di Sistema:
                 } catch (err) {
                     if (removeProgListener) removeProgListener();
                     if (removeLogListener) removeLogListener();
+                    this.appendDownloadLog(`[ERRORE FATALE] Download interrotto: ${err?.message || err}`);
                     this.isDownloadingUpdate = false;
                     if (this.updateState) {
                         this.updateState.isDownloading = false;
@@ -7921,7 +7958,7 @@ Dettagli di Sistema:
                         return;
                     }
 
-                    const currentVer = this.parseAppVersion(this.state.version || INITIAL_DATA.version || "26.10.4-006(unstable)");
+                    const currentVer = this.parseAppVersion(this.state.version || INITIAL_DATA.version || "26.10.4-007(unstable)");
                     // Beta versions receive beta updates even if toggle is off until next stable arrives
                     const isCurrentBeta = this.isBetaVersion();
                     const includeBeta = (this.state.settings?.includeBetaUpdates === true) || isCurrentBeta;
@@ -8038,7 +8075,7 @@ Dettagli di Sistema:
                                     </div>
                                     <div>
                                         <h4 class="text-sm font-extrabold text-slate-900 dark:text-white">Class Management è Aggiornato!</h4>
-                                        <p class="text-slate-500 mt-1">Stai già utilizzando l'ultima versione disponibile (<strong>v${this.escapeHtml(this.state.version || INITIAL_DATA.version || "26.10.4-006(unstable)")}</strong>). Non sono necessari aggiornamenti.</p>
+                                        <p class="text-slate-500 mt-1">Stai già utilizzando l'ultima versione disponibile (<strong>v${this.escapeHtml(this.state.version || INITIAL_DATA.version || "26.10.4-007(unstable)")}</strong>). Non sono necessari aggiornamenti.</p>
                                     </div>
                                     <div class="pt-2">
                                         <button type="button" onclick="app.closeModal()" class="px-5 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-extrabold shadow-sm transition">OK</button>
@@ -8226,7 +8263,7 @@ Dettagli di Sistema:
              */
             renderCreditsView(container) {
                 const s = this.state.settings || {};
-                const currentVer = this.state.version || INITIAL_DATA.version || "26.10.4-006(unstable)";
+                const currentVer = this.state.version || INITIAL_DATA.version || "26.10.4-007(unstable)";
                 const latestChangelog = (this.state.changelog && this.state.changelog.length > 0) ? this.state.changelog[0] : null;
                 const update = this.availableUpdate;
                 const isDownloading = this.updateState?.isDownloading;
