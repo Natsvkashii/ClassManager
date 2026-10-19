@@ -1121,6 +1121,48 @@ public final class AppStore {
         }
     }
 
+    public func createGoogleMeetForModule(course: Course, module: CourseModule) async {
+        guard let cIdx = self.state.courses.firstIndex(where: { $0.id == course.id }),
+              let lvlIdx = self.state.courses[cIdx].levels.firstIndex(where: { $0.modules.contains(where: { $0.id == module.id }) }),
+              let mIdx = self.state.courses[cIdx].levels[lvlIdx].modules.firstIndex(where: { $0.id == module.id }) else { return }
+
+        do {
+            let res = try await GoogleCalendarManager.shared.createModuleMeetRoom(
+                course: self.state.courses[cIdx],
+                module: self.state.courses[cIdx].levels[lvlIdx].modules[mIdx],
+                store: self
+            )
+            self.state.courses[cIdx].levels[lvlIdx].modules[mIdx].googleMeetUrl = res.meetUrl
+
+            // Apply the new Google Meet URL to all lessons in this module
+            for lIdx in 0..<self.state.courses[cIdx].lessons.count {
+                if self.state.courses[cIdx].lessons[lIdx].sectionId == module.id {
+                    self.state.courses[cIdx].lessons[lIdx].googleMeetUrl = res.meetUrl
+                }
+            }
+
+            self.persist()
+            self.showToast("Stanza Google Meet creata per tutte le lezioni!")
+        } catch {
+            self.showToast("Errore creazione Google Meet: \(error.localizedDescription)")
+        }
+    }
+
+    public func removeGoogleMeetFromModule(course: Course, module: CourseModule) {
+        guard let cIdx = self.state.courses.firstIndex(where: { $0.id == course.id }),
+              let lvlIdx = self.state.courses[cIdx].levels.firstIndex(where: { $0.modules.contains(where: { $0.id == module.id }) }),
+              let mIdx = self.state.courses[cIdx].levels[lvlIdx].modules.firstIndex(where: { $0.id == module.id }) else { return }
+
+        self.state.courses[cIdx].levels[lvlIdx].modules[mIdx].googleMeetUrl = nil
+        for lIdx in 0..<self.state.courses[cIdx].lessons.count {
+            if self.state.courses[cIdx].lessons[lIdx].sectionId == module.id {
+                self.state.courses[cIdx].lessons[lIdx].googleMeetUrl = nil
+            }
+        }
+        self.persist()
+        self.showToast("Link Google Meet rimosso dal modulo")
+    }
+
     public func syncCourseToGoogleCalendar(_ course: Course, showNotification: Bool = true) {
         guard state.settings.googleCalendarConnected else { return }
         Task { @MainActor in

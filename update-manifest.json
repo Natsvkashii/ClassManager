@@ -1,13 +1,13 @@
 {
-  "version": "26.10.4-014",
+  "version": "26.10.4-015",
   "channel": "unstable",
-  "tag_name": "v26.10.4-014",
+  "tag_name": "v26.10.4-015",
   "prerelease": true,
-  "published_at": "2026-10-19T21:45:00Z",
-  "name": "Class Management v26.10.4-014 [UNSTABLE]",
-  "body": "Novità versione 26.10.4-014:\n- Risoluzione Errori Sintattici & Audit: corretto errore di sintassi nel rendering del banner di aggiornamento su Windows WebView2 e rimosse variabili e proprietà ridondanti non più utilizzate.\n- Ottimizzazione Prestazioni DateFormatter: introdotta la condivisione globale di formattatori statici pre-inizializzati (AppStore.isoDateFormatter, timeFormatter, timestampFormatter e AppleCalendarManager.lessonDateTimeFormatter), eliminando centinaia di allocazioni heap per frame durante la navigazione e lo scorrimento dei calendari.\n- Piano Lezioni Snello: visualizzazione rigorosa e pulita dei soli mesi con corsi attivi senza sezioni temporali vuote superflue.\n- Griglia Oraria Calendario: schede eventi multi-ora estese visivamente fino all'orario esatto di fine (es. 19:00–21:00).\n- Sincronizzazione Completa Google Calendar: sincronizzazione affidabile di tutti gli slot del modulo con la stanza persistente Google Meet e inviti email ai partecipanti.\n- Installer Nativo Windows Integrato: pulsante dedicato nelle impostazioni per eseguire direttamente l'installazione ufficiale e la registrazione nel sistema Windows (%LOCALAPPDATA%\\Programs\\Class Management).\n- Architettura 100% Nativa: rimozione completa di vecchie dipendenze Electron e librerie obsolete, release snella con solo 2 installer ufficiali (.pkg per macOS e Setup.exe per Windows).",
-  "setupUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.10.4-014/Class-Management-26.10.4-014-Setup.exe",
-  "setupName": "Class-Management-26.10.4-014-Setup.exe",
-  "nativeUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.10.4-014/Class-Management-26.10.4-014-Setup.exe",
-  "nativeName": "Class-Management-26.10.4-014-Setup.exe"
+  "published_at": "2026-10-19T23:50:00Z",
+  "name": "Class Management v26.10.4-015 [UNSTABLE]",
+  "body": "Novità versione 26.10.4-015:\n- Stanza Google Meet per Modulo: creazione in 1-click a livello di gestione del modulo per tutte le lezioni contemporaneamente, con propagazione automatica a tutti gli eventi correlati.\n- Nessuna Iniezione Automatica di Meet: rimossa la generazione automatica forzata di link Meet non richiesti per prevenire conflitti con eventi in presenza o senza link.\n- Nomenclatura Intelligente Riunioni Google Meet: ogni stanza programmata su Google Meet riporta chiaramente il nome del corso e del modulo con il partecipante o gruppo associato (es. Mario Rossi, Gruppo) anziché un codice casuale anonimo.\n- Pulsante Rapido Partecipa / Crea Meet: integrato direttamente nella barra strumenti del calendario continuo per accesso immediato alla videoconferenza sia su macOS che su Windows.\n- Architettura 100% Nativa: distribuzione pulita con esattamente 2 release ufficiali (.pkg per macOS e Setup.exe per Windows).",
+  "setupUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.10.4-015/Class-Management-26.10.4-015-Setup.exe",
+  "setupName": "Class-Management-26.10.4-015-Setup.exe",
+  "nativeUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.10.4-015/Class-Management-26.10.4-015-Setup.exe",
+  "nativeName": "Class-Management-26.10.4-015-Setup.exe"
 }

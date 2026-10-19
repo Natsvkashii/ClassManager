@@ -1443,6 +1443,26 @@ public struct ModuleCalendarView: View {
                         .buttonStyle(.borderedProminent)
                         .tint(Color(red: 0.15, green: 0.45, blue: 0.88))
                     }
+
+                    if let meet = mod.googleMeetUrl, !meet.isEmpty, let meetUrl = URL(string: meet) {
+                        Link(destination: meetUrl) {
+                            Label("Partecipa a Meet", systemImage: "video.fill")
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(.green)
+                        .help("Apri videoconferenza Google Meet per questo modulo (\(meet))")
+                    } else if store.state.settings.googleCalendarConnected {
+                        Button {
+                            Task {
+                                await store.createGoogleMeetForModule(course: course, module: mod)
+                            }
+                        } label: {
+                            Label("Crea Google Meet", systemImage: "video.badge.plus")
+                        }
+                        .buttonStyle(.bordered)
+                        .tint(.blue)
+                        .help("Genera una stanza Google Meet per tutte le lezioni di questo modulo")
+                    }
                 }
                 .padding(12)
                 .appCardStyle(cornerRadius: 12)

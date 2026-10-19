@@ -484,6 +484,107 @@ public final class GoogleCalendarManager: ObservableObject {
         }
     }
 
+    // MARK: - Participant Suffix Helper
+    public static func participantSuffix(course: Course, module: CourseModule, students: [Student]) -> String {
+        let enrolled = students.filter { module.studentIds.contains($0.id) }
+        if enrolled.count == 1 {
+            let name = enrolled[0].fullName.trimmingCharacters(in: .whitespaces)
+            return name.isEmpty ? "" : " (\(name))"
+        } else if enrolled.count > 1 && enrolled.count <= 3 {
+            let names = enrolled.map { $0.firstName.isEmpty ? $0.lastName : $0.firstName }.joined(separator: ", ")
+            return " (\(names))"
+        } else if enrolled.count > 3 {
+            return " (Gruppo — \(enrolled.count) iscritti)"
+        } else if course.type == "group" {
+            return " (Gruppo)"
+        }
+        return ""
+    }
+
+    // MARK: - Create Dedicated Google Meet Room for a Module (One-click for all lessons)
+    public func createModuleMeetRoom(
+        course: Course,
+        module: CourseModule,
+        store: AppStore
+    ) async throws -> (meetUrl: String, eventId: String) {
+        guard let token = await ensureValidAccessToken(store: store) else {
+            throw NSError(domain: "GoogleCalendar", code: 401, userInfo: [NSLocalizedDescriptionKey: "Account Google non collegato o token scaduto"])
+        }
+
+        let pSuffix = Self.participantSuffix(course: course, module: module, students: store.state.studentsDirectory)
+        let eventSummary = "\(course.name) — \(module.name)\(pSuffix)"
+
+        let dateOnly: String
+        if let firstSlot = module.dates.first {
+            dateOnly = String(firstSlot.prefix(10))
+        } else {
+            dateOnly = AppStore.isoDateFormatter.string(from: Date())
+        }
+        let timeZoneId = TimeZone.current.identifier
+        let startDateTime = "\(dateOnly)T\(module.startTime):00"
+        let endDateTime = "\(dateOnly)T\(module.endTime):00"
+
+        let enrolled = store.state.studentsDirectory.filter { module.studentIds.contains($0.id) }
+        let attendeeEmails = enrolled.compactMap { s -> String? in
+            let em = s.email.trimmingCharacters(in: .whitespacesAndNewlines)
+            return em.contains("@") ? em : nil
+        }
+
+        var eventPayload: [String: Any] = [
+            "summary": eventSummary,
+            "description": "Stanza Google Meet permanente per \(course.name) — \(module.name).\nGestita con Class Management.",
+            "start": [
+                "dateTime": startDateTime,
+                "timeZone": timeZoneId
+            ],
+            "end": [
+                "dateTime": endDateTime,
+                "timeZone": timeZoneId
+            ],
+            "conferenceData": [
+                "createRequest": [
+                    "requestId": "cm-mod-\(UUID().uuidString.lowercased())",
+                    "conferenceSolutionKey": [
+                        "type": "hangoutsMeet"
+                    ]
+                ]
+            ]
+        ]
+
+        if !attendeeEmails.isEmpty {
+            eventPayload["attendees"] = attendeeEmails.map { ["email": $0] }
+        }
+
+        let urlStr = "https://www.googleapis.com/calendar/v3/calendars/primary/events?conferenceDataVersion=1&sendUpdates=all"
+        guard let url = URL(string: urlStr) else {
+            throw NSError(domain: "GoogleCalendar", code: 400, userInfo: [NSLocalizedDescriptionKey: "URL non valido"])
+        }
+
+        var req = URLRequest(url: url)
+        req.httpMethod = "POST"
+        req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.httpBody = try JSONSerialization.data(withJSONObject: eventPayload)
+
+        let (data, response) = try await URLSession.shared.data(for: req)
+        guard let httpResp = response as? HTTPURLResponse, (200...299).contains(httpResp.statusCode) else {
+            let respErr = String(data: data, encoding: .utf8) ?? "Errore sconosciuto"
+            throw NSError(domain: "GoogleCalendar", code: 500, userInfo: [NSLocalizedDescriptionKey: "Google Calendar API errore: \(respErr)"])
+        }
+
+        guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let eventId = json["id"] as? String else {
+            throw NSError(domain: "GoogleCalendar", code: 500, userInfo: [NSLocalizedDescriptionKey: "Risposta Google non valida"])
+        }
+
+        let meetUrl = (json["hangoutLink"] as? String) ?? ""
+        if meetUrl.isEmpty {
+            throw NSError(domain: "GoogleCalendar", code: 500, userInfo: [NSLocalizedDescriptionKey: "Google non ha restituito il link Meet"])
+        }
+
+        return (meetUrl: meetUrl, eventId: eventId)
+    }
+
     // MARK: - Create / Sync Event with Google Meet & Attendees
 
     public func syncLessonToGoogle(
@@ -508,8 +609,11 @@ public final class GoogleCalendarManager: ObservableObject {
         let startDateTime = "\(dateOnly)T\(startTimeStr):00"
         let endDateTime = "\(dateOnly)T\(endTimeStr):00"
 
+        let pSuffix = Self.participantSuffix(course: course, module: module, students: store.state.studentsDirectory)
         let customTitle = (lessonPlan?.title ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-        let eventSummary = customTitle.isEmpty ? "\(course.name) — Lezione \(lessonNum)" : "\(course.name) — \(customTitle)"
+        let eventSummary = customTitle.isEmpty
+            ? "\(course.name) — \(module.name): Lezione \(lessonNum)\(pSuffix)"
+            : "\(course.name) — \(module.name): \(customTitle)\(pSuffix)"
 
         var descLines: [String] = []
         if let lp = lessonPlan {
@@ -519,9 +623,8 @@ public final class GoogleCalendarManager: ObservableObject {
             if !lp.notes.isEmpty { descLines.append("Note: \(lp.notes)") }
         }
 
-        // Check if module already has a persistent Google Meet URL
-        let existingMeetUrl = module.googleMeetUrl?.trimmingCharacters(in: .whitespacesAndNewlines)
-        let hasPersistentMeet = !(existingMeetUrl?.isEmpty ?? true)
+        // Check if module or lesson already has a Google Meet URL
+        let existingMeetUrl = (module.googleMeetUrl ?? lessonPlan?.googleMeetUrl)?.trimmingCharacters(in: .whitespacesAndNewlines)
 
         var eventPayload: [String: Any] = [
             "summary": eventSummary,
@@ -539,17 +642,9 @@ public final class GoogleCalendarManager: ObservableObject {
             eventPayload["attendees"] = attendees.map { ["email": $0] }
         }
 
-        // If module has no Google Meet link yet, request Google to generate one
-        if !hasPersistentMeet {
-            eventPayload["conferenceData"] = [
-                "createRequest": [
-                    "requestId": UUID().uuidString.lowercased(),
-                    "conferenceSolutionKey": [
-                        "type": "hangoutsMeet"
-                    ]
-                ]
-            ]
-        } else if let meet = existingMeetUrl {
+        // Only attach Google Meet details if the user/module explicitly configured a link
+        // Do NOT automatically create a new conference to avoid conflicts with in-person or custom events
+        if let meet = existingMeetUrl, !meet.isEmpty {
             descLines.insert("Partecipa con Google Meet: \(meet)", at: 0)
             eventPayload["location"] = meet
         }
