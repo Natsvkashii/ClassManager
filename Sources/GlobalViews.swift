@@ -7,43 +7,63 @@
 import SwiftUI
 import AppKit
 
-// MARK: - Global Calendar View
+// MARK: - Global Calendar View (Day, Week, and Month Views)
+
+public enum CalendarViewMode: String, CaseIterable, Identifiable {
+    case day = "Giorno"
+    case week = "Settimana"
+    case month = "Mese"
+
+    public var id: String { rawValue }
+}
 
 public struct GlobalCalendarView: View {
     @Environment(AppStore.self) private var store
     @ObservedObject private var googleManager = GoogleCalendarManager.shared
     @Binding var activeSheet: ActiveModalSheet?
 
+    @State private var viewMode: CalendarViewMode = .month
+
     public var body: some View {
-        let cal = Calendar.current
-        let year = cal.component(.year, from: store.calendarCursor)
-        let month = cal.component(.month, from: store.calendarCursor) - 1
-        let monthTitle = "\(store.monthsList[safe: month] ?? "") \(year)"
-        let cells = buildMonthCells()
+        let allEvents = getAllEventsByDate()
 
         VStack(alignment: .leading, spacing: 14) {
+            // Top Toolbar: Navigation, Title, Google Sync, View Mode & Filters
             HStack(spacing: 10) {
-                Button {
-                    store.calendarCursor = cal.date(byAdding: .month, value: -1, to: store.calendarCursor) ?? store.calendarCursor
-                } label: {
-                    Image(systemName: "chevron.left")
-                }
-                Button(store.t("todayBtn")) {
-                    store.calendarCursor = Date()
-                }
-                Button {
-                    store.calendarCursor = cal.date(byAdding: .month, value: 1, to: store.calendarCursor) ?? store.calendarCursor
-                } label: {
-                    Image(systemName: "chevron.right")
+                // Navigation Prev / Today / Next
+                HStack(spacing: 4) {
+                    Button {
+                        navigateCalendar(delta: -1)
+                    } label: {
+                        Image(systemName: "chevron.left")
+                    }
+                    Button(store.t("todayBtn")) {
+                        store.calendarCursor = Date()
+                    }
+                    Button {
+                        navigateCalendar(delta: 1)
+                    } label: {
+                        Image(systemName: "chevron.right")
+                    }
                 }
 
-                Text(monthTitle)
+                // Dynamic Header Title
+                Text(headerTitle)
                     .font(.title3.bold())
-                    .padding(.leading, 8)
+                    .padding(.leading, 6)
 
                 Spacer()
 
-                // Google Calendar Quick Action
+                // View Mode Switcher (Giorno, Settimana, Mese)
+                Picker("", selection: $viewMode) {
+                    ForEach(CalendarViewMode.allCases) { mode in
+                        Text(mode.rawValue).tag(mode)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .frame(width: 220)
+
+                // Google Calendar Sync Quick Action
                 if store.state.settings.googleCalendarConnected {
                     Button {
                         Task { await googleManager.refreshCalendarEvents(store: store) }
@@ -69,6 +89,7 @@ public struct GlobalCalendarView: View {
                     .help("Collega Google Calendar per sincronizzare le lezioni e le riunioni Google Meet")
                 }
 
+                // Course Filter
                 Picker("", selection: Binding(
                     get: { store.calendarFilterCourseId },
                     set: { store.calendarFilterCourseId = $0 }
@@ -78,7 +99,7 @@ public struct GlobalCalendarView: View {
                         Text(c.name).tag(c.id)
                     }
                 }
-                .frame(width: 180)
+                .frame(width: 170)
 
                 Button {
                     store.syncAllActiveCoursesToAppleCalendar()
@@ -90,94 +111,14 @@ public struct GlobalCalendarView: View {
             .padding(12)
             .appCardStyle(cornerRadius: 12)
 
-            ScrollView {
-                VStack(spacing: 8) {
-                    HStack(spacing: 8) {
-                        ForEach(store.daysShortList, id: \.self) { h in
-                            Text(h).font(.caption.bold()).foregroundStyle(.secondary).frame(maxWidth: .infinity)
-                        }
-                    }
-
-                    ForEach(0..<6, id: \.self) { row in
-                        HStack(spacing: 8) {
-                            ForEach(0..<7, id: \.self) { col in
-                                let cell = cells[row * 7 + col]
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text("\(cell.dayNum)")
-                                        .font(.caption.bold())
-                                        .foregroundStyle(cell.inMonth ? .primary : .secondary)
-
-                                    ForEach(cell.events, id: \.id) { ev in
-                                        if ev.isGoogleEvent {
-                                            Button {
-                                                if let meet = ev.meetUrl, !meet.isEmpty, let u = URL(string: meet) {
-                                                    NSWorkspace.shared.open(u)
-                                                } else if let link = ev.htmlLink, !link.isEmpty, let u = URL(string: link) {
-                                                    NSWorkspace.shared.open(u)
-                                                }
-                                            } label: {
-                                                VStack(alignment: .leading, spacing: 1) {
-                                                    HStack(spacing: 4) {
-                                                        Image(systemName: "g.circle.fill")
-                                                            .font(.system(size: 9))
-                                                        Text(ev.courseName)
-                                                            .font(.system(size: 9.5, weight: .bold))
-                                                            .lineLimit(1)
-                                                        Spacer(minLength: 0)
-                                                        if ev.meetUrl != nil {
-                                                            Image(systemName: "video.fill")
-                                                                .font(.system(size: 8))
-                                                        }
-                                                    }
-                                                    Text(ev.isAllDay ? "Tutto il giorno" : "\(ev.time) - \(ev.endTime)")
-                                                        .font(.system(size: 8.5))
-                                                        .opacity(0.9)
-                                                }
-                                                .padding(4)
-                                                .frame(maxWidth: .infinity, alignment: .leading)
-                                                .background(RoundedRectangle(cornerRadius: 6).fill(Color(red: 0.20, green: 0.45, blue: 0.85)))
-                                                .foregroundStyle(.white)
-                                            }
-                                            .buttonStyle(.plain)
-                                            .help(ev.meetUrl != nil ? "Google Calendar: \(ev.courseName)\nClicca per aprire la riunione Google Meet" : "Google Calendar: \(ev.courseName)")
-                                        } else {
-                                            Button {
-                                                activeSheet = .lessonPlan(courseId: ev.courseId, sectionId: ev.sectionId, slotKey: ev.slotKey)
-                                            } label: {
-                                                VStack(alignment: .leading, spacing: 1) {
-                                                    HStack(spacing: 4) {
-                                                        Text(ev.courseName).font(.system(size: 10, weight: .bold)).lineLimit(1)
-                                                        Spacer()
-                                                        if ev.conflict {
-                                                            Image(systemName: "exclamationmark.triangle.fill")
-                                                                .font(.system(size: 9))
-                                                                .foregroundStyle(.yellow)
-                                                                .help(store.t("timeConflictWarning"))
-                                                        }
-                                                    }
-                                                    Text("\(store.formatTimeDisplay(ev.time))-\(store.formatTimeDisplay(ev.endTime))")
-                                                        .font(.system(size: 9))
-                                                        .opacity(0.9)
-                                                }
-                                                .padding(5)
-                                                .frame(maxWidth: .infinity, alignment: .leading)
-                                                .background(RoundedRectangle(cornerRadius: 6).fill(ev.color))
-                                                .foregroundStyle(.white)
-                                            }
-                                            .buttonStyle(.plain)
-                                        }
-                                    }
-                                    Spacer(minLength: 0)
-                                }
-                                .padding(8)
-                                .frame(maxWidth: .infinity, minHeight: 96, alignment: .topLeading)
-                                .appCardStyle(cornerRadius: 10)
-                                .opacity(cell.inMonth ? 1.0 : 0.52)
-                            }
-                        }
-                    }
-                }
-                .padding(10)
+            // Main Content: Switch between Day, Week, and Month views
+            switch viewMode {
+            case .day:
+                buildDayView(allEvents: allEvents)
+            case .week:
+                buildWeekView(allEvents: allEvents)
+            case .month:
+                buildMonthView(cells: buildMonthCells(allEvents: allEvents))
             }
         }
         .padding(20)
@@ -188,31 +129,473 @@ public struct GlobalCalendarView: View {
         }
     }
 
-    private struct CalEvent: Identifiable {
-        var id: String
-        let courseId: String
-        let courseName: String
-        let sectionId: String
-        let slotKey: String
-        let time: String
-        let endTime: String
-        let color: Color
-        var conflict: Bool = false
-        var isGoogleEvent: Bool = false
-        var meetUrl: String? = nil
-        var htmlLink: String? = nil
-        var isAllDay: Bool = false
+    // MARK: - Navigation Logic
+
+    private func navigateCalendar(delta: Int) {
+        let cal = Calendar.current
+        switch viewMode {
+        case .day:
+            store.calendarCursor = cal.date(byAdding: .day, value: delta, to: store.calendarCursor) ?? store.calendarCursor
+        case .week:
+            store.calendarCursor = cal.date(byAdding: .day, value: delta * 7, to: store.calendarCursor) ?? store.calendarCursor
+        case .month:
+            store.calendarCursor = cal.date(byAdding: .month, value: delta, to: store.calendarCursor) ?? store.calendarCursor
+        }
     }
 
-    private struct MonthCell {
-        let iso: String
-        let dayNum: Int
-        let inMonth: Bool
-        let events: [CalEvent]
+    private var headerTitle: String {
+        let cal = Calendar.current
+        let df = DateFormatter()
+        df.locale = Locale(identifier: store.state.settings.language == "it" ? "it_IT" : "en_US")
+
+        switch viewMode {
+        case .day:
+            df.dateFormat = "EEEE d MMMM yyyy"
+            let str = df.string(from: store.calendarCursor)
+            return str.prefix(1).uppercased() + str.dropFirst()
+
+        case .week:
+            let startMon = store.state.settings.firstDayOfWeek != "sunday"
+            let weekday = cal.component(.weekday, from: store.calendarCursor)
+            let offset = startMon ? (weekday == 1 ? -6 : 2 - weekday) : (1 - weekday)
+            let weekStart = cal.date(byAdding: .day, value: offset, to: store.calendarCursor) ?? store.calendarCursor
+            let weekEnd = cal.date(byAdding: .day, value: 6, to: weekStart) ?? weekStart
+
+            let startDay = cal.component(.day, from: weekStart)
+            let endDay = cal.component(.day, from: weekEnd)
+            let monthName = store.monthsList[safe: cal.component(.month, from: weekEnd) - 1] ?? ""
+            let year = cal.component(.year, from: weekEnd)
+            return "\(startDay) – \(endDay) \(monthName) \(year)"
+
+        case .month:
+            let year = cal.component(.year, from: store.calendarCursor)
+            let month = cal.component(.month, from: store.calendarCursor) - 1
+            return "\(store.monthsList[safe: month] ?? "") \(year)"
+        }
     }
 
-    private func buildMonthCells() -> [MonthCell] {
+    // MARK: - Day View (Hourly Grid with Google Calendar Side-by-Side Clustering)
+
+    private struct PlacedDayEvent: Identifiable {
+        var id: String { event.id }
+        let event: CalEvent
+        let startMin: Int
+        let endMin: Int
+        let colIndex: Int
+        let totalCols: Int
+    }
+
+    private var isoDateFormatter: DateFormatter {
+        let df = DateFormatter()
+        df.dateFormat = "yyyy-MM-dd"
+        df.locale = Locale(identifier: "en_US_POSIX")
+        return df
+    }
+
+    @ViewBuilder
+    private func buildDayView(allEvents: [String: [CalEvent]]) -> some View {
+        let cal = Calendar.current
+        let curIso = isoDateFormatter.string(from: store.calendarCursor)
+        let todayIso = isoDateFormatter.string(from: Date())
+        let isToday = curIso == todayIso
+        let dayEvents = allEvents[curIso] ?? []
+
+        let allDayEvents = dayEvents.filter { $0.isAllDay }
+        let timedEvents = dayEvents.filter { !$0.isAllDay }
+
+        // Start grid at 07:00 (420 min) and end at 23:00 (1380 min) -> 16 hours
+        let startGridHour = 7
+        let endGridHour = 23
+        let totalHours = endGridHour - startGridHour
+        let hourHeight: CGFloat = 64.0 // 64 pt per hour (~1.066 pt per min)
+        let minPerPt = 60.0 / hourHeight
+
+        let placedTimedEvents = calculateSideBySideLayout(events: timedEvents, startHour: startGridHour)
+
+        ScrollView {
+            VStack(alignment: .leading, spacing: 12) {
+                // All-day events banner
+                if !allDayEvents.isEmpty {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Tutto il giorno")
+                            .font(.caption2.bold())
+                            .foregroundStyle(.secondary)
+                        ForEach(allDayEvents) { ev in
+                            renderEventCard(ev: ev, compact: true)
+                        }
+                    }
+                    .padding(10)
+                    .appCardStyle(cornerRadius: 10)
+                }
+
+                // Hourly timeline canvas
+                GeometryReader { geo in
+                    let canvasWidth = geo.size.width
+                    let timelineLeft: CGFloat = 55.0
+                    let eventsWidth = max(100, canvasWidth - timelineLeft - 10)
+
+                    ZStack(alignment: .topLeading) {
+                        // Horizontal Hour Grid Lines & Labels
+                        VStack(spacing: 0) {
+                            ForEach(0...totalHours, id: \.self) { hIdx in
+                                let h = startGridHour + hIdx
+                                HStack(spacing: 8) {
+                                    Text(String(format: "%02d:00", h))
+                                        .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                                        .foregroundStyle(.secondary)
+                                        .frame(width: 45, alignment: .trailing)
+                                    Rectangle()
+                                        .fill(Color.secondary.opacity(0.12))
+                                        .frame(height: 1)
+                                }
+                                .frame(height: hourHeight, alignment: .top)
+                            }
+                        }
+
+                        // Current Time Indicator (Red line)
+                        if isToday {
+                            let now = Date()
+                            let curMin = cal.component(.hour, from: now) * 60 + cal.component(.minute, from: now)
+                            if curMin >= startGridHour * 60 && curMin <= endGridHour * 60 {
+                                let curY = CGFloat(curMin - startGridHour * 60) / minPerPt
+                                HStack(spacing: 0) {
+                                    Circle()
+                                        .fill(Color.red)
+                                        .frame(width: 8, height: 8)
+                                    Rectangle()
+                                        .fill(Color.red)
+                                        .frame(height: 2)
+                                }
+                                .offset(x: timelineLeft - 4, y: curY - 1)
+                            }
+                        }
+
+                        // Placed Timed Events (Side-by-side columns on overlap)
+                        ForEach(placedTimedEvents) { placed in
+                            let sMin = max(startGridHour * 60, placed.startMin)
+                            let eMin = min(endGridHour * 60, placed.endMin)
+                            let topY = CGFloat(sMin - startGridHour * 60) / minPerPt
+                            let durHeight = max(34.0, CGFloat(eMin - sMin) / minPerPt)
+
+                            let colW = (eventsWidth / CGFloat(placed.totalCols)) - 4.0
+                            let leftX = timelineLeft + CGFloat(placed.colIndex) * (eventsWidth / CGFloat(placed.totalCols)) + 2.0
+
+                            renderEventCard(ev: placed.event, compact: durHeight < 55)
+                                .frame(width: max(80, colW), height: durHeight)
+                                .offset(x: leftX, y: topY)
+                        }
+                    }
+                    .frame(height: CGFloat(totalHours) * hourHeight + 30)
+                }
+                .frame(minHeight: CGFloat(totalHours) * hourHeight + 40)
+            }
+            .padding(12)
+        }
+    }
+
+    private func calculateSideBySideLayout(events: [CalEvent], startHour: Int) -> [PlacedDayEvent] {
+        guard !events.isEmpty else { return [] }
+
+        func parseMin(_ tStr: String) -> Int {
+            let p = tStr.split(separator: ":").compactMap { Int($0) }
+            if p.count >= 2 { return p[0] * 60 + p[1] }
+            return 9 * 60
+        }
+
+        let items = events.map { ev -> (event: CalEvent, start: Int, end: Int) in
+            let s = parseMin(ev.time)
+            let e = max(s + 30, parseMin(ev.endTime))
+            return (ev, s, e)
+        }.sorted {
+            if $0.start != $1.start { return $0.start < $1.start }
+            return $0.end > $1.end
+        }
+
+        // Group into overlapping clusters
+        var clusters: [[(event: CalEvent, start: Int, end: Int)]] = []
+        var curCluster: [(event: CalEvent, start: Int, end: Int)] = []
+        var clusterMaxEnd = -1
+
+        for it in items {
+            if curCluster.isEmpty {
+                curCluster.append(it)
+                clusterMaxEnd = it.end
+            } else {
+                if it.start < clusterMaxEnd {
+                    curCluster.append(it)
+                    clusterMaxEnd = max(clusterMaxEnd, it.end)
+                } else {
+                    clusters.append(curCluster)
+                    curCluster = [it]
+                    clusterMaxEnd = it.end
+                }
+            }
+        }
+        if !curCluster.isEmpty { clusters.append(curCluster) }
+
+        // Interval graph coloring for side-by-side columns
+        var result: [PlacedDayEvent] = []
+        for cluster in clusters {
+            var colEndTimes: [Int] = []
+            var placedInCluster: [(event: CalEvent, start: Int, end: Int, col: Int)] = []
+
+            for it in cluster {
+                var assignedCol = -1
+                for (cIdx, endVal) in colEndTimes.enumerated() {
+                    if endVal <= it.start {
+                        assignedCol = cIdx
+                        colEndTimes[cIdx] = it.end
+                        break
+                    }
+                }
+                if assignedCol == -1 {
+                    assignedCol = colEndTimes.count
+                    colEndTimes.append(it.end)
+                }
+                placedInCluster.append((it.event, it.start, it.end, assignedCol))
+            }
+
+            let totalCols = max(1, colEndTimes.count)
+            for it in placedInCluster {
+                result.append(PlacedDayEvent(
+                    event: it.event,
+                    startMin: it.start,
+                    endMin: it.end,
+                    colIndex: it.col,
+                    totalCols: totalCols
+                ))
+            }
+        }
+        return result
+    }
+
+    // MARK: - Week View (Focus on 1 Week, 7 Day Columns, Chronological Without Hourly Grid)
+
+    @ViewBuilder
+    private func buildWeekView(allEvents: [String: [CalEvent]]) -> some View {
+        let cal = Calendar.current
+        let todayIso = isoDateFormatter.string(from: Date())
+        let startMon = store.state.settings.firstDayOfWeek != "sunday"
+        let weekday = cal.component(.weekday, from: store.calendarCursor)
+        let offset = startMon ? (weekday == 1 ? -6 : 2 - weekday) : (1 - weekday)
+        let weekStart = cal.date(byAdding: .day, value: offset, to: store.calendarCursor) ?? store.calendarCursor
+
+        HStack(alignment: .top, spacing: 8) {
+            ForEach(0..<7, id: \.self) { (dIdx: Int) in
+                let dayDate = cal.date(byAdding: .day, value: dIdx, to: weekStart) ?? weekStart
+                let dayIso = isoDateFormatter.string(from: dayDate)
+                let dayNum = cal.component(.day, from: dayDate)
+                let isToday = dayIso == todayIso
+                let dayEvents = allEvents[dayIso] ?? []
+                let dayName = store.daysShortList[safe: dIdx] ?? ""
+
+                VStack(alignment: .leading, spacing: 8) {
+                    // Column Header
+                    HStack {
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text(dayName)
+                                .font(.caption2.bold())
+                                .foregroundStyle(.secondary)
+                            HStack(spacing: 4) {
+                                if isToday {
+                                    Text("\(dayNum)")
+                                        .font(.caption.bold())
+                                        .foregroundStyle(.white)
+                                        .frame(width: 20, height: 20)
+                                        .background(Circle().fill(Color.blue))
+                                } else {
+                                    Text("\(dayNum)")
+                                        .font(.caption.bold())
+                                        .foregroundStyle(.primary)
+                                }
+                            }
+                        }
+                        Spacer()
+                        if !dayEvents.isEmpty {
+                            Text("\(dayEvents.count)")
+                                .font(.system(size: 9, weight: .black))
+                                .padding(.horizontal, 5)
+                                .padding(.vertical, 1)
+                                .background(Capsule().fill(Color.secondary.opacity(0.15)))
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .padding(.horizontal, 4)
+                    .padding(.bottom, 2)
+
+                    Divider()
+
+                    // Chronological Stack of Events
+                    if dayEvents.isEmpty {
+                        VStack {
+                            Spacer()
+                            Text("Nessuna lezione")
+                                .font(.system(size: 10))
+                                .foregroundStyle(.secondary.opacity(0.6))
+                                .frame(maxWidth: .infinity, alignment: .center)
+                            Spacer()
+                        }
+                        .frame(maxWidth: .infinity, minHeight: 120)
+                    } else {
+                        ScrollView(.vertical, showsIndicators: false) {
+                            VStack(spacing: 6) {
+                                ForEach(dayEvents) { ev in
+                                    renderEventCard(ev: ev, compact: false)
+                                }
+                            }
+                        }
+                    }
+                }
+                .padding(8)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                .background(RoundedRectangle(cornerRadius: 12).fill(isToday ? Color.blue.opacity(0.04) : Color.secondary.opacity(0.03)))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .strokeBorder(isToday ? Color.blue.opacity(0.3) : Color.secondary.opacity(0.12), lineWidth: 1)
+                )
+            }
+        }
+        .frame(maxHeight: .infinity)
+    }
+
+    // MARK: - Month View (7x6 Month Grid)
+
+    @ViewBuilder
+    private func buildMonthView(cells: [MonthCell]) -> some View {
+        ScrollView {
+            VStack(spacing: 8) {
+                HStack(spacing: 8) {
+                    ForEach(store.daysShortList, id: \.self) { h in
+                        Text(h).font(.caption.bold()).foregroundStyle(.secondary).frame(maxWidth: .infinity)
+                    }
+                }
+
+                ForEach(0..<6, id: \.self) { row in
+                    HStack(spacing: 8) {
+                        ForEach(0..<7, id: \.self) { col in
+                            let cell = cells[row * 7 + col]
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("\(cell.dayNum)")
+                                    .font(.caption.bold())
+                                    .foregroundStyle(cell.inMonth ? .primary : .secondary)
+
+                                ForEach(cell.events) { ev in
+                                    renderEventCard(ev: ev, compact: true)
+                                }
+                                Spacer(minLength: 0)
+                            }
+                            .padding(8)
+                            .frame(maxWidth: .infinity, minHeight: 96, alignment: .topLeading)
+                            .appCardStyle(cornerRadius: 10)
+                            .opacity(cell.inMonth ? 1.0 : 0.52)
+                        }
+                    }
+                }
+            }
+            .padding(10)
+        }
+    }
+
+    // MARK: - Unified Event Card Component
+
+    @ViewBuilder
+    private func renderEventCard(ev: CalEvent, compact: Bool) -> some View {
+        if ev.isGoogleEvent {
+            Button {
+                if let meet = ev.meetUrl, !meet.isEmpty, let u = URL(string: meet) {
+                    NSWorkspace.shared.open(u)
+                } else if let link = ev.htmlLink, !link.isEmpty, let u = URL(string: link) {
+                    NSWorkspace.shared.open(u)
+                }
+            } label: {
+                VStack(alignment: .leading, spacing: 1) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "g.circle.fill")
+                            .font(.system(size: compact ? 8.5 : 10))
+                        Text(ev.courseName)
+                            .font(.system(size: compact ? 9.5 : 11, weight: .bold))
+                            .lineLimit(1)
+                        Spacer(minLength: 0)
+                        if ev.meetUrl != nil {
+                            Image(systemName: "video.fill")
+                                .font(.system(size: 8))
+                                .foregroundStyle(.white)
+                        }
+                    }
+                    Text(ev.isAllDay ? "Tutto il giorno" : "\(ev.time) - \(ev.endTime)")
+                        .font(.system(size: compact ? 8.5 : 9.5))
+                        .opacity(0.9)
+                }
+                .padding(compact ? 4 : 6)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(RoundedRectangle(cornerRadius: 6).fill(Color(red: 0.15, green: 0.45, blue: 0.88)))
+                .foregroundStyle(.white)
+            }
+            .buttonStyle(.plain)
+            .help(ev.meetUrl != nil ? "Google Calendar: \(ev.courseName)\nClicca per aprire la riunione Google Meet" : "Google Calendar: \(ev.courseName)")
+        } else {
+            Button {
+                activeSheet = .lessonPlan(courseId: ev.courseId, sectionId: ev.sectionId, slotKey: ev.slotKey)
+            } label: {
+                VStack(alignment: .leading, spacing: 1) {
+                    HStack(spacing: 4) {
+                        Text(ev.courseName)
+                            .font(.system(size: compact ? 9.5 : 11, weight: .bold))
+                            .lineLimit(1)
+                        Spacer(minLength: 0)
+                        if ev.meetUrl != nil {
+                            Image(systemName: "video.fill")
+                                .font(.system(size: 8))
+                                .foregroundStyle(.white)
+                        }
+                        if ev.conflict {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .font(.system(size: 9))
+                                .foregroundStyle(.yellow)
+                                .help(store.t("timeConflictWarning"))
+                        }
+                    }
+                    Text("\(store.formatTimeDisplay(ev.time)) - \(store.formatTimeDisplay(ev.endTime))")
+                        .font(.system(size: compact ? 8.5 : 9.5))
+                        .opacity(0.9)
+                }
+                .padding(compact ? 5 : 7)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(RoundedRectangle(cornerRadius: 6).fill(ev.color))
+                .foregroundStyle(.white)
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    // MARK: - Data Models & Event Aggregation
+
+    public struct CalEvent: Identifiable {
+        public var id: String
+        public let courseId: String
+        public let courseName: String
+        public let sectionId: String
+        public let slotKey: String
+        public let time: String
+        public let endTime: String
+        public let color: Color
+        public var conflict: Bool = false
+        public var isGoogleEvent: Bool = false
+        public var meetUrl: String? = nil
+        public var htmlLink: String? = nil
+        public var isAllDay: Bool = false
+    }
+
+    public struct MonthCell {
+        public let iso: String
+        public let dayNum: Int
+        public let inMonth: Bool
+        public let events: [CalEvent]
+    }
+
+    private func getAllEventsByDate() -> [String: [CalEvent]] {
         var byDate: [String: [CalEvent]] = [:]
+
         for c in store.activeCourses {
             if store.calendarFilterCourseId != "ALL" && c.id != store.calendarFilterCourseId { continue }
             let pal = store.palette(for: c.color)
@@ -269,20 +652,27 @@ public struct GlobalCalendarView: View {
             }
         }
 
+        // Conflict detection per day
         for dKey in byDate.keys {
             var arr = byDate[dKey] ?? []
             arr.sort { $0.time < $1.time }
             for i in arr.indices {
                 for j in (i + 1)..<arr.count {
-                    if arr[i].endTime > arr[j].time && arr[i].time < arr[j].endTime {
-                        arr[i].conflict = true
-                        arr[j].conflict = true
+                    if !arr[i].isAllDay && !arr[j].isAllDay {
+                        if arr[i].endTime > arr[j].time && arr[i].time < arr[j].endTime {
+                            arr[i].conflict = true
+                            arr[j].conflict = true
+                        }
                     }
                 }
             }
             byDate[dKey] = arr
         }
 
+        return byDate
+    }
+
+    private func buildMonthCells(allEvents: [String: [CalEvent]]) -> [MonthCell] {
         let cal = Calendar.current
         let comps = cal.dateComponents([.year, .month], from: store.calendarCursor)
         let firstOfMonth = cal.date(from: comps) ?? Date()
@@ -305,7 +695,7 @@ public struct GlobalCalendarView: View {
                     iso: iso,
                     dayNum: cal.component(.day, from: d),
                     inMonth: cal.component(.month, from: d) == monthNum,
-                    events: byDate[iso] ?? []
+                    events: allEvents[iso] ?? []
                 )
             )
         }
@@ -2368,14 +2758,39 @@ public struct SettingsView: View {
                                     .buttonStyle(.bordered)
                                 }
                             } else {
-                                Button {
-                                    Task { await GoogleCalendarManager.shared.startOAuthFlow(store: store) }
-                                } label: {
-                                    Label(GoogleCalendarManager.shared.isAuthenticating ? "In attesa..." : "Accedi con Google", systemImage: "g.circle.fill")
+                                if GoogleCalendarManager.shared.isAuthenticating {
+                                    HStack(spacing: 8) {
+                                        ProgressView().controlSize(.small)
+                                        Text("In attesa nel browser...")
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                        Button("Annulla") {
+                                            GoogleCalendarManager.shared.cancelOAuthFlow()
+                                        }
+                                        .buttonStyle(.bordered)
+                                        .controlSize(.small)
+                                    }
+                                } else {
+                                    Button {
+                                        Task { await GoogleCalendarManager.shared.startOAuthFlow(store: store) }
+                                    } label: {
+                                        Label("Accedi con Google", systemImage: "g.circle.fill")
+                                    }
+                                    .buttonStyle(.borderedProminent)
+                                    .tint(.blue)
                                 }
-                                .buttonStyle(.borderedProminent)
-                                .tint(.blue)
                             }
+                        }
+
+                        if let err = GoogleCalendarManager.shared.lastSyncError, !store.state.settings.googleCalendarConnected {
+                            HStack(spacing: 6) {
+                                Image(systemName: "exclamationmark.circle.fill")
+                                    .foregroundStyle(.orange)
+                                Text(err)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            .padding(.top, 2)
                         }
 
                         if store.state.settings.googleCalendarConnected {

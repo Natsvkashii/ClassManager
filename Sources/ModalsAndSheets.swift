@@ -316,14 +316,44 @@ public struct ModuleFormSheet: View {
                 Text("Descrizione").font(.caption.bold())
                 TextField("Descrizione opzionale...", text: $desc).textFieldStyle(.roundedBorder)
                 Text("Stanza Google Meet Permanente").font(.caption.bold())
-                HStack {
-                    TextField("https://meet.google.com/abc-defg-hij", text: $googleMeetUrl).textFieldStyle(.roundedBorder)
-                    if !googleMeetUrl.trimmingCharacters(in: .whitespaces).isEmpty,
-                       let u = URL(string: googleMeetUrl.trimmingCharacters(in: .whitespaces)) {
-                        Link(destination: u) {
-                            Image(systemName: "arrow.up.right.video.fill")
+                if !googleMeetUrl.trimmingCharacters(in: .whitespaces).isEmpty {
+                    HStack(spacing: 8) {
+                        Image(systemName: "video.fill")
+                            .foregroundStyle(.blue)
+                        Text(googleMeetUrl)
+                            .font(.system(size: 11, design: .monospaced))
+                            .foregroundStyle(.primary)
+                            .lineLimit(1)
+                        Spacer()
+                        if let u = URL(string: googleMeetUrl.trimmingCharacters(in: .whitespaces)) {
+                            Link(destination: u) {
+                                Label("Partecipa", systemImage: "arrow.up.right.video.fill")
+                                    .font(.caption2.bold())
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .tint(.blue)
                         }
+                        Button(role: .destructive) {
+                            googleMeetUrl = ""
+                        } label: {
+                            Image(systemName: "trash")
+                                .font(.caption)
+                        }
+                        .buttonStyle(.plain)
+                        .foregroundStyle(.red)
                     }
+                    .padding(8)
+                    .background(RoundedRectangle(cornerRadius: 8).fill(Color.blue.opacity(0.08)))
+                } else {
+                    HStack(spacing: 8) {
+                        Image(systemName: "info.circle")
+                            .foregroundStyle(.secondary)
+                        Text("La stanza Google Meet permanente verrà generata automaticamente dai servizi Google quando sincronizzi una lezione del modulo.")
+                            .font(.system(size: 10.5))
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(8)
+                    .background(RoundedRectangle(cornerRadius: 8).fill(Color.secondary.opacity(0.06)))
                 }
             }
             Divider()
@@ -445,46 +475,93 @@ public struct LessonPlanSheet: View {
             }
 
             // Google Meet & Google Calendar Integration Card
-            VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: 10) {
                 HStack {
-                    Label("Google Meet & Google Calendar", systemImage: "video.fill")
+                    Label("Videoconferenza Google Meet", systemImage: "video.fill")
                         .font(.caption.bold())
                         .foregroundStyle(.blue)
                     Spacer()
-                    if !googleMeetUrl.trimmingCharacters(in: .whitespaces).isEmpty,
-                       let u = URL(string: googleMeetUrl.trimmingCharacters(in: .whitespaces)) {
-                        Link(destination: u) {
-                            Label("Partecipa a Meet", systemImage: "arrow.up.right.video.fill")
-                                .font(.caption.bold())
+                    if !store.state.settings.googleCalendarConnected {
+                        Button("Collega Google Calendar") {
+                            Task { await GoogleCalendarManager.shared.startOAuthFlow(store: store) }
                         }
-                        .buttonStyle(.borderedProminent)
-                        .tint(.blue)
+                        .font(.caption2.bold())
+                        .buttonStyle(.bordered)
                     }
                 }
-                HStack(spacing: 12) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Stanza Google Meet Permanente").font(.system(size: 10, weight: .bold)).foregroundStyle(.secondary)
-                        TextField("https://meet.google.com/abc-defg-hij", text: $googleMeetUrl)
-                            .textFieldStyle(.roundedBorder)
-                    }
-                    VStack(alignment: .leading, spacing: 2) {
-                        HStack {
-                            Text("Invitati via Email (separati da virgola)").font(.system(size: 10, weight: .bold)).foregroundStyle(.secondary)
-                            Spacer()
-                            Button("Aggiungi iscritti corso") {
-                                addCourseStudentsEmails()
-                            }
-                            .font(.system(size: 9.5, weight: .bold))
-                            .buttonStyle(.plain)
-                            .foregroundStyle(.blue)
+
+                if !googleMeetUrl.trimmingCharacters(in: .whitespaces).isEmpty {
+                    HStack(spacing: 8) {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundStyle(.green)
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text("Stanza Google Meet Permanente")
+                                .font(.system(size: 10, weight: .bold))
+                                .foregroundStyle(.secondary)
+                            Text(googleMeetUrl)
+                                .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                                .foregroundStyle(.primary)
+                                .lineLimit(1)
                         }
-                        TextField("email1@gmail.com, email2@gmail.com...", text: $invitedEmailsStr)
-                            .textFieldStyle(.roundedBorder)
+                        Spacer()
+                        if let u = URL(string: googleMeetUrl.trimmingCharacters(in: .whitespaces)) {
+                            Link(destination: u) {
+                                Label("Partecipa a Meet", systemImage: "arrow.up.right.video.fill")
+                                    .font(.caption.bold())
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .tint(.blue)
+                        }
+                        Button(role: .destructive) {
+                            googleMeetUrl = ""
+                        } label: {
+                            Image(systemName: "trash")
+                                .font(.caption)
+                        }
+                        .buttonStyle(.plain)
+                        .foregroundStyle(.red)
+                        .help("Rimuovi link Google Meet")
                     }
+                    .padding(8)
+                    .background(RoundedRectangle(cornerRadius: 8).fill(Color.green.opacity(0.08)))
+                } else {
+                    HStack(spacing: 8) {
+                        Image(systemName: "wand.and.stars")
+                            .font(.title3)
+                            .foregroundStyle(.blue)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Generazione Automatica Google Meet")
+                                .font(.caption.bold())
+                            Text(store.state.settings.googleCalendarConnected
+                                ? "La stanza Google Meet permanente verrà generata automaticamente dai servizi Google Calendar al salvataggio."
+                                : "Accedi con Google Calendar nelle impostazioni per generare automaticamente la stanza Google Meet.")
+                                .font(.system(size: 9.5))
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                    }
+                    .padding(8)
+                    .background(RoundedRectangle(cornerRadius: 8).fill(Color.blue.opacity(0.06)))
+                }
+
+                // Email invitations
+                VStack(alignment: .leading, spacing: 3) {
+                    HStack {
+                        Text("Invitati via Email (separati da virgola)").font(.system(size: 10, weight: .bold)).foregroundStyle(.secondary)
+                        Spacer()
+                        Button("Aggiungi iscritti corso") {
+                            addCourseStudentsEmails()
+                        }
+                        .font(.system(size: 9.5, weight: .bold))
+                        .buttonStyle(.plain)
+                        .foregroundStyle(.blue)
+                    }
+                    TextField("email1@gmail.com, email2@gmail.com...", text: $invitedEmailsStr)
+                        .textFieldStyle(.roundedBorder)
                 }
             }
             .padding(10)
-            .background(RoundedRectangle(cornerRadius: 10).fill(Color.blue.opacity(0.06)).overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Color.blue.opacity(0.22))))
+            .background(RoundedRectangle(cornerRadius: 10).fill(Color.blue.opacity(0.04)).overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Color.blue.opacity(0.18))))
 
             Divider()
 

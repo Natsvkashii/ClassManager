@@ -18,7 +18,7 @@ public enum AuthorAttribution {
     public static let authorName = "Guaira Jaramillo Nitoglia"
     public static let authorEmail = "guaira.jaramillo.nitoglia@gmail.com"
     public static let appName = "Class Management"
-    public static let appVersion = "26.10.4-011"
+    public static let appVersion = "26.10.4-012"
     public static let appChannel = "unstable"
     public static let licenseName = "GNU General Public License v3.0 (GPL-3.0)"
 
@@ -1590,6 +1590,12 @@ public struct AppState: Codable, Equatable {
     ]
 
     public static let defaultChangelog: [ChangelogEntry] = [
+        ChangelogEntry(version: "26.10.4-012", date: "2026-10-19", changes: [
+            "OAuth Google non-bloccante: risolto il blocco a caricamento infinito in caso di mancata autorizzazione o chiusura del browser, con timeout a 60 secondi, pulsante Annulla immediato e gestione chiara dell'errore.",
+            "Piano Lezioni migliorato: apertura diretta incentrata sul mese in corso, supporto a scorrimento esteso con caricamento dinamico di mesi precedenti/futuri e guide di trascinamento visibili solo durante il drag attivo.",
+            "Calendario Generale multi-vista: introdotte le modalità Giorno (griglia oraria 07:00–23:00 con affiancamento automatico side-by-side delle lezioni sovrapposte in stile Google Calendar), Settimana (7 colonne cronologiche pulite) e Mese.",
+            "Generazione nativa Google Meet: rimozione dell'inserimento manuale e generazione diretta della stanza virtuale tramite le API di Google Calendar con scheda di stato, copia rapida e avvio istantaneo."
+        ]),
         ChangelogEntry(version: "26.10.4-011", date: "2026-10-19", changes: [
             "Integrazione ufficiale con Google Calendar & Google Meet: sincronizzazione sicura delle lezioni e generazione automatica della stanza virtuale Meet.",
             "Persistenza del link Google Meet per modulo: tutte le lezioni dello stesso modulo condividono sempre la stessa stanza virtuale permanente.",

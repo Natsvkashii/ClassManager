@@ -1354,7 +1354,9 @@ public struct ModuleCalendarView: View {
 
     @State private var hoveredDayIso: String? = nil
     @State private var currentMonthScrollIndex: Int = 0
-    @State private var additionalMonths: Int = 0
+    @State private var pastMonthsOffset: Int = 12
+    @State private var additionalMonths: Int = 24
+    @State private var isDraggingActive: Bool = false
     @State private var isAutoScrollingDown: Bool = false
     @State private var isAutoScrollingUp: Bool = false
     @State private var autoScrollTimer: Timer? = nil
@@ -1391,7 +1393,7 @@ public struct ModuleCalendarView: View {
         }
 
         let posterWeeks = buildContinuousWeeks(course: course, module: mod, slots: slots)
-        let monthSections = buildMultiMonthSections(course: course, module: mod, slots: slots, additionalMonths: additionalMonths)
+        let monthSections = buildMultiMonthSections(course: course, module: mod, slots: slots, pastMonths: pastMonthsOffset, futureMonths: additionalMonths)
 
         return AnyView(
             VStack(alignment: .leading, spacing: 14) {
@@ -1453,7 +1455,7 @@ public struct ModuleCalendarView: View {
                     )
                 }
 
-                // Quick Month Navigation Strip
+                // Quick Month Navigation Strip (also acts as drag target to switch months)
                 if monthSections.count > 1 {
                     ScrollViewReader { pillScrollProxy in
                         ScrollView(.horizontal, showsIndicators: false) {
@@ -1486,6 +1488,11 @@ public struct ModuleCalendarView: View {
                                         )
                                     }
                                     .buttonStyle(.plain)
+                                    .dropDestination(for: String.self) { _, _ in false } isTargeted: { targeted in
+                                        if targeted {
+                                            currentMonthScrollIndex = idx
+                                        }
+                                    }
                                 }
                             }
                             .padding(.horizontal, 4)
@@ -1498,7 +1505,20 @@ public struct ModuleCalendarView: View {
                 ScrollViewReader { scrollProxy in
                     ZStack(alignment: .bottom) {
                         ScrollView {
-                            LazyVStack(spacing: 22) {
+                            VStack(spacing: 22) {
+                                // Load More Past Months Button
+                                Button {
+                                    pastMonthsOffset += 12
+                                } label: {
+                                    Label("Mostra altri mesi precedenti", systemImage: "clock.arrow.circlepath")
+                                        .font(.subheadline.bold())
+                                        .padding(.vertical, 6)
+                                }
+                                .buttonStyle(.bordered)
+                                .tint(pal.color)
+                                .padding(.top, 6)
+                                .padding(.bottom, 4)
+
                                 ForEach(Array(monthSections.enumerated()), id: \.element.id) { mIdx, section in
                                     VStack(alignment: .leading, spacing: 10) {
                                         // Month Header Banner
@@ -1689,6 +1709,7 @@ public struct ModuleCalendarView: View {
                                                             )
                                                             .shadow(color: isHovered ? pal.color.opacity(0.3) : Color.clear, radius: 4)
                                                             .dropDestination(for: String.self) { items, _ in
+                                                                isDraggingActive = false
                                                                 guard let draggedKey = items.first else { return false }
                                                                 return store.moveLesson(
                                                                     courseId: course.id,
@@ -1699,6 +1720,7 @@ public struct ModuleCalendarView: View {
                                                             } isTargeted: { targeted in
                                                                 if targeted {
                                                                     hoveredDayIso = day.iso
+                                                                    isDraggingActive = true
                                                                 } else if hoveredDayIso == day.iso {
                                                                     hoveredDayIso = nil
                                                                 }
@@ -1715,7 +1737,7 @@ public struct ModuleCalendarView: View {
 
                                 // Button to load more future months dynamically
                                 Button {
-                                    additionalMonths += 6
+                                    additionalMonths += 12
                                 } label: {
                                     Label(store.t("loadMoreMonthsBtn"), systemImage: "plus.circle")
                                         .font(.subheadline.bold())
@@ -1727,6 +1749,12 @@ public struct ModuleCalendarView: View {
                                 .padding(.bottom, 20)
                             }
                             .padding(14)
+                        }
+                        .dropDestination(for: String.self) { _, _ in
+                            isDraggingActive = false
+                            return false
+                        } isTargeted: { targeted in
+                            isDraggingActive = targeted
                         }
                         .onChange(of: currentMonthScrollIndex) { _, newIdx in
                             withAnimation(.easeInOut(duration: 0.3)) {
@@ -1740,96 +1768,111 @@ public struct ModuleCalendarView: View {
                             let curM = cal.component(.month, from: now)
                             if let idx = monthSections.firstIndex(where: { $0.year == curY && $0.month == curM }) {
                                 currentMonthScrollIndex = idx
-                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                                scrollProxy.scrollTo("month-\(idx)", anchor: .top)
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
                                     scrollProxy.scrollTo("month-\(idx)", anchor: .top)
                                 }
                             }
                         }
-
-                        // Top Auto-Scroll Sensor Bar (Triggered when user drags a lesson towards the upper zone)
-                        if currentMonthScrollIndex > 0 {
-                            VStack {
-                                HStack(spacing: 8) {
-                                    Image(systemName: "arrow.up.circle.fill")
-                                        .font(.system(size: 14, weight: .bold))
-                                    Text(isAutoScrollingUp ? "Scorrimento verso l'alto..." : store.t("dragScrollUpPrompt"))
-                                        .font(.caption.bold())
-                                    Image(systemName: "chevron.compact.up")
-                                        .font(.system(size: 14, weight: .bold))
-                                }
-                                .foregroundStyle(isAutoScrollingUp ? pal.color : Color.secondary)
-                                .padding(.horizontal, 16)
-                                .padding(.vertical, 8)
-                                .background(
-                                    Capsule()
-                                        .fill(.ultraThinMaterial)
-                                        .shadow(color: .black.opacity(0.12), radius: 6, y: 2)
-                                )
-                                .overlay(
-                                    Capsule()
-                                        .strokeBorder(isAutoScrollingUp ? pal.color : Color.secondary.opacity(0.2), lineWidth: 1.5)
-                                )
-                                .padding(.top, 6)
-                                .frame(maxWidth: .infinity)
-                                .frame(height: 48)
-                                .background(
-                                    LinearGradient(
-                                        colors: [Color(NSColor.windowBackgroundColor).opacity(0.92), Color.clear],
-                                        startPoint: .top,
-                                        endPoint: .bottom
-                                    )
-                                )
-                                .dropDestination(for: String.self) { _, _ in false } isTargeted: { targeted in
-                                    if targeted {
-                                        startAutoScroll(direction: -1, proxy: scrollProxy, totalMonths: monthSections.count)
-                                    } else {
-                                        stopAutoScroll()
-                                    }
-                                }
-                                Spacer()
+                        .task {
+                            let cal = Calendar.current
+                            let now = Date()
+                            let curY = cal.component(.year, from: now)
+                            let curM = cal.component(.month, from: now)
+                            if let idx = monthSections.firstIndex(where: { $0.year == curY && $0.month == curM }) {
+                                currentMonthScrollIndex = idx
+                                scrollProxy.scrollTo("month-\(idx)", anchor: .top)
                             }
-                            .transition(.opacity)
                         }
 
-                        // Bottom Auto-Scroll Sensor Bar (Triggered when user drags a lesson towards the lower zone)
-                        VStack {
-                            Spacer()
-                            HStack(spacing: 8) {
-                                Image(systemName: "arrow.down.circle.fill")
-                                    .font(.system(size: 14, weight: .bold))
-                                Text(isAutoScrollingDown ? "Scorrimento verso il basso..." : store.t("dragScrollDownPrompt"))
-                                    .font(.caption.bold())
-                                Image(systemName: "chevron.compact.down")
-                                    .font(.system(size: 14, weight: .bold))
-                            }
-                            .foregroundStyle(isAutoScrollingDown ? pal.color : Color.secondary)
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 8)
-                            .background(
-                                Capsule()
-                                    .fill(.ultraThinMaterial)
-                                    .shadow(color: .black.opacity(0.12), radius: 6, y: 2)
-                            )
-                            .overlay(
-                                Capsule()
-                                    .strokeBorder(isAutoScrollingDown ? pal.color : Color.secondary.opacity(0.2), lineWidth: 1.5)
-                            )
-                            .padding(.bottom, 6)
-                            .frame(maxWidth: .infinity)
-                            .frame(height: 52)
-                            .background(
-                                LinearGradient(
-                                    colors: [Color.clear, Color(NSColor.windowBackgroundColor).opacity(0.92)],
-                                    startPoint: .top,
-                                    endPoint: .bottom
-                                )
-                            )
-                            .dropDestination(for: String.self) { _, _ in false } isTargeted: { targeted in
-                                if targeted {
-                                    startAutoScroll(direction: 1, proxy: scrollProxy, totalMonths: monthSections.count)
-                                } else {
-                                    stopAutoScroll()
+                        // Top & Bottom Auto-Scroll Sensor Bars — ONLY displayed when actively dragging
+                        if isDraggingActive {
+                            if currentMonthScrollIndex > 0 {
+                                VStack {
+                                    HStack(spacing: 8) {
+                                        Image(systemName: "arrow.up.circle.fill")
+                                            .font(.system(size: 14, weight: .bold))
+                                        Text(isAutoScrollingUp ? "Mese precedente..." : store.t("dragScrollUpPrompt"))
+                                            .font(.caption.bold())
+                                        Image(systemName: "chevron.compact.up")
+                                            .font(.system(size: 14, weight: .bold))
+                                    }
+                                    .foregroundStyle(isAutoScrollingUp ? pal.color : Color.primary)
+                                    .padding(.horizontal, 16)
+                                    .padding(.vertical, 8)
+                                    .background(
+                                        Capsule()
+                                            .fill(.ultraThinMaterial)
+                                            .shadow(color: .black.opacity(0.18), radius: 8, y: 3)
+                                    )
+                                    .overlay(
+                                        Capsule()
+                                            .strokeBorder(pal.color, lineWidth: 1.5)
+                                    )
+                                    .padding(.top, 8)
+                                    .frame(maxWidth: .infinity)
+                                    .frame(height: 52)
+                                    .background(
+                                        LinearGradient(
+                                            colors: [Color(NSColor.windowBackgroundColor).opacity(0.95), Color.clear],
+                                            startPoint: .top,
+                                            endPoint: .bottom
+                                        )
+                                    )
+                                    .dropDestination(for: String.self) { _, _ in false } isTargeted: { targeted in
+                                        if targeted {
+                                            startAutoScroll(direction: -1, proxy: scrollProxy, totalMonths: monthSections.count)
+                                        } else {
+                                            stopAutoScroll()
+                                        }
+                                    }
+                                    Spacer()
                                 }
+                                .transition(.opacity)
+                            }
+
+                            if currentMonthScrollIndex < monthSections.count - 1 {
+                                VStack {
+                                    Spacer()
+                                    HStack(spacing: 8) {
+                                        Image(systemName: "arrow.down.circle.fill")
+                                            .font(.system(size: 14, weight: .bold))
+                                        Text(isAutoScrollingDown ? "Mese successivo..." : store.t("dragScrollDownPrompt"))
+                                            .font(.caption.bold())
+                                        Image(systemName: "chevron.compact.down")
+                                            .font(.system(size: 14, weight: .bold))
+                                    }
+                                    .foregroundStyle(isAutoScrollingDown ? pal.color : Color.primary)
+                                    .padding(.horizontal, 16)
+                                    .padding(.vertical, 8)
+                                    .background(
+                                        Capsule()
+                                            .fill(.ultraThinMaterial)
+                                            .shadow(color: .black.opacity(0.18), radius: 8, y: 3)
+                                    )
+                                    .overlay(
+                                        Capsule()
+                                            .strokeBorder(pal.color, lineWidth: 1.5)
+                                    )
+                                    .padding(.bottom, 8)
+                                    .frame(maxWidth: .infinity)
+                                    .frame(height: 56)
+                                    .background(
+                                        LinearGradient(
+                                            colors: [Color.clear, Color(NSColor.windowBackgroundColor).opacity(0.95)],
+                                            startPoint: .top,
+                                            endPoint: .bottom
+                                        )
+                                    )
+                                    .dropDestination(for: String.self) { _, _ in false } isTargeted: { targeted in
+                                        if targeted {
+                                            startAutoScroll(direction: 1, proxy: scrollProxy, totalMonths: monthSections.count)
+                                        } else {
+                                            stopAutoScroll()
+                                        }
+                                    }
+                                }
+                                .transition(.opacity)
                             }
                         }
                     }
@@ -1930,7 +1973,8 @@ public struct ModuleCalendarView: View {
         course: Course,
         module: CourseModule,
         slots: [String],
-        additionalMonths: Int
+        pastMonths: Int,
+        futureMonths: Int
     ) -> [CalendarMonthSection] {
         let df = DateFormatter()
         df.dateFormat = "yyyy-MM-dd"
@@ -1993,34 +2037,17 @@ public struct ModuleCalendarView: View {
             }
         }
 
-        // Earliest reference date: go back at least 2 months prior to today, or earliest lesson in any module
-        var refDate = cal.date(byAdding: .month, value: -2, to: today) ?? today
-        for lvl in course.levels {
-            for m in lvl.modules {
-                for dStr in m.dates.map({ store.extractDate(from: $0) }) {
-                    if let d = df.date(from: dStr), d < refDate {
-                        refDate = d
-                    }
-                }
-            }
-        }
-
-        let startYear = cal.component(.year, from: refDate)
-        let startMonth = cal.component(.month, from: refDate)
-        guard let startMonthDate = cal.date(from: DateComponents(year: startYear, month: startMonth, day: 1)) else {
+        let curYear = cal.component(.year, from: today)
+        let curMonth = cal.component(.month, from: today)
+        guard let currentMonthStart = cal.date(from: DateComponents(year: curYear, month: curMonth, day: 1)) else {
             return []
         }
 
-        var baseMonthsCount = 12
-        if let lastStr = slots.last.map({ store.extractDate(from: $0) }),
-           let lastDate = df.date(from: lastStr) {
-            let diff = cal.dateComponents([.month], from: startMonthDate, to: lastDate).month ?? 0
-            if diff + 4 > baseMonthsCount {
-                baseMonthsCount = diff + 4
-            }
+        guard let startMonthDate = cal.date(byAdding: .month, value: -pastMonths, to: currentMonthStart) else {
+            return []
         }
-        let totalMonths = max(1, baseMonthsCount + additionalMonths)
 
+        let totalMonths = pastMonths + 1 + futureMonths
         let startMon = store.state.settings.firstDayOfWeek != "sunday"
         var sections: [CalendarMonthSection] = []
 

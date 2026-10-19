@@ -16,7 +16,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Class Management v26.10.4-011 (Windows Native Edition)</title>
+    <title>Class Management v26.10.4-012 (Windows Native Edition)</title>
     <link rel="icon" type="image/png" href="logo.png">
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -66,7 +66,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
         }
         /* Dynamic Left Sidebar (Expanded vs Mini Icon-Only) */
         #appSidebar {
-            width: 17.5rem;
+            width: 19rem;
             transition: width 0.22s cubic-bezier(0.4, 0, 0.2, 1), transform 0.22s cubic-bezier(0.4, 0, 0.2, 1);
         }
         #appSidebar.sidebar-mini {
@@ -142,13 +142,13 @@ Removing, obfuscating, or altering these credits violates the author's attributi
         <aside id="appSidebar" class="fixed lg:sticky top-0 left-0 z-50 h-screen bg-white/95 dark:bg-navy-900/95 border-r border-sky-100 dark:border-slate-800 flex flex-col justify-between shrink-0 -translate-x-full lg:translate-x-0 select-none shadow-sm">
             <!-- Top Brand + Toggle (Single place where program name is shown) -->
             <div>
-                <div class="h-16 px-3.5 border-b border-sky-100 dark:border-slate-800 flex items-center justify-between gap-2 sidebar-brand-wrap">
-                    <div class="flex items-center gap-2.5 overflow-hidden flex-1 min-w-0">
+                <div class="h-16 px-3 border-b border-sky-100 dark:border-slate-800 flex items-center justify-between gap-1.5 sidebar-brand-wrap">
+                    <div class="flex items-center gap-2.5 flex-1 min-w-0">
                         <div id="sidebarBrandLogoBox" class="w-9 h-9 flex items-center justify-center shrink-0">
                             <img src="logo.png" alt="Class Management" class="w-8 h-8 object-contain">
                         </div>
                         <div class="sidebar-text min-w-0 flex-1">
-                            <h2 id="sidebarBrandTitle" class="text-sm font-extrabold text-slate-900 dark:text-white leading-tight whitespace-nowrap">Class Management</h2>
+                            <h2 id="sidebarBrandTitle" class="text-sm font-extrabold text-slate-900 dark:text-white leading-tight whitespace-nowrap overflow-visible">Class Management</h2>
                             <p id="sidebarBrandCreator" class="text-[9.5px] font-semibold text-slate-400 dark:text-slate-400 truncate" title="Guaira Jaramillo Nitoglia"></p>
                         </div>
                     </div>
@@ -1099,12 +1099,22 @@ Removing, obfuscating, or altering these credits violates the author's attributi
         ];
 
         const INITIAL_DATA = {
-            version: "26.10.4-011",
+            version: "26.10.4-012",
             channel: "unstable",
             deletedItems: [],
             lastUpdated: new Date().toISOString(),
             activeCourseId: "",
             changelog: [
+                {
+                    version: "26.10.4-012",
+                    date: "2026-10-19",
+                    changes: [
+                        "OAuth Google non-bloccante: risolto il blocco a caricamento infinito in caso di mancata autorizzazione o chiusura del browser, con timeout a 60 secondi, pulsante Annulla immediato e gestione chiara dell'errore.",
+                        "Piano Lezioni migliorato: apertura diretta incentrata sul mese in corso, supporto a scorrimento esteso con caricamento dinamico di mesi precedenti/futuri e guide di trascinamento visibili solo durante il drag attivo.",
+                        "Calendario Generale multi-vista: introdotte le modalità Giorno (griglia oraria 07:00–23:00 con affiancamento automatico side-by-side delle lezioni sovrapposte in stile Google Calendar), Settimana (7 colonne cronologiche pulite) e Mese.",
+                        "Generazione nativa Google Meet: rimozione dell'inserimento manuale e generazione diretta della stanza virtuale tramite le API di Google Calendar con scheda di stato, copia rapida e avvio istantaneo."
+                    ]
+                },
                 {
                     version: "26.10.4-011",
                     date: "2026-10-19",
@@ -4687,17 +4697,27 @@ Removing, obfuscating, or altering these credits violates the author's attributi
             // ==============================================================================
             handleLessonDragStart(e, slotKey) {
                 this.draggedSlotKey = slotKey;
+                this.isDraggingLesson = true;
                 e.dataTransfer.setData("text/plain", slotKey);
                 e.dataTransfer.effectAllowed = "move";
                 if (e.currentTarget) e.currentTarget.classList.add("opacity-40");
+                document.querySelectorAll(".calendar-drag-sensor").forEach(el => {
+                    el.classList.remove("hidden");
+                    el.classList.add("flex");
+                });
             }
 
             handleLessonDragEnd(e) {
                 this.draggedSlotKey = null;
+                this.isDraggingLesson = false;
                 this.stopAutoScroll();
                 if (e.currentTarget) e.currentTarget.classList.remove("opacity-40");
                 document.querySelectorAll(".calendar-day-cell").forEach(el => {
                     el.classList.remove("bg-sky-100", "dark:bg-sky-950/60", "border-sky-500");
+                });
+                document.querySelectorAll(".calendar-drag-sensor").forEach(el => {
+                    el.classList.add("hidden");
+                    el.classList.remove("flex");
                 });
             }
 
@@ -4720,6 +4740,11 @@ Removing, obfuscating, or altering these credits violates the author's attributi
             handleDayDrop(e, newDateStr) {
                 e.preventDefault();
                 this.stopAutoScroll();
+                this.isDraggingLesson = false;
+                document.querySelectorAll(".calendar-drag-sensor").forEach(el => {
+                    el.classList.add("hidden");
+                    el.classList.remove("flex");
+                });
                 const slotKey = this.draggedSlotKey || e.dataTransfer.getData("text/plain");
                 this.draggedSlotKey = null;
                 document.querySelectorAll(".calendar-day-cell").forEach(el => {
@@ -4733,8 +4758,9 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 const scrollEl = document.getElementById("calendarScrollContainer");
                 if (!scrollEl) return;
                 if (this.autoScrollTimer) clearInterval(this.autoScrollTimer);
+                scrollEl.scrollTop -= 35;
                 this.autoScrollTimer = setInterval(() => {
-                    scrollEl.scrollTop -= 20;
+                    scrollEl.scrollTop -= 30;
                 }, 40);
             }
 
@@ -4742,8 +4768,9 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 const scrollEl = document.getElementById("calendarScrollContainer");
                 if (!scrollEl) return;
                 if (this.autoScrollTimer) clearInterval(this.autoScrollTimer);
+                scrollEl.scrollTop += 35;
                 this.autoScrollTimer = setInterval(() => {
-                    scrollEl.scrollTop += 20;
+                    scrollEl.scrollTop += 30;
                 }, 40);
             }
 
@@ -5287,9 +5314,9 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                             </div>
                         </div>
 
-                        <!-- Top Auto-Scroll Sensor -->
-                        <div ondragover="app.startAutoScrollUp()" ondragleave="app.stopAutoScroll()" class="h-6 rounded-xl bg-gradient-to-b from-sky-100/50 dark:from-sky-950/40 to-transparent flex items-center justify-center text-[10px] text-sky-600 font-bold opacity-0 hover:opacity-100 transition cursor-ns-resize">
-                            <i class="fa-solid fa-chevron-up mr-1"></i> Trascina qui per scorrere verso l'alto
+                        <!-- Top Auto-Scroll Sensor (Displayed ONLY while actively dragging) -->
+                        <div ondragover="app.startAutoScrollUp()" ondragleave="app.stopAutoScroll()" class="calendar-drag-sensor ${this.isDraggingLesson ? 'flex' : 'hidden'} h-7 rounded-xl bg-gradient-to-b from-sky-200/60 dark:from-sky-900/60 to-transparent items-center justify-center text-[11px] text-sky-700 dark:text-sky-300 font-extrabold transition cursor-ns-resize border border-sky-300/40 shadow-xs">
+                            <i class="fa-solid fa-chevron-up mr-1.5 animate-bounce"></i> Trascina qui per scorrere al mese precedente
                         </div>
 
                         <!-- Multi-Month Scroll View -->
@@ -5400,35 +5427,24 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                             </div>
                         </div>
 
-                        <!-- Bottom Auto-Scroll Sensor -->
-                        <div ondragover="app.startAutoScrollDown()" ondragleave="app.stopAutoScroll()" class="h-6 rounded-xl bg-gradient-to-t from-sky-100/50 dark:from-sky-950/40 to-transparent flex items-center justify-center text-[10px] text-sky-600 font-bold opacity-0 hover:opacity-100 transition cursor-ns-resize">
-                            <i class="fa-solid fa-chevron-down mr-1"></i> Trascina qui per scorrere verso il basso
+                        <!-- Bottom Auto-Scroll Sensor (Displayed ONLY while actively dragging) -->
+                        <div ondragover="app.startAutoScrollDown()" ondragleave="app.stopAutoScroll()" class="calendar-drag-sensor ${this.isDraggingLesson ? 'flex' : 'hidden'} h-7 rounded-xl bg-gradient-to-t from-sky-200/60 dark:from-sky-900/60 to-transparent items-center justify-center text-[11px] text-sky-700 dark:text-sky-300 font-extrabold transition cursor-ns-resize border border-sky-300/40 shadow-xs">
+                            <i class="fa-solid fa-chevron-down mr-1.5 animate-bounce"></i> Trascina qui per scorrere al mese successivo
                         </div>
                     </div>
                 `;
 
-                if (savedScrollTop !== null && savedScrollTop > 0) {
-                    const newEl = document.getElementById("calendarScrollContainer");
-                    if (newEl) newEl.scrollTop = savedScrollTop;
-                    if (savedWinScroll > 0) window.scrollTo({ top: savedWinScroll, behavior: "instant" });
-                    requestAnimationFrame(() => {
-                        const el = document.getElementById("calendarScrollContainer");
-                        if (el) el.scrollTop = savedScrollTop;
-                        if (savedWinScroll > 0) window.scrollTo({ top: savedWinScroll, behavior: "instant" });
-                    });
-                } else {
-                    const curMonthId = `month-${nowY}-${nowM}`;
-                    const scrollToCurrent = () => {
-                        const curMonthEl = document.getElementById(curMonthId);
-                        const scrollCont = document.getElementById("calendarScrollContainer");
-                        if (curMonthEl && scrollCont) {
-                            scrollCont.scrollTop = curMonthEl.offsetTop - scrollCont.offsetTop - 10;
-                        }
-                    };
-                    scrollToCurrent();
-                    requestAnimationFrame(scrollToCurrent);
-                    setTimeout(scrollToCurrent, 30);
-                }
+                const curMonthId = `month-${nowY}-${nowM}`;
+                const scrollToCurrent = () => {
+                    const curMonthEl = document.getElementById(curMonthId);
+                    const scrollCont = document.getElementById("calendarScrollContainer");
+                    if (curMonthEl && scrollCont) {
+                        scrollCont.scrollTop = curMonthEl.offsetTop - scrollCont.offsetTop - 10;
+                    }
+                };
+                scrollToCurrent();
+                requestAnimationFrame(scrollToCurrent);
+                setTimeout(scrollToCurrent, 40);
             }
 
             copyModuleScheduleText() {
@@ -5592,8 +5608,137 @@ Removing, obfuscating, or altering these credits violates the author's attributi
             }
 
             /**
-             * Global Calendar View (Day, Week, Month, Year + Course Colors + Conflict Detection)
+             * Global Calendar View (Day, Week, Month + Course Colors + Conflict Detection + Google Calendar Layout)
              */
+            renderCalEventCard(ev, compact = false) {
+                if (ev.isGoogleEvent) {
+                    return `
+                        <button onclick="if(window.electronAPI){window.electronAPI.openExternal('${this.escapeHtml(ev.hangoutLink || ev.htmlLink || 'https://calendar.google.com')}');}else{window.open('${this.escapeHtml(ev.hangoutLink || ev.htmlLink || 'https://calendar.google.com')}','_blank');}"
+                            class="w-full h-full text-left p-1.5 rounded-lg text-white font-bold transition hover:opacity-95 shadow-2xs flex flex-col justify-between overflow-hidden"
+                            style="background-color:#2563eb;" title="Evento Google Calendar personale: ${this.escapeHtml(ev.title)}">
+                            <div class="flex items-center justify-between gap-1 w-full min-w-0">
+                                <span class="truncate text-[10px] flex items-center gap-1 font-extrabold"><i class="fa-brands fa-google text-[9px] shrink-0"></i> <span class="truncate">${this.escapeHtml(ev.title)}</span></span>
+                                ${ev.hangoutLink ? `<i class="fa-solid fa-video text-emerald-200 text-[9px] shrink-0" title="Link Meet disponibile"></i>` : ''}
+                            </div>
+                            ${!compact ? `<div class="text-[9px] opacity-90 truncate">${this.formatTimeDisplay(ev.time)} - ${this.formatTimeDisplay(ev.endTime)}</div>` : ''}
+                        </button>
+                    `;
+                }
+                return `
+                    <button onclick="app.openLessonPlanModal('${ev.courseId}', '${ev.sectionId}', '${ev.slotKey}')"
+                        class="w-full h-full text-left p-1.5 rounded-lg text-white font-bold transition hover:opacity-95 flex flex-col justify-between overflow-hidden shadow-2xs"
+                        style="background-color:${ev.pal.hex}" title="${this.escapeHtml(ev.courseName)}${ev.title ? ' — ' + this.escapeHtml(ev.title) : ''}">
+                        <div class="flex items-center justify-between gap-1 w-full min-w-0">
+                            <span class="truncate text-[10.5px] font-extrabold">${this.escapeHtml(ev.courseName)}</span>
+                            ${ev.conflict ? `<i class="fa-solid fa-triangle-exclamation text-amber-200 text-[10px] shrink-0" title="${this.t("timeConflictWarning")}"></i>` : ''}
+                        </div>
+                        ${!compact ? `
+                            <div class="text-[9.5px] opacity-90 truncate">${ev.title ? this.escapeHtml(ev.title) + ' • ' : ''}${this.formatTimeDisplay(ev.time)} - ${this.formatTimeDisplay(ev.endTime)}</div>
+                        ` : `
+                            <div class="text-[8.5px] opacity-80 truncate">${this.formatTimeDisplay(ev.time)}</div>
+                        `}
+                    </button>
+                `;
+            }
+
+            calculateSideBySideLayout(events) {
+                if (!events || !events.length) return [];
+                const parseMin = (tStr) => {
+                    if (!tStr) return 9 * 60;
+                    const p = tStr.split(":").map(Number);
+                    if (p.length >= 2 && !isNaN(p[0]) && !isNaN(p[1])) return p[0] * 60 + p[1];
+                    return 9 * 60;
+                };
+
+                const items = events.map(ev => {
+                    const s = parseMin(ev.time);
+                    const e = Math.max(s + 30, parseMin(ev.endTime));
+                    return { event: ev, start: s, end: e };
+                }).sort((a, b) => a.start !== b.start ? a.start - b.start : b.end - a.end);
+
+                const clusters = [];
+                let curCluster = [];
+                let clusterMaxEnd = -1;
+
+                for (const it of items) {
+                    if (!curCluster.length) {
+                        curCluster.push(it);
+                        clusterMaxEnd = it.end;
+                    } else {
+                        if (it.start < clusterMaxEnd) {
+                            curCluster.push(it);
+                            clusterMaxEnd = Math.max(clusterMaxEnd, it.end);
+                        } else {
+                            clusters.push(curCluster);
+                            curCluster = [it];
+                            clusterMaxEnd = it.end;
+                        }
+                    }
+                }
+                if (curCluster.length) clusters.push(curCluster);
+
+                const result = [];
+                for (const cluster of clusters) {
+                    const colEndTimes = [];
+                    const placedInCluster = [];
+                    for (const it of cluster) {
+                        let assignedCol = -1;
+                        for (let cIdx = 0; cIdx < colEndTimes.length; cIdx++) {
+                            if (colEndTimes[cIdx] <= it.start) {
+                                assignedCol = cIdx;
+                                colEndTimes[cIdx] = it.end;
+                                break;
+                            }
+                        }
+                        if (assignedCol === -1) {
+                            assignedCol = colEndTimes.length;
+                            colEndTimes.push(it.end);
+                        }
+                        placedInCluster.push({ ...it, col: assignedCol });
+                    }
+                    const totalCols = Math.max(1, colEndTimes.length);
+                    for (const it of placedInCluster) {
+                        result.push({
+                            event: it.event,
+                            startMin: it.start,
+                            endMin: it.end,
+                            colIndex: it.col,
+                            totalCols: totalCols
+                        });
+                    }
+                }
+                return result;
+            }
+
+            getCalendarHeaderTitle() {
+                const months = this.t("months");
+                const year = this.calendarCursor.getFullYear();
+                const month = this.calendarCursor.getMonth();
+
+                if (this.calendarViewMode === "day") {
+                    const daysLong = ["Domenica", "Lunedì", "Martedì", "Mercoledì", "Giovedì", "Venerdì", "Sabato"];
+                    const dayName = daysLong[this.calendarCursor.getDay()];
+                    return `${dayName} ${this.calendarCursor.getDate()} ${months[month]} ${year}`;
+                }
+
+                if (this.calendarViewMode === "week") {
+                    const startFirstDayMon = (this.state?.settings?.firstDayOfWeek || "monday") === "monday";
+                    const cur = new Date(this.calendarCursor);
+                    const dow = cur.getDay();
+                    const offset = startFirstDayMon ? (dow === 0 ? -6 : 1 - dow) : -dow;
+                    const weekStart = new Date(cur.getFullYear(), cur.getMonth(), cur.getDate() + offset);
+                    const weekEnd = new Date(weekStart.getFullYear(), weekStart.getMonth(), weekStart.getDate() + 6);
+                    const sMonth = months[weekStart.getMonth()];
+                    const eMonth = months[weekEnd.getMonth()];
+                    if (weekStart.getMonth() === weekEnd.getMonth()) {
+                        return `${weekStart.getDate()} – ${weekEnd.getDate()} ${eMonth} ${weekEnd.getFullYear()}`;
+                    }
+                    return `${weekStart.getDate()} ${sMonth} – ${weekEnd.getDate()} ${eMonth} ${weekEnd.getFullYear()}`;
+                }
+
+                return `${months[month]} ${year}`;
+            }
+
             renderCalendarView(container) {
                 const activeCourses = (this.state.courses || []).filter(c => !c.archived);
                 const months = this.t("months");
@@ -5623,6 +5768,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                                     time: sTime,
                                     endTime: eTime,
                                     title: les?.title || "",
+                                    isAllDay: false,
                                     pal
                                 });
                             });
@@ -5636,6 +5782,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                         const sStr = gev.start?.dateTime || gev.start?.date;
                         if (!sStr) return;
                         const dStr = sStr.substring(0, 10);
+                        const isAllDay = !gev.start?.dateTime && !!gev.start?.date;
                         let sTime = "09:00";
                         let eTime = "10:00";
                         if (gev.start?.dateTime && gev.start.dateTime.length >= 16) {
@@ -5651,6 +5798,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                             title: gev.summary || "(Senza titolo)",
                             time: sTime,
                             endTime: eTime,
+                            isAllDay,
                             hangoutLink: gev.hangoutLink || "",
                             htmlLink: gev.htmlLink || "",
                             pal: { hex: "#2563eb" }
@@ -5670,12 +5818,18 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                     }
                 });
 
+                const curMode = this.calendarViewMode || "month";
+                const headerTitle = this.getCalendarHeaderTitle();
+
+                // Compute month cells if in month mode
                 const year = this.calendarCursor.getFullYear();
                 const month = this.calendarCursor.getMonth();
                 const firstOfMonth = new Date(year, month, 1);
                 const firstDow = firstOfMonth.getDay();
-                const offset = startFirstDayMon ? (firstDow === 0 ? -6 : 1 - firstDow) : -firstDow;
-                const gridStart = new Date(year, month, 1 + offset);
+                const offset = startFirstDayMon ? (firstDow === 0 ? -6 : 1 - dowSafe(firstDow)) : -firstDow;
+                function dowSafe(d) { return d === 0 ? 7 : d; }
+                const monthOffset = startFirstDayMon ? (firstDow === 0 ? -6 : 1 - firstDow) : -firstDow;
+                const gridStart = new Date(year, month, 1 + monthOffset);
 
                 const cells = [];
                 for (let i = 0; i < 42; i++) {
@@ -5690,17 +5844,26 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                     });
                 }
 
+                // Render main container with Toolbar & Selected Mode Content
                 container.innerHTML = `
                     <div class="space-y-4">
+                        <!-- Calendar Toolbar -->
                         <div class="bg-white dark:bg-navy-900 rounded-2xl border border-sky-100 dark:border-slate-800 p-3.5 shadow-xs flex flex-wrap items-center justify-between gap-3 text-xs">
                             <div class="flex items-center gap-2">
-                                <button onclick="app.navigateCalendar(-1)" class="w-8 h-8 rounded-xl border border-sky-200 dark:border-slate-700 flex items-center justify-center"><i class="fa-solid fa-chevron-left"></i></button>
-                                <button onclick="app.calendarCursor = new Date(); app.renderMainView();" class="px-3 py-1.5 rounded-xl border border-sky-200 dark:border-slate-700 font-bold">${this.t("todayBtn")}</button>
-                                <button onclick="app.navigateCalendar(1)" class="w-8 h-8 rounded-xl border border-sky-200 dark:border-slate-700 flex items-center justify-center"><i class="fa-solid fa-chevron-right"></i></button>
-                                <h3 class="text-sm sm:text-base font-extrabold text-slate-900 dark:text-white ml-2">${months[month]} ${year}</h3>
+                                <button onclick="app.navigateCalendar(-1)" class="w-8 h-8 rounded-xl border border-sky-200 dark:border-slate-700 flex items-center justify-center hover:bg-sky-50 dark:hover:bg-navy-800 transition"><i class="fa-solid fa-chevron-left"></i></button>
+                                <button onclick="app.calendarCursor = new Date(); app.renderMainView();" class="px-3 py-1.5 rounded-xl border border-sky-200 dark:border-slate-700 font-bold hover:bg-sky-50 dark:hover:bg-navy-800 transition">${this.t("todayBtn")}</button>
+                                <button onclick="app.navigateCalendar(1)" class="w-8 h-8 rounded-xl border border-sky-200 dark:border-slate-700 flex items-center justify-center hover:bg-sky-50 dark:hover:bg-navy-800 transition"><i class="fa-solid fa-chevron-right"></i></button>
+                                <h3 class="text-sm sm:text-base font-extrabold text-slate-900 dark:text-white ml-2">${headerTitle}</h3>
                             </div>
 
                             <div class="flex flex-wrap items-center gap-2">
+                                <!-- View Mode Selector (Giorno, Settimana, Mese) -->
+                                <div class="inline-flex rounded-xl p-0.5 bg-sky-100/70 dark:bg-navy-800 border border-sky-200 dark:border-slate-700">
+                                    <button type="button" onclick="app.calendarViewMode = 'day'; app.renderMainView();" class="px-3 py-1 rounded-lg font-bold text-xs transition ${curMode === 'day' ? 'bg-white dark:bg-navy-900 text-sky-600 dark:text-sky-300 shadow-xs' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'}">Giorno</button>
+                                    <button type="button" onclick="app.calendarViewMode = 'week'; app.renderMainView();" class="px-3 py-1 rounded-lg font-bold text-xs transition ${curMode === 'week' ? 'bg-white dark:bg-navy-900 text-sky-600 dark:text-sky-300 shadow-xs' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'}">Settimana</button>
+                                    <button type="button" onclick="app.calendarViewMode = 'month'; app.renderMainView();" class="px-3 py-1 rounded-lg font-bold text-xs transition ${curMode === 'month' ? 'bg-white dark:bg-navy-900 text-sky-600 dark:text-sky-300 shadow-xs' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'}">Mese</button>
+                                </div>
+
                                 ${this.state?.settings?.googleCalendarConnected ? `
                                     <button onclick="app.refreshGoogleCalendarEvents(true)" class="px-2.5 py-1.5 rounded-xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300 font-bold flex items-center gap-1.5 text-xs hover:bg-blue-100 dark:hover:bg-blue-900/50 transition" title="Sincronizza eventi Google Calendar">
                                         <i class="fa-brands fa-google text-blue-600"></i>
@@ -5721,41 +5884,155 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                             </div>
                         </div>
 
+                        <!-- Calendar Body Content -->
+                        ${curMode === "day" ? this.buildCalendarDayView(allEventsByDate) : (curMode === "week" ? this.buildCalendarWeekView(allEventsByDate, dayHeaders, startFirstDayMon) : this.buildCalendarMonthView(cells, dayHeaders))}
+                    </div>
+                `;
+            }
+
+            buildCalendarDayView(allEventsByDate) {
+                const cur = new Date(this.calendarCursor);
+                const curIso = `${cur.getFullYear()}-${String(cur.getMonth() + 1).padStart(2, "0")}-${String(cur.getDate()).padStart(2, "0")}`;
+                const now = new Date();
+                const todayIso = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+                const isToday = curIso === todayIso;
+
+                const dayEvents = allEventsByDate[curIso] || [];
+                const allDayEvents = dayEvents.filter(e => e.isAllDay);
+                const timedEvents = dayEvents.filter(e => !e.isAllDay);
+
+                const startGridHour = 7;
+                const endGridHour = 23;
+                const totalHours = endGridHour - startGridHour; // 16 hours
+                const hourHeight = 64; // px per hour
+                const totalHeight = totalHours * hourHeight;
+
+                const placedTimedEvents = this.calculateSideBySideLayout(timedEvents);
+
+                let redLineHtml = "";
+                if (isToday) {
+                    const curMin = now.getHours() * 60 + now.getMinutes();
+                    if (curMin >= startGridHour * 60 && curMin <= endGridHour * 60) {
+                        const curY = (curMin - startGridHour * 60) * (hourHeight / 60);
+                        redLineHtml = `
+                            <div class="absolute left-14 right-2 flex items-center z-20 pointer-events-none" style="top: ${curY}px;">
+                                <span class="w-2.5 h-2.5 rounded-full bg-rose-500 -ml-1.5 shadow-xs"></span>
+                                <div class="flex-1 h-[2px] bg-rose-500 shadow-xs"></div>
+                            </div>
+                        `;
+                    }
+                }
+
+                return `
+                    <div class="space-y-4">
+                        ${allDayEvents.length > 0 ? `
+                            <div class="p-3 rounded-2xl bg-white dark:bg-navy-900 border border-sky-100 dark:border-slate-800 space-y-2 shadow-xs">
+                                <div class="text-[11px] font-extrabold uppercase text-slate-400">Tutto il giorno</div>
+                                <div class="flex flex-wrap gap-2">
+                                    ${allDayEvents.map(ev => `<div class="w-64 h-10">${this.renderCalEventCard(ev, true)}</div>`).join("")}
+                                </div>
+                            </div>
+                        ` : ''}
+
                         <div class="bg-white dark:bg-navy-900 rounded-2xl border border-sky-100 dark:border-slate-800 p-4 shadow-xs overflow-x-auto custom-scrollbar">
-                            <div class="min-w-[720px] space-y-2">
-                                <div class="grid grid-cols-7 gap-2 text-center text-[11px] font-extrabold uppercase text-slate-400">
-                                    ${dayHeaders.map(h => `<div>${this.escapeHtml(h)}</div>`).join("")}
-                                </div>
-                                <div class="grid grid-cols-7 gap-2">
-                                    ${cells.map(cell => `
-                                        <div class="min-h-[100px] p-2 rounded-xl border ${cell.inMonth ? 'bg-white dark:bg-navy-900 border-sky-100 dark:border-slate-800' : 'bg-slate-50/50 dark:bg-navy-950/40 border-slate-100 dark:border-slate-800/50 opacity-50'} flex flex-col justify-between">
-                                            <div class="text-[11px] font-extrabold text-slate-600 dark:text-slate-300">${cell.dayNum}</div>
-                                            <div class="space-y-1 mt-1">
-                                                ${cell.events.map(ev => ev.isGoogleEvent ? `
-                                                    <button onclick="if(window.electronAPI){window.electronAPI.openExternal('${this.escapeHtml(ev.hangoutLink || ev.htmlLink || 'https://calendar.google.com')}');}else{window.open('${this.escapeHtml(ev.hangoutLink || ev.htmlLink || 'https://calendar.google.com')}','_blank');}"
-                                                        class="w-full text-left p-1.5 rounded-lg text-white text-[10px] font-bold transition hover:opacity-95 shadow-2xs"
-                                                        style="background-color:#2563eb;" title="Evento Google Calendar personale">
-                                                        <div class="flex items-center justify-between gap-1">
-                                                            <span class="truncate flex items-center gap-1"><i class="fa-brands fa-google text-[9px]"></i> ${this.escapeHtml(ev.title)}</span>
-                                                            ${ev.hangoutLink ? `<i class="fa-solid fa-video text-emerald-200 text-[9px]" title="Link Meet disponibile"></i>` : ''}
-                                                        </div>
-                                                        <div class="text-[9px] opacity-90">${this.formatTimeDisplay(ev.time)}-${this.formatTimeDisplay(ev.endTime)}</div>
-                                                    </button>
-                                                ` : `
-                                                    <button onclick="app.openLessonPlanModal('${ev.courseId}', '${ev.sectionId}', '${ev.slotKey}')"
-                                                        class="w-full text-left p-1.5 rounded-lg text-white text-[10px] font-bold transition hover:opacity-95"
-                                                        style="background-color:${ev.pal.hex}">
-                                                        <div class="flex items-center justify-between gap-1">
-                                                            <span class="truncate">${this.escapeHtml(ev.courseName)}</span>
-                                                            ${ev.conflict ? `<i class="fa-solid fa-triangle-exclamation text-amber-200" title="${this.t("timeConflictWarning")}"></i>` : ''}
-                                                        </div>
-                                                        <div class="text-[9px] opacity-90">${this.formatTimeDisplay(ev.time)}-${this.formatTimeDisplay(ev.endTime)}</div>
-                                                    </button>
-                                                `).join("")}
-                                            </div>
+                            <div class="min-w-[620px] relative" style="height: ${totalHeight + 40}px;">
+                                <!-- Hour lines & labels -->
+                                ${Array.from({ length: totalHours + 1 }, (_, i) => {
+                                    const h = startGridHour + i;
+                                    const topPos = i * hourHeight;
+                                    return `
+                                        <div class="absolute left-0 right-0 flex items-center gap-3 text-slate-400 font-mono text-[11px]" style="top: ${topPos}px;">
+                                            <span class="w-12 text-right font-semibold select-none shrink-0">${String(h).padStart(2, "0")}:00</span>
+                                            <div class="flex-1 h-[1px] bg-slate-100 dark:bg-slate-800"></div>
                                         </div>
-                                    `).join("")}
+                                    `;
+                                }).join("")}
+
+                                <!-- Placed Overlapping Events Canvas -->
+                                <div class="absolute top-0 bottom-0 left-16 right-2 pointer-events-auto">
+                                    ${placedTimedEvents.map(placed => {
+                                        const sMin = Math.max(startGridHour * 60, placed.startMin);
+                                        const eMin = Math.min(endGridHour * 60, placed.endMin);
+                                        const topY = (sMin - startGridHour * 60) * (hourHeight / 60);
+                                        const durHeight = Math.max(34, (eMin - sMin) * (hourHeight / 60));
+                                        const widthPercent = 100 / placed.totalCols;
+                                        const leftPercent = placed.colIndex * widthPercent;
+                                        return `
+                                            <div class="absolute z-10" style="top: ${topY}px; height: ${durHeight}px; left: calc(${leftPercent}% + 2px); width: calc(${widthPercent}% - 4px);">
+                                                ${this.renderCalEventCard(placed.event, durHeight < 55)}
+                                            </div>
+                                        `;
+                                    }).join("")}
                                 </div>
+
+                                <!-- Current Time Indicator -->
+                                ${redLineHtml}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            buildCalendarWeekView(allEventsByDate, dayHeaders, startFirstDayMon) {
+                const cur = new Date(this.calendarCursor);
+                const dow = cur.getDay();
+                const offset = startFirstDayMon ? (dow === 0 ? -6 : 1 - dow) : -dow;
+                const weekStart = new Date(cur.getFullYear(), cur.getMonth(), cur.getDate() + offset);
+                const now = new Date();
+                const todayIso = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+
+                return `
+                    <div class="bg-white dark:bg-navy-900 rounded-2xl border border-sky-100 dark:border-slate-800 p-4 shadow-xs overflow-x-auto custom-scrollbar">
+                        <div class="grid grid-cols-7 gap-2.5 min-w-[760px] items-stretch">
+                            ${Array.from({ length: 7 }, (_, dIdx) => {
+                                const d = new Date(weekStart.getFullYear(), weekStart.getMonth(), weekStart.getDate() + dIdx);
+                                const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+                                const isToday = iso === todayIso;
+                                const dayEvents = allEventsByDate[iso] || [];
+                                return `
+                                    <div class="flex flex-col min-h-[340px] rounded-xl border ${isToday ? 'border-blue-400 dark:border-blue-500 bg-blue-50/20 dark:bg-blue-950/20' : 'border-sky-100 dark:border-slate-800 bg-slate-50/40 dark:bg-navy-950/30'} p-2.5">
+                                        <div class="flex items-center justify-between pb-2 border-b border-sky-100/70 dark:border-slate-800 mb-2">
+                                            <div>
+                                                <div class="text-[10px] font-extrabold uppercase text-slate-400">${dayHeaders[dIdx]}</div>
+                                                <div class="text-xs font-black ${isToday ? 'text-blue-600 dark:text-blue-400' : 'text-slate-800 dark:text-slate-200'}">${d.getDate()}</div>
+                                            </div>
+                                            ${dayEvents.length > 0 ? `
+                                                <span class="px-1.5 py-0.5 rounded-full bg-slate-200/80 dark:bg-slate-700 font-extrabold text-[9.5px] text-slate-600 dark:text-slate-300">${dayEvents.length}</span>
+                                            ` : ''}
+                                        </div>
+                                        <div class="flex-1 space-y-1.5 overflow-y-auto max-h-[580px] custom-scrollbar pr-0.5">
+                                            ${dayEvents.length === 0 ? `
+                                                <div class="h-full flex items-center justify-center text-[10.5px] text-slate-300 dark:text-slate-600 italic py-12 text-center">Nessuna lezione</div>
+                                            ` : dayEvents.map(ev => `
+                                                <div class="min-h-[46px]">
+                                                    ${this.renderCalEventCard(ev, false)}
+                                                </div>
+                                            `).join("")}
+                                        </div>
+                                    </div>
+                                `;
+                            }).join("")}
+                        </div>
+                    </div>
+                `;
+            }
+
+            buildCalendarMonthView(cells, dayHeaders) {
+                return `
+                    <div class="bg-white dark:bg-navy-900 rounded-2xl border border-sky-100 dark:border-slate-800 p-4 shadow-xs overflow-x-auto custom-scrollbar">
+                        <div class="min-w-[720px] space-y-2">
+                            <div class="grid grid-cols-7 gap-2 text-center text-[11px] font-extrabold uppercase text-slate-400">
+                                ${dayHeaders.map(h => `<div>${this.escapeHtml(h)}</div>`).join("")}
+                            </div>
+                            <div class="grid grid-cols-7 gap-2">
+                                ${cells.map(cell => `
+                                    <div class="min-h-[100px] p-2 rounded-xl border ${cell.inMonth ? 'bg-white dark:bg-navy-900 border-sky-100 dark:border-slate-800' : 'bg-slate-50/50 dark:bg-navy-950/40 border-slate-100 dark:border-slate-800/50 opacity-50'} flex flex-col justify-between">
+                                        <div class="text-[11px] font-extrabold text-slate-600 dark:text-slate-300">${cell.dayNum}</div>
+                                        <div class="space-y-1 mt-1">
+                                            ${cell.events.map(ev => this.renderCalEventCard(ev, false)).join("")}
+                                        </div>
+                                    </div>
+                                `).join("")}
                             </div>
                         </div>
                     </div>
@@ -5763,7 +6040,13 @@ Removing, obfuscating, or altering these credits violates the author's attributi
             }
 
             navigateCalendar(delta) {
-                this.calendarCursor.setMonth(this.calendarCursor.getMonth() + delta);
+                if (this.calendarViewMode === "day") {
+                    this.calendarCursor.setDate(this.calendarCursor.getDate() + delta);
+                } else if (this.calendarViewMode === "week") {
+                    this.calendarCursor.setDate(this.calendarCursor.getDate() + delta * 7);
+                } else {
+                    this.calendarCursor.setMonth(this.calendarCursor.getMonth() + delta);
+                }
                 this.renderMainView();
             }
 
@@ -7681,7 +7964,7 @@ Dettagli di Sistema:
                     const res = await window.electronAPI.getPendingUpdate();
                     if (res && res.success && res.pendingUpdate && res.pendingUpdate.filePath) {
                         const pending = res.pendingUpdate;
-                        const curVer = this.parseAppVersion(this.state.version || INITIAL_DATA.version || "26.10.4-011");
+                        const curVer = this.parseAppVersion(this.state.version || INITIAL_DATA.version || "26.10.4-012");
                         const pendingVer = this.parseAppVersion(pending.version || "");
                         if (this.compareAppVersions(pendingVer, curVer) > 0) {
                             this.pendingUpdate = pending;
@@ -7934,7 +8217,7 @@ Dettagli di Sistema:
                         return;
                     }
 
-                    const currentVer = this.parseAppVersion(this.state.version || INITIAL_DATA.version || "26.10.4-011");
+                    const currentVer = this.parseAppVersion(this.state.version || INITIAL_DATA.version || "26.10.4-012");
                     // Beta versions receive beta updates even if toggle is off until next stable arrives
                     const isCurrentBeta = this.isBetaVersion();
                     const includeBeta = (this.state.settings?.includeBetaUpdates === true) || isCurrentBeta;
@@ -8031,7 +8314,7 @@ Dettagli di Sistema:
                                     </div>
                                     <div>
                                         <h4 class="text-sm font-extrabold text-slate-900 dark:text-white">Class Management è Aggiornato!</h4>
-                                        <p class="text-slate-500 mt-1">Stai già utilizzando l'ultima versione disponibile (<strong>v${this.escapeHtml(this.state.version || INITIAL_DATA.version || "26.10.4-011")}</strong>). Non sono necessari aggiornamenti.</p>
+                                        <p class="text-slate-500 mt-1">Stai già utilizzando l'ultima versione disponibile (<strong>v${this.escapeHtml(this.state.version || INITIAL_DATA.version || "26.10.4-012")}</strong>). Non sono necessari aggiornamenti.</p>
                                     </div>
                                     <div class="pt-2">
                                         <button type="button" onclick="app.closeModal()" class="px-5 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-extrabold shadow-sm transition">OK</button>
@@ -8174,14 +8457,31 @@ Dettagli di Sistema:
                                             <button type="button" onclick="app.disconnectGoogleCalendar()" class="px-3 py-1.5 rounded-xl border border-rose-200 text-rose-600 font-bold hover:bg-rose-50 dark:hover:bg-rose-950/40 transition">
                                                 Disconnetti
                                             </button>
+                                        ` : (this.isAuthenticatingGoogle ? `
+                                            <div class="flex items-center gap-2">
+                                                <span class="text-xs text-blue-600 dark:text-blue-400 font-bold flex items-center gap-1.5">
+                                                    <i class="fa-solid fa-arrows-rotate fa-spin"></i> In attesa nel browser...
+                                                </span>
+                                                <button type="button" onclick="app.cancelGoogleOAuth('Annullato dall\\'utente')" class="px-2.5 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700 font-bold hover:bg-slate-100 dark:hover:bg-navy-800 transition text-xs">
+                                                    Annulla
+                                                </button>
+                                            </div>
                                         ` : `
                                             <button type="button" onclick="app.startGoogleOAuth()" class="px-3.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-extrabold flex items-center gap-1.5 transition shadow-xs">
                                                 <i class="fa-brands fa-google"></i>
                                                 <span>Accedi con Google</span>
                                             </button>
-                                        `}
+                                        `)}
                                     </div>
                                 </div>
+
+                                ${this.googleOAuthError ? `
+                                    <div class="p-2.5 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/50 flex items-center gap-2 text-amber-800 dark:text-amber-200 text-xs">
+                                        <i class="fa-solid fa-triangle-exclamation text-amber-600 shrink-0"></i>
+                                        <span class="flex-1">${this.escapeHtml(this.googleOAuthError)}</span>
+                                        <button type="button" onclick="app.googleOAuthError = null; app.renderAll();" class="text-amber-600 hover:text-amber-800"><i class="fa-solid fa-xmark"></i></button>
+                                    </div>
+                                ` : ''}
 
                                 ${s.googleCalendarConnected ? `
                                     <div class="p-3.5 rounded-xl bg-blue-50/70 dark:bg-navy-950/60 border border-blue-200/70 dark:border-blue-900/40 space-y-3">
@@ -8263,7 +8563,7 @@ Dettagli di Sistema:
              */
             renderCreditsView(container) {
                 const s = this.state.settings || {};
-                const currentVer = this.state.version || INITIAL_DATA.version || "26.10.4-011";
+                const currentVer = this.state.version || INITIAL_DATA.version || "26.10.4-012";
                 const latestChangelog = (this.state.changelog && this.state.changelog.length > 0) ? this.state.changelog[0] : null;
                 const update = this.availableUpdate;
                 const isDownloading = this.updateState?.isDownloading;
@@ -8693,12 +8993,26 @@ Dettagli di Sistema:
                                 <input type="text" id="modDescInput" value="${this.escapeHtml(mod?.description || '')}" class="w-full rounded-xl border border-sky-200 dark:border-slate-700 bg-transparent px-3 py-2">
                             </div>
                             <div class="sm:col-span-2">
-                                <label class="block font-bold mb-1 flex items-center gap-1.5"><i class="fa-solid fa-video text-emerald-600"></i> Link Google Meet permanente per il modulo</label>
-                                <div class="flex items-center gap-2">
-                                    <input type="url" id="modGoogleMeetUrlInput" value="${this.escapeHtml(mod?.googleMeetUrl || '')}" placeholder="https://meet.google.com/xxx-yyyy-zzz" class="w-full rounded-xl border border-sky-200 dark:border-slate-700 bg-transparent px-3 py-2 font-mono text-xs">
-                                    ${mod?.googleMeetUrl ? `<button type="button" onclick="if(window.electronAPI){window.electronAPI.openExternal('${this.escapeHtml(mod.googleMeetUrl)}');}else{window.open('${this.escapeHtml(mod.googleMeetUrl)}','_blank');}" class="px-3 py-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 border border-emerald-200 shrink-0 font-bold" title="Partecipa a Google Meet"><i class="fa-solid fa-arrow-up-right-from-square"></i></button>` : ''}
-                                </div>
-                                <p class="text-[10.5px] text-slate-400 mt-1">Se vuoto, verrà generato automaticamente con Google Calendar alla prima lezione e mantenuto identico per tutti gli incontri del modulo.</p>
+                                <label class="block font-bold mb-1 flex items-center gap-1.5"><i class="fa-solid fa-video text-blue-600"></i> Stanza Google Meet Permanente</label>
+                                <input type="hidden" id="modGoogleMeetUrlInput" value="${this.escapeHtml(mod?.googleMeetUrl || '')}">
+                                ${mod?.googleMeetUrl ? `
+                                    <div class="p-3 rounded-xl bg-emerald-50/80 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 flex items-center justify-between gap-2">
+                                        <div class="flex items-center gap-2 min-w-0">
+                                            <i class="fa-solid fa-video text-emerald-600 text-sm shrink-0"></i>
+                                            <span class="font-mono text-xs text-emerald-800 dark:text-emerald-200 truncate select-all">${this.escapeHtml(mod.googleMeetUrl)}</span>
+                                        </div>
+                                        <div class="flex items-center gap-1.5 shrink-0">
+                                            <button type="button" onclick="navigator.clipboard.writeText('${this.escapeHtml(mod.googleMeetUrl)}'); app.showToast('Link Meet copiato!', 'success');" class="px-2 py-1 rounded-lg bg-emerald-100 hover:bg-emerald-200 text-emerald-800 text-[10.5px] font-bold" title="Copia link"><i class="fa-solid fa-copy"></i> Copia</button>
+                                            <button type="button" onclick="if(window.electronAPI){window.electronAPI.openExternal('${this.escapeHtml(mod.googleMeetUrl)}');}else{window.open('${this.escapeHtml(mod.googleMeetUrl)}','_blank');}" class="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[10.5px] font-bold flex items-center gap-1"><i class="fa-solid fa-arrow-up-right-from-square"></i> Partecipa</button>
+                                            <button type="button" onclick="document.getElementById('modGoogleMeetUrlInput').value = ''; this.closest('.p-3').remove(); app.showToast('Link Meet rimosso per il modulo', 'info');" class="w-7 h-7 rounded-lg text-rose-500 hover:bg-rose-100 dark:hover:bg-rose-950/50 flex items-center justify-center text-xs" title="Rimuovi stanza Meet"><i class="fa-solid fa-trash"></i></button>
+                                        </div>
+                                    </div>
+                                ` : `
+                                    <div class="p-3 rounded-xl bg-slate-50 dark:bg-navy-950/40 border border-slate-200 dark:border-slate-800 flex items-center gap-2.5 text-slate-500 dark:text-slate-400">
+                                        <i class="fa-solid fa-wand-magic-sparkles text-blue-500 text-sm"></i>
+                                        <span class="text-[11px] leading-tight">La stanza Google Meet permanente verrà generata automaticamente dai servizi Google quando salvi e sincronizzi una lezione del modulo.</span>
+                                    </div>
+                                `}
                             </div>
                         </div>
                         <div class="flex justify-end gap-2 pt-2">
@@ -8868,35 +9182,55 @@ Dettagli di Sistema:
                                 `}
                             </div>
 
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                <div>
-                                    <label class="block font-bold mb-1 flex items-center justify-between">
-                                        <span><i class="fa-solid fa-video text-emerald-600 mr-1"></i> Link Google Meet</span>
-                                        ${(les?.googleMeetUrl || targetSec.googleMeetUrl) ? `<button type="button" onclick="if(window.electronAPI){window.electronAPI.openExternal('${this.escapeHtml(les?.googleMeetUrl || targetSec.googleMeetUrl)}');}else{window.open('${this.escapeHtml(les?.googleMeetUrl || targetSec.googleMeetUrl)}','_blank');}" class="text-emerald-600 hover:underline text-[10.5px] font-bold"><i class="fa-solid fa-arrow-up-right-from-square"></i> Partecipa</button>` : ''}
-                                    </label>
-                                    <input type="url" id="lpGoogleMeetUrlInput" value="${this.escapeHtml(les?.googleMeetUrl || targetSec.googleMeetUrl || '')}" placeholder="https://meet.google.com/xxx-yyyy-zzz" class="w-full rounded-xl border border-blue-200 dark:border-slate-700 bg-white dark:bg-navy-900 px-3 py-2 font-mono text-xs">
-                                    <p class="text-[10px] text-slate-400 mt-0.5">Se vuoto, Google Calendar genererà un Meet permanente e lo salverà per tutte le lezioni del modulo.</p>
-                                </div>
+                            <input type="hidden" id="lpGoogleMeetUrlInput" value="${this.escapeHtml(les?.googleMeetUrl || targetSec.googleMeetUrl || '')}">
 
-                                <div>
-                                    <div class="flex items-center justify-between mb-1">
-                                        <label class="block font-bold"><i class="fa-solid fa-envelope text-sky-600 mr-1"></i> Inviti via Email (separati da virgola)</label>
-                                        ${(() => {
-                                            const emails = [];
-                                            (targetSec.studentIds || []).forEach(stId => {
-                                                const st = (course.students || []).find(s => s.id === stId) || (this.state.studentsDirectory || []).find(s => s.id === stId);
-                                                if (st && st.email && st.email.includes('@')) emails.push(st.email.trim());
-                                            });
-                                            return emails.length > 0 ? `
-                                                <button type="button" onclick="const input = document.getElementById('lpInvitedEmailsInput'); const cur = (input.value||'').split(',').map(s=>s.trim()).filter(Boolean); const toAdd = ${JSON.stringify(emails)}.filter(e=>!cur.includes(e)); input.value = cur.concat(toAdd).join(', ');" class="text-sky-600 dark:text-sky-400 hover:underline text-[10px] font-bold">
-                                                    <i class="fa-solid fa-user-plus mr-0.5"></i> Aggiungi iscritti (${emails.length})
-                                                </button>
-                                            ` : '';
-                                        })()}
+                            ${(les?.googleMeetUrl || targetSec.googleMeetUrl) ? `
+                                <div class="p-3 rounded-xl bg-emerald-50/80 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 flex items-center justify-between gap-2">
+                                    <div class="flex items-center gap-2 min-w-0">
+                                        <i class="fa-solid fa-video text-emerald-600 text-sm shrink-0"></i>
+                                        <div class="min-w-0">
+                                            <div class="text-[10px] font-bold text-slate-500 dark:text-slate-400">Stanza Google Meet Permanente</div>
+                                            <div class="font-mono text-xs text-emerald-800 dark:text-emerald-200 truncate select-all">${this.escapeHtml(les?.googleMeetUrl || targetSec.googleMeetUrl)}</div>
+                                        </div>
                                     </div>
-                                    <input type="text" id="lpInvitedEmailsInput" value="${this.escapeHtml(Array.isArray(les?.invitedEmails) ? les.invitedEmails.join(', ') : '')}" placeholder="studente1@email.com, studente2@email.com" class="w-full rounded-xl border border-blue-200 dark:border-slate-700 bg-white dark:bg-navy-900 px-3 py-2 text-xs">
-                                    <p class="text-[10px] text-slate-400 mt-0.5">Google invierà automaticamente un invito con notifica e link Meet a tutti gli indirizzi indicati.</p>
+                                    <div class="flex items-center gap-1.5 shrink-0">
+                                        <button type="button" onclick="navigator.clipboard.writeText('${this.escapeHtml(les?.googleMeetUrl || targetSec.googleMeetUrl)}'); app.showToast('Link Meet copiato!', 'success');" class="px-2 py-1 rounded-lg bg-emerald-100 hover:bg-emerald-200 text-emerald-800 text-[10.5px] font-bold" title="Copia link"><i class="fa-solid fa-copy"></i> Copia</button>
+                                        <button type="button" onclick="if(window.electronAPI){window.electronAPI.openExternal('${this.escapeHtml(les?.googleMeetUrl || targetSec.googleMeetUrl)}');}else{window.open('${this.escapeHtml(les?.googleMeetUrl || targetSec.googleMeetUrl)}','_blank');}" class="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[10.5px] font-bold flex items-center gap-1"><i class="fa-solid fa-arrow-up-right-from-square"></i> Partecipa</button>
+                                        <button type="button" onclick="document.getElementById('lpGoogleMeetUrlInput').value = ''; this.closest('.p-3').remove(); app.showToast('Link Meet rimosso per questa lezione', 'info');" class="w-7 h-7 rounded-lg text-rose-500 hover:bg-rose-100 dark:hover:bg-rose-950/50 flex items-center justify-center text-xs" title="Rimuovi link Meet"><i class="fa-solid fa-trash"></i></button>
+                                    </div>
                                 </div>
+                            ` : `
+                                <div class="p-3 rounded-xl bg-slate-50 dark:bg-navy-950/40 border border-slate-200 dark:border-slate-800 flex items-center gap-2.5">
+                                    <i class="fa-solid fa-wand-magic-sparkles text-blue-500 text-sm"></i>
+                                    <div>
+                                        <div class="font-bold text-slate-800 dark:text-slate-200 text-xs">Generazione Automatica Google Meet</div>
+                                        <div class="text-[10px] text-slate-400">
+                                            ${this.state.settings?.googleCalendarConnected
+                                                ? "La stanza Google Meet permanente verrà generata automaticamente dai servizi Google Calendar al salvataggio."
+                                                : "Accedi con Google Calendar nelle impostazioni per generare automaticamente la stanza Google Meet."}
+                                        </div>
+                                    </div>
+                                </div>
+                            `}
+
+                            <div>
+                                <div class="flex items-center justify-between mb-1">
+                                    <label class="block font-bold"><i class="fa-solid fa-envelope text-sky-600 mr-1"></i> Inviti via Email (separati da virgola)</label>
+                                    ${(() => {
+                                        const emails = [];
+                                        (targetSec.studentIds || []).forEach(stId => {
+                                            const st = (course.students || []).find(s => s.id === stId) || (this.state.studentsDirectory || []).find(s => s.id === stId);
+                                            if (st && st.email && st.email.includes('@')) emails.push(st.email.trim());
+                                        });
+                                        return emails.length > 0 ? `
+                                            <button type="button" onclick="const input = document.getElementById('lpInvitedEmailsInput'); const cur = (input.value||'').split(',').map(s=>s.trim()).filter(Boolean); const toAdd = ${JSON.stringify(emails)}.filter(e=>!cur.includes(e)); input.value = cur.concat(toAdd).join(', ');" class="text-sky-600 dark:text-sky-400 hover:underline text-[10px] font-bold">
+                                                <i class="fa-solid fa-user-plus mr-0.5"></i> Aggiungi iscritti (${emails.length})
+                                            </button>
+                                        ` : '';
+                                    })()}
+                                </div>
+                                <input type="text" id="lpInvitedEmailsInput" value="${this.escapeHtml(Array.isArray(les?.invitedEmails) ? les.invitedEmails.join(', ') : '')}" placeholder="studente1@email.com, studente2@email.com" class="w-full rounded-xl border border-blue-200 dark:border-slate-700 bg-white dark:bg-navy-900 px-3 py-2 text-xs">
+                                <p class="text-[10px] text-slate-400 mt-0.5">Google invierà automaticamente un invito con notifica e link Meet a tutti gli indirizzi indicati.</p>
                             </div>
                         </div>
 
@@ -9347,6 +9681,10 @@ Dettagli di Sistema:
             }
 
             async startGoogleOAuth() {
+                this.isAuthenticatingGoogle = true;
+                this.googleOAuthError = null;
+                this.renderAll();
+
                 const config = this.getGoogleOAuthConfig();
                 const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${config.clientId}&redirect_uri=${encodeURIComponent(config.redirectUri)}&response_type=code&scope=${encodeURIComponent(config.scopes)}&access_type=offline&prompt=consent`;
 
@@ -9361,7 +9699,26 @@ Dettagli di Sistema:
                 }
             }
 
+            cancelGoogleOAuth(reason = "Accesso annullato") {
+                this.isAuthenticatingGoogle = false;
+                this.googleOAuthError = reason;
+                if (window.electronAPI && typeof window.electronAPI.cancelGoogleOAuth === "function") {
+                    window.electronAPI.cancelGoogleOAuth();
+                }
+                this.showToast(reason, "info");
+                this.renderAll();
+            }
+
+            onGoogleOAuthError(msg) {
+                this.isAuthenticatingGoogle = false;
+                this.googleOAuthError = msg || "Autorizzazione Google non riuscita";
+                this.showToast(this.googleOAuthError, "warning");
+                this.renderAll();
+            }
+
             async onGoogleOAuthSuccess(code) {
+                this.isAuthenticatingGoogle = false;
+                this.googleOAuthError = null;
                 const config = this.getGoogleOAuthConfig();
                 try {
                     this.showToast("Finalizzazione accesso Google Calendar...", "info");
@@ -9403,7 +9760,9 @@ Dettagli di Sistema:
                     }
                 } catch (err) {
                     console.error("OAuth Exchange Error:", err);
+                    this.googleOAuthError = err.message;
                     this.showToast("Errore durante l'autenticazione Google: " + err.message, "error");
+                    this.renderAll();
                 }
             }
 

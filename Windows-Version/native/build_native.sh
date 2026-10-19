@@ -10,7 +10,7 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
-VERSION="26.10.4-011"
+VERSION="26.10.4-012"
 if [ -f "$REPO_ROOT/Sources/Models.swift" ]; then
     DETECTED_VER=$(grep -E 'public static let appVersion =' "$REPO_ROOT/Sources/Models.swift" | head -n 1 | sed -E 's/.*"([^"]+)".*/\1/')
     if [ -n "$DETECTED_VER" ]; then

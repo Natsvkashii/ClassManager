@@ -1,13 +1,13 @@
 {
-  "version": "26.10.4-011",
+  "version": "26.10.4-012",
   "channel": "unstable",
-  "tag_name": "v26.10.4-011",
+  "tag_name": "v26.10.4-012",
   "prerelease": true,
-  "published_at": "2026-10-19T14:35:00Z",
-  "name": "Class Management v26.10.4-011 [UNSTABLE]",
-  "body": "Novità versione 26.10.4-011:\n- Integrazione completa Google Calendar & Google Meet: sincronizzazione lezioni con calendario Google personale con un clic.\n- Creazione e riutilizzo automatico dello stesso link Google Meet permanente per tutte le lezioni dello stesso modulo.\n- Invio automatico degli inviti Google Calendar via email agli iscritti al modulo, con comodo pulsante rapido per inserire gli indirizzi degli studenti.\n- Visualizzazione integrata degli eventi personali di Google Calendar nel Calendario Generale con badge dedicato blu e accesso diretto a Meet/evento.\n- Risolto il problema grafico nella barra laterale su Windows: il titolo dell'applicazione dopo il logo viene visualizzato per intero senza troncature.",
-  "setupUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.10.4-011/Class-Management-26.10.4-011-Setup.exe",
-  "setupName": "Class-Management-26.10.4-011-Setup.exe",
-  "nativeUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.10.4-011/Class-Management-26.10.4-011-Native.exe",
-  "nativeName": "Class-Management-26.10.4-011-Native.exe"
+  "published_at": "2026-10-19T20:30:00Z",
+  "name": "Class Management v26.10.4-012 [UNSTABLE]",
+  "body": "Novità versione 26.10.4-012:\n- OAuth Google non-bloccante: risolto il blocco a caricamento infinito in caso di mancata autorizzazione o chiusura del browser, con timeout a 60 secondi, pulsante Annulla immediato e gestione chiara dell'errore.\n- Piano Lezioni migliorato: apertura diretta incentrata sul mese in corso, supporto a scorrimento esteso con caricamento dinamico di mesi precedenti/futuri e guide di trascinamento visibili solo durante il drag attivo.\n- Calendario Generale multi-vista: introdotte le modalità Giorno (griglia oraria 07:00–23:00 con affiancamento automatico side-by-side delle lezioni sovrapposte in stile Google Calendar), Settimana (7 colonne cronologiche pulite) e Mese.\n- Generazione nativa Google Meet: rimozione dell'inserimento manuale e generazione diretta della stanza virtuale tramite le API di Google Calendar con scheda di stato, copia rapida e avvio istantaneo.",
+  "setupUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.10.4-012/Class-Management-26.10.4-012-Setup.exe",
+  "setupName": "Class-Management-26.10.4-012-Setup.exe",
+  "nativeUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.10.4-012/Class-Management-26.10.4-012-Native.exe",
+  "nativeName": "Class-Management-26.10.4-012-Native.exe"
 }

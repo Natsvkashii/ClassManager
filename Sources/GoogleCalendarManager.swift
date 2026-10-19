@@ -112,7 +112,7 @@ public final class GoogleCalendarManager: ObservableObject {
 
         // 2. Start Local TCP Server on 127.0.0.1:8089 to listen for OAuth redirect
         Task.detached {
-            let authCode = await Self.listenForOAuthCallback(port: Self.loopbackPort)
+            let (authCode, errorDesc) = await self.listenForOAuthCallback(port: Self.loopbackPort)
             await MainActor.run {
                 if let code = authCode {
                     Task {
@@ -120,7 +120,7 @@ public final class GoogleCalendarManager: ObservableObject {
                     }
                 } else {
                     self.isAuthenticating = false
-                    self.lastSyncError = "Autenticazione annullata o timeout"
+                    self.lastSyncError = errorDesc ?? "Accesso annullato o scaduto"
                 }
             }
         }
@@ -129,14 +129,23 @@ public final class GoogleCalendarManager: ObservableObject {
         NSWorkspace.shared.open(authUrl)
     }
 
-    private static func listenForOAuthCallback(port: UInt16) async -> String? {
+    public func cancelOAuthFlow() {
+        self.isAuthenticating = false
+        self.lastSyncError = nil
+        if loopbackSocket >= 0 {
+            close(loopbackSocket)
+            loopbackSocket = -1
+        }
+    }
+
+    private func listenForOAuthCallback(port: UInt16) async -> (code: String?, error: String?) {
         var serverAddr = sockaddr_in()
         serverAddr.sin_family = sa_family_t(AF_INET)
         serverAddr.sin_port = port.bigEndian
         serverAddr.sin_addr.s_addr = inet_addr("127.0.0.1")
 
         let sock = socket(AF_INET, SOCK_STREAM, 0)
-        guard sock >= 0 else { return nil }
+        guard sock >= 0 else { return (nil, "Impossibile aprire socket locale") }
 
         var reuse: Int32 = 1
         setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &reuse, socklen_t(MemoryLayout<Int32>.size))
@@ -148,14 +157,40 @@ public final class GoogleCalendarManager: ObservableObject {
         }
         guard bindRes >= 0 else {
             close(sock)
-            return nil
+            return (nil, "Porta 8089 già in uso")
         }
 
         listen(sock, 1)
+        await MainActor.run {
+            self.loopbackSocket = sock
+        }
 
-        // Set timeout of 120 seconds for user login
-        var tv = timeval(tv_sec: 120, tv_usec: 0)
-        setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &tv, socklen_t(MemoryLayout<timeval>.size))
+        // Use select with a 60 second timeout so accept() does not block indefinitely
+        var readfds = fd_set()
+        withUnsafeMutablePointer(to: &readfds) { p in
+            p.withMemoryRebound(to: UInt32.self, capacity: MemoryLayout<fd_set>.size / 4) { raw in
+                for i in 0..<(MemoryLayout<fd_set>.size / 4) { raw[i] = 0 }
+            }
+        }
+        let intOffset = Int(sock) / 32
+        let bitOffset = Int(sock) % 32
+        withUnsafeMutablePointer(to: &readfds) { p in
+            p.withMemoryRebound(to: UInt32.self, capacity: MemoryLayout<fd_set>.size / 4) { raw in
+                raw[intOffset] |= (1 << bitOffset)
+            }
+        }
+
+        var tv = timeval(tv_sec: 60, tv_usec: 0)
+        let selRes = select(sock + 1, &readfds, nil, nil, &tv)
+
+        await MainActor.run {
+            if self.loopbackSocket == sock { self.loopbackSocket = -1 }
+        }
+
+        guard selRes > 0 else {
+            close(sock)
+            return (nil, "Tempo di attesa scaduto per l'accesso")
+        }
 
         var clientAddr = sockaddr_in()
         var clientLen = socklen_t(MemoryLayout<sockaddr_in>.size)
@@ -166,17 +201,19 @@ public final class GoogleCalendarManager: ObservableObject {
         }
 
         close(sock)
-        guard clientSock >= 0 else { return nil }
+        guard clientSock >= 0 else { return (nil, "Connessione client non riuscita") }
 
         var buffer = [CChar](repeating: 0, count: 4096)
         let bytesRead = read(clientSock, &buffer, buffer.count - 1)
         var authCode: String? = nil
+        var isDenied = false
 
         if bytesRead > 0 {
             let requestStr = String(cString: buffer)
             if let reqLine = requestStr.components(separatedBy: "\r\n").first {
-                // Expected format: GET /oauth2callback?code=... HTTP/1.1
-                if let codeRange = reqLine.range(of: "code=") {
+                if reqLine.contains("error=") {
+                    isDenied = true
+                } else if let codeRange = reqLine.range(of: "code=") {
                     let afterCode = reqLine[codeRange.upperBound...]
                     let codeToken = afterCode.components(separatedBy: CharacterSet(charactersIn: " &\r\n")).first ?? ""
                     if !codeToken.isEmpty {
@@ -186,38 +223,25 @@ public final class GoogleCalendarManager: ObservableObject {
             }
         }
 
-        // Send friendly HTML response to close tab
-        let responseBody = """
-        <!DOCTYPE html>
-        <html lang="it">
-        <head>
-            <meta charset="utf-8">
-            <title>Accesso riuscito - Class Management</title>
-            <style>
-                body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f8fafc; color: #0f172a; text-align: center; padding: 60px 20px; }
-                .card { background: white; max-width: 480px; margin: 0 auto; padding: 40px; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.06); border: 1px solid #e2e8f0; }
-                h2 { color: #0284c7; margin-bottom: 12px; }
-                p { color: #64748b; font-size: 14px; line-height: 1.6; }
-                .btn { display: inline-block; margin-top: 20px; padding: 10px 24px; background: #0284c7; color: white; border-radius: 12px; text-decoration: none; font-weight: bold; }
-            </style>
-        </head>
-        <body>
-            <div class="card">
-                <h2>✓ Accesso a Google Calendar completato!</h2>
-                <p>L'applicazione <strong>Class Management</strong> è stata collegata con successo al tuo account Google.</p>
-                <p>Puoi chiudere questa scheda del browser e tornare al programma.</p>
-            </div>
-            <script>setTimeout(function(){ window.close(); }, 3000);</script>
-        </body>
-        </html>
-        """
+        let responseBody: String
+        if authCode != nil {
+            responseBody = """
+            <!DOCTYPE html><html lang="it"><head><meta charset="utf-8"><title>Accesso riuscito</title><style>body{font-family:system-ui,sans-serif;text-align:center;padding:50px;background:#f8fafc;color:#0f172a;}h2{color:#0284c7;}</style></head><body><h2>✓ Accesso a Google Calendar completato!</h2><p>Puoi chiudere questa scheda e tornare a <strong>Class Management</strong>.</p><script>setTimeout(function(){ window.close(); }, 2500);</script></body></html>
+            """
+        } else {
+            responseBody = """
+            <!DOCTYPE html><html lang="it"><head><meta charset="utf-8"><title>Accesso annullato</title><style>body{font-family:system-ui,sans-serif;text-align:center;padding:50px;background:#f8fafc;color:#0f172a;}h2{color:#e11d48;}</style></head><body><h2>✕ Accesso a Google Calendar non completato</h2><p>L'autorizzazione è stata annullata o rifiutata. Puoi chiudere questa scheda e riprovare in <strong>Class Management</strong>.</p><script>setTimeout(function(){ window.close(); }, 3500);</script></body></html>
+            """
+        }
+
         let httpResponse = "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: \(responseBody.utf8.count)\r\nConnection: close\r\n\r\n\(responseBody)"
         httpResponse.withCString { ptr in
             _ = write(clientSock, ptr, strlen(ptr))
         }
 
         close(clientSock)
-        return authCode
+        let errDesc = isDenied ? "Autorizzazione Google annullata o negata" : (authCode == nil ? "Codice non ricevuto da Google" : nil)
+        return (authCode, errDesc)
     }
 
     // MARK: - Token Exchange & User Info
