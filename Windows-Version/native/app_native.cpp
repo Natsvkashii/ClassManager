@@ -41,9 +41,9 @@ static std::atomic<SOCKET> g_googleOAuthSock{INVALID_SOCKET};
 
 // Version and Metadata Constants
 static const wchar_t* APP_NAME = L"Class Management";
-static const wchar_t* APP_VERSION = L"26.10.4-013";
+static const wchar_t* APP_VERSION = L"26.10.4-014";
 static const wchar_t* APP_CHANNEL = L"UNSTABLE";
-static const wchar_t* WINDOW_TITLE = L"Class Management v26.10.4-013 [UNSTABLE]";
+static const wchar_t* WINDOW_TITLE = L"Class Management v26.10.4-014 [UNSTABLE]";
 static const wchar_t* AUTHOR_NAME = L"Guaira Jaramillo Nitoglia";
 static const wchar_t* AUTHOR_EMAIL = L"guaira.jaramillo.nitoglia@gmail.com";
 static const wchar_t* GITHUB_RELEASES_URL = L"https://github.com/Natsvkashii/ClassManager/releases";
@@ -149,7 +149,8 @@ static bool EnsureAssetFile(const std::wstring& targetPath, const unsigned char*
 // Helper: Perform HTTP GET using WinHTTP
 static std::string WinHttpGet(const std::wstring& host, const std::wstring& path, bool https = true) {
     std::string responseBody;
-    HINTERNET hSession = WinHttpOpen(L"ClassManagement-Native/26.10.4-012",
+    std::wstring userAgent = std::wstring(L"ClassManagement-Native/") + APP_VERSION;
+    HINTERNET hSession = WinHttpOpen(userAgent.c_str(),
                                     WINHTTP_ACCESS_TYPE_DEFAULT_PROXY,
                                     WINHTTP_NO_PROXY_NAME,
                                     WINHTTP_NO_PROXY_BYPASS, 0);
@@ -172,8 +173,8 @@ static std::string WinHttpGet(const std::wstring& host, const std::wstring& path
         return "";
     }
 
-    const wchar_t* headers = L"Accept: application/vnd.github.v3+json\r\nUser-Agent: ClassManagement-Native/26.10.4-012\r\n";
-    BOOL sendOk = WinHttpSendRequest(hRequest, headers, (DWORD)-1, NULL, 0, 0, 0);
+    std::wstring headers = std::wstring(L"Accept: application/vnd.github.v3+json\r\nUser-Agent: ClassManagement-Native/") + APP_VERSION + L"\r\n";
+    BOOL sendOk = WinHttpSendRequest(hRequest, headers.c_str(), (DWORD)-1, NULL, 0, 0, 0);
     if (sendOk && WinHttpReceiveResponse(hRequest, NULL)) {
         DWORD dwSize = 0;
         do {
@@ -447,7 +448,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     HWND hwnd = (HWND)w.window();
 
     // Set Window Title and Size
-    w.set_title("Class Management v26.10.4-013 [UNSTABLE]");
+    w.set_title("Class Management v26.10.4-014 [UNSTABLE]");
     w.set_size(1400, 900, WEBVIEW_HINT_NONE);
     w.set_size(980, 650, WEBVIEW_HINT_MIN);
 

@@ -1354,8 +1354,6 @@ public struct ModuleCalendarView: View {
 
     @State private var hoveredDayIso: String? = nil
     @State private var currentMonthScrollIndex: Int = 0
-    @State private var pastMonthsOffset: Int = 12
-    @State private var additionalMonths: Int = 24
     @State private var isDraggingActive: Bool = false
     @State private var isAutoScrollingDown: Bool = false
     @State private var isAutoScrollingUp: Bool = false
@@ -1958,12 +1956,8 @@ public struct ModuleCalendarView: View {
         module: CourseModule,
         slots: [String]
     ) -> [CalendarMonthSection] {
-        let df = DateFormatter()
-        df.dateFormat = "yyyy-MM-dd"
-        df.locale = Locale(identifier: "en_US_POSIX")
-
-        let tf = DateFormatter()
-        tf.dateFormat = "HH:mm"
+        let df = AppStore.isoDateFormatter
+        let tf = AppStore.timeFormatter
 
         let cal = Calendar.current
         let today = Date()
@@ -2149,9 +2143,7 @@ public struct ModuleCalendarView: View {
     }
 
     private func buildContinuousWeeks(course: Course, module: CourseModule, slots: [String]) -> [[CalendarDayCell]] {
-        let df = DateFormatter()
-        df.dateFormat = "yyyy-MM-dd"
-        df.locale = Locale(identifier: "en_US_POSIX")
+        let df = AppStore.isoDateFormatter
         guard let firstStr = slots.first.map({ store.extractDate(from: $0) }),
               let lastStr = slots.last.map({ store.extractDate(from: $0) }),
               let firstDate = df.date(from: firstStr),

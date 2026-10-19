@@ -1,13 +1,13 @@
 {
-  "version": "26.10.4-013",
+  "version": "26.10.4-014",
   "channel": "unstable",
-  "tag_name": "v26.10.4-013",
+  "tag_name": "v26.10.4-014",
   "prerelease": true,
-  "published_at": "2026-10-19T21:30:00Z",
-  "name": "Class Management v26.10.4-013 [UNSTABLE]",
-  "body": "Novità versione 26.10.4-013:\n- Piano Lezioni Ottimizzato: la schermata del piano lezioni mostra esclusivamente i mesi interi in cui sono pianificati i corsi, eliminando mesi vuoti superflui.\n- Calendario Giornaliero e Altezza Schede: gli eventi che durano più di un'ora estendono visivamente la loro scheda colorata per l'intera durata dell'evento fino alla linea oraria di fine (es. 19:00–21:00).\n- Sincronizzazione Completa Google Calendar: sincronizzazione automatica di tutte le lezioni del modulo con la stanza persistente Google Meet e inviti ai partecipanti.\n- Installer Nativo Windows Integrato: pulsante dedicato nelle impostazioni per eseguire direttamente l'installazione ufficiale e la registrazione nel sistema Windows (%LOCALAPPDATA%\\Programs\\Class Management).\n- Architettura 100% Nativa: rimozione completa di vecchie dipendenze Electron e librerie obsolete, release snella con solo 2 installer ufficiali (.pkg per macOS e Setup.exe per Windows).",
-  "setupUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.10.4-013/Class-Management-26.10.4-013-Setup.exe",
-  "setupName": "Class-Management-26.10.4-013-Setup.exe",
-  "nativeUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.10.4-013/Class-Management-26.10.4-013-Setup.exe",
-  "nativeName": "Class-Management-26.10.4-013-Setup.exe"
+  "published_at": "2026-10-19T21:45:00Z",
+  "name": "Class Management v26.10.4-014 [UNSTABLE]",
+  "body": "Novità versione 26.10.4-014:\n- Risoluzione Errori Sintattici & Audit: corretto errore di sintassi nel rendering del banner di aggiornamento su Windows WebView2 e rimosse variabili e proprietà ridondanti non più utilizzate.\n- Ottimizzazione Prestazioni DateFormatter: introdotta la condivisione globale di formattatori statici pre-inizializzati (AppStore.isoDateFormatter, timeFormatter, timestampFormatter e AppleCalendarManager.lessonDateTimeFormatter), eliminando centinaia di allocazioni heap per frame durante la navigazione e lo scorrimento dei calendari.\n- Piano Lezioni Snello: visualizzazione rigorosa e pulita dei soli mesi con corsi attivi senza sezioni temporali vuote superflue.\n- Griglia Oraria Calendario: schede eventi multi-ora estese visivamente fino all'orario esatto di fine (es. 19:00–21:00).\n- Sincronizzazione Completa Google Calendar: sincronizzazione affidabile di tutti gli slot del modulo con la stanza persistente Google Meet e inviti email ai partecipanti.\n- Installer Nativo Windows Integrato: pulsante dedicato nelle impostazioni per eseguire direttamente l'installazione ufficiale e la registrazione nel sistema Windows (%LOCALAPPDATA%\\Programs\\Class Management).\n- Architettura 100% Nativa: rimozione completa di vecchie dipendenze Electron e librerie obsolete, release snella con solo 2 installer ufficiali (.pkg per macOS e Setup.exe per Windows).",
+  "setupUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.10.4-014/Class-Management-26.10.4-014-Setup.exe",
+  "setupName": "Class-Management-26.10.4-014-Setup.exe",
+  "nativeUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.10.4-014/Class-Management-26.10.4-014-Setup.exe",
+  "nativeName": "Class-Management-26.10.4-014-Setup.exe"
 }

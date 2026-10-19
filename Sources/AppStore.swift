@@ -25,6 +25,28 @@ public final class AppStore {
     public var activeLevelByCourse: [String: String] = [:]
     public var activeModuleByLevel: [String: String] = [:]
 
+    // High-performance cached DateFormatters (reusable across UI to avoid heavy heap allocations)
+    public static let isoDateFormatter: DateFormatter = {
+        let df = DateFormatter()
+        df.dateFormat = "yyyy-MM-dd"
+        df.locale = Locale(identifier: "en_US_POSIX")
+        return df
+    }()
+
+    public static let timeFormatter: DateFormatter = {
+        let tf = DateFormatter()
+        tf.dateFormat = "HH:mm"
+        tf.locale = Locale(identifier: "en_US_POSIX")
+        return tf
+    }()
+
+    public static let timestampFormatter: DateFormatter = {
+        let df = DateFormatter()
+        df.dateFormat = "yyyy-MM-dd_HH-mm-ss"
+        df.locale = Locale(identifier: "en_US_POSIX")
+        return df
+    }()
+
     // UI State
     public var attendanceDateEditMode: Bool = false
     public var selectedDatesForDelete: Set<String> = []
@@ -678,10 +700,7 @@ public final class AppStore {
 
     public func formatShortWeekdayDate(_ dateStr: String) -> String {
         let clean = extractDate(from: dateStr)
-        let df = DateFormatter()
-        df.dateFormat = "yyyy-MM-dd"
-        df.locale = Locale(identifier: "en_US_POSIX")
-        guard let date = df.date(from: clean) else { return clean }
+        guard let date = Self.isoDateFormatter.date(from: clean) else { return clean }
         let cal = Calendar.current
         let dow = cal.component(.weekday, from: date) - 1 // 0 = Sun
         let dayNum = cal.component(.day, from: date)
@@ -1226,9 +1245,7 @@ public final class AppStore {
         let backupDir = classManagerDir.appendingPathComponent("Backup", isDirectory: true)
         try? FileManager.default.createDirectory(at: backupDir, withIntermediateDirectories: true)
 
-        let df = DateFormatter()
-        df.dateFormat = "yyyy-MM-dd_HH-mm-ss"
-        let timestamp = df.string(from: Date())
+        let timestamp = Self.timestampFormatter.string(from: Date())
         let fileUrl = backupDir.appendingPathComponent("ClassManagement_BetaBackup_\(timestamp).json")
 
         let encoder = JSONEncoder()
@@ -1244,9 +1261,7 @@ public final class AppStore {
         let diagDir = classManagerDir.appendingPathComponent("Report Diagnostici", isDirectory: true)
         try? FileManager.default.createDirectory(at: diagDir, withIntermediateDirectories: true)
 
-        let df = DateFormatter()
-        df.dateFormat = "yyyy-MM-dd_HH-mm-ss"
-        let timestamp = df.string(from: Date())
+        let timestamp = Self.timestampFormatter.string(from: Date())
         let fileUrl = diagDir.appendingPathComponent("Report_Diagnostico_\(timestamp).txt")
 
         let errDesc = error != nil ? "\(error!)" : "Nessun dettaglio errore"

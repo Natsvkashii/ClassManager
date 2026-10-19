@@ -68,12 +68,16 @@ public final class AppleCalendarManager {
         }
     }
 
-    private func parseDateTime(dateStr: String, timeStr: String) -> Date? {
-        let cleanDate = String(dateStr.prefix(10))
+    private static let lessonDateTimeFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd HH:mm"
         formatter.locale = Locale(identifier: "en_US_POSIX")
-        return formatter.date(from: "\(cleanDate) \(timeStr)")
+        return formatter
+    }()
+
+    private func parseDateTime(dateStr: String, timeStr: String) -> Date? {
+        let cleanDate = String(dateStr.prefix(10))
+        return Self.lessonDateTimeFormatter.date(from: "\(cleanDate) \(timeStr)")
     }
 
     public func syncLesson(

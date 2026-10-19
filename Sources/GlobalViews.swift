@@ -186,10 +186,7 @@ public struct GlobalCalendarView: View {
     }
 
     private var isoDateFormatter: DateFormatter {
-        let df = DateFormatter()
-        df.dateFormat = "yyyy-MM-dd"
-        df.locale = Locale(identifier: "en_US_POSIX")
-        return df
+        AppStore.isoDateFormatter
     }
 
     @ViewBuilder
@@ -692,9 +689,7 @@ public struct GlobalCalendarView: View {
         let offset = startMon ? (firstDow == 0 ? -6 : 1 - firstDow) : -firstDow
         let gridStart = cal.date(byAdding: .day, value: offset, to: firstOfMonth) ?? firstOfMonth
 
-        let df = DateFormatter()
-        df.dateFormat = "yyyy-MM-dd"
-        df.locale = Locale(identifier: "en_US_POSIX")
+        let df = AppStore.isoDateFormatter
 
         var result: [MonthCell] = []
         for i in 0..<42 {
@@ -1259,9 +1254,7 @@ public struct BillingView: View {
         }()
 
         // Compute Course-Level General Overview Statistics
-        let df = DateFormatter()
-        df.dateFormat = "yyyy-MM-dd"
-        let todayIso = df.string(from: Date())
+        let todayIso = AppStore.isoDateFormatter.string(from: Date())
 
         var totalScheduledHours: Double = 0.0
         var totalCompletedHours: Double = 0.0
@@ -1819,9 +1812,7 @@ public struct BillingView: View {
     }
 
     private func buildBillingMonthSections(course: Course, module: CourseModule, slots: [String]) -> [BillingMonthSection] {
-        let df = DateFormatter()
-        df.dateFormat = "yyyy-MM-dd"
-        df.locale = Locale(identifier: "en_US_POSIX")
+        let df = AppStore.isoDateFormatter
         guard let firstStr = slots.first.map({ store.extractDate(from: $0) }),
               let lastStr = slots.last.map({ store.extractDate(from: $0) }),
               let firstDate = df.date(from: firstStr),

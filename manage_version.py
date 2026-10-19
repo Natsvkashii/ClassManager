@@ -281,6 +281,21 @@ exit 0
     return True
 
 
+def build_windows_native():
+    cur_ver = get_swift_version() or "26.10.4-001"
+    print(f"\n=== Building Class Management v{cur_ver} (Windows Native WebView2) ===")
+    script = os.path.join(PROJECT_ROOT, "Windows-Version", "native", "build_native.sh")
+    if os.path.exists(script):
+        try:
+            subprocess.run([script], cwd=PROJECT_ROOT, check=True)
+            print("✓ Windows native executable build succeeded")
+            return True
+        except Exception as e:
+            print(f"[!] Windows native build error: {e}")
+            return False
+    return False
+
+
 def publish_release(is_beta: bool = False):
     cur_ver = get_swift_version() or "26.10.4-001(unstable)"
     is_beta_candidate = is_version_unstable(cur_ver)
@@ -295,8 +310,9 @@ def publish_release(is_beta: bool = False):
         print(f"Switching branch from '{current_branch}' to '{expected_branch}'...")
         git_switch_branch(expected_branch, create=True)
 
-    # 1. Build and create package
+    # 1. Build and create packages for both macOS and Windows
     build_macos(package=True)
+    build_windows_native()
 
     pkg_name = f"Class-Management-{cur_ver}-Installer.pkg"
     pkg_path = os.path.join(PROJECT_ROOT, pkg_name)

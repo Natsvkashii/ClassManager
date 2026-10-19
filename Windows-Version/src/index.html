@@ -1099,12 +1099,35 @@ Removing, obfuscating, or altering these credits violates the author's attributi
         ];
 
         const INITIAL_DATA = {
-            version: "26.10.4-012",
+            version: "26.10.4-014",
             channel: "unstable",
             deletedItems: [],
             lastUpdated: new Date().toISOString(),
             activeCourseId: "",
             changelog: [
+                {
+                    version: "26.10.4-014",
+                    date: "2026-10-19",
+                    changes: [
+                        "Ottimizzazione e Audit Codice: risoluzione di errori sintattici nel banner aggiornamenti e rimozione completa di variabili e proprietà ridondanti.",
+                        "Prestazioni DateFormatter: condivisione globale di formattatori statici pre-inizializzati (AppStore.isoDateFormatter, timeFormatter, timestampFormatter) eliminando allocazioni heap ad ogni render durante lo scrolling.",
+                        "Piano Lezioni snello: visualizzazione rigorosa dei soli mesi con corsi attivi senza mesi vuoti superflui.",
+                        "Griglia Oraria Calendario: schede lezioni multi-ora estese visivamente fino all'orario effettivo di fine.",
+                        "Sincronizzazione Completa Google Calendar: sincronizzazione affidabile di tutti gli slot del modulo con link Google Meet persistente.",
+                        "Installer Nativo Windows: pulsante dedicato nelle impostazioni per l'installazione nativa pulita nel sistema (%LOCALAPPDATA%\\Programs\\Class Management)."
+                    ]
+                },
+                {
+                    version: "26.10.4-013",
+                    date: "2026-10-19",
+                    changes: [
+                        "Piano Lezioni Ottimizzato: la schermata del piano lezioni mostra esclusivamente i mesi interi in cui sono pianificati i corsi.",
+                        "Calendario Giornaliero e Altezza Schede: gli eventi multi-ora estendono visivamente la scheda per l'intera durata dell'evento fino alla linea oraria di fine.",
+                        "Sincronizzazione Completa Google Calendar: tutte le lezioni del modulo vengono sincronizzate con link Meet permanente e inviti email.",
+                        "Installer Nativo Windows Integrato: pulsante dedicato per l'installazione ufficiale in %LOCALAPPDATA%\\Programs\\Class Management.",
+                        "Architettura 100% Nativa: rimozione librerie obsolete e distribuzione di soli 2 installer ufficiali (.pkg e Setup.exe)."
+                    ]
+                },
                 {
                     version: "26.10.4-012",
                     date: "2026-10-19",
@@ -5154,9 +5177,6 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                     return;
                 }
 
-                if (!this.calendarAdditionalPastMonths) this.calendarAdditionalPastMonths = 0;
-                if (!this.calendarAdditionalMonths) this.calendarAdditionalMonths = 0;
-
                 const now = new Date();
                 const nowY = now.getFullYear();
                 const nowM = now.getMonth();
@@ -8662,6 +8682,7 @@ Dettagli di Sistema:
                                         </button>
                                     </div>
                                 </div>
+                            ` : ''}
                         </div>
 
                         <!-- Windows Native System Installer Card -->
