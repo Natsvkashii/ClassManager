@@ -16,7 +16,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ClassDesk v26.10.4-025 (Windows Native Edition)</title>
+    <title>ClassDesk v26.10.4-027 (Windows Native Edition)</title>
     <link rel="icon" type="image/png" href="logo.png">
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -167,7 +167,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                     <span class="sidebar-text" id="sidebarFeedbackBtnText">Invia Feedback</span>
                 </button>
                 <div class="sidebar-footer-card p-1.5 rounded-xl bg-slate-50 dark:bg-navy-950/40 text-[10px] text-center text-slate-400 dark:text-slate-500 font-semibold">
-                    <span id="sidebarVersionBadge">ClassDesk v26.10.4-025</span>
+                    <span id="sidebarVersionBadge">ClassDesk v26.10.4-027</span>
                 </div>
             </div>
         </aside>
@@ -1164,17 +1164,17 @@ Removing, obfuscating, or altering these credits violates the author's attributi
         ];
 
         const INITIAL_DATA = {
-            version: "26.10.4-026",
+            version: "26.10.4-027",
             channel: "stable",
             deletedItems: [],
             lastUpdated: new Date().toISOString(),
             activeCourseId: "",
             changelog: [
                 {
-                    version: "26.10.4-026",
+                    version: "26.10.4-027",
                     date: "2026-10-20",
                     changes: [
-                        "Release Stabile Ufficiale ClassDesk 26.10.4 (Release 026): transizione definitiva da 'Gestione Corsi' a 'ClassDesk' con nuovo logo e brand identity coordinata su macOS e Windows.",
+                        "Release Stabile Ufficiale ClassDesk 26.10.4 (Release 027): transizione definitiva da 'Gestione Corsi' a 'ClassDesk' con nuovo logo e brand identity coordinata su macOS e Windows.",
                         "Nuova Architettura Windows Nativa WebView2: eseguibile C++ ad alte prestazioni compilato con Microsoft WebView2, avvio istantaneo, consumo minimo di RAM (<60MB) e installer ufficiale unificato (eliminazione completa delle versioni portable non registrate).",
                         "Auto-Updater In-App Diretto a 1 Clic: aggiornamento automatico atomico su macOS (senza prompt né etichette fantasma) e downloader asincrono nativo in C++ su Windows con avanzamento in tempo reale, backup pre-update e doppia scelta trasparente (in-app o browser).",
                         "Nuova Dashboard & Schede Dinamiche Snellite: pulsante 'Dashboard' autonomo e libero nella sidebar; schede dinamiche delle lezioni essenziali ed eleganti con rimozione del disordine didattico/parentesi vuote e sanitizzazione automatica dei testi.",
@@ -6150,8 +6150,8 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                                     </button>
                                 ` : ''}
                                 ${activeSection?.googleMeetUrl ? `
-                                    <button onclick="if(window.electronAPI){window.electronAPI.openExternal('${this.escapeHtml(activeSection.googleMeetUrl)}');}else{window.open('${this.escapeHtml(activeSection.googleMeetUrl)}','_blank');}" class="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold flex items-center gap-1.5 shadow-2xs transition" title="Partecipa a Google Meet (${this.escapeHtml(activeSection.googleMeetUrl)})">
-                                        <i class="fa-solid fa-video text-sm"></i> Partecipa a Meet
+                                    <button onclick="if(window.electronAPI){window.electronAPI.openExternal('${this.escapeHtml(activeSection.googleMeetUrl)}');}else{window.open('${this.escapeHtml(activeSection.googleMeetUrl)}','_blank');}" class="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold flex items-center gap-1.5 shadow-2xs transition" title="${this.state?.settings?.googleCalendarConnected ? `Partecipa a Google Meet (${this.escapeHtml(activeSection.googleMeetUrl)})` : `Partecipa alla riunione (${this.escapeHtml(activeSection.googleMeetUrl)})`}">
+                                        <i class="fa-solid fa-video text-sm"></i> ${this.state?.settings?.googleCalendarConnected ? 'Partecipa a Meet' : 'Partecipa alla riunione'}
                                     </button>
                                 ` : (this.state?.settings?.googleCalendarConnected ? `
                                     <button onclick="app.createModuleGoogleMeet(app.getActiveCourse(), app.getActiveSection(app.getActiveCourse()))" class="px-3.5 py-2 rounded-xl border border-blue-500 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/50 font-bold flex items-center gap-1.5 shadow-2xs transition" title="Crea link Google Meet per tutte le lezioni di questo modulo">
@@ -9921,44 +9921,69 @@ Dettagli di Sistema:
                                 <input type="text" id="modDescInput" value="${this.escapeHtml(mod?.description || '')}" class="w-full rounded-xl border border-sky-200 dark:border-slate-700 bg-transparent px-3 py-2">
                             </div>
                             <div class="sm:col-span-2">
-                                <label class="block font-bold mb-1 flex items-center justify-between">
-                                    <span class="flex items-center gap-1.5"><i class="fa-solid fa-video text-blue-600"></i> Stanza Google Meet per tutte le lezioni</span>
-                                </label>
-                                <input type="hidden" id="modGoogleMeetUrlInput" value="${this.escapeHtml(mod?.googleMeetUrl || '')}">
-                                <div id="modMeetSectionContainer">
-                                ${mod?.googleMeetUrl ? `
-                                    <div class="p-3 rounded-xl bg-emerald-50/80 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 flex items-center justify-between gap-2">
-                                        <div class="flex items-center gap-2 min-w-0">
-                                            <i class="fa-solid fa-video text-emerald-600 text-sm shrink-0"></i>
-                                            <span class="font-mono text-xs text-emerald-800 dark:text-emerald-200 truncate select-all">${this.escapeHtml(mod.googleMeetUrl)}</span>
-                                        </div>
-                                        <div class="flex items-center gap-1.5 shrink-0">
-                                            <button type="button" onclick="navigator.clipboard.writeText('${this.escapeHtml(mod.googleMeetUrl)}'); app.showToast('Link Meet copiato!', 'success');" class="px-2 py-1 rounded-lg bg-emerald-100 hover:bg-emerald-200 text-emerald-800 text-[10.5px] font-bold" title="Copia link"><i class="fa-solid fa-copy"></i> Copia</button>
-                                            <button type="button" onclick="if(window.electronAPI){window.electronAPI.openExternal('${this.escapeHtml(mod.googleMeetUrl)}');}else{window.open('${this.escapeHtml(mod.googleMeetUrl)}','_blank');}" class="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[10.5px] font-bold flex items-center gap-1"><i class="fa-solid fa-arrow-up-right-from-square"></i> Partecipa</button>
-                                            <button type="button" onclick="document.getElementById('modGoogleMeetUrlInput').value = ''; document.getElementById('modGoogleMeetCustomInput').value = ''; this.closest('.p-3').remove(); app.showToast('Link Meet rimosso per il modulo', 'info');" class="w-7 h-7 rounded-lg text-rose-500 hover:bg-rose-100 dark:hover:bg-rose-950/50 flex items-center justify-center text-xs" title="Rimuovi stanza Meet"><i class="fa-solid fa-trash"></i></button>
-                                        </div>
-                                    </div>
-                                ` : `
-                                    <div class="p-3 rounded-xl bg-slate-50 dark:bg-navy-950/40 border border-slate-200 dark:border-slate-800 space-y-2">
-                                        <div class="flex items-center justify-between gap-2">
-                                            <div class="text-[11px] text-slate-500 dark:text-slate-400">
-                                                ${this.state.settings?.googleCalendarConnected
-                                                    ? "Genera con 1-click una stanza Google Meet valida per tutte le lezioni di questo modulo."
-                                                    : "Nessun link configurato. Connetti Google Calendar nelle impostazioni o inserisci un link qui sotto."}
+                                ${this.state.settings?.googleCalendarConnected ? `
+                                    <label class="block font-bold mb-1 flex items-center justify-between">
+                                        <span class="flex items-center gap-1.5"><i class="fa-solid fa-video text-blue-600"></i> Stanza Google Meet per tutte le lezioni</span>
+                                    </label>
+                                    <input type="hidden" id="modGoogleMeetUrlInput" value="${this.escapeHtml(mod?.googleMeetUrl || '')}">
+                                    <div id="modMeetSectionContainer">
+                                    ${mod?.googleMeetUrl ? `
+                                        <div class="p-3 rounded-xl bg-emerald-50/80 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 flex items-center justify-between gap-2">
+                                            <div class="flex items-center gap-2 min-w-0">
+                                                <i class="fa-solid fa-video text-emerald-600 text-sm shrink-0"></i>
+                                                <span class="font-mono text-xs text-emerald-800 dark:text-emerald-200 truncate select-all">${this.escapeHtml(mod.googleMeetUrl)}</span>
                                             </div>
-                                            ${this.state.settings?.googleCalendarConnected ? `
+                                            <div class="flex items-center gap-1.5 shrink-0">
+                                                <button type="button" onclick="navigator.clipboard.writeText('${this.escapeHtml(mod.googleMeetUrl)}'); app.showToast('Link Meet copiato!', 'success');" class="px-2 py-1 rounded-lg bg-emerald-100 hover:bg-emerald-200 text-emerald-800 text-[10.5px] font-bold" title="Copia link"><i class="fa-solid fa-copy"></i> Copia</button>
+                                                <button type="button" onclick="if(window.electronAPI){window.electronAPI.openExternal('${this.escapeHtml(mod.googleMeetUrl)}');}else{window.open('${this.escapeHtml(mod.googleMeetUrl)}','_blank');}" class="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[10.5px] font-bold flex items-center gap-1"><i class="fa-solid fa-arrow-up-right-from-square"></i> Partecipa</button>
+                                                <button type="button" onclick="document.getElementById('modGoogleMeetUrlInput').value = ''; document.getElementById('modGoogleMeetCustomInput').value = ''; this.closest('.p-3').remove(); app.showToast('Link Meet rimosso per il modulo', 'info');" class="w-7 h-7 rounded-lg text-rose-500 hover:bg-rose-100 dark:hover:bg-rose-950/50 flex items-center justify-center text-xs" title="Rimuovi stanza Meet"><i class="fa-solid fa-trash"></i></button>
+                                            </div>
+                                        </div>
+                                    ` : `
+                                        <div class="p-3 rounded-xl bg-slate-50 dark:bg-navy-950/40 border border-slate-200 dark:border-slate-800 space-y-2">
+                                            <div class="flex items-center justify-between gap-2">
+                                                <div class="text-[11px] text-slate-500 dark:text-slate-400">
+                                                    Genera con 1-click una stanza Google Meet valida per tutte le lezioni di questo modulo.
+                                                </div>
                                                 <button type="button" onclick="app.createModuleMeetInModal('${lvl.id}', ${mod ? `'${mod.id}'` : 'null'})" class="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-bold text-[11px] shrink-0 flex items-center gap-1.5">
                                                     <i class="fa-solid fa-video"></i> Crea link Meet per tutte le lezioni
                                                 </button>
-                                            ` : ''}
+                                            </div>
                                         </div>
+                                    `}
+                                    </div>
+                                    <div class="mt-2">
+                                        <label class="block text-[10.5px] font-bold text-slate-500 mb-1">Link personalizzato (opzionale):</label>
+                                        <input type="text" id="modGoogleMeetCustomInput" oninput="document.getElementById('modGoogleMeetUrlInput').value = this.value.trim();" value="${this.escapeHtml(mod?.googleMeetUrl || '')}" placeholder="https://meet.google.com/xxx-xxxx-xxx" class="w-full rounded-xl border border-sky-200 dark:border-slate-700 bg-transparent px-3 py-1.5 font-mono text-xs">
+                                    </div>
+                                ` : `
+                                    <label class="block font-bold mb-1 flex items-center justify-between">
+                                        <span class="flex items-center gap-1.5"><i class="fa-solid fa-video text-blue-600"></i> Link Riunione Online (Zoom, Teams, Meet, Skype...)</span>
+                                    </label>
+                                    <input type="hidden" id="modGoogleMeetUrlInput" value="${this.escapeHtml(mod?.googleMeetUrl || '')}">
+                                    <div id="modMeetSectionContainer">
+                                    ${mod?.googleMeetUrl ? `
+                                        <div class="p-3 rounded-xl bg-blue-50/80 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 flex items-center justify-between gap-2">
+                                            <div class="flex items-center gap-2 min-w-0">
+                                                <i class="fa-solid fa-video text-blue-600 text-sm shrink-0"></i>
+                                                <div class="min-w-0">
+                                                    <div class="text-[10px] font-bold text-slate-500 dark:text-slate-400">Link Riunione Online</div>
+                                                    <div class="font-mono text-xs text-blue-800 dark:text-blue-200 truncate select-all">${this.escapeHtml(mod.googleMeetUrl)}</div>
+                                                </div>
+                                            </div>
+                                            <div class="flex items-center gap-1.5 shrink-0">
+                                                <button type="button" onclick="navigator.clipboard.writeText('${this.escapeHtml(mod.googleMeetUrl)}'); app.showToast('Link riunione copiato!', 'success');" class="px-2 py-1 rounded-lg bg-blue-100 hover:bg-blue-200 text-blue-800 text-[10.5px] font-bold" title="Copia link"><i class="fa-solid fa-copy"></i> Copia</button>
+                                                <button type="button" onclick="if(window.electronAPI){window.electronAPI.openExternal('${this.escapeHtml(mod.googleMeetUrl)}');}else{window.open('${this.escapeHtml(mod.googleMeetUrl)}','_blank');}" class="px-2.5 py-1 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-[10.5px] font-bold flex items-center gap-1"><i class="fa-solid fa-arrow-up-right-from-square"></i> Partecipa</button>
+                                                <button type="button" onclick="document.getElementById('modGoogleMeetUrlInput').value = ''; document.getElementById('modGoogleMeetCustomInput').value = ''; this.closest('.p-3').remove(); app.showToast('Link riunione rimosso per il modulo', 'info');" class="w-7 h-7 rounded-lg text-rose-500 hover:bg-rose-100 dark:hover:bg-rose-950/50 flex items-center justify-center text-xs" title="Rimuovi link riunione"><i class="fa-solid fa-trash"></i></button>
+                                            </div>
+                                        </div>
+                                    ` : ''}
+                                    </div>
+                                    <div class="mt-2">
+                                        <label class="block text-[10.5px] font-bold text-slate-500 mb-1">Incolla link riunione:</label>
+                                        <input type="text" id="modGoogleMeetCustomInput" oninput="document.getElementById('modGoogleMeetUrlInput').value = this.value.trim();" value="${this.escapeHtml(mod?.googleMeetUrl || '')}" placeholder="https://zoom.us/..., https://teams.microsoft.com/..., o qualsiasi link" class="w-full rounded-xl border border-sky-200 dark:border-slate-700 bg-transparent px-3 py-1.5 font-mono text-xs">
                                     </div>
                                 `}
-                                </div>
-                                <div class="mt-2">
-                                    <label class="block text-[10.5px] font-bold text-slate-500 mb-1">Link personalizzato (opzionale):</label>
-                                    <input type="text" id="modGoogleMeetCustomInput" oninput="document.getElementById('modGoogleMeetUrlInput').value = this.value.trim();" value="${this.escapeHtml(mod?.googleMeetUrl || '')}" placeholder="https://meet.google.com/xxx-xxxx-xxx" class="w-full rounded-xl border border-sky-200 dark:border-slate-700 bg-transparent px-3 py-1.5 font-mono text-xs">
-                                </div>
                             </div>
                         </div>
                         <div class="flex justify-end gap-2 pt-2">
@@ -10191,62 +10216,99 @@ Dettagli di Sistema:
 
                         <!-- Google Calendar & Meet Integration Row -->
                         <div class="p-3.5 rounded-xl bg-blue-50/70 dark:bg-navy-950/60 border border-blue-200/70 dark:border-blue-900/40 space-y-3">
-                            <div class="flex items-center justify-between">
-                                <h4 class="font-extrabold text-blue-900 dark:text-blue-300 flex items-center gap-2">
-                                    <i class="fa-brands fa-google text-blue-600"></i>
-                                    <span>Google Calendar & Google Meet</span>
-                                </h4>
-                                ${this.state.settings?.googleCalendarConnected ? `
+                            <input type="hidden" id="lpGoogleMeetUrlInput" value="${this.escapeHtml(les?.googleMeetUrl || (!slotKey && targetSec.googleMeetUrl) || '')}">
+
+                            ${this.state.settings?.googleCalendarConnected ? `
+                                <div class="flex items-center justify-between">
+                                    <h4 class="font-extrabold text-blue-900 dark:text-blue-300 flex items-center gap-2">
+                                        <i class="fa-brands fa-google text-blue-600"></i>
+                                        <span>Google Calendar & Google Meet</span>
+                                    </h4>
                                     <span class="px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 font-bold text-[10px] flex items-center gap-1">
                                         <i class="fa-solid fa-circle-check"></i> Account collegato (${this.escapeHtml(this.state.settings.googleCalendarEmail || '')})
                                     </span>
-                                ` : `
-                                    <button type="button" onclick="app.startGoogleOAuth()" class="px-2.5 py-1 rounded-lg bg-blue-600 text-white font-bold text-[10px] hover:bg-blue-500 transition">
-                                        Collega Google
-                                    </button>
-                                `}
-                            </div>
+                                </div>
 
-                            <input type="hidden" id="lpGoogleMeetUrlInput" value="${this.escapeHtml(les?.googleMeetUrl || (!slotKey && targetSec.googleMeetUrl) || '')}">
-
-                            <div id="lpMeetCardContainer">
-                            ${(les?.googleMeetUrl || (!slotKey && targetSec.googleMeetUrl)) ? `
-                                <div class="p-3 rounded-xl bg-emerald-50/80 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 flex items-center justify-between gap-2">
-                                    <div class="flex items-center gap-2 min-w-0">
-                                        <i class="fa-solid fa-video text-emerald-600 text-sm shrink-0"></i>
-                                        <div class="min-w-0">
-                                            <div class="text-[10px] font-bold text-slate-500 dark:text-slate-400">Stanza Google Meet</div>
-                                            <div class="font-mono text-xs text-emerald-800 dark:text-emerald-200 truncate select-all">${this.escapeHtml(les?.googleMeetUrl || targetSec.googleMeetUrl)}</div>
+                                <div id="lpMeetCardContainer">
+                                ${(les?.googleMeetUrl || (!slotKey && targetSec.googleMeetUrl)) ? `
+                                    <div class="p-3 rounded-xl bg-emerald-50/80 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 flex items-center justify-between gap-2">
+                                        <div class="flex items-center gap-2 min-w-0">
+                                            <i class="fa-solid fa-video text-emerald-600 text-sm shrink-0"></i>
+                                            <div class="min-w-0">
+                                                <div class="text-[10px] font-bold text-slate-500 dark:text-slate-400">Stanza Google Meet</div>
+                                                <div class="font-mono text-xs text-emerald-800 dark:text-emerald-200 truncate select-all">${this.escapeHtml(les?.googleMeetUrl || targetSec.googleMeetUrl)}</div>
+                                            </div>
+                                        </div>
+                                        <div class="flex items-center gap-1.5 shrink-0">
+                                            <button type="button" onclick="navigator.clipboard.writeText('${this.escapeHtml(les?.googleMeetUrl || targetSec.googleMeetUrl)}'); app.showToast('Link Meet copiato!', 'success');" class="px-2 py-1 rounded-lg bg-emerald-100 hover:bg-emerald-200 text-emerald-800 text-[10.5px] font-bold" title="Copia link"><i class="fa-solid fa-copy"></i> Copia</button>
+                                            <button type="button" onclick="app.copyLessonStudentInvitation('${course.id}', '${targetSec.id}', '${slotKey || ''}')" class="px-2 py-1 rounded-lg bg-sky-100 hover:bg-sky-200 text-sky-800 dark:bg-sky-950 dark:text-sky-200 text-[10.5px] font-bold flex items-center gap-1" title="${this.t('copyLessonInviteBtn')}"><i class="fa-solid fa-share-nodes"></i> ${this.t('copyLessonInviteBtn')}</button>
+                                            <button type="button" onclick="if(window.electronAPI){window.electronAPI.openExternal('${this.escapeHtml(les?.googleMeetUrl || targetSec.googleMeetUrl)}');}else{window.open('${this.escapeHtml(les?.googleMeetUrl || targetSec.googleMeetUrl)}','_blank');}" class="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[10.5px] font-bold flex items-center gap-1"><i class="fa-solid fa-arrow-up-right-from-square"></i> Partecipa</button>
+                                            <button type="button" onclick="document.getElementById('lpGoogleMeetUrlInput').value = ''; document.getElementById('lpGoogleMeetCustomInput').value = ''; document.getElementById('lpMeetCardContainer').innerHTML = '<div class=\'p-3 rounded-xl bg-slate-50 dark:bg-navy-950/40 border border-slate-200 dark:border-slate-800 flex items-center gap-2.5\'><i class=\'fa-solid fa-video-slash text-slate-400 text-sm\'></i><div><div class=\'font-bold text-slate-800 dark:text-slate-200 text-xs\'>Nessun link Google Meet assegnato</div><div class=\'text-[10px] text-slate-400\'>I link Meet non vengono generati in automatico per evitare conflitti.</div></div></div>'; app.showToast('Link Meet rimosso per questa lezione', 'info');" class="w-7 h-7 rounded-lg text-rose-500 hover:bg-rose-100 dark:hover:bg-rose-950/50 flex items-center justify-center text-xs" title="Rimuovi link Meet"><i class="fa-solid fa-trash"></i></button>
                                         </div>
                                     </div>
-                                    <div class="flex items-center gap-1.5 shrink-0">
-                                        <button type="button" onclick="navigator.clipboard.writeText('${this.escapeHtml(les?.googleMeetUrl || targetSec.googleMeetUrl)}'); app.showToast('Link Meet copiato!', 'success');" class="px-2 py-1 rounded-lg bg-emerald-100 hover:bg-emerald-200 text-emerald-800 text-[10.5px] font-bold" title="Copia link"><i class="fa-solid fa-copy"></i> Copia</button>
-                                        <button type="button" onclick="app.copyLessonStudentInvitation('${course.id}', '${targetSec.id}', '${slotKey || ''}')" class="px-2 py-1 rounded-lg bg-sky-100 hover:bg-sky-200 text-sky-800 dark:bg-sky-950 dark:text-sky-200 text-[10.5px] font-bold flex items-center gap-1" title="${this.t('copyLessonInviteBtn')}"><i class="fa-solid fa-share-nodes"></i> ${this.t('copyLessonInviteBtn')}</button>
-                                        <button type="button" onclick="if(window.electronAPI){window.electronAPI.openExternal('${this.escapeHtml(les?.googleMeetUrl || targetSec.googleMeetUrl)}');}else{window.open('${this.escapeHtml(les?.googleMeetUrl || targetSec.googleMeetUrl)}','_blank');}" class="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[10.5px] font-bold flex items-center gap-1"><i class="fa-solid fa-arrow-up-right-from-square"></i> Partecipa</button>
-                                        <button type="button" onclick="document.getElementById('lpGoogleMeetUrlInput').value = ''; document.getElementById('lpGoogleMeetCustomInput').value = ''; document.getElementById('lpMeetCardContainer').innerHTML = '<div class=\'p-3 rounded-xl bg-slate-50 dark:bg-navy-950/40 border border-slate-200 dark:border-slate-800 flex items-center gap-2.5\'><i class=\'fa-solid fa-video-slash text-slate-400 text-sm\'></i><div><div class=\'font-bold text-slate-800 dark:text-slate-200 text-xs\'>Nessun link Google Meet assegnato</div><div class=\'text-[10px] text-slate-400\'>I link Meet non vengono generati in automatico per evitare conflitti.</div></div></div>'; app.showToast('Link Meet rimosso per questa lezione', 'info');" class="w-7 h-7 rounded-lg text-rose-500 hover:bg-rose-100 dark:hover:bg-rose-950/50 flex items-center justify-center text-xs" title="Rimuovi link Meet"><i class="fa-solid fa-trash"></i></button>
+                                ` : `
+                                    <div class="p-3 rounded-xl bg-slate-50 dark:bg-navy-950/40 border border-slate-200 dark:border-slate-800 flex items-center justify-between gap-2.5">
+                                        <div class="flex items-center gap-2">
+                                            <i class="fa-solid fa-video-slash text-slate-400 text-sm"></i>
+                                            <div>
+                                                <div class="font-bold text-slate-800 dark:text-slate-200 text-xs">Nessun link Google Meet assegnato</div>
+                                                <div class="text-[10px] text-slate-400">I link Meet non vengono generati in automatico per evitare conflitti.</div>
+                                            </div>
+                                        </div>
+                                        ${targetSec.googleMeetUrl ? `
+                                            <button type="button" onclick="document.getElementById('lpGoogleMeetUrlInput').value = '${this.escapeHtml(targetSec.googleMeetUrl)}'; document.getElementById('lpGoogleMeetCustomInput').value = '${this.escapeHtml(targetSec.googleMeetUrl)}'; app.showToast('Link modulo applicato!', 'success');" class="px-2.5 py-1 rounded-lg border border-sky-300 dark:border-slate-700 text-sky-600 dark:text-sky-300 font-bold text-[10.5px] hover:bg-sky-50 dark:hover:bg-navy-800 transition shrink-0">
+                                                Usa stanza del Modulo
+                                            </button>
+                                        ` : ''}
                                     </div>
+                                `}
+                                </div>
+                                <div>
+                                    <label class="block text-[10.5px] font-bold text-slate-500 mb-1">Link personalizzato (opzionale):</label>
+                                    <input type="text" id="lpGoogleMeetCustomInput" oninput="document.getElementById('lpGoogleMeetUrlInput').value = this.value.trim();" value="${this.escapeHtml(les?.googleMeetUrl || (!slotKey && targetSec.googleMeetUrl) || '')}" placeholder="https://meet.google.com/xxx-xxxx-xxx" class="w-full rounded-xl border border-blue-200 dark:border-slate-700 bg-white dark:bg-navy-900 px-3 py-1.5 font-mono text-xs">
                                 </div>
                             ` : `
-                                <div class="p-3 rounded-xl bg-slate-50 dark:bg-navy-950/40 border border-slate-200 dark:border-slate-800 flex items-center justify-between gap-2.5">
-                                    <div class="flex items-center gap-2">
-                                        <i class="fa-solid fa-video-slash text-slate-400 text-sm"></i>
-                                        <div>
-                                            <div class="font-bold text-slate-800 dark:text-slate-200 text-xs">Nessun link Google Meet assegnato</div>
-                                            <div class="text-[10px] text-slate-400">I link Meet non vengono generati in automatico per evitare conflitti.</div>
+                                <div class="flex items-center justify-between">
+                                    <h4 class="font-extrabold text-blue-900 dark:text-blue-300 flex items-center gap-2">
+                                        <i class="fa-solid fa-video text-blue-600"></i>
+                                        <span>Link Riunione Online (Zoom, Teams, Meet, Skype...)</span>
+                                    </h4>
+                                </div>
+
+                                <div id="lpMeetCardContainer">
+                                ${(les?.googleMeetUrl || (!slotKey && targetSec.googleMeetUrl)) ? `
+                                    <div class="p-3 rounded-xl bg-blue-50/80 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 flex items-center justify-between gap-2">
+                                        <div class="flex items-center gap-2 min-w-0">
+                                            <i class="fa-solid fa-video text-blue-600 text-sm shrink-0"></i>
+                                            <div class="min-w-0">
+                                                <div class="text-[10px] font-bold text-slate-500 dark:text-slate-400">Link Riunione Online</div>
+                                                <div class="font-mono text-xs text-blue-800 dark:text-blue-200 truncate select-all">${this.escapeHtml(les?.googleMeetUrl || targetSec.googleMeetUrl)}</div>
+                                            </div>
+                                        </div>
+                                        <div class="flex items-center gap-1.5 shrink-0">
+                                            <button type="button" onclick="navigator.clipboard.writeText('${this.escapeHtml(les?.googleMeetUrl || targetSec.googleMeetUrl)}'); app.showToast('Link riunione copiato!', 'success');" class="px-2 py-1 rounded-lg bg-blue-100 hover:bg-blue-200 text-blue-800 text-[10.5px] font-bold" title="Copia link"><i class="fa-solid fa-copy"></i> Copia</button>
+                                            <button type="button" onclick="app.copyLessonStudentInvitation('${course.id}', '${targetSec.id}', '${slotKey || ''}')" class="px-2 py-1 rounded-lg bg-sky-100 hover:bg-sky-200 text-sky-800 dark:bg-sky-950 dark:text-sky-200 text-[10.5px] font-bold flex items-center gap-1" title="${this.t('copyLessonInviteBtn')}"><i class="fa-solid fa-share-nodes"></i> ${this.t('copyLessonInviteBtn')}</button>
+                                            <button type="button" onclick="if(window.electronAPI){window.electronAPI.openExternal('${this.escapeHtml(les?.googleMeetUrl || targetSec.googleMeetUrl)}');}else{window.open('${this.escapeHtml(les?.googleMeetUrl || targetSec.googleMeetUrl)}','_blank');}" class="px-2.5 py-1 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-[10.5px] font-bold flex items-center gap-1"><i class="fa-solid fa-arrow-up-right-from-square"></i> Partecipa</button>
+                                            <button type="button" onclick="document.getElementById('lpGoogleMeetUrlInput').value = ''; document.getElementById('lpGoogleMeetCustomInput').value = ''; document.getElementById('lpMeetCardContainer').innerHTML = ''; app.showToast('Link riunione rimosso per questa lezione', 'info');" class="w-7 h-7 rounded-lg text-rose-500 hover:bg-rose-100 dark:hover:bg-rose-950/50 flex items-center justify-center text-xs" title="Rimuovi link riunione"><i class="fa-solid fa-trash"></i></button>
                                         </div>
                                     </div>
-                                    ${targetSec.googleMeetUrl ? `
+                                ` : (targetSec.googleMeetUrl ? `
+                                    <div class="p-3 rounded-xl bg-slate-50 dark:bg-navy-950/40 border border-slate-200 dark:border-slate-800 flex items-center justify-between gap-2.5">
+                                        <div class="flex items-center gap-2 text-xs text-slate-500">
+                                            <i class="fa-solid fa-link text-blue-500"></i>
+                                            <span>Link disponibile nel Modulo: <span class="font-mono text-slate-700 dark:text-slate-300 font-semibold">${this.escapeHtml(targetSec.googleMeetUrl)}</span></span>
+                                        </div>
                                         <button type="button" onclick="document.getElementById('lpGoogleMeetUrlInput').value = '${this.escapeHtml(targetSec.googleMeetUrl)}'; document.getElementById('lpGoogleMeetCustomInput').value = '${this.escapeHtml(targetSec.googleMeetUrl)}'; app.showToast('Link modulo applicato!', 'success');" class="px-2.5 py-1 rounded-lg border border-sky-300 dark:border-slate-700 text-sky-600 dark:text-sky-300 font-bold text-[10.5px] hover:bg-sky-50 dark:hover:bg-navy-800 transition shrink-0">
-                                            Usa stanza del Modulo
+                                            Usa link del Modulo
                                         </button>
-                                    ` : ''}
+                                    </div>
+                                ` : '')}
+                                </div>
+                                <div>
+                                    <label class="block text-[10.5px] font-bold text-slate-500 mb-1">Incolla link riunione:</label>
+                                    <input type="text" id="lpGoogleMeetCustomInput" oninput="document.getElementById('lpGoogleMeetUrlInput').value = this.value.trim();" value="${this.escapeHtml(les?.googleMeetUrl || (!slotKey && targetSec.googleMeetUrl) || '')}" placeholder="https://zoom.us/..., https://teams.microsoft.com/..., o qualsiasi link" class="w-full rounded-xl border border-blue-200 dark:border-slate-700 bg-white dark:bg-navy-900 px-3 py-1.5 font-mono text-xs">
                                 </div>
                             `}
-                            </div>
-                            <div>
-                                <label class="block text-[10.5px] font-bold text-slate-500 mb-1">Link personalizzato (opzionale):</label>
-                                <input type="text" id="lpGoogleMeetCustomInput" oninput="document.getElementById('lpGoogleMeetUrlInput').value = this.value.trim();" value="${this.escapeHtml(les?.googleMeetUrl || (!slotKey && targetSec.googleMeetUrl) || '')}" placeholder="https://meet.google.com/xxx-xxxx-xxx" class="w-full rounded-xl border border-blue-200 dark:border-slate-700 bg-white dark:bg-navy-900 px-3 py-1.5 font-mono text-xs">
-                            </div>
 
                             <div>
                                 <div class="flex items-center justify-between mb-1">
@@ -10265,7 +10327,7 @@ Dettagli di Sistema:
                                     })()}
                                 </div>
                                 <input type="text" id="lpInvitedEmailsInput" value="${this.escapeHtml(Array.isArray(les?.invitedEmails) ? les.invitedEmails.join(', ') : '')}" placeholder="studente1@email.com, studente2@email.com" class="w-full rounded-xl border border-blue-200 dark:border-slate-700 bg-white dark:bg-navy-900 px-3 py-2 text-xs">
-                                <p class="text-[10px] text-slate-400 mt-0.5">Google invierà automaticamente un invito con notifica e link Meet a tutti gli indirizzi indicati.</p>
+                                <p class="text-[10px] text-slate-400 mt-0.5">${this.state.settings?.googleCalendarConnected ? "Google invierà automaticamente un invito con notifica e link Meet a tutti gli indirizzi indicati." : "Gli indirizzi email riceveranno i dettagli della lezione."}</p>
                             </div>
                         </div>
 
