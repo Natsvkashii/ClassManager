@@ -1,13 +1,13 @@
 {
-  "version": "26.10.4-015",
+  "version": "26.10.4-016",
   "channel": "unstable",
-  "tag_name": "v26.10.4-015",
+  "tag_name": "v26.10.4-016",
   "prerelease": true,
-  "published_at": "2026-10-19T23:50:00Z",
-  "name": "Class Management v26.10.4-015 [UNSTABLE]",
-  "body": "Novità versione 26.10.4-015:\n- Stanza Google Meet per Modulo: creazione in 1-click a livello di gestione del modulo per tutte le lezioni contemporaneamente, con propagazione automatica a tutti gli eventi correlati.\n- Nessuna Iniezione Automatica di Meet: rimossa la generazione automatica forzata di link Meet non richiesti per prevenire conflitti con eventi in presenza o senza link.\n- Nomenclatura Intelligente Riunioni Google Meet: ogni stanza programmata su Google Meet riporta chiaramente il nome del corso e del modulo con il partecipante o gruppo associato (es. Mario Rossi, Gruppo) anziché un codice casuale anonimo.\n- Pulsante Rapido Partecipa / Crea Meet: integrato direttamente nella barra strumenti del calendario continuo per accesso immediato alla videoconferenza sia su macOS che su Windows.\n- Architettura 100% Nativa: distribuzione pulita con esattamente 2 release ufficiali (.pkg per macOS e Setup.exe per Windows).",
-  "setupUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.10.4-015/Class-Management-26.10.4-015-Setup.exe",
-  "setupName": "Class-Management-26.10.4-015-Setup.exe",
-  "nativeUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.10.4-015/Class-Management-26.10.4-015-Setup.exe",
-  "nativeName": "Class-Management-26.10.4-015-Setup.exe"
+  "published_at": "2026-10-20T00:50:00Z",
+  "name": "Class Management v26.10.4-016 [UNSTABLE]",
+  "body": "Novità versione 26.10.4-016:\n- Codice Gruppo / Corso: aggiunto campo codice dedicato posizionato a sinistra del nome corso; gli eventi sincronizzati su Google Calendar includono il prefisso [CODICE] per identificare univocamente le lezioni del gruppo.\n- Scansione Intelligente & Associazione Google Calendar: scansione proattiva degli eventi Google Calendar per codice gruppo a partire dalla data desiderata (default prima data del modulo), con associazione automatica a due passaggi e rilevamento delle stanze Google Meet.\n- Gestione Conflitti Spostamento Lezioni: quando si sposta una lezione in un giorno già occupato da un'altra lezione dello stesso gruppo, l'app avvisa l'utente e permette di scegliere se mantenere entrambe le lezioni o spostare in avanti a cascata tutte le lezioni successive secondo la frequenza del modulo.\n- Fix Drag & Drop Windows: riabilitato il trascinamento fluido delle lezioni nella versione Windows nativa tramite inizializzazione OLE per WebView2.\n- Fix Salvataggio Lezione Windows: risolto il problema di mancata chiusura della schermata di dettaglio lezione dopo il salvataggio.\n- Miglioramento Visualizzazione macOS: ottimizzato il layout della scheda di pianificazione lezione con ScrollView responsive, eliminando ogni clipping o sovrapposizione visiva.",
+  "setupUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.10.4-016/Class-Management-26.10.4-016-Setup.exe",
+  "setupName": "Class-Management-26.10.4-016-Setup.exe",
+  "nativeUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.10.4-016/Class-Management-26.10.4-016-Setup.exe",
+  "nativeName": "Class-Management-26.10.4-016-Setup.exe"
 }

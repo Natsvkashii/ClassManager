@@ -52,6 +52,7 @@ public struct CourseFormSheet: View {
     @Environment(\.dismiss) private var dismiss
     let editingCourse: Course?
 
+    @State private var code: String = ""
     @State private var name: String = ""
     @State private var type: String = "group"
     @State private var level: String = "A1"
@@ -60,6 +61,7 @@ public struct CourseFormSheet: View {
 
     public init(editingCourse: Course?) {
         self.editingCourse = editingCourse
+        _code = State(initialValue: editingCourse?.code ?? "")
         _name = State(initialValue: editingCourse?.name ?? "")
         _type = State(initialValue: editingCourse?.type ?? "group")
         _level = State(initialValue: editingCourse?.level ?? "A1")
@@ -68,9 +70,9 @@ public struct CourseFormSheet: View {
 
     private var isDirty: Bool {
         if let c = editingCourse {
-            return name != c.name || type != c.type || level != c.level || color != c.color
+            return code != c.code || name != c.name || type != c.type || level != c.level || color != c.color
         }
-        return !name.trimmingCharacters(in: .whitespaces).isEmpty
+        return !name.trimmingCharacters(in: .whitespaces).isEmpty || !code.trimmingCharacters(in: .whitespaces).isEmpty
     }
 
     public var body: some View {
@@ -92,10 +94,22 @@ public struct CourseFormSheet: View {
             Divider()
 
             VStack(alignment: .leading, spacing: 12) {
-                Text("Nome Gruppo / Corso *")
-                    .font(.caption.bold())
-                TextField("Es. Italiano A1 - Sera", text: $name)
-                    .textFieldStyle(.roundedBorder)
+                HStack(alignment: .top, spacing: 12) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Codice")
+                            .font(.caption.bold())
+                        TextField("Es. ITA05F", text: $code)
+                            .textFieldStyle(.roundedBorder)
+                            .frame(width: 105)
+                    }
+
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Nome Gruppo / Corso *")
+                            .font(.caption.bold())
+                        TextField("Es. Italiano A1 - Sera", text: $name)
+                            .textFieldStyle(.roundedBorder)
+                    }
+                }
 
                 HStack(spacing: 14) {
                     VStack(alignment: .leading, spacing: 6) {
@@ -178,15 +192,17 @@ public struct CourseFormSheet: View {
     private func saveCourse() {
         let trimmed = name.trimmingCharacters(in: .whitespaces)
         guard !trimmed.isEmpty else { return }
+        let trimmedCode = code.trimmingCharacters(in: .whitespaces)
         store.recordUndoSnapshot()
         if let existing = editingCourse,
            let idx = store.state.courses.firstIndex(where: { $0.id == existing.id }) {
+            store.state.courses[idx].code = trimmedCode
             store.state.courses[idx].name = trimmed
             store.state.courses[idx].type = type
             store.state.courses[idx].level = level
             store.state.courses[idx].color = color
         } else {
-            let newCourse = Course(name: trimmed, type: type, level: level, color: color)
+            let newCourse = Course(code: trimmedCode, name: trimmed, type: type, level: level, color: color)
             store.state.courses.append(newCourse)
             store.state.activeCourseId = newCourse.id
             store.selectLatestLevelAndModule(for: newCourse)
@@ -537,139 +553,144 @@ public struct LessonPlanSheet: View {
 
             Divider()
 
-            HStack(spacing: 12) {
-                DatePicker("Data", selection: $lessonDate, displayedComponents: .date)
-                    .datePickerStyle(.field)
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(store.t("startLabel")).font(.caption.bold())
-                    TextField("19:00", text: $startTime).textFieldStyle(.roundedBorder).frame(width: 85)
-                }
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(store.t("endLabel")).font(.caption.bold())
-                    TextField("20:30", text: $endTime).textFieldStyle(.roundedBorder).frame(width: 85)
-                }
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(store.t("lessonUnitTitleLabel")).font(.caption.bold())
-                    TextField("Titolo unità / argomento...", text: $title).textFieldStyle(.roundedBorder)
-                }
-            }
-
-            Grid(horizontalSpacing: 14, verticalSpacing: 10) {
-                GridRow {
-                    planField(label: store.t("objectivesLabel"), text: $objectives)
-                    planField(label: store.t("topicsContentsLabel"), text: $topics)
-                }
-                GridRow {
-                    planField(label: store.t("activitiesMethodLabel"), text: $methodology)
-                    planField(label: store.t("materialsResourcesLabel"), text: $materials)
-                }
-                GridRow {
-                    planField(label: store.t("homeworkVerifyLabel"), text: $homework)
-                    planField(label: store.t("notesLabel"), text: $notes)
-                }
-            }
-
-            // Google Meet & Google Calendar Integration Card
-            VStack(alignment: .leading, spacing: 10) {
-                HStack {
-                    Label("Videoconferenza Google Meet", systemImage: "video.fill")
-                        .font(.caption.bold())
-                        .foregroundStyle(.blue)
-                    Spacer()
-                    if !store.state.settings.googleCalendarConnected {
-                        Button("Collega Google Calendar") {
-                            Task { await GoogleCalendarManager.shared.startOAuthFlow(store: store) }
+            ScrollView(.vertical, showsIndicators: true) {
+                VStack(alignment: .leading, spacing: 14) {
+                    HStack(spacing: 12) {
+                        DatePicker("Data", selection: $lessonDate, displayedComponents: .date)
+                            .datePickerStyle(.field)
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(store.t("startLabel")).font(.caption.bold())
+                            TextField("19:00", text: $startTime).textFieldStyle(.roundedBorder).frame(width: 85)
                         }
-                        .font(.caption2.bold())
-                        .buttonStyle(.bordered)
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(store.t("endLabel")).font(.caption.bold())
+                            TextField("20:30", text: $endTime).textFieldStyle(.roundedBorder).frame(width: 85)
+                        }
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(store.t("lessonUnitTitleLabel")).font(.caption.bold())
+                            TextField("Titolo unità / argomento...", text: $title).textFieldStyle(.roundedBorder)
+                        }
                     }
-                }
 
-                if !googleMeetUrl.trimmingCharacters(in: .whitespaces).isEmpty {
-                    HStack(spacing: 8) {
-                        Image(systemName: "checkmark.circle.fill")
-                            .foregroundStyle(.green)
-                        VStack(alignment: .leading, spacing: 1) {
-                            Text("Stanza Google Meet Permanente")
-                                .font(.system(size: 10, weight: .bold))
-                                .foregroundStyle(.secondary)
-                            Text(googleMeetUrl)
-                                .font(.system(size: 11, weight: .semibold, design: .monospaced))
-                                .foregroundStyle(.primary)
-                                .lineLimit(1)
+                    Grid(horizontalSpacing: 14, verticalSpacing: 10) {
+                        GridRow {
+                            planField(label: store.t("objectivesLabel"), text: $objectives)
+                            planField(label: store.t("topicsContentsLabel"), text: $topics)
                         }
-                        Spacer()
-                        if let u = URL(string: googleMeetUrl.trimmingCharacters(in: .whitespaces)) {
-                            Link(destination: u) {
-                                Label("Partecipa a Meet", systemImage: "arrow.up.right.video.fill")
-                                    .font(.caption.bold())
-                            }
-                            .buttonStyle(.borderedProminent)
-                            .tint(.blue)
+                        GridRow {
+                            planField(label: store.t("activitiesMethodLabel"), text: $methodology)
+                            planField(label: store.t("materialsResourcesLabel"), text: $materials)
                         }
-                        Button(role: .destructive) {
-                            googleMeetUrl = ""
-                        } label: {
-                            Image(systemName: "trash")
-                                .font(.caption)
+                        GridRow {
+                            planField(label: store.t("homeworkVerifyLabel"), text: $homework)
+                            planField(label: store.t("notesLabel"), text: $notes)
                         }
-                        .buttonStyle(.plain)
-                        .foregroundStyle(.red)
-                        .help("Rimuovi link Google Meet")
                     }
-                    .padding(8)
-                    .background(RoundedRectangle(cornerRadius: 8).fill(Color.green.opacity(0.08)))
-                } else {
-                    HStack(spacing: 8) {
-                        Image(systemName: "video.slash")
-                            .font(.title3)
-                            .foregroundStyle(.secondary)
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("Nessun link Google Meet assegnato")
+
+                    // Google Meet & Google Calendar Integration Card
+                    VStack(alignment: .leading, spacing: 10) {
+                        HStack {
+                            Label("Videoconferenza Google Meet", systemImage: "video.fill")
                                 .font(.caption.bold())
-                            Text("I link Meet non vengono generati in automatico per evitare conflitti con eventi che ne sono sprovvisti.")
-                                .font(.system(size: 9.5))
-                                .foregroundStyle(.secondary)
-                        }
-                        Spacer()
-                        if let modMeet = getModuleMeetUrl(), !modMeet.isEmpty {
-                            Button("Usa stanza del Modulo") {
-                                googleMeetUrl = modMeet
+                                .foregroundStyle(.blue)
+                            Spacer()
+                            if !store.state.settings.googleCalendarConnected {
+                                Button("Collega Google Calendar") {
+                                    Task { await GoogleCalendarManager.shared.startOAuthFlow(store: store) }
+                                }
+                                .font(.caption2.bold())
+                                .buttonStyle(.bordered)
                             }
-                            .font(.caption2.bold())
-                            .buttonStyle(.bordered)
+                        }
+
+                        if !googleMeetUrl.trimmingCharacters(in: .whitespaces).isEmpty {
+                            HStack(spacing: 8) {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .foregroundStyle(.green)
+                                VStack(alignment: .leading, spacing: 1) {
+                                    Text("Stanza Google Meet Permanente")
+                                        .font(.system(size: 10, weight: .bold))
+                                        .foregroundStyle(.secondary)
+                                    Text(googleMeetUrl)
+                                        .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                                        .foregroundStyle(.primary)
+                                        .lineLimit(1)
+                                }
+                                Spacer()
+                                if let u = URL(string: googleMeetUrl.trimmingCharacters(in: .whitespaces)) {
+                                    Link(destination: u) {
+                                        Label("Partecipa a Meet", systemImage: "arrow.up.right.video.fill")
+                                            .font(.caption.bold())
+                                    }
+                                    .buttonStyle(.borderedProminent)
+                                    .tint(.blue)
+                                }
+                                Button(role: .destructive) {
+                                    googleMeetUrl = ""
+                                } label: {
+                                    Image(systemName: "trash")
+                                        .font(.caption)
+                                }
+                                .buttonStyle(.plain)
+                                .foregroundStyle(.red)
+                                .help("Rimuovi link Google Meet")
+                            }
+                            .padding(8)
+                            .background(RoundedRectangle(cornerRadius: 8).fill(Color.green.opacity(0.08)))
+                        } else {
+                            HStack(spacing: 8) {
+                                Image(systemName: "video.slash")
+                                    .font(.title3)
+                                    .foregroundStyle(.secondary)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Nessun link Google Meet assegnato")
+                                        .font(.caption.bold())
+                                    Text("I link Meet non vengono generati in automatico per evitare conflitti con eventi che ne sono sprovvisti.")
+                                        .font(.system(size: 9.5))
+                                        .foregroundStyle(.secondary)
+                                }
+                                Spacer()
+                                if let modMeet = getModuleMeetUrl(), !modMeet.isEmpty {
+                                    Button("Usa stanza del Modulo") {
+                                        googleMeetUrl = modMeet
+                                    }
+                                    .font(.caption2.bold())
+                                    .buttonStyle(.bordered)
+                                }
+                            }
+                            .padding(8)
+                            .background(RoundedRectangle(cornerRadius: 8).fill(Color.secondary.opacity(0.06)))
+                        }
+
+                        // Optional manual link input/edit
+                        HStack(spacing: 6) {
+                            Text("Link personalizzato:").font(.system(size: 10, weight: .bold)).foregroundStyle(.secondary)
+                            TextField("https://meet.google.com/xxx-xxxx-xxx", text: $googleMeetUrl)
+                                .textFieldStyle(.roundedBorder)
+                                .font(.system(size: 11, design: .monospaced))
+                        }
+
+                        // Email invitations
+                        VStack(alignment: .leading, spacing: 3) {
+                            HStack {
+                                Text("Invitati via Email (separati da virgola)").font(.system(size: 10, weight: .bold)).foregroundStyle(.secondary)
+                                Spacer()
+                                Button("Aggiungi iscritti corso") {
+                                    addCourseStudentsEmails()
+                                }
+                                .font(.system(size: 9.5, weight: .bold))
+                                .buttonStyle(.plain)
+                                .foregroundStyle(.blue)
+                            }
+                            TextField("email1@gmail.com, email2@gmail.com...", text: $invitedEmailsStr)
+                                .textFieldStyle(.roundedBorder)
                         }
                     }
-                    .padding(8)
-                    .background(RoundedRectangle(cornerRadius: 8).fill(Color.secondary.opacity(0.06)))
+                    .padding(10)
+                    .background(RoundedRectangle(cornerRadius: 10).fill(Color.blue.opacity(0.04)).overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Color.blue.opacity(0.18))))
                 }
-
-                // Optional manual link input/edit
-                HStack(spacing: 6) {
-                    Text("Link personalizzato:").font(.system(size: 10, weight: .bold)).foregroundStyle(.secondary)
-                    TextField("https://meet.google.com/xxx-xxxx-xxx", text: $googleMeetUrl)
-                        .textFieldStyle(.roundedBorder)
-                        .font(.system(size: 11, design: .monospaced))
-                }
-
-                // Email invitations
-                VStack(alignment: .leading, spacing: 3) {
-                    HStack {
-                        Text("Invitati via Email (separati da virgola)").font(.system(size: 10, weight: .bold)).foregroundStyle(.secondary)
-                        Spacer()
-                        Button("Aggiungi iscritti corso") {
-                            addCourseStudentsEmails()
-                        }
-                        .font(.system(size: 9.5, weight: .bold))
-                        .buttonStyle(.plain)
-                        .foregroundStyle(.blue)
-                    }
-                    TextField("email1@gmail.com, email2@gmail.com...", text: $invitedEmailsStr)
-                        .textFieldStyle(.roundedBorder)
-                }
+                .padding(.horizontal, 2)
             }
-            .padding(10)
-            .background(RoundedRectangle(cornerRadius: 10).fill(Color.blue.opacity(0.04)).overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Color.blue.opacity(0.18))))
 
             Divider()
 
@@ -688,7 +709,7 @@ public struct LessonPlanSheet: View {
             }
         }
         .padding(22)
-        .frame(width: 800, height: 620)
+        .frame(minWidth: 780, idealWidth: 840, maxWidth: 960, minHeight: 640, idealHeight: 740, maxHeight: 860)
         .onAppear(perform: loadExisting)
     }
 
@@ -698,7 +719,9 @@ public struct LessonPlanSheet: View {
             Text(label).font(.caption.bold())
             TextEditor(text: text)
                 .font(.body)
-                .frame(minHeight: 65)
+                .scrollContentBackground(.hidden)
+                .background(Color(NSColor.controlBackgroundColor))
+                .frame(minHeight: 70, maxHeight: 110)
                 .padding(4)
                 .background(RoundedRectangle(cornerRadius: 8).strokeBorder(Color.secondary.opacity(0.32)))
         }
@@ -1031,6 +1054,7 @@ public struct RecurringLessonsSheet: View {
         let secId = store.state.courses[cIdx].levels[lIdx].modules[mIdx].id
         store.state.courses[cIdx].levels[lIdx].modules[mIdx].startTime = startTime
         store.state.courses[cIdx].levels[lIdx].modules[mIdx].endTime = endTime
+        store.state.courses[cIdx].levels[lIdx].modules[mIdx].weekdays = Array(selectedWeekdays).sorted()
 
         let df = DateFormatter()
         df.dateFormat = "yyyy-MM-dd"
@@ -2437,3 +2461,275 @@ public struct RubricsManagerSheet: View {
         .frame(width: 640, height: 420)
     }
 }
+
+// MARK: - Scan & Associate Google Calendar Events Sheet
+
+public struct ScanGoogleCalendarEventsSheet: View {
+    @Environment(AppStore.self) private var store
+    @Environment(\.dismiss) private var dismiss
+
+    let course: Course
+    let module: CourseModule
+
+    @State private var groupCode: String = ""
+    @State private var fromDate: Date = Date()
+    @State private var isScanning: Bool = false
+    @State private var scannedEvents: [GoogleCalendarEventItem] = []
+    @State private var scanPerformed: Bool = false
+    @State private var errorMessage: String? = nil
+    @State private var matchedSummary: String? = nil
+    @State private var unassociatedCount: Int = 0
+
+    public init(course: Course, module: CourseModule) {
+        self.course = course
+        self.module = module
+        _groupCode = State(initialValue: course.code)
+
+        let initialDate: Date
+        if let firstSlot = module.dates.first {
+            let dStr = AppStore.extractDateStatic(from: firstSlot)
+            initialDate = AppStore.isoDateFormatter.date(from: dStr) ?? Date()
+        } else {
+            initialDate = Date()
+        }
+        _fromDate = State(initialValue: initialDate)
+    }
+
+    public var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                Label("Sincronizzazione & Scansione Google Calendar", systemImage: "g.circle.fill")
+                    .font(.title3.bold())
+                    .foregroundStyle(.blue)
+                Spacer()
+                Button { dismiss() } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.title3)
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+            }
+
+            Divider()
+
+            // Instructional info banner
+            HStack(spacing: 12) {
+                Image(systemName: "info.circle.fill")
+                    .font(.title2)
+                    .foregroundStyle(.blue)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Ricerca automatica per codice corso")
+                        .font(.subheadline.bold())
+                    Text("Il programma scansiona il calendario Google per trovare gli eventi già creati con il codice del gruppo e li associa alle lezioni programmate, rilevando automaticamente le stanze Google Meet.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .padding(12)
+            .background(RoundedRectangle(cornerRadius: 10).fill(Color.blue.opacity(0.08)))
+
+            // Input Fields: Code & Starting Date
+            HStack(spacing: 16) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Codice Gruppo / Corso *")
+                        .font(.caption.bold())
+                    TextField("Es. ITA05F", text: $groupCode)
+                        .textFieldStyle(.roundedBorder)
+                        .frame(width: 140)
+                }
+
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Associa eventi a partire da *")
+                        .font(.caption.bold())
+                    DatePicker("", selection: $fromDate, displayedComponents: .date)
+                        .labelsHidden()
+                        .datePickerStyle(.compact)
+                }
+
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(" ").font(.caption.bold())
+                    Button {
+                        performScan()
+                    } label: {
+                        if isScanning {
+                            ProgressView()
+                                .controlSize(.small)
+                                .padding(.horizontal, 8)
+                        } else {
+                            Label("Scansiona Calendario", systemImage: "magnifyingglass")
+                                .font(.caption.bold())
+                        }
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(.blue)
+                    .disabled(isScanning || groupCode.trimmingCharacters(in: .whitespaces).isEmpty)
+                }
+            }
+
+            if let err = errorMessage {
+                HStack {
+                    Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.red)
+                    Text(err).font(.caption).foregroundStyle(.red)
+                }
+                .padding(8)
+                .background(RoundedRectangle(cornerRadius: 8).fill(Color.red.opacity(0.1)))
+            }
+
+            // Results Section
+            if scanPerformed {
+                Divider()
+                if scannedEvents.isEmpty {
+                    VStack(alignment: .center, spacing: 8) {
+                        Image(systemName: "calendar.badge.exclamationmark")
+                            .font(.largeTitle)
+                            .foregroundStyle(.secondary)
+                        Text("Nessun evento trovato su Google Calendar con il codice '\(groupCode)' a partire dal \(store.formatDateDisplay(AppStore.isoDateFormatter.string(from: fromDate))).")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
+
+                        Button {
+                            store.syncModuleToGoogleCalendar(course: course, module: module)
+                            dismiss()
+                        } label: {
+                            Label("Crea nuovi eventi per tutte le lezioni del modulo", systemImage: "plus.circle.fill")
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(.green)
+                        .padding(.top, 4)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(16)
+                } else {
+                    VStack(alignment: .leading, spacing: 10) {
+                        HStack {
+                            Text("Trovati \(scannedEvents.count) eventi con il codice '\(groupCode)'")
+                                .font(.headline)
+                                .foregroundStyle(.primary)
+                            Spacer()
+                            Button("Associa Eventi al Modulo") {
+                                performAssociation()
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .tint(.green)
+                        }
+
+                        ScrollView {
+                            LazyVStack(alignment: .leading, spacing: 6) {
+                                ForEach(scannedEvents) { ev in
+                                    HStack(spacing: 10) {
+                                        Text(store.formatDateDisplay(ev.dateOnly))
+                                            .font(.caption.bold())
+                                            .frame(width: 90, alignment: .leading)
+                                        Text(ev.isAllDay ? "Tutto il giorno" : "\(ev.startTimeDisplay) - \(ev.endTimeDisplay)")
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                            .frame(width: 100, alignment: .leading)
+                                        Text(ev.summary)
+                                            .font(.caption.bold())
+                                            .lineLimit(1)
+                                        Spacer()
+                                        if let h = ev.hangoutLink, !h.isEmpty {
+                                            Label("Meet", systemImage: "video.fill")
+                                                .font(.caption2.bold())
+                                                .foregroundStyle(.green)
+                                                .padding(.horizontal, 6)
+                                                .padding(.vertical, 2)
+                                                .background(Capsule().fill(Color.green.opacity(0.12)))
+                                        }
+                                    }
+                                    .padding(8)
+                                    .background(RoundedRectangle(cornerRadius: 8).fill(Color.secondary.opacity(0.06)))
+                                }
+                            }
+                        }
+                        .frame(maxHeight: 180)
+
+                        if let summary = matchedSummary {
+                            HStack {
+                                Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
+                                Text(summary).font(.caption.bold()).foregroundStyle(.green)
+                                Spacer()
+                                if unassociatedCount > 0 {
+                                    Button("Crea eventi per le \(unassociatedCount) lezioni rimanenti") {
+                                        store.syncModuleToGoogleCalendar(course: course, module: module)
+                                        dismiss()
+                                    }
+                                    .buttonStyle(.bordered)
+                                    .font(.caption)
+                                }
+                            }
+                            .padding(8)
+                            .background(RoundedRectangle(cornerRadius: 8).fill(Color.green.opacity(0.1)))
+                        }
+                    }
+                }
+            }
+
+            Spacer()
+
+            Divider()
+
+            HStack {
+                Spacer()
+                Button(store.t("closeBtn")) { dismiss() }
+                    .buttonStyle(.bordered)
+            }
+        }
+        .padding(22)
+        .frame(width: 660, height: 520)
+    }
+
+    private func performScan() {
+        let codeTrimmed = groupCode.trimmingCharacters(in: .whitespaces)
+        guard !codeTrimmed.isEmpty else { return }
+
+        if let cIdx = store.state.courses.firstIndex(where: { $0.id == course.id }) {
+            if store.state.courses[cIdx].code != codeTrimmed {
+                store.state.courses[cIdx].code = codeTrimmed
+                store.persist()
+            }
+        }
+
+        isScanning = true
+        errorMessage = nil
+        matchedSummary = nil
+
+        let fromDateStr = AppStore.isoDateFormatter.string(from: fromDate)
+        Task {
+            do {
+                let events = try await GoogleCalendarManager.shared.scanEventsForCode(
+                    code: codeTrimmed,
+                    fromDateStr: fromDateStr,
+                    store: store
+                )
+                await MainActor.run {
+                    self.scannedEvents = events
+                    self.scanPerformed = true
+                    self.isScanning = false
+                }
+            } catch {
+                await MainActor.run {
+                    self.errorMessage = error.localizedDescription
+                    self.isScanning = false
+                    self.scanPerformed = true
+                }
+            }
+        }
+    }
+
+    private func performAssociation() {
+        let fromDateStr = AppStore.isoDateFormatter.string(from: fromDate)
+        let (matched, unassoc) = GoogleCalendarManager.shared.associateEventsToModule(
+            course: course,
+            module: module,
+            events: scannedEvents,
+            fromDateStr: fromDateStr,
+            store: store
+        )
+        matchedSummary = "✓ \(matched) eventi associati correttamente alle lezioni del modulo!"
+        unassociatedCount = unassoc
+        store.showToast("✓ \(matched) lezioni associate con successo a Google Calendar!")
+    }
+}
+

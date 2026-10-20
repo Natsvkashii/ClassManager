@@ -71,10 +71,10 @@ echo "--> Compiling $SETUP_NAME with x86_64-windows target and -O3 optimization.
 # Create the portable copy as well
 cp -f "$SETUP_PATH" "$NATIVE_PATH"
 
-# Also copy into Versions/ and Windows-Version/dist/ if directories exist
-if [ -d "$REPO_ROOT/Versions" ]; then
-    cp -f "$SETUP_PATH" "$REPO_ROOT/Versions/"
-    cp -f "$NATIVE_PATH" "$REPO_ROOT/Versions/"
+# Also copy into Versions/v$VERSION/ and Windows-Version/dist/ if directories exist
+if [ -d "$REPO_ROOT/Versions/v$VERSION" ]; then
+    cp -f "$SETUP_PATH" "$REPO_ROOT/Versions/v$VERSION/"
+    cp -f "$NATIVE_PATH" "$REPO_ROOT/Versions/v$VERSION/"
 fi
 if [ -d "$REPO_ROOT/Windows-Version/dist" ]; then
     cp -f "$SETUP_PATH" "$REPO_ROOT/Windows-Version/dist/"

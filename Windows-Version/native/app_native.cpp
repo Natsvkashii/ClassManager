@@ -355,8 +355,8 @@ static int RunSetupInstaller(const wchar_t* currentExePath, bool isSilent) {
 
 // WinMain Entry Point
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow) {
-    // Initialize COM and Common Controls
-    CoInitializeEx(NULL, COINIT_APARTMENTTHREADED);
+    // Initialize OLE (required for WebView2 Drag & Drop) and Common Controls
+    OleInitialize(NULL);
     INITCOMMONCONTROLSEX icex;
     icex.dwSize = sizeof(INITCOMMONCONTROLSEX);
     icex.dwICC = ICC_STANDARD_CLASSES | ICC_WIN95_CLASSES;
@@ -831,5 +831,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     // 7. Run the Message Loop
     w.run();
 
+    OleUninitialize();
     return 0;
 }

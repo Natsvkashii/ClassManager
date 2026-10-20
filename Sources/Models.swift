@@ -18,7 +18,7 @@ public enum AuthorAttribution {
     public static let authorName = "Guaira Jaramillo Nitoglia"
     public static let authorEmail = "guaira.jaramillo.nitoglia@gmail.com"
     public static let appName = "Class Management"
-    public static let appVersion = "26.10.4-015"
+    public static let appVersion = "26.10.4-016"
     public static let appChannel = "unstable"
     public static let licenseName = "GNU General Public License v3.0 (GPL-3.0)"
 
@@ -829,9 +829,10 @@ public struct CourseModule: Codable, Identifiable, Equatable {
     public var attendanceWeight: Double? = 5.0
     public var billing: ModuleBilling? = ModuleBilling()
     public var googleMeetUrl: String? = nil
+    public var weekdays: [Int] = []
 
     enum CodingKeys: String, CodingKey {
-        case id, name, description, startTime, endTime, scheduleNote, studentIds, dates, attendance, evaluateAttendance, attendanceWeight, billing, googleMeetUrl
+        case id, name, description, startTime, endTime, scheduleNote, studentIds, dates, attendance, evaluateAttendance, attendanceWeight, billing, googleMeetUrl, weekdays
     }
 
     public init(id: String = "sec-" + UUID().uuidString.prefix(6).lowercased(),
@@ -846,7 +847,8 @@ public struct CourseModule: Codable, Identifiable, Equatable {
                 evaluateAttendance: Bool? = false,
                 attendanceWeight: Double? = 5.0,
                 billing: ModuleBilling? = ModuleBilling(),
-                googleMeetUrl: String? = nil) {
+                googleMeetUrl: String? = nil,
+                weekdays: [Int] = []) {
         self.id = id
         self.name = name
         self.description = description
@@ -860,6 +862,7 @@ public struct CourseModule: Codable, Identifiable, Equatable {
         self.attendanceWeight = attendanceWeight
         self.billing = billing
         self.googleMeetUrl = googleMeetUrl
+        self.weekdays = weekdays
     }
 
     public init(from decoder: Decoder) throws {
@@ -889,6 +892,7 @@ public struct CourseModule: Codable, Identifiable, Equatable {
         attendanceWeight = c.flexOptDouble(.attendanceWeight)
         billing = (try? c.decodeIfPresent(ModuleBilling.self, forKey: .billing)) ?? ModuleBilling()
         googleMeetUrl = c.flexOptString(.googleMeetUrl)
+        weekdays = (try? c.decodeIfPresent([Int].self, forKey: .weekdays)) ?? []
     }
 
     public init(dict: [String: Any], fallbackIndex: Int = 1) {
@@ -924,6 +928,13 @@ public struct CourseModule: Codable, Identifiable, Equatable {
             billing = ModuleBilling()
         }
         googleMeetUrl = JSONDictHelper.optStr(dict["googleMeetUrl"])
+        if let wArr = dict["weekdays"] as? [Int] {
+            weekdays = wArr
+        } else if let wAnyArr = dict["weekdays"] as? [Any] {
+            weekdays = wAnyArr.compactMap { $0 as? Int }
+        } else {
+            weekdays = []
+        }
     }
 }
 
@@ -1252,6 +1263,7 @@ public struct CourseBillingConfig: Codable, Equatable {
 
 public struct Course: Codable, Identifiable, Equatable {
     public var id: String
+    public var code: String = ""
     public var name: String
     public var type: String = "group" // "group" or "private"
     public var level: String = "A1"
@@ -1269,16 +1281,18 @@ public struct Course: Codable, Identifiable, Equatable {
     public var formerStudentIds: [String] = []
 
     enum CodingKeys: String, CodingKey {
-        case id, name, type, level, color, archived, startTime, endTime, scheduleNote, levels, lessons, grades, rubricEvaluations, gradeConfig, billingConfig, formerStudentIds
+        case id, code, name, type, level, color, archived, startTime, endTime, scheduleNote, levels, lessons, grades, rubricEvaluations, gradeConfig, billingConfig, formerStudentIds
     }
 
     public init(id: String = "crs-" + UUID().uuidString.prefix(6).lowercased(),
+                code: String = "",
                 name: String,
                 type: String = "group",
                 level: String = "A1",
                 color: String = "sky",
                 archived: Bool = false) {
         self.id = id
+        self.code = code
         self.name = name
         self.type = type
         self.level = level
@@ -1293,6 +1307,7 @@ public struct Course: Codable, Identifiable, Equatable {
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         id = c.flexString(.id, default: "crs-" + UUID().uuidString.prefix(6).lowercased())
+        code = c.flexString(.code, default: "")
         let cName = c.flexString(.name, default: "Corso")
         name = cName
         type = c.flexString(.type, default: "group")
@@ -1334,6 +1349,7 @@ public struct Course: Codable, Identifiable, Equatable {
 
     public init(dict: [String: Any]) {
         id = JSONDictHelper.str(dict["id"], default: "crs-" + UUID().uuidString.prefix(6).lowercased())
+        code = JSONDictHelper.str(dict["code"], default: "")
         let cName = JSONDictHelper.str(dict["name"], default: "Corso")
         name = cName
         type = JSONDictHelper.str(dict["type"], default: "group")
@@ -1590,6 +1606,14 @@ public struct AppState: Codable, Equatable {
     ]
 
     public static let defaultChangelog: [ChangelogEntry] = [
+        ChangelogEntry(version: "26.10.4-016", date: "2026-10-20", changes: [
+            "Codice Gruppo / Corso: aggiunto campo codice dedicato posizionato a sinistra del nome corso; gli eventi su Google Calendar includono il prefisso [CODICE] per identificare univocamente il gruppo.",
+            "Scansione Intelligente & Associazione Google Calendar: scansione proattiva degli eventi Google Calendar per codice gruppo a partire dalla data desiderata (default prima data del modulo), con associazione automatica a due passaggi e rilevamento delle stanze Google Meet.",
+            "Gestione Conflitti Spostamento Lezioni: quando si sposta una lezione in un giorno già occupato da un'altra lezione dello stesso gruppo, l'app avvisa l'utente e permette di scegliere se mantenere entrambe le lezioni o spostare in avanti a cascata tutte le lezioni successive secondo la frequenza del modulo.",
+            "Fix Drag & Drop Windows: riabilitato il trascinamento fluido delle lezioni nella versione Windows nativa tramite inizializzazione OLE per WebView2.",
+            "Fix Salvataggio Lezione Windows: risolto il problema di mancata chiusura della schermata di dettaglio lezione dopo il salvataggio.",
+            "Miglioramento Visualizzazione macOS: ottimizzato il layout della scheda di pianificazione lezione con ScrollView responsive, eliminando ogni clipping o sovrapposizione visiva."
+        ]),
         ChangelogEntry(version: "26.10.4-012", date: "2026-10-19", changes: [
             "OAuth Google non-bloccante: risolto il blocco a caricamento infinito in caso di mancata autorizzazione o chiusura del browser, con timeout a 60 secondi, pulsante Annulla immediato e gestione chiara dell'errore.",
             "Piano Lezioni migliorato: apertura diretta incentrata sul mese in corso, supporto a scorrimento esteso con caricamento dinamico di mesi precedenti/futuri e guide di trascinamento visibili solo durante il drag attivo.",

@@ -682,8 +682,12 @@ public final class AppStore {
 
     // MARK: - Formatting Helpers
 
-    public func extractDate(from slotKey: String) -> String {
+    public static func extractDateStatic(from slotKey: String) -> String {
         String(slotKey.prefix(10))
+    }
+
+    public func extractDate(from slotKey: String) -> String {
+        Self.extractDateStatic(from: slotKey)
     }
 
     public func formatDateDisplay(_ dateStr: String) -> String {
@@ -836,6 +840,120 @@ public final class AppStore {
         }
 
         showToast("📅 Lezione spostata al \(formatDateDisplay(newDateStr))")
+        return true
+    }
+
+    /// Returns the active weekdays (1=Sun, 2=Mon, ..., 7=Sat) for a module's recurrence pattern.
+    public func getModuleRecurrenceWeekdays(course: Course, module: CourseModule) -> [Int] {
+        if !module.weekdays.isEmpty {
+            return module.weekdays.sorted()
+        }
+        let cal = Calendar.current
+        var set = Set<Int>()
+        for slot in module.dates {
+            let dStr = extractDate(from: slot)
+            if let date = AppStore.isoDateFormatter.date(from: dStr) {
+                set.insert(cal.component(.weekday, from: date))
+            }
+        }
+        if set.isEmpty {
+            return [2, 4]
+        }
+        return Array(set).sorted()
+    }
+
+    /// Moves a lesson to a new date and shifts forward all subsequent lessons in the module following recurrence frequency.
+    @discardableResult
+    public func moveLessonShiftingForward(courseId: String, moduleId: String, slotKey: String, toDate newDateStr: String) -> Bool {
+        guard let cIdx = state.courses.firstIndex(where: { $0.id == courseId }) else { return false }
+        var lIdxFound: Int? = nil
+        var mIdxFound: Int? = nil
+        for (li, l) in state.courses[cIdx].levels.enumerated() {
+            if let mi = l.modules.firstIndex(where: { $0.id == moduleId }) {
+                lIdxFound = li
+                mIdxFound = mi
+                break
+            }
+        }
+        guard let lIdx = lIdxFound, let mIdx = mIdxFound else { return false }
+
+        recordUndoSnapshot()
+
+        var mod = state.courses[cIdx].levels[lIdx].modules[mIdx]
+        let weekdays = getModuleRecurrenceWeekdays(course: state.courses[cIdx], module: mod)
+        let cal = Calendar.current
+        guard let targetDate = AppStore.isoDateFormatter.date(from: newDateStr) else {
+            return moveLesson(courseId: courseId, moduleId: moduleId, slotKey: slotKey, toDate: newDateStr)
+        }
+
+        func nextValidDate(after d: Date) -> Date {
+            var cur = cal.date(byAdding: .day, value: 1, to: d) ?? d
+            for _ in 0..<14 {
+                let wd = cal.component(.weekday, from: cur)
+                if weekdays.contains(wd) {
+                    return cur
+                }
+                cur = cal.date(byAdding: .day, value: 1, to: cur) ?? cur
+            }
+            return cur
+        }
+
+        let otherSlots = mod.dates.filter { $0 != slotKey }.sorted { a, b in
+            let da = extractDate(from: a)
+            let db = extractDate(from: b)
+            if da != db { return da < db }
+            return a < b
+        }
+
+        let beforeSlots = otherSlots.filter { extractDate(from: $0) < newDateStr }
+        let atOrAfterSlots = otherSlots.filter { extractDate(from: $0) >= newDateStr }
+
+        var slotMigrations: [(oldKey: String, newKey: String, newDate: String)] = []
+        var finalDates: [String] = beforeSlots
+
+        let movedSlotNewKey = finalDates.contains(newDateStr)
+            ? "\(newDateStr)__\(UUID().uuidString.prefix(5).lowercased())"
+            : newDateStr
+        slotMigrations.append((oldKey: slotKey, newKey: movedSlotNewKey, newDate: newDateStr))
+        finalDates.append(movedSlotNewKey)
+
+        var lastDate = targetDate
+        for oldSlot in atOrAfterSlots {
+            lastDate = nextValidDate(after: lastDate)
+            let nextDateStr = AppStore.isoDateFormatter.string(from: lastDate)
+            let nextSlotKey = finalDates.contains(nextDateStr)
+                ? "\(nextDateStr)__\(UUID().uuidString.prefix(5).lowercased())"
+                : nextDateStr
+            slotMigrations.append((oldKey: oldSlot, newKey: nextSlotKey, newDate: nextDateStr))
+            finalDates.append(nextSlotKey)
+        }
+
+        for mig in slotMigrations {
+            if mig.oldKey == mig.newKey { continue }
+            for stId in Array(mod.attendance.keys) {
+                if let val = mod.attendance[stId]?[mig.oldKey] {
+                    mod.attendance[stId]?[mig.newKey] = val
+                    mod.attendance[stId]?.removeValue(forKey: mig.oldKey)
+                }
+            }
+            if let lesIdx = state.courses[cIdx].lessons.firstIndex(where: {
+                $0.slotKey == mig.oldKey && ($0.sectionId == nil || $0.sectionId == moduleId)
+            }) {
+                state.courses[cIdx].lessons[lesIdx].date = mig.newDate
+                state.courses[cIdx].lessons[lesIdx].slotKey = mig.newKey
+            }
+        }
+
+        mod.dates = finalDates
+        mod.dates = sortedSlots(for: state.courses[cIdx], module: mod)
+        state.courses[cIdx].levels[lIdx].modules[mIdx] = mod
+        persist()
+
+        if state.settings.autoSyncAppleCalendar {
+            syncCourseToAppleCalendar(state.courses[cIdx], showNotification: false)
+        }
+
+        showToast("📅 Lezioni riprogrammate con successo a partire dal \(formatDateDisplay(newDateStr))")
         return true
     }
 

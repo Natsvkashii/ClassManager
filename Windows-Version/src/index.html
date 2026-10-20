@@ -16,7 +16,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Class Management v26.10.4-015 (Windows Native Edition)</title>
+    <title>Class Management v26.10.4-016 (Windows Native Edition)</title>
     <link rel="icon" type="image/png" href="logo.png">
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -1099,12 +1099,24 @@ Removing, obfuscating, or altering these credits violates the author's attributi
         ];
 
         const INITIAL_DATA = {
-            version: "26.10.4-015",
+            version: "26.10.4-016",
             channel: "unstable",
             deletedItems: [],
             lastUpdated: new Date().toISOString(),
             activeCourseId: "",
             changelog: [
+                {
+                    version: "26.10.4-016",
+                    date: "2026-10-20",
+                    changes: [
+                        "Codice Gruppo / Corso: aggiunto campo codice dedicato a sinistra del nome corso; gli eventi su Google Calendar includono il prefisso [CODICE] per identificare univocamente il gruppo.",
+                        "Scansione Intelligente & Associazione Google Calendar: scansione proattiva degli eventi Google Calendar per codice gruppo a partire dalla data desiderata (default prima data del modulo), con associazione automatica a due passaggi e rilevamento delle stanze Google Meet.",
+                        "Gestione Conflitti Spostamento Lezioni: quando si sposta una lezione in un giorno già occupato da un'altra lezione dello stesso gruppo, l'app avvisa l'utente e permette di scegliere se mantenere entrambe le lezioni o spostare in avanti a cascata tutte le lezioni successive secondo la frequenza del modulo.",
+                        "Fix Drag & Drop Windows: riabilitato il trascinamento fluido delle lezioni nella versione Windows nativa tramite inizializzazione OLE per WebView2.",
+                        "Fix Salvataggio Lezione Windows: risolto il problema di mancata chiusura della schermata di dettaglio lezione dopo il salvataggio.",
+                        "Miglioramento Visualizzazione macOS: ottimizzato il layout della scheda di pianificazione lezione con ScrollView responsive, eliminando ogni clipping o sovrapposizione visiva."
+                    ]
+                },
                 {
                     version: "26.10.4-015",
                     date: "2026-10-19",
@@ -4784,7 +4796,153 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                     el.classList.remove("bg-sky-100", "dark:bg-sky-950/60", "border-sky-500");
                 });
                 if (!slotKey || !newDateStr) return;
-                this.moveLesson(slotKey, newDateStr);
+
+                const course = this.getActiveCourse();
+                const sec = this.getActiveSection(course);
+                if (!course || !sec) return;
+
+                const oldDate = this.extractDateFromSlotKey(slotKey);
+                if (oldDate === newDateStr) return;
+
+                const isCollision = (sec.dates || []).some(k => this.extractDateFromSlotKey(k) === newDateStr && k !== slotKey);
+                if (isCollision) {
+                    this.openCollisionMoveModal(slotKey, newDateStr);
+                } else {
+                    this.moveLesson(slotKey, newDateStr);
+                }
+            }
+
+            openCollisionMoveModal(slotKey, newDateStr) {
+                const dateDisplay = this.formatDateDisplay(newDateStr);
+                this.openModal(`
+                    <div class="p-6 space-y-4 text-xs">
+                        <div class="flex items-center gap-3 text-amber-500">
+                            <i class="fa-solid fa-triangle-exclamation text-2xl"></i>
+                            <div>
+                                <h3 class="text-base font-extrabold text-slate-900 dark:text-white">Lezione già presente in questa data</h3>
+                                <p class="text-slate-500 dark:text-slate-400">In data <strong>${dateDisplay}</strong> è già presente un'altra lezione per questo gruppo.</p>
+                            </div>
+                        </div>
+                        <p class="text-slate-600 dark:text-slate-300">
+                            Come desideri procedere? Puoi spostare in avanti tutte le lezioni successive seguendo la frequenza settimanale del modulo oppure mantenere entrambe le lezioni nello stesso giorno.
+                        </p>
+                        <div class="flex flex-col sm:flex-row justify-end gap-2 pt-2 border-t border-sky-100 dark:border-slate-800">
+                            <button type="button" onclick="app.closeModal()" class="px-4 py-2 rounded-xl border border-slate-300 dark:border-slate-700 font-bold">${this.t("cancelBtn")}</button>
+                            <button type="button" onclick="app.closeModal(); app.moveLesson('${slotKey}', '${newDateStr}')" class="px-4 py-2 rounded-xl border border-sky-300 dark:border-sky-700 bg-sky-50 dark:bg-navy-800 font-bold text-sky-700 dark:text-sky-300">Mantieni entrambe in questa data</button>
+                            <button type="button" onclick="app.closeModal(); app.moveLessonShiftingForward('${slotKey}', '${newDateStr}')" class="px-4 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-extrabold shadow-2xs">Sposta in avanti le successive</button>
+                        </div>
+                    </div>
+                `, "max-w-lg");
+            }
+
+            getModuleRecurrenceWeekdays(course, sec) {
+                if (Array.isArray(sec.weekdays) && sec.weekdays.length > 0) {
+                    return [...sec.weekdays].sort((a, b) => a - b);
+                }
+                const set = new Set();
+                (sec.dates || []).forEach(slot => {
+                    const dStr = this.extractDateFromSlotKey(slot);
+                    const dt = new Date(dStr + "T12:00:00");
+                    if (!isNaN(dt.getTime())) {
+                        set.add(dt.getDay());
+                    }
+                });
+                if (set.size === 0) return [1, 3];
+                return Array.from(set).sort((a, b) => a - b);
+            }
+
+            moveLessonShiftingForward(slotKey, newDateStr) {
+                const course = this.getActiveCourse();
+                const sec = this.getActiveSection(course);
+                if (!course || !sec) return;
+
+                const scrollEl = document.getElementById("calendarScrollContainer");
+                const savedCalendarScrollTop = scrollEl ? scrollEl.scrollTop : 0;
+                const savedWindowScrollY = window.scrollY || document.documentElement.scrollTop || 0;
+
+                this.recordUndoSnapshot();
+
+                const weekdays = this.getModuleRecurrenceWeekdays(course, sec);
+
+                function getNextValidDate(d) {
+                    const next = new Date(d);
+                    next.setDate(next.getDate() + 1);
+                    for (let g = 0; g < 14; g++) {
+                        if (weekdays.includes(next.getDay())) {
+                            return next;
+                        }
+                        next.setDate(next.getDate() + 1);
+                    }
+                    return next;
+                }
+
+                function formatIso(d) {
+                    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+                }
+
+                const otherSlots = (sec.dates || []).filter(k => k !== slotKey).sort((a, b) => {
+                    const da = a.substring(0, 10);
+                    const db = b.substring(0, 10);
+                    return da.localeCompare(db) || a.localeCompare(b);
+                });
+
+                const beforeSlots = otherSlots.filter(k => this.extractDateFromSlotKey(k) < newDateStr);
+                const atOrAfterSlots = otherSlots.filter(k => this.extractDateFromSlotKey(k) >= newDateStr);
+
+                const slotMigrations = [];
+                const finalDates = [...beforeSlots];
+
+                const movedNewKey = finalDates.includes(newDateStr)
+                    ? `${newDateStr}__${Math.random().toString(36).substr(2, 5)}`
+                    : newDateStr;
+                slotMigrations.push({ oldKey: slotKey, newKey: movedNewKey, newDate: newDateStr });
+                finalDates.push(movedNewKey);
+
+                let lastDate = new Date(newDateStr + "T12:00:00");
+                for (const oldSlot of atOrAfterSlots) {
+                    lastDate = getNextValidDate(lastDate);
+                    const nextDateStr = formatIso(lastDate);
+                    const nextSlotKey = finalDates.includes(nextDateStr)
+                        ? `${nextDateStr}__${Math.random().toString(36).substr(2, 5)}`
+                        : nextDateStr;
+                    slotMigrations.push({ oldKey: oldSlot, newKey: nextSlotKey, newDate: nextDateStr });
+                    finalDates.push(nextSlotKey);
+                }
+
+                for (const mig of slotMigrations) {
+                    if (mig.oldKey === mig.newKey) continue;
+                    if (sec.attendance) {
+                        Object.keys(sec.attendance).forEach(stId => {
+                            if (sec.attendance[stId] && sec.attendance[stId][mig.oldKey] !== undefined) {
+                                sec.attendance[stId][mig.newKey] = sec.attendance[stId][mig.oldKey];
+                                delete sec.attendance[stId][mig.oldKey];
+                            }
+                        });
+                    }
+                    if (course.lessons) {
+                        const les = course.lessons.find(l => l.slotKey === mig.oldKey && (l.sectionId === null || l.sectionId === sec.id));
+                        if (les) {
+                            les.date = mig.newDate;
+                            les.slotKey = mig.newKey;
+                        }
+                    }
+                }
+
+                sec.dates = finalDates;
+                this.sortModuleSlots(course, sec);
+                this.persist();
+                this.renderAll();
+
+                const restoreScroll = () => {
+                    const newScrollEl = document.getElementById("calendarScrollContainer");
+                    if (newScrollEl && savedCalendarScrollTop > 0) newScrollEl.scrollTop = savedCalendarScrollTop;
+                    if (savedWindowScrollY > 0) window.scrollTo({ top: savedWindowScrollY, behavior: "instant" });
+                };
+                restoreScroll();
+                requestAnimationFrame(restoreScroll);
+                setTimeout(restoreScroll, 20);
+
+                this.showToast(`📅 Lezioni riprogrammate a partire dal ${this.formatDateDisplay(newDateStr)}`, "success");
             }
 
             startAutoScrollUp() {
@@ -5341,7 +5499,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                                     <i class="fa-solid fa-print text-sky-600"></i> ${this.t("printBtn")}
                                 </button>
                                 ${this.state?.settings?.googleCalendarConnected ? `
-                                    <button onclick="app.syncModuleToGoogleCalendar(app.getActiveCourse(), app.getActiveSection(app.getActiveCourse()), true)" class="px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold flex items-center gap-1.5 shadow-2xs transition" title="Sincronizza tutte le lezioni di questo modulo su Google Calendar">
+                                    <button onclick="app.openGoogleCalendarScanModal(app.getActiveCourse()?.id, app.getActiveSection(app.getActiveCourse())?.id)" class="px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold flex items-center gap-1.5 shadow-2xs transition" title="Scansiona e sincronizza Google Calendar per questo modulo">
                                         <i class="fa-brands fa-google text-sm"></i> Sincronizza Google
                                     </button>
                                 ` : ''}
@@ -8828,7 +8986,11 @@ Dettagli di Sistema:
                             <button type="button" onclick="app.closeModal()" class="w-8 h-8 rounded-lg hover:bg-slate-100 dark:hover:bg-navy-800 flex items-center justify-center"><i class="fa-solid fa-xmark"></i></button>
                         </div>
 
-                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            <div>
+                                <label class="block font-bold mb-1">Codice</label>
+                                <input type="text" id="courseCodeInput" placeholder="Es. ITA05F" value="${this.escapeHtml(existing?.code || '')}" class="w-full rounded-xl border border-sky-200 dark:border-slate-700 bg-transparent px-3 py-2 font-bold uppercase">
+                            </div>
                             <div class="sm:col-span-2">
                                 <label class="block font-bold mb-1">Nome Gruppo / Corso *</label>
                                 <input type="text" id="courseNameInput" required value="${this.escapeHtml(existing?.name || '')}" class="w-full rounded-xl border border-sky-200 dark:border-slate-700 bg-transparent px-3 py-2 font-bold">
@@ -8840,7 +9002,7 @@ Dettagli di Sistema:
                                     <option value="private" ${existing?.type === 'private' ? 'selected' : ''}>${this.t("privateBadge")}</option>
                                 </select>
                             </div>
-                            <div>
+                            <div class="sm:col-span-2">
                                 <label class="block font-bold mb-1">${this.t("levelShort")}</label>
                                 <select id="courseLevelInput" class="w-full rounded-xl border border-sky-200 dark:border-slate-700 bg-transparent px-3 py-2 font-bold">
                                     ${["A1", "A2", "B1", "B2", "C1", "C2", "Altro"].map(l => `<option value="${l}" ${selLevel === l ? 'selected' : ''}>${l === 'Altro' ? this.t("otherLevelOpt") : l}</option>`).join("")}
@@ -8870,6 +9032,7 @@ Dettagli di Sistema:
 
             saveCourseModal(e, courseId = null) {
                 if (e) e.preventDefault();
+                const code = (document.getElementById("courseCodeInput")?.value || "").trim();
                 const name = document.getElementById("courseNameInput")?.value.trim();
                 if (!name) return;
                 const type = document.getElementById("courseTypeInput")?.value || "group";
@@ -8879,6 +9042,7 @@ Dettagli di Sistema:
                 if (courseId) {
                     const c = (this.state.courses || []).find(x => x.id === courseId);
                     if (c) {
+                        c.code = code;
                         c.name = name;
                         c.type = type;
                         c.level = levelCode;
@@ -8887,6 +9051,7 @@ Dettagli di Sistema:
                 } else {
                     const newCourse = {
                         id: "crs-" + Math.random().toString(36).substr(2, 6),
+                        code,
                         name,
                         type,
                         level: levelCode,
@@ -9363,86 +9528,93 @@ Dettagli di Sistema:
 
             saveLessonPlanModal(e, courseId, sectionId, oldSlotKey = null) {
                 if (e) e.preventDefault();
-                const course = (this.state.courses || []).find(c => c.id === courseId);
-                if (!course) return;
-                let sec = null;
-                (course.levels || []).forEach(l => {
-                    const m = (l.modules || []).find(x => x.id === sectionId);
-                    if (m) sec = m;
-                });
-                if (!sec) return;
+                try {
+                    const course = (this.state.courses || []).find(c => c.id === courseId);
+                    if (!course) return;
+                    let sec = null;
+                    (course.levels || []).forEach(l => {
+                        const m = (l.modules || []).find(x => x.id === sectionId);
+                        if (m) sec = m;
+                    });
+                    if (!sec) return;
 
-                const newDate = document.getElementById("lpDateInput")?.value;
-                const time = document.getElementById("lpStartTimeInput")?.value || "19:00";
-                const endTime = document.getElementById("lpEndTimeInput")?.value || "20:30";
-                if (!newDate) return;
+                    const les = oldSlotKey ? this.findLessonForSlot(course, sec.id, oldSlotKey) : null;
 
-                let finalSlotKey = oldSlotKey;
-                if (!finalSlotKey) {
-                    finalSlotKey = sec.dates.includes(newDate)
-                        ? `${newDate}__${Math.random().toString(36).substr(2, 5)}`
-                        : newDate;
-                    sec.dates.push(finalSlotKey);
-                } else {
-                    const oldDateOnly = this.extractDateFromSlotKey(oldSlotKey);
-                    if (oldDateOnly !== newDate) {
-                        const candidate = sec.dates.includes(newDate)
+                    const newDate = document.getElementById("lpDateInput")?.value;
+                    const time = document.getElementById("lpStartTimeInput")?.value || "19:00";
+                    const endTime = document.getElementById("lpEndTimeInput")?.value || "20:30";
+                    if (!newDate) return;
+
+                    let finalSlotKey = oldSlotKey;
+                    if (!finalSlotKey) {
+                        finalSlotKey = sec.dates.includes(newDate)
                             ? `${newDate}__${Math.random().toString(36).substr(2, 5)}`
                             : newDate;
-                        const idx = sec.dates.indexOf(oldSlotKey);
-                        if (idx >= 0) sec.dates[idx] = candidate;
-                        if (sec.attendance) {
-                            Object.keys(sec.attendance).forEach(stId => {
-                                if (sec.attendance[stId]?.[oldSlotKey] !== undefined) {
-                                    sec.attendance[stId][candidate] = sec.attendance[stId][oldSlotKey];
-                                    delete sec.attendance[stId][oldSlotKey];
-                                }
-                            });
+                        sec.dates.push(finalSlotKey);
+                    } else {
+                        const oldDateOnly = this.extractDateFromSlotKey(oldSlotKey);
+                        if (oldDateOnly !== newDate) {
+                            const candidate = sec.dates.includes(newDate)
+                                ? `${newDate}__${Math.random().toString(36).substr(2, 5)}`
+                                : newDate;
+                            const idx = sec.dates.indexOf(oldSlotKey);
+                            if (idx >= 0) sec.dates[idx] = candidate;
+                            if (sec.attendance) {
+                                Object.keys(sec.attendance).forEach(stId => {
+                                    if (sec.attendance[stId]?.[oldSlotKey] !== undefined) {
+                                        sec.attendance[stId][candidate] = sec.attendance[stId][oldSlotKey];
+                                        delete sec.attendance[stId][oldSlotKey];
+                                    }
+                                });
+                            }
+                            finalSlotKey = candidate;
                         }
-                        finalSlotKey = candidate;
                     }
-                }
 
-                if (!Array.isArray(course.lessons)) course.lessons = [];
-                const googleMeetUrl = document.getElementById("lpGoogleMeetUrlInput")?.value.trim() || "";
-                const invitedEmails = (document.getElementById("lpInvitedEmailsInput")?.value || "")
-                    .split(",")
-                    .map(s => s.trim())
-                    .filter(Boolean);
+                    if (!Array.isArray(course.lessons)) course.lessons = [];
+                    const googleMeetUrl = document.getElementById("lpGoogleMeetUrlInput")?.value.trim() || "";
+                    const invitedEmails = (document.getElementById("lpInvitedEmailsInput")?.value || "")
+                        .split(",")
+                        .map(s => s.trim())
+                        .filter(Boolean);
 
-                const lessonData = {
-                    id: les?.id || ("les-" + Math.random().toString(36).substr(2, 6)),
-                    sectionId: sec.id,
-                    date: newDate,
-                    slotKey: finalSlotKey,
-                    time,
-                    endTime,
-                    title: document.getElementById("lpTitleInput")?.value.trim() || "",
-                    googleMeetUrl,
-                    googleCalendarEventId: les?.googleCalendarEventId || null,
-                    invitedEmails,
-                    objectives: document.getElementById("lpObjectivesInput")?.value.trim() || "",
-                    topics: document.getElementById("lpTopicsInput")?.value.trim() || "",
-                    methodology: document.getElementById("lpMethodInput")?.value.trim() || "",
-                    materials: document.getElementById("lpMaterialsInput")?.value.trim() || "",
-                    homework: document.getElementById("lpHomeworkInput")?.value.trim() || "",
-                    notes: document.getElementById("lpNotesInput")?.value.trim() || ""
-                };
+                    const lessonData = {
+                        id: les?.id || ("les-" + Math.random().toString(36).substr(2, 6)),
+                        sectionId: sec.id,
+                        date: newDate,
+                        slotKey: finalSlotKey,
+                        time,
+                        endTime,
+                        title: document.getElementById("lpTitleInput")?.value.trim() || "",
+                        googleMeetUrl,
+                        googleCalendarEventId: les?.googleCalendarEventId || null,
+                        invitedEmails,
+                        objectives: document.getElementById("lpObjectivesInput")?.value.trim() || "",
+                        topics: document.getElementById("lpTopicsInput")?.value.trim() || "",
+                        methodology: document.getElementById("lpMethodInput")?.value.trim() || "",
+                        materials: document.getElementById("lpMaterialsInput")?.value.trim() || "",
+                        homework: document.getElementById("lpHomeworkInput")?.value.trim() || "",
+                        notes: document.getElementById("lpNotesInput")?.value.trim() || ""
+                    };
 
-                if (les) {
-                    Object.assign(les, lessonData);
-                } else {
-                    course.lessons.push(lessonData);
-                }
+                    if (les) {
+                        Object.assign(les, lessonData);
+                    } else {
+                        course.lessons.push(lessonData);
+                    }
 
-                this.sortModuleSlots(course, sec);
-                this.persist();
-                this.closeModal(true);
-                this.renderAll();
-                this.showToast(this.t("saveBtn"), "success");
+                    this.sortModuleSlots(course, sec);
+                    this.persist();
+                    this.closeModal(true);
+                    this.renderAll();
+                    this.showToast(this.t("saveBtn"), "success");
 
-                if (this.state.settings?.googleCalendarConnected) {
-                    this.syncLessonToGoogle(course, sec, lessonData);
+                    if (this.state.settings?.googleCalendarConnected) {
+                        this.syncLessonToGoogle(course, sec, lessonData);
+                    }
+                } catch (err) {
+                    console.error("Error saving lesson plan:", err);
+                    this.closeModal(true);
                 }
             }
 
@@ -9533,6 +9705,7 @@ Dettagli di Sistema:
 
                 sec.startTime = sTime;
                 sec.endTime = eTime;
+                sec.weekdays = dows;
                 if (!Array.isArray(course.lessons)) course.lessons = [];
 
                 const cur = new Date(startStr + "T12:00:00");
@@ -9976,7 +10149,8 @@ Dettagli di Sistema:
                 if (!token) return null;
 
                 const pSuffix = this.getParticipantSuffix(course, module);
-                const summary = `${course.name} — ${module.name}${pSuffix}`;
+                const codePrefix = (course.code && course.code.trim()) ? `[${course.code.trim()}] ` : "";
+                const summary = `${codePrefix}${course.name} — ${module.name}${pSuffix}`;
 
                 let dateOnly = new Date().toISOString().substring(0, 10);
                 if (Array.isArray(module.dates) && module.dates.length > 0) {
@@ -10148,6 +10322,295 @@ Dettagli di Sistema:
                 }
             }
 
+            openGoogleCalendarScanModal(courseId, moduleId) {
+                const course = (this.state.courses || []).find(c => c.id === courseId) || this.getActiveCourse();
+                if (!course) return;
+                const module = (course.levels || []).flatMap(l => l.modules || []).find(m => m.id === moduleId) || this.getActiveSection(course);
+                if (!module) return;
+
+                if (!this.state.settings?.googleCalendarConnected) {
+                    this.showToast("Collega prima Google Calendar nelle Impostazioni", "warning");
+                    return;
+                }
+
+                let defaultFromDate = new Date().toISOString().substring(0, 10);
+                if (Array.isArray(module.dates) && module.dates.length > 0) {
+                    defaultFromDate = this.extractDateFromSlotKey(module.dates[0]);
+                }
+                const defaultCode = (course.code || "").trim();
+
+                this.openModal(`
+                    <div class="p-6 space-y-4 text-xs">
+                        <div class="flex items-center justify-between pb-3 border-b border-sky-100 dark:border-slate-800">
+                            <div class="flex items-center gap-2">
+                                <i class="fa-brands fa-google text-blue-600 text-lg"></i>
+                                <h3 class="text-base font-extrabold text-slate-900 dark:text-white">Sincronizzazione & Scansione Google Calendar</h3>
+                            </div>
+                            <button type="button" onclick="app.closeModal()" class="text-slate-400 hover:text-slate-600 text-lg">&times;</button>
+                        </div>
+
+                        <div class="p-3 rounded-xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900/60 flex items-start gap-3 text-blue-800 dark:text-blue-300">
+                            <i class="fa-solid fa-circle-info text-blue-500 text-base mt-0.5"></i>
+                            <div>
+                                <p class="font-bold">Ricerca automatica per codice corso</p>
+                                <p class="text-[11px] text-blue-700/80 dark:text-blue-300/80 mt-0.5">Il programma scansiona il calendario Google per trovare gli eventi già creati con il codice del gruppo e li associa alle lezioni programmate, rilevando automaticamente le stanze Google Meet.</p>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 items-end">
+                            <div>
+                                <label class="block font-bold mb-1 text-slate-700 dark:text-slate-300">Codice Gruppo / Corso *</label>
+                                <input id="scanGroupCodeInput" type="text" class="w-full px-3 py-2 rounded-xl border border-sky-200 dark:border-slate-700 bg-white dark:bg-navy-950 font-bold uppercase tracking-wider" value="${this.escapeHtml(defaultCode)}" placeholder="Es. ITA05F">
+                            </div>
+                            <div>
+                                <label class="block font-bold mb-1 text-slate-700 dark:text-slate-300">Associa eventi a partire da *</label>
+                                <input id="scanFromDateInput" type="date" class="w-full px-3 py-2 rounded-xl border border-sky-200 dark:border-slate-700 bg-white dark:bg-navy-950" value="${defaultFromDate}">
+                            </div>
+                        </div>
+
+                        <div class="flex justify-end gap-2 pt-2">
+                            <button id="scanExecuteBtn" type="button" onclick="app.executeGoogleCalendarScan('${course.id}', '${module.id}')" class="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-extrabold flex items-center gap-1.5 shadow-2xs transition cursor-pointer">
+                                <i class="fa-solid fa-magnifying-glass"></i> Scansiona Calendario
+                            </button>
+                        </div>
+
+                        <div id="scanResultsContainer" class="pt-3 border-t border-sky-100 dark:border-slate-800 hidden"></div>
+                    </div>
+                `, "max-w-xl");
+            }
+
+            async executeGoogleCalendarScan(courseId, moduleId) {
+                const course = (this.state.courses || []).find(c => c.id === courseId) || this.getActiveCourse();
+                const module = (course.levels || []).flatMap(l => l.modules || []).find(m => m.id === moduleId) || this.getActiveSection(course);
+                if (!course || !module) return;
+
+                const codeInput = document.getElementById("scanGroupCodeInput");
+                const fromDateInput = document.getElementById("scanFromDateInput");
+                const resultsCont = document.getElementById("scanResultsContainer");
+                const scanBtn = document.getElementById("scanExecuteBtn");
+
+                const code = (codeInput?.value || "").trim();
+                const fromDate = fromDateInput?.value || new Date().toISOString().substring(0, 10);
+
+                if (!code) {
+                    this.showToast("Inserisci un codice valido per la ricerca", "warning");
+                    if (codeInput) codeInput.focus();
+                    return;
+                }
+
+                if (code !== course.code) {
+                    course.code = code;
+                    this.persist();
+                }
+
+                if (resultsCont) {
+                    resultsCont.classList.remove("hidden");
+                    resultsCont.innerHTML = `
+                        <div class="py-8 flex flex-col items-center justify-center text-slate-500 gap-2">
+                            <i class="fa-solid fa-spinner fa-spin text-2xl text-blue-600"></i>
+                            <p class="font-bold">Scansione del calendario Google in corso...</p>
+                        </div>
+                    `;
+                }
+
+                if (scanBtn) scanBtn.disabled = true;
+
+                try {
+                    const token = await this.ensureValidGoogleToken();
+                    if (!token) {
+                        if (resultsCont) {
+                            resultsCont.innerHTML = `<p class="text-rose-500 font-bold p-3 bg-rose-50 dark:bg-rose-950/40 rounded-xl">Token Google Calendar non valido. Ricollega l'account nelle Impostazioni.</p>`;
+                        }
+                        return;
+                    }
+
+                    const timeMin = new Date(fromDate + "T00:00:00Z").toISOString();
+                    const url = `https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=${encodeURIComponent(timeMin)}&q=${encodeURIComponent(code)}&singleEvents=true&orderBy=startTime&maxResults=250`;
+                    const res = await fetch(url, { headers: { "Authorization": `Bearer ${token}` } });
+                    if (!res.ok) {
+                        throw new Error(`Google API status: ${res.status}`);
+                    }
+                    const data = await res.json();
+                    const cleanCode = code.toLowerCase();
+                    const items = data.items || [];
+                    const matched = [];
+
+                    for (const it of items) {
+                        const summary = (it.summary || "");
+                        if (!summary.toLowerCase().includes(cleanCode)) continue;
+
+                        let sIso = "", eIso = "", dateOnly = "", isAllDay = false, sTime = "09:00", eTime = "10:00";
+                        if (it.start?.dateTime) {
+                            sIso = it.start.dateTime;
+                            dateOnly = sIso.substring(0, 10);
+                            if (sIso.length >= 16) sTime = sIso.substring(11, 16);
+                        } else if (it.start?.date) {
+                            sIso = it.start.date;
+                            dateOnly = sIso;
+                            isAllDay = true;
+                            sTime = "Tutto il giorno";
+                            eTime = "";
+                        }
+
+                        if (it.end?.dateTime && !isAllDay) {
+                            eIso = it.end.dateTime;
+                            if (eIso.length >= 16) eTime = eIso.substring(11, 16);
+                        }
+
+                        if (dateOnly >= fromDate) {
+                            matched.push({
+                                id: it.id,
+                                summary,
+                                description: it.description || "",
+                                location: it.location || "",
+                                startIso: sIso,
+                                endIso: eIso,
+                                startTimeDisplay: sTime,
+                                endTimeDisplay: eTime,
+                                dateOnly,
+                                hangoutLink: it.hangoutLink || "",
+                                htmlLink: it.htmlLink || "",
+                                isAllDay
+                            });
+                        }
+                    }
+
+                    matched.sort((a, b) => a.dateOnly !== b.dateOnly ? a.dateOnly.localeCompare(b.dateOnly) : a.startTimeDisplay.localeCompare(b.startTimeDisplay));
+                    this.lastScannedGoogleEvents = matched;
+                    this.lastScannedFromDate = fromDate;
+
+                    if (matched.length === 0) {
+                        resultsCont.innerHTML = `
+                            <div class="p-6 text-center space-y-3 bg-slate-50 dark:bg-navy-950 rounded-2xl border border-sky-100 dark:border-slate-800">
+                                <i class="fa-regular fa-calendar-xmark text-3xl text-slate-400"></i>
+                                <p class="text-slate-600 dark:text-slate-300">Nessun evento trovato su Google Calendar con il codice '<strong>${this.escapeHtml(code)}</strong>' a partire dal ${this.formatDateDisplay(fromDate)}.</p>
+                                <button type="button" onclick="app.closeModal(); app.syncModuleToGoogleCalendar(app.getActiveCourse(), app.getActiveSection(app.getActiveCourse()), true);" class="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold flex items-center gap-2 mx-auto shadow-2xs">
+                                    <i class="fa-solid fa-plus-circle"></i> Crea nuovi eventi per tutte le lezioni del modulo
+                                </button>
+                            </div>
+                        `;
+                    } else {
+                        resultsCont.innerHTML = `
+                            <div class="space-y-3">
+                                <div class="flex items-center justify-between">
+                                    <span class="font-extrabold text-slate-900 dark:text-white">Trovati ${matched.length} eventi con il codice '${this.escapeHtml(code)}'</span>
+                                    <button type="button" onclick="app.associateScannedGoogleEvents('${course.id}', '${module.id}')" class="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold flex items-center gap-1.5 shadow-2xs">
+                                        <i class="fa-solid fa-link"></i> Associa Eventi al Modulo
+                                    </button>
+                                </div>
+                                <div class="max-h-56 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
+                                    ${matched.map(ev => `
+                                        <div class="p-2.5 rounded-xl bg-slate-50 dark:bg-navy-950 border border-sky-100 dark:border-slate-800 flex items-center justify-between gap-3 text-xs">
+                                            <div class="flex items-center gap-2.5 min-w-0">
+                                                <span class="font-bold text-sky-700 dark:text-sky-300 w-24 shrink-0">${this.formatDateDisplay(ev.dateOnly)}</span>
+                                                <span class="text-slate-400 w-24 shrink-0 text-[11px]">${ev.isAllDay ? 'Tutto il giorno' : `${ev.startTimeDisplay} - ${ev.endTimeDisplay}`}</span>
+                                                <span class="font-bold text-slate-800 dark:text-slate-200 truncate">${this.escapeHtml(ev.summary)}</span>
+                                            </div>
+                                            ${ev.hangoutLink ? `
+                                                <span class="px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 text-[10px] font-extrabold flex items-center gap-1 shrink-0">
+                                                    <i class="fa-solid fa-video"></i> Meet
+                                                </span>
+                                            ` : ''}
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            </div>
+                        `;
+                    }
+                } catch (err) {
+                    console.error("Scan Google Calendar error:", err);
+                    if (resultsCont) {
+                        resultsCont.innerHTML = `<p class="text-rose-500 font-bold p-3 bg-rose-50 dark:bg-rose-950/40 rounded-xl">Errore durante la scansione: ${this.escapeHtml(err.message || String(err))}</p>`;
+                    }
+                } finally {
+                    if (scanBtn) scanBtn.disabled = false;
+                }
+            }
+
+            associateScannedGoogleEvents(courseId, moduleId) {
+                const course = (this.state.courses || []).find(c => c.id === courseId) || this.getActiveCourse();
+                const module = (course.levels || []).flatMap(l => l.modules || []).find(m => m.id === moduleId) || this.getActiveSection(course);
+                if (!course || !module) return;
+
+                const events = [...(this.lastScannedGoogleEvents || [])];
+                const fromDate = this.lastScannedFromDate || new Date().toISOString().substring(0, 10);
+                if (events.length === 0) return;
+
+                this.recordUndoSnapshot();
+
+                const slots = [...this.sortModuleSlots(course, module)];
+                const relevantSlots = slots.filter(s => this.extractDateFromSlotKey(s) >= fromDate);
+
+                let availableEvents = [...events];
+                let matchedCount = 0;
+                course.lessons = course.lessons || [];
+
+                // Pass 1: exact date matching
+                for (const slotKey of relevantSlots) {
+                    const slotDate = this.extractDateFromSlotKey(slotKey);
+                    const evIdx = availableEvents.findIndex(e => e.dateOnly === slotDate);
+                    if (evIdx >= 0) {
+                        const ev = availableEvents.splice(evIdx, 1)[0];
+                        matchedCount++;
+                        let lp = this.findLessonForSlot(course, module.id, slotKey);
+                        if (!lp) {
+                            lp = {
+                                id: "les-" + Math.random().toString(36).substring(2, 8),
+                                sectionId: module.id,
+                                date: slotDate,
+                                slotKey: slotKey,
+                                time: ev.isAllDay ? (module.startTime || "19:00") : ev.startTimeDisplay,
+                                endTime: ev.isAllDay ? (module.endTime || "20:30") : ev.endTimeDisplay,
+                                googleMeetUrl: ev.hangoutLink || "",
+                                googleCalendarEventId: ev.id
+                            };
+                            course.lessons.push(lp);
+                        } else {
+                            lp.googleCalendarEventId = ev.id;
+                            if (ev.hangoutLink) lp.googleMeetUrl = ev.hangoutLink;
+                        }
+                        if (ev.hangoutLink && !module.googleMeetUrl) {
+                            module.googleMeetUrl = ev.hangoutLink;
+                        }
+                    }
+                }
+
+                // Pass 2: chronological sequential matching for remaining unassociated slots
+                for (const slotKey of relevantSlots) {
+                    const slotDate = this.extractDateFromSlotKey(slotKey);
+                    const lp = this.findLessonForSlot(course, module.id, slotKey);
+                    const alreadyHasEv = lp && !!lp.googleCalendarEventId;
+                    if (!alreadyHasEv && availableEvents.length > 0) {
+                        const ev = availableEvents.shift();
+                        matchedCount++;
+                        if (!lp) {
+                            const newLp = {
+                                id: "les-" + Math.random().toString(36).substring(2, 8),
+                                sectionId: module.id,
+                                date: slotDate,
+                                slotKey: slotKey,
+                                time: ev.isAllDay ? (module.startTime || "19:00") : ev.startTimeDisplay,
+                                endTime: ev.isAllDay ? (module.endTime || "20:30") : ev.endTimeDisplay,
+                                googleMeetUrl: ev.hangoutLink || "",
+                                googleCalendarEventId: ev.id
+                            };
+                            course.lessons.push(newLp);
+                        } else {
+                            lp.googleCalendarEventId = ev.id;
+                            if (ev.hangoutLink) lp.googleMeetUrl = ev.hangoutLink;
+                        }
+                        if (ev.hangoutLink && !module.googleMeetUrl) {
+                            module.googleMeetUrl = ev.hangoutLink;
+                        }
+                    }
+                }
+
+                this.persist();
+                this.closeModal();
+                this.showToast(`Associate con successo ${matchedCount} lezioni con gli eventi Google Calendar!`, "success");
+                this.render();
+            }
+
             async syncLessonToGoogle(course, module, lessonData, showIndividualToast = true) {
                 if (!this.state.settings?.googleCalendarConnected) return;
                 const token = await this.ensureValidGoogleToken();
@@ -10165,9 +10628,10 @@ Dettagli di Sistema:
                 const customTitle = (lessonData.title || "").trim();
                 const lessonIdx = (module.dates || []).indexOf(lessonData.slotKey);
                 const lessonNum = lessonIdx >= 0 ? lessonIdx + 1 : ((module.dates || []).length || 1);
+                const codePrefix = (course.code && course.code.trim()) ? `[${course.code.trim()}] ` : "";
                 const summary = customTitle
-                    ? `${course.name} — ${module.name}: ${customTitle}${pSuffix}`
-                    : `${course.name} — ${module.name}: Lezione ${lessonNum}${pSuffix}`;
+                    ? `${codePrefix}${course.name} — ${module.name}: ${customTitle}${pSuffix}`
+                    : `${codePrefix}${course.name} — ${module.name}: Lezione ${lessonNum}${pSuffix}`;
 
                 const descLines = [];
                 if (lessonData.objectives) descLines.push(`Obiettivi: ${lessonData.objectives}`);

@@ -512,7 +512,8 @@ public final class GoogleCalendarManager: ObservableObject {
         }
 
         let pSuffix = Self.participantSuffix(course: course, module: module, students: store.state.studentsDirectory)
-        let eventSummary = "\(course.name) — \(module.name)\(pSuffix)"
+        let codePrefix = course.code.trimmingCharacters(in: .whitespaces).isEmpty ? "" : "[\(course.code.trimmingCharacters(in: .whitespaces))] "
+        let eventSummary = "\(codePrefix)\(course.name) — \(module.name)\(pSuffix)"
 
         let dateOnly: String
         if let firstSlot = module.dates.first {
@@ -611,9 +612,10 @@ public final class GoogleCalendarManager: ObservableObject {
 
         let pSuffix = Self.participantSuffix(course: course, module: module, students: store.state.studentsDirectory)
         let customTitle = (lessonPlan?.title ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        let codePrefix = course.code.trimmingCharacters(in: .whitespaces).isEmpty ? "" : "[\(course.code.trimmingCharacters(in: .whitespaces))] "
         let eventSummary = customTitle.isEmpty
-            ? "\(course.name) — \(module.name): Lezione \(lessonNum)\(pSuffix)"
-            : "\(course.name) — \(module.name): \(customTitle)\(pSuffix)"
+            ? "\(codePrefix)\(course.name) — \(module.name): Lezione \(lessonNum)\(pSuffix)"
+            : "\(codePrefix)\(course.name) — \(module.name): \(customTitle)\(pSuffix)"
 
         var descLines: [String] = []
         if let lp = lessonPlan {
@@ -703,5 +705,231 @@ public final class GoogleCalendarManager: ObservableObject {
         req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
 
         _ = try? await URLSession.shared.data(for: req)
+    }
+
+    // MARK: - Scan Google Calendar for Events by Course Code
+    public func scanEventsForCode(
+        code: String,
+        fromDateStr: String,
+        store: AppStore
+    ) async throws -> [GoogleCalendarEventItem] {
+        guard let token = await ensureValidAccessToken(store: store) else {
+            throw NSError(domain: "GoogleCalendar", code: 401, userInfo: [NSLocalizedDescriptionKey: "Account Google non collegato o token scaduto"])
+        }
+
+        let cleanCode = code.trimmingCharacters(in: .whitespaces)
+        guard !cleanCode.isEmpty else {
+            return []
+        }
+
+        let timeMinStr = "\(fromDateStr)T00:00:00Z".addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
+        let qEncoded = cleanCode.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
+
+        let urlStr = "https://www.googleapis.com/calendar/v3/calendars/primary/events?q=\(qEncoded)&timeMin=\(timeMinStr)&singleEvents=true&orderBy=startTime&maxResults=250"
+        guard let url = URL(string: urlStr) else { return [] }
+
+        var req = URLRequest(url: url)
+        req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+
+        let (data, response) = try await URLSession.shared.data(for: req)
+        guard let httpResp = response as? HTTPURLResponse, (200...299).contains(httpResp.statusCode) else {
+            throw NSError(domain: "GoogleCalendar", code: (response as? HTTPURLResponse)?.statusCode ?? 500, userInfo: [NSLocalizedDescriptionKey: "Errore durante la scansione del calendario Google."])
+        }
+
+        var foundEvents: [GoogleCalendarEventItem] = []
+        if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+           let items = json["items"] as? [[String: Any]] {
+            for it in items {
+                let id = it["id"] as? String ?? UUID().uuidString
+                let summary = it["summary"] as? String ?? "(Senza titolo)"
+                let desc = it["description"] as? String
+                let loc = it["location"] as? String
+                let hangout = it["hangoutLink"] as? String
+                let htmlLink = it["htmlLink"] as? String
+
+                // Must contain code in summary (case-insensitive)
+                guard summary.localizedCaseInsensitiveContains(cleanCode) else {
+                    continue
+                }
+
+                var sIso = ""
+                var eIso = ""
+                var dateOnly = ""
+                var isAllDay = false
+                var sTimeDisplay = "09:00"
+                var eTimeDisplay = "10:00"
+
+                if let startDict = it["start"] as? [String: Any] {
+                    if let dt = startDict["dateTime"] as? String {
+                        sIso = dt
+                        dateOnly = String(dt.prefix(10))
+                        if dt.count >= 16 {
+                            let startIndex = dt.index(dt.startIndex, offsetBy: 11)
+                            let endIndex = dt.index(dt.startIndex, offsetBy: 16)
+                            sTimeDisplay = String(dt[startIndex..<endIndex])
+                        }
+                    } else if let d = startDict["date"] as? String {
+                        sIso = d
+                        dateOnly = d
+                        isAllDay = true
+                        sTimeDisplay = "Tutto il giorno"
+                        eTimeDisplay = ""
+                    }
+                }
+
+                if let endDict = it["end"] as? [String: Any] {
+                    if let dt = endDict["dateTime"] as? String {
+                        eIso = dt
+                        if dt.count >= 16 && !isAllDay {
+                            let startIndex = dt.index(dt.startIndex, offsetBy: 11)
+                            let endIndex = dt.index(dt.startIndex, offsetBy: 16)
+                            eTimeDisplay = String(dt[startIndex..<endIndex])
+                        }
+                    }
+                }
+
+                if dateOnly >= fromDateStr {
+                    foundEvents.append(
+                        GoogleCalendarEventItem(
+                            id: id,
+                            summary: summary,
+                            description: desc,
+                            location: loc,
+                            startIso: sIso,
+                            endIso: eIso,
+                            startTimeDisplay: sTimeDisplay,
+                            endTimeDisplay: eTimeDisplay,
+                            dateOnly: dateOnly,
+                            hangoutLink: hangout,
+                            htmlLink: htmlLink,
+                            isAllDay: isAllDay
+                        )
+                    )
+                }
+            }
+        }
+
+        foundEvents.sort {
+            if $0.dateOnly != $1.dateOnly { return $0.dateOnly < $1.dateOnly }
+            return $0.startTimeDisplay < $1.startTimeDisplay
+        }
+
+        return foundEvents
+    }
+
+    // MARK: - Associate Scanned Events with Module Lessons
+    public func associateEventsToModule(
+        course: Course,
+        module: CourseModule,
+        events: [GoogleCalendarEventItem],
+        fromDateStr: String,
+        store: AppStore
+    ) -> (matchedCount: Int, unassociatedLessonsCount: Int) {
+        guard let cIdx = store.state.courses.firstIndex(where: { $0.id == course.id }) else {
+            return (0, 0)
+        }
+        var lIdxFound: Int? = nil
+        var mIdxFound: Int? = nil
+        for (li, l) in store.state.courses[cIdx].levels.enumerated() {
+            if let mi = l.modules.firstIndex(where: { $0.id == module.id }) {
+                lIdxFound = li
+                mIdxFound = mi
+                break
+            }
+        }
+        guard let lIdx = lIdxFound, let mIdx = mIdxFound else { return (0, 0) }
+
+        store.recordUndoSnapshot()
+
+        var mod = store.state.courses[cIdx].levels[lIdx].modules[mIdx]
+        let slots = store.sortedSlots(for: store.state.courses[cIdx], module: mod)
+        let relevantSlots = slots.filter { store.extractDate(from: $0) >= fromDateStr }
+
+        var availableEvents = events
+        var matchedCount = 0
+
+        // 1. Pass 1: exact date matching
+        for slotKey in relevantSlots {
+            let slotDate = store.extractDate(from: slotKey)
+            if let evIdx = availableEvents.firstIndex(where: { $0.dateOnly == slotDate }) {
+                let ev = availableEvents.remove(at: evIdx)
+                matchedCount += 1
+
+                if let lesIdx = store.state.courses[cIdx].lessons.firstIndex(where: {
+                    $0.slotKey == slotKey && ($0.sectionId == nil || $0.sectionId == mod.id)
+                }) {
+                    store.state.courses[cIdx].lessons[lesIdx].googleCalendarEventId = ev.id
+                    if let h = ev.hangoutLink, !h.isEmpty {
+                        store.state.courses[cIdx].lessons[lesIdx].googleMeetUrl = h
+                        if mod.googleMeetUrl == nil || mod.googleMeetUrl?.isEmpty == true {
+                            mod.googleMeetUrl = h
+                        }
+                    }
+                } else {
+                    let newLp = LessonPlan(
+                        sectionId: mod.id,
+                        date: slotDate,
+                        slotKey: slotKey,
+                        time: ev.isAllDay ? mod.startTime : ev.startTimeDisplay,
+                        endTime: ev.isAllDay ? mod.endTime : ev.endTimeDisplay,
+                        googleMeetUrl: ev.hangoutLink,
+                        googleCalendarEventId: ev.id
+                    )
+                    store.state.courses[cIdx].lessons.append(newLp)
+                    if let h = ev.hangoutLink, !h.isEmpty, (mod.googleMeetUrl == nil || mod.googleMeetUrl?.isEmpty == true) {
+                        mod.googleMeetUrl = h
+                    }
+                }
+            }
+        }
+
+        // 2. Pass 2: chronological sequential matching for remaining unassociated slots
+        for slotKey in relevantSlots {
+            let slotDate = store.extractDate(from: slotKey)
+            let alreadyHasEv = store.state.courses[cIdx].lessons.contains(where: {
+                $0.slotKey == slotKey && ($0.sectionId == nil || $0.sectionId == mod.id) && $0.googleCalendarEventId != nil
+            })
+            if !alreadyHasEv && !availableEvents.isEmpty {
+                let ev = availableEvents.removeFirst()
+                matchedCount += 1
+                if let lesIdx = store.state.courses[cIdx].lessons.firstIndex(where: {
+                    $0.slotKey == slotKey && ($0.sectionId == nil || $0.sectionId == mod.id)
+                }) {
+                    store.state.courses[cIdx].lessons[lesIdx].googleCalendarEventId = ev.id
+                    if let h = ev.hangoutLink, !h.isEmpty {
+                        store.state.courses[cIdx].lessons[lesIdx].googleMeetUrl = h
+                        if mod.googleMeetUrl == nil || mod.googleMeetUrl?.isEmpty == true {
+                            mod.googleMeetUrl = h
+                        }
+                    }
+                } else {
+                    let newLp = LessonPlan(
+                        sectionId: mod.id,
+                        date: slotDate,
+                        slotKey: slotKey,
+                        time: ev.isAllDay ? mod.startTime : ev.startTimeDisplay,
+                        endTime: ev.isAllDay ? mod.endTime : ev.endTimeDisplay,
+                        googleMeetUrl: ev.hangoutLink,
+                        googleCalendarEventId: ev.id
+                    )
+                    store.state.courses[cIdx].lessons.append(newLp)
+                    if let h = ev.hangoutLink, !h.isEmpty, (mod.googleMeetUrl == nil || mod.googleMeetUrl?.isEmpty == true) {
+                        mod.googleMeetUrl = h
+                    }
+                }
+            }
+        }
+
+        store.state.courses[cIdx].levels[lIdx].modules[mIdx] = mod
+        store.persist()
+
+        let unassociatedCount = relevantSlots.filter { slotKey in
+            let lp = store.state.courses[cIdx].lessons.first(where: {
+                $0.slotKey == slotKey && ($0.sectionId == nil || $0.sectionId == mod.id)
+            })
+            return lp?.googleCalendarEventId == nil
+        }.count
+
+        return (matchedCount, unassociatedCount)
     }
 }

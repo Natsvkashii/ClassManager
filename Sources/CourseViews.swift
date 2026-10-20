@@ -1360,6 +1360,9 @@ public struct ModuleCalendarView: View {
     @State private var autoScrollTimer: Timer? = nil
     @State private var showExportLangModal: Bool = false
     @State private var selectedExportLang: String = "it"
+    @State private var collisionMoveData: (slotKey: String, toDate: String)? = nil
+    @State private var showCollisionAlert: Bool = false
+    @State private var showScanGoogleSheet: Bool = false
 
     public var body: some View {
         guard let course = store.activeCourse,
@@ -1436,7 +1439,7 @@ public struct ModuleCalendarView: View {
 
                     if store.state.settings.googleCalendarConnected {
                         Button {
-                            store.syncModuleToGoogleCalendar(course: course, module: mod)
+                            showScanGoogleSheet = true
                         } label: {
                             Label("Sincronizza Google", systemImage: "g.circle.fill")
                         }
@@ -1605,99 +1608,11 @@ public struct ModuleCalendarView: View {
                                                                     }
                                                                 }
 
-                                                                 ForEach(day.sessions) { sess in
+                                                                ForEach(day.sessions) { sess in
                                                                     if sess.isOtherModule {
-                                                                        VStack(alignment: .leading, spacing: 2) {
-                                                                            HStack {
-                                                                                Text("\(sess.otherModuleName) #\(sess.lessonNum)")
-                                                                                    .font(.system(size: 9, weight: .bold))
-                                                                                    .padding(.horizontal, 4)
-                                                                                    .padding(.vertical, 1)
-                                                                                    .background(RoundedRectangle(cornerRadius: 4).fill(Color.secondary.opacity(0.18)))
-                                                                                Spacer()
-                                                                                Text("\(store.formatTimeDisplay(sess.time))-\(store.formatTimeDisplay(sess.endTime))")
-                                                                                    .font(.system(size: 8.5, weight: .medium))
-                                                                            }
-                                                                            if !sess.title.isEmpty {
-                                                                                Text(sess.title)
-                                                                                    .font(.system(size: 9.5))
-                                                                                    .lineLimit(1)
-                                                                            }
-                                                                        }
-                                                                        .padding(6)
-                                                                        .frame(maxWidth: .infinity, alignment: .leading)
-                                                                        .background(RoundedRectangle(cornerRadius: 7).fill(Color.secondary.opacity(0.12)))
-                                                                        .foregroundStyle(.secondary)
+                                                                        otherModuleSessionView(sess: sess)
                                                                     } else {
-                                                                        Button {
-                                                                            activeSheet = .lessonPlan(courseId: course.id, sectionId: mod.id, slotKey: sess.slotKey)
-                                                                        } label: {
-                                                                            VStack(alignment: .leading, spacing: 2) {
-                                                                                HStack {
-                                                                                    HStack(spacing: 4) {
-                                                                                        Text("\(sess.lessonNum)")
-                                                                                            .font(.caption2.bold())
-                                                                                            .padding(.horizontal, 5)
-                                                                                            .padding(.vertical, 1)
-                                                                                            .background(RoundedRectangle(cornerRadius: 4).fill(Color.white.opacity(0.25)))
-
-                                                                                        if sess.isHeld {
-                                                                                            Image(systemName: "checkmark")
-                                                                                                .font(.system(size: 7, weight: .black))
-                                                                                                .foregroundStyle(.white)
-                                                                                                .frame(width: 13, height: 13)
-                                                                                                .background(Circle().fill(Color.gray))
-                                                                                        } else if sess.isPast {
-                                                                                            Image(systemName: "xmark")
-                                                                                                .font(.system(size: 7, weight: .black))
-                                                                                                .foregroundStyle(.red)
-                                                                                                .frame(width: 13, height: 13)
-                                                                                                .background(Circle().fill(Color.white))
-                                                                                                .overlay(Circle().strokeBorder(Color.red, lineWidth: 1))
-                                                                                        }
-                                                                                    }
-                                                                                    Spacer()
-                                                                                    Text("\(store.formatTimeDisplay(sess.time))-\(store.formatTimeDisplay(sess.endTime))")
-                                                                                        .font(.system(size: 9, weight: .bold))
-                                                                                }
-                                                                                if !sess.title.isEmpty {
-                                                                                    Text(sess.title)
-                                                                                        .font(.system(size: 10, weight: .semibold))
-                                                                                        .lineLimit(1)
-                                                                                }
-                                                                            }
-                                                                            .padding(6)
-                                                                            .frame(maxWidth: .infinity, alignment: .leading)
-                                                                            .background(RoundedRectangle(cornerRadius: 7).fill(pal.color))
-                                                                            .foregroundStyle(.white)
-                                                                        }
-                                                                        .buttonStyle(.plain)
-                                                                        .draggable(sess.slotKey) {
-                                                                            HStack(spacing: 8) {
-                                                                                Image(systemName: "calendar.badge.clock")
-                                                                                    .font(.system(size: 13, weight: .bold))
-                                                                                VStack(alignment: .leading, spacing: 2) {
-                                                                                    Text("\(store.t("navHome")) • Lez. \(sess.lessonNum)")
-                                                                                        .font(.caption.bold())
-                                                                                    if !sess.title.isEmpty {
-                                                                                        Text(sess.title)
-                                                                                            .font(.system(size: 10, weight: .medium))
-                                                                                            .lineLimit(1)
-                                                                                    }
-                                                                                    Text("\(store.formatTimeDisplay(sess.time)) - \(store.formatTimeDisplay(sess.endTime))")
-                                                                                        .font(.system(size: 9))
-                                                                                        .opacity(0.85)
-                                                                                }
-                                                                            }
-                                                                            .padding(.horizontal, 10)
-                                                                            .padding(.vertical, 6)
-                                                                            .background(
-                                                                                RoundedRectangle(cornerRadius: 8)
-                                                                                    .fill(pal.color)
-                                                                                    .shadow(color: .black.opacity(0.25), radius: 6, y: 3)
-                                                                            )
-                                                                            .foregroundStyle(.white)
-                                                                        }
+                                                                        currentModuleSessionButton(sess: sess, course: course, mod: mod, pal: pal)
                                                                     }
                                                                 }
 
@@ -1726,12 +1641,23 @@ public struct ModuleCalendarView: View {
                                                             .dropDestination(for: String.self) { items, _ in
                                                                 isDraggingActive = false
                                                                 guard let draggedKey = items.first else { return false }
-                                                                return store.moveLesson(
-                                                                    courseId: course.id,
-                                                                    moduleId: mod.id,
-                                                                    slotKey: draggedKey,
-                                                                    toDate: day.iso
-                                                                )
+                                                                let targetIso = day.iso
+                                                                let oldDateOnly = store.extractDate(from: draggedKey)
+                                                                if oldDateOnly == targetIso { return false }
+
+                                                                let isCollision = mod.dates.contains(where: { dKey in store.extractDate(from: dKey) == targetIso && dKey != draggedKey })
+                                                                if isCollision {
+                                                                    collisionMoveData = (slotKey: draggedKey, toDate: targetIso)
+                                                                    showCollisionAlert = true
+                                                                    return true
+                                                                } else {
+                                                                    return store.moveLesson(
+                                                                        courseId: course.id,
+                                                                        moduleId: mod.id,
+                                                                        slotKey: draggedKey,
+                                                                        toDate: targetIso
+                                                                    )
+                                                                }
                                                             } isTargeted: { targeted in
                                                                 if targeted {
                                                                     hoveredDayIso = day.iso
@@ -1885,7 +1811,141 @@ public struct ModuleCalendarView: View {
             .onDisappear {
                 stopAutoScroll()
             }
+            .confirmationDialog(
+                "Lezione già presente in questa data",
+                isPresented: $showCollisionAlert,
+                titleVisibility: .visible
+            ) {
+                if let data = collisionMoveData {
+                    Button("Sposta in avanti le lezioni successive") {
+                        store.moveLessonShiftingForward(
+                            courseId: course.id,
+                            moduleId: mod.id,
+                            slotKey: data.slotKey,
+                            toDate: data.toDate
+                        )
+                        collisionMoveData = nil
+                    }
+                    Button("Mantieni entrambe in questa data") {
+                        store.moveLesson(
+                            courseId: course.id,
+                            moduleId: mod.id,
+                            slotKey: data.slotKey,
+                            toDate: data.toDate
+                        )
+                        collisionMoveData = nil
+                    }
+                    Button("Annulla", role: .cancel) {
+                        collisionMoveData = nil
+                    }
+                }
+            } message: {
+                if let data = collisionMoveData {
+                    Text("In data \(store.formatDateDisplay(data.toDate)) è già presente una lezione per questo corso. Vuoi spostare in avanti tutte le lezioni successive secondo la frequenza del modulo o mantenere entrambe le lezioni nello stesso giorno?")
+                }
+            }
+            .sheet(isPresented: $showScanGoogleSheet) {
+                ScanGoogleCalendarEventsSheet(course: course, module: mod)
+            }
         )
+    }
+
+    @ViewBuilder
+    private func otherModuleSessionView(sess: DaySession) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            HStack {
+                Text("\(sess.otherModuleName) #\(sess.lessonNum)")
+                    .font(.system(size: 9, weight: .bold))
+                    .padding(.horizontal, 4)
+                    .padding(.vertical, 1)
+                    .background(RoundedRectangle(cornerRadius: 4).fill(Color.secondary.opacity(0.18)))
+                Spacer()
+                Text("\(store.formatTimeDisplay(sess.time))-\(store.formatTimeDisplay(sess.endTime))")
+                    .font(.system(size: 8.5, weight: .medium))
+            }
+            if !sess.title.isEmpty {
+                Text(sess.title)
+                    .font(.system(size: 9.5))
+                    .lineLimit(1)
+            }
+        }
+        .padding(6)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: 7).fill(Color.secondary.opacity(0.12)))
+        .foregroundStyle(.secondary)
+    }
+
+    @ViewBuilder
+    private func currentModuleSessionButton(sess: DaySession, course: Course, mod: CourseModule, pal: CourseColorInfo) -> some View {
+        Button {
+            activeSheet = .lessonPlan(courseId: course.id, sectionId: mod.id, slotKey: sess.slotKey)
+        } label: {
+            VStack(alignment: .leading, spacing: 2) {
+                HStack {
+                    HStack(spacing: 4) {
+                        Text("\(sess.lessonNum)")
+                            .font(.caption2.bold())
+                            .padding(.horizontal, 5)
+                            .padding(.vertical, 1)
+                            .background(RoundedRectangle(cornerRadius: 4).fill(Color.white.opacity(0.25)))
+
+                        if sess.isHeld {
+                            Image(systemName: "checkmark")
+                                .font(.system(size: 7, weight: .black))
+                                .foregroundStyle(.white)
+                                .frame(width: 13, height: 13)
+                                .background(Circle().fill(Color.gray))
+                        } else if sess.isPast {
+                            Image(systemName: "xmark")
+                                .font(.system(size: 7, weight: .black))
+                                .foregroundStyle(.red)
+                                .frame(width: 13, height: 13)
+                                .background(Circle().fill(Color.white))
+                                .overlay(Circle().strokeBorder(Color.red, lineWidth: 1))
+                        }
+                    }
+                    Spacer()
+                    Text("\(store.formatTimeDisplay(sess.time))-\(store.formatTimeDisplay(sess.endTime))")
+                        .font(.system(size: 9, weight: .bold))
+                }
+                if !sess.title.isEmpty {
+                    Text(sess.title)
+                        .font(.system(size: 10, weight: .semibold))
+                        .lineLimit(1)
+                }
+            }
+            .padding(6)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(RoundedRectangle(cornerRadius: 7).fill(pal.color))
+            .foregroundStyle(.white)
+        }
+        .buttonStyle(.plain)
+        .draggable(sess.slotKey) {
+            HStack(spacing: 8) {
+                Image(systemName: "calendar.badge.clock")
+                    .font(.system(size: 13, weight: .bold))
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("\(store.t("navHome")) • Lez. \(sess.lessonNum)")
+                        .font(.caption.bold())
+                    if !sess.title.isEmpty {
+                        Text(sess.title)
+                            .font(.system(size: 10, weight: .medium))
+                            .lineLimit(1)
+                    }
+                    Text("\(store.formatTimeDisplay(sess.time)) - \(store.formatTimeDisplay(sess.endTime))")
+                        .font(.system(size: 9))
+                        .opacity(0.85)
+                }
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(pal.color)
+                    .shadow(color: .black.opacity(0.25), radius: 6, y: 3)
+            )
+            .foregroundStyle(.white)
+        }
     }
 
     fileprivate struct DaySession: Identifiable {
