@@ -29,8 +29,8 @@ import json
 
 PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
 MODELS_SWIFT = os.path.join(PROJECT_ROOT, "Sources", "Models.swift")
-INFO_PLIST = os.path.join(PROJECT_ROOT, "Class Management.app", "Contents", "Info.plist")
-APP_BUNDLE = os.path.join(PROJECT_ROOT, "Class Management.app")
+INFO_PLIST = os.path.join(PROJECT_ROOT, "ClassDesk.app", "Contents", "Info.plist")
+APP_BUNDLE = os.path.join(PROJECT_ROOT, "ClassDesk.app")
 VERSIONS_DIR = os.path.join(PROJECT_ROOT, "Versions")
 
 REPO_OWNER = "Natsvkashii"
@@ -181,7 +181,7 @@ def archive_version_artifacts(version: str):
     count = 0
     for f in os.listdir(PROJECT_ROOT):
         full_p = os.path.join(PROJECT_ROOT, f)
-        if os.path.isfile(full_p) and f.startswith("Class-Management-") and version in f:
+        if os.path.isfile(full_p) and (f.startswith("ClassDesk-") or f.startswith("Class-Management-")) and version in f:
             dest_file = os.path.join(target_dir, f)
             shutil.copy2(full_p, dest_file)
             count += 1
@@ -191,7 +191,7 @@ def archive_version_artifacts(version: str):
 
 def build_macos(package: bool = True):
     cur_ver = get_swift_version() or "26.10.0"
-    print(f"\n=== Building Class Management v{cur_ver} (macOS Native) ===")
+    print(f"\n=== Building ClassDesk v{cur_ver} (macOS Native) ===")
 
     # 1. Compile Swift sources
     swift_files = sorted(glob.glob(os.path.join(PROJECT_ROOT, "Sources", "*.swift")))
@@ -199,7 +199,7 @@ def build_macos(package: bool = True):
         print("[!] No Swift files found in Sources/")
         return False
 
-    binary_out = os.path.join(APP_BUNDLE, "Contents", "MacOS", "ClassManagement")
+    binary_out = os.path.join(APP_BUNDLE, "Contents", "MacOS", "ClassDesk")
     os.makedirs(os.path.dirname(binary_out), exist_ok=True)
 
     cmd_compile = [
@@ -214,50 +214,59 @@ def build_macos(package: bool = True):
         "-o", binary_out
     ] + swift_files
 
-    print("  [1/4] Compiling Swift sources...")
+    print("  [1/5] Compiling Swift sources...")
     subprocess.run(cmd_compile, check=True)
 
     # 2. Clear quarantine and attributes
-    print("  [2/4] Stripping extended attributes...")
+    print("  [2/5] Stripping extended attributes...")
     subprocess.run(["xattr", "-cr", APP_BUNDLE], check=True)
 
     # 3. Codesign bundle
-    print("  [3/4] Ad-hoc signing bundle...")
+    print("  [3/5] Ad-hoc signing bundle...")
     subprocess.run(["codesign", "--force", "--deep", "--sign", "-", APP_BUNDLE], check=True)
     subprocess.run(["codesign", "--verify", "--deep", "--strict", APP_BUNDLE], check=True)
 
-    # 4. Optional pkg installer
+    # 4. 1-Click Silent Update package (.zip)
+    zip_name = f"ClassDesk-{cur_ver}-macOS.zip"
+    zip_out = os.path.join(PROJECT_ROOT, zip_name)
+    print(f"  [4/5] Creating 1-Click Silent Update package ({zip_name})...")
+    subprocess.run(["ditto", "-c", "-k", "--keepParent", APP_BUNDLE, zip_out], check=True)
+    print(f"  -> Generated silent update zip: {zip_name}")
+
+    # 5. Optional pkg installer
     if package:
-        print("  [4/4] Building macOS Installer (.pkg)...")
-        pkg_name = f"Class-Management-{cur_ver}-Installer.pkg"
+        print("  [5/5] Building macOS Installer (.pkg)...")
+        pkg_name = f"ClassDesk-{cur_ver}-Installer.pkg"
         pkg_out = os.path.join(PROJECT_ROOT, pkg_name)
         staging_dir = "/tmp/pkg_staging"
         shutil.rmtree(staging_dir, ignore_errors=True)
         os.makedirs(staging_dir, exist_ok=True)
-        shutil.copytree(APP_BUNDLE, os.path.join(staging_dir, "Class Management.app"))
+        shutil.copytree(APP_BUNDLE, os.path.join(staging_dir, "ClassDesk.app"))
 
         scripts_dir = "/tmp/pkg_scripts"
         shutil.rmtree(scripts_dir, ignore_errors=True)
         os.makedirs(scripts_dir, exist_ok=True)
         preinstall = os.path.join(scripts_dir, "preinstall")
         with open(preinstall, "w") as f:
-            f.write('#!/bin/sh\nrm -rf "/Applications/Class Management.app"\nexit 0\n')
+            f.write('#!/bin/sh\nrm -rf "/Applications/ClassDesk.app" "/Applications/Class Management.app"\nexit 0\n')
         os.chmod(preinstall, 0o755)
 
         postinstall = os.path.join(scripts_dir, "postinstall")
         with open(postinstall, "w") as f:
             f.write('''#!/bin/sh
-# Terminate old instance
+# Terminate old instances
+killall "ClassDesk" 2>/dev/null || true
 killall "ClassManagement" 2>/dev/null || true
+pkill -f "ClassDesk.app" 2>/dev/null || true
 pkill -f "Class Management.app" 2>/dev/null || true
 sleep 1
 
 # Launch newly installed application for current console user
 CONSOLE_USER=$(stat -f "%Su" /dev/console 2>/dev/null)
 if [ -n "$CONSOLE_USER" ] && [ "$CONSOLE_USER" != "root" ]; then
-    sudo -u "$CONSOLE_USER" open "/Applications/Class Management.app"
+    sudo -u "$CONSOLE_USER" open "/Applications/ClassDesk.app"
 else
-    open "/Applications/Class Management.app"
+    open "/Applications/ClassDesk.app"
 fi
 exit 0
 ''')
@@ -267,7 +276,7 @@ exit 0
             "pkgbuild",
             "--root", staging_dir,
             "--scripts", scripts_dir,
-            "--identifier", "com.guairajaramillonitoglia.classmanagement",
+            "--identifier", "com.guairajaramillonitoglia.classdesk",
             "--version", cur_ver,
             "--install-location", "/Applications",
             pkg_out
@@ -283,7 +292,7 @@ exit 0
 
 def build_windows_native():
     cur_ver = get_swift_version() or "26.10.4-001"
-    print(f"\n=== Building Class Management v{cur_ver} (Windows Native WebView2) ===")
+    print(f"\n=== Building ClassDesk v{cur_ver} (Windows Native WebView2) ===")
     script = os.path.join(PROJECT_ROOT, "Windows-Version", "native", "build_native.sh")
     if os.path.exists(script):
         try:
@@ -313,9 +322,6 @@ def publish_release(is_beta: bool = False):
     # 1. Build and create packages for both macOS and Windows
     build_macos(package=True)
     build_windows_native()
-
-    pkg_name = f"Class-Management-{cur_ver}-Installer.pkg"
-    pkg_path = os.path.join(PROJECT_ROOT, pkg_name)
 
     # 2. Git stage & commit
     tag_name = f"v{cur_ver}"
@@ -356,7 +362,7 @@ def publish_release(is_beta: bool = False):
 
     if token:
         print("\n=== Publishing Release on GitHub via API ===")
-        rel_body = f"Release di Class Management {tag_name}.\n\nAutore: Guaira Jaramillo Nitoglia (guaira.jaramillo.nitoglia@gmail.com)\nLicenza: GNU General Public License v3.0 (GPL-3.0)\nCanale: {'Beta / Unstable' if is_beta else 'Stabile'}."
+        rel_body = f"Release di ClassDesk {tag_name}.\n\nAutore: Guaira Jaramillo Nitoglia (guaira.jaramillo.nitoglia@gmail.com)\nLicenza: GNU General Public License v3.0 (GPL-3.0)\nCanale: {'Beta / Unstable' if is_beta else 'Stabile'}."
         manifest_path = os.path.join(PROJECT_ROOT, "update-manifest.json")
         if os.path.exists(manifest_path):
             try:
@@ -370,7 +376,7 @@ def publish_release(is_beta: bool = False):
         rel_data = {
             "tag_name": tag_name,
             "target_commitish": expected_branch,
-            "name": f"Class Management {tag_name}",
+            "name": f"ClassDesk {tag_name}",
             "body": rel_body,
             "draft": False,
             "prerelease": is_beta
@@ -381,7 +387,7 @@ def publish_release(is_beta: bool = False):
             headers={
                 "Authorization": f"token {token}",
                 "Accept": "application/vnd.github.v3+json",
-                "User-Agent": "ClassManagement-ReleaseManager"
+                "User-Agent": "ClassDesk-ReleaseManager"
             },
             method="POST"
         )
@@ -392,11 +398,11 @@ def publish_release(is_beta: bool = False):
                 release_id = res_obj.get("id")
                 print(f"✓ Created GitHub release ID: {release_id}")
 
-                # Upload strictly only 2 assets: macOS .pkg Installer and Windows -Setup.exe Installer
-                valid_suffixes = ("-Installer.pkg", "-Setup.exe")
+                # Upload assets: macOS .zip (1-click silent update), macOS .pkg Installer, Windows -Setup.exe, and Windows -Native.exe
+                valid_suffixes = ("-macOS.zip", "-Installer.pkg", "-Setup.exe", "-Native.exe")
                 assets_to_upload = sorted([
                     os.path.join(PROJECT_ROOT, f) for f in os.listdir(PROJECT_ROOT)
-                    if f.startswith(f"Class-Management-{cur_ver}")
+                    if (f.startswith(f"ClassDesk-{cur_ver}") or f.startswith(f"Class-Management-{cur_ver}"))
                     and any(f.endswith(sfx) for sfx in valid_suffixes)
                     and os.path.isfile(os.path.join(PROJECT_ROOT, f))
                 ])
@@ -411,7 +417,7 @@ def publish_release(is_beta: bool = False):
                         headers={
                             "Authorization": f"token {token}",
                             "Content-Type": "application/octet-stream",
-                            "User-Agent": "ClassManagement-ReleaseManager"
+                            "User-Agent": "ClassDesk-ReleaseManager"
                         },
                         method="POST"
                     )
@@ -420,7 +426,7 @@ def publish_release(is_beta: bool = False):
         except Exception as err:
             print(f"[!] GitHub API release creation failed: {err}")
     else:
-        release_web_url = f"https://github.com/{REPO_OWNER}/{REPO_NAME}/releases/new?tag={tag_name}&target={expected_branch}&title=Class+Management+{tag_name}&prerelease={1 if is_beta else 0}"
+        release_web_url = f"https://github.com/{REPO_OWNER}/{REPO_NAME}/releases/new?tag={tag_name}&target={expected_branch}&title=ClassDesk+{tag_name}&prerelease={1 if is_beta else 0}"
         print("\n=======================================================")
         print(" GITHUB RELEASE PUBLISHING")
         print("=======================================================")
@@ -442,7 +448,7 @@ def print_status():
     is_beta = is_version_unstable(ver_swift)
 
     print("\n=======================================================")
-    print(" CLASS MANAGEMENT — PROJECT STATUS")
+    print(" CLASSDESK — PROJECT STATUS")
     print("=======================================================")
     print(f" GitHub Repo      : https://github.com/{REPO_OWNER}/{REPO_NAME}")
     print(f" Git Branch       : {branch} ({'UNSTABLE / BETA' if branch == 'unstable' else 'STABLE' if branch == 'stable' else 'CUSTOM'})")

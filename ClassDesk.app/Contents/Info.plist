@@ -5,9 +5,9 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>it</string>
 	<key>CFBundleDisplayName</key>
-	<string>Class Management</string>
+	<string>ClassDesk</string>
 	<key>CFBundleExecutable</key>
-	<string>ClassManagement</string>
+	<string>ClassDesk</string>
 	<key>CFBundleIconFile</key>
 	<string>AppIcon</string>
 	<key>CFBundleIconName</key>
@@ -17,21 +17,21 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>Class Management</string>
+	<string>ClassDesk</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>26.10.4-020</string>
+	<string>26.10.4-021</string>
 	<key>CFBundleVersion</key>
-	<string>26.10.4-020</string>
+	<string>26.10.4-021</string>
 	<key>LSApplicationCategoryType</key>
 	<string>public.app-category.education</string>
 	<key>LSMinimumSystemVersion</key>
 	<string>14.0</string>
 	<key>NSCalendarsFullAccessUsageDescription</key>
-	<string>Class Management utilizza Apple Calendar per sincronizzare e creare automaticamente gli eventi delle lezioni programmate sul tuo Mac.</string>
+	<string>ClassDesk utilizza Apple Calendar per sincronizzare e creare automaticamente gli eventi delle lezioni programmate sul tuo Mac.</string>
 	<key>NSCalendarsUsageDescription</key>
-	<string>Class Management utilizza Apple Calendar per sincronizzare e creare automaticamente gli eventi delle lezioni programmate sul tuo Mac.</string>
+	<string>ClassDesk utilizza Apple Calendar per sincronizzare e creare automaticamente gli eventi delle lezioni programmate sul tuo Mac.</string>
 	<key>NSHighResolutionCapable</key>
 	<true/>
 	<key>NSHumanReadableCopyright</key>

@@ -24,6 +24,7 @@
 #include <shlwapi.h>
 #include <winhttp.h>
 #include <dwmapi.h>
+#include <tlhelp32.h>
 
 #include <string>
 #include <vector>
@@ -40,7 +41,7 @@
 static std::atomic<SOCKET> g_googleOAuthSock{INVALID_SOCKET};
 
 // Version and Metadata Constants
-static const wchar_t* APP_NAME = L"Class Management";
+static const wchar_t* APP_NAME = L"ClassDesk";
 static const wchar_t* APP_VERSION = BUNDLED_APP_VERSION;
 static const wchar_t* APP_CHANNEL = BUNDLED_APP_CHANNEL;
 static const wchar_t* WINDOW_TITLE = BUNDLED_WINDOW_TITLE;
@@ -149,7 +150,7 @@ static bool EnsureAssetFile(const std::wstring& targetPath, const unsigned char*
 // Helper: Perform HTTP GET using WinHTTP
 static std::string WinHttpGet(const std::wstring& host, const std::wstring& path, bool https = true) {
     std::string responseBody;
-    std::wstring userAgent = std::wstring(L"ClassManagement-Native/") + APP_VERSION;
+    std::wstring userAgent = std::wstring(L"ClassDesk-Native/") + APP_VERSION;
     HINTERNET hSession = WinHttpOpen(userAgent.c_str(),
                                     WINHTTP_ACCESS_TYPE_DEFAULT_PROXY,
                                     WINHTTP_NO_PROXY_NAME,
@@ -173,7 +174,7 @@ static std::string WinHttpGet(const std::wstring& host, const std::wstring& path
         return "";
     }
 
-    std::wstring headers = std::wstring(L"Accept: application/vnd.github.v3+json\r\nUser-Agent: ClassManagement-Native/") + APP_VERSION + L"\r\n";
+    std::wstring headers = std::wstring(L"Accept: application/vnd.github.v3+json\r\nUser-Agent: ClassDesk-Native/") + APP_VERSION + L"\r\n";
     BOOL sendOk = WinHttpSendRequest(hRequest, headers.c_str(), (DWORD)-1, NULL, 0, 0, 0);
     if (sendOk && WinHttpReceiveResponse(hRequest, NULL)) {
         DWORD dwSize = 0;
@@ -195,31 +196,107 @@ static std::string WinHttpGet(const std::wstring& host, const std::wstring& path
     return responseBody;
 }
 
-// Helper: Search user Documents/GestioneCorsi_Backups for the most recent backup JSON
+// Helper: Terminate running processes by image name without spawning any console window
+static void KillProcessesByName(const wchar_t* processName) {
+    HANDLE hSnap = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+    if (hSnap == INVALID_HANDLE_VALUE) return;
+
+    DWORD currentPid = GetCurrentProcessId();
+    PROCESSENTRY32W pe32;
+    pe32.dwSize = sizeof(PROCESSENTRY32W);
+
+    if (Process32FirstW(hSnap, &pe32)) {
+        do {
+            if (_wcsicmp(pe32.szExeFile, processName) == 0 && pe32.th32ProcessID != currentPid) {
+                HANDLE hProc = OpenProcess(PROCESS_TERMINATE | SYNCHRONIZE, FALSE, pe32.th32ProcessID);
+                if (hProc) {
+                    TerminateProcess(hProc, 0);
+                    WaitForSingleObject(hProc, 1500);
+                    CloseHandle(hProc);
+                }
+            }
+        } while (Process32NextW(hSnap, &pe32));
+    }
+    CloseHandle(hSnap);
+}
+
+// Helper: Recursively delete a directory without spawning any console window
+static void DeleteDirectoryRecursive(const std::wstring& path) {
+    if (path.empty() || GetFileAttributesW(path.c_str()) == INVALID_FILE_ATTRIBUTES) return;
+    std::wstring searchPattern = path + L"\\*.*";
+    WIN32_FIND_DATAW fd;
+    HANDLE hFind = FindFirstFileW(searchPattern.c_str(), &fd);
+    if (hFind == INVALID_HANDLE_VALUE) return;
+
+    do {
+        if (wcscmp(fd.cFileName, L".") != 0 && wcscmp(fd.cFileName, L"..") != 0) {
+            std::wstring itemPath = path + L"\\" + fd.cFileName;
+            if (fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
+                DeleteDirectoryRecursive(itemPath);
+            } else {
+                SetFileAttributesW(itemPath.c_str(), FILE_ATTRIBUTE_NORMAL);
+                DeleteFileW(itemPath.c_str());
+            }
+        }
+    } while (FindNextFileW(hFind, &fd));
+    FindClose(hFind);
+    RemoveDirectoryW(path.c_str());
+}
+
+// Helper: Recursively copy directory tree for seamless data migration
+static void CopyDirectoryRecursive(const std::wstring& src, const std::wstring& dst) {
+    if (src.empty() || GetFileAttributesW(src.c_str()) == INVALID_FILE_ATTRIBUTES) return;
+    CreateDirectoryW(dst.c_str(), NULL);
+    std::wstring searchPattern = src + L"\\*.*";
+    WIN32_FIND_DATAW fd;
+    HANDLE hFind = FindFirstFileW(searchPattern.c_str(), &fd);
+    if (hFind == INVALID_HANDLE_VALUE) return;
+
+    do {
+        if (wcscmp(fd.cFileName, L".") != 0 && wcscmp(fd.cFileName, L"..") != 0) {
+            std::wstring srcPath = src + L"\\" + fd.cFileName;
+            std::wstring dstPath = dst + L"\\" + fd.cFileName;
+            if (fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
+                CopyDirectoryRecursive(srcPath, dstPath);
+            } else {
+                CopyFileW(srcPath.c_str(), dstPath.c_str(), FALSE);
+            }
+        }
+    } while (FindNextFileW(hFind, &fd));
+    FindClose(hFind);
+}
+
+// Helper: Search user Documents for the most recent backup JSON across all historical locations
 static std::string FindLatestBackupJson() {
     wchar_t docsPath[MAX_PATH];
     if (!SUCCEEDED(SHGetFolderPathW(NULL, CSIDL_MYDOCUMENTS, NULL, 0, docsPath))) {
         return "";
     }
-    std::wstring backupDir = std::wstring(docsPath) + L"\\GestioneCorsi_Backups";
-    std::wstring searchPattern = backupDir + L"\\*.json";
-
-    WIN32_FIND_DATAW fd;
-    HANDLE hFind = FindFirstFileW(searchPattern.c_str(), &fd);
-    if (hFind == INVALID_HANDLE_VALUE) return "";
+    std::vector<std::wstring> searchDirs = {
+        std::wstring(docsPath) + L"\\ClassDesk\\Backup",
+        std::wstring(docsPath) + L"\\Class Management\\Backup",
+        std::wstring(docsPath) + L"\\GestioneCorsi_Backups"
+    };
 
     std::wstring latestFile;
     FILETIME latestTime = {0, 0};
 
-    do {
-        if (!(fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)) {
-            if (CompareFileTime(&fd.ftLastWriteTime, &latestTime) > 0) {
-                latestTime = fd.ftLastWriteTime;
-                latestFile = backupDir + L"\\" + fd.cFileName;
+    for (const auto& dir : searchDirs) {
+        std::wstring searchPattern = dir + L"\\*.json";
+        WIN32_FIND_DATAW fd;
+        HANDLE hFind = FindFirstFileW(searchPattern.c_str(), &fd);
+        if (hFind == INVALID_HANDLE_VALUE) continue;
+
+        do {
+            if (!(fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)) {
+                if (CompareFileTime(&fd.ftLastWriteTime, &latestTime) > 0) {
+                    latestTime = fd.ftLastWriteTime;
+                    latestFile = dir + L"\\" + fd.cFileName;
+                }
             }
-        }
-    } while (FindNextFileW(hFind, &fd));
-    FindClose(hFind);
+        } while (FindNextFileW(hFind, &fd));
+        FindClose(hFind);
+    }
 
     if (latestFile.empty()) return "";
 
@@ -260,14 +337,184 @@ static HRESULT CreateShellShortcut(const wchar_t* targetPath, const wchar_t* lin
     return hr;
 }
 
-// Helper: Setup / Installer Routine
-static int RunSetupInstaller(const wchar_t* currentExePath, bool isSilent) {
-    // 1. Terminate old running application instances
-    system("taskkill /F /IM \"Class Management.exe\" /T 2>nul");
-    system("taskkill /F /IM \"ClassManagement.exe\" /T 2>nul");
-    Sleep(500);
+// Windows Procedure for Modern Discord/Chrome Style Setup Installer Card
+static LRESULT CALLBACK InstallerWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
+    switch (uMsg) {
+        case WM_NCHITTEST: {
+            LRESULT hit = DefWindowProcW(hwnd, uMsg, wParam, lParam);
+            if (hit == HTCLIENT) return HTCAPTION; // Allow dragging anywhere on the installer card
+            return hit;
+        }
+        case WM_CTLCOLORSTATIC: {
+            HDC hdcStatic = (HDC)wParam;
+            HWND hCtrl = (HWND)lParam;
+            SetBkMode(hdcStatic, TRANSPARENT);
+            int id = GetDlgCtrlID(hCtrl);
+            if (id == 1002) {
+                SetTextColor(hdcStatic, RGB(71, 85, 105)); // Slate 600
+            } else if (id == 1003) {
+                SetTextColor(hdcStatic, RGB(148, 163, 184)); // Slate 400
+            } else if (id == 1004) {
+                SetTextColor(hdcStatic, RGB(2, 132, 199)); // Vibrant Sky 600
+            } else {
+                SetTextColor(hdcStatic, RGB(15, 23, 42)); // Slate 900
+            }
+            return (LRESULT)GetStockObject(WHITE_BRUSH);
+        }
+        case WM_PAINT: {
+            PAINTSTRUCT ps;
+            HDC hdc = BeginPaint(hwnd, &ps);
+            RECT rc;
+            GetClientRect(hwnd, &rc);
 
-    // 2. Resolve destination directory: %LOCALAPPDATA%\Programs\Class Management/
+            // Clean white card background
+            FillRect(hdc, &rc, (HBRUSH)GetStockObject(WHITE_BRUSH));
+
+            // Top vibrant sky blue accent bar (Chrome/Discord installer style)
+            HBRUSH hAccentBrush = CreateSolidBrush(RGB(2, 132, 199));
+            RECT accentRc = {0, 0, rc.right, 4};
+            FillRect(hdc, &accentRc, hAccentBrush);
+            DeleteObject(hAccentBrush);
+
+            // Subtle border
+            HPEN hBorderPen = CreatePen(PS_SOLID, 1, RGB(226, 232, 240));
+            HPEN hOldPen = (HPEN)SelectObject(hdc, hBorderPen);
+            HBRUSH hOldBrush = (HBRUSH)SelectObject(hdc, GetStockObject(NULL_BRUSH));
+            Rectangle(hdc, 0, 0, rc.right, rc.bottom);
+            SelectObject(hdc, hOldBrush);
+            SelectObject(hdc, hOldPen);
+            DeleteObject(hBorderPen);
+
+            EndPaint(hwnd, &ps);
+            return 0;
+        }
+        case WM_DESTROY:
+            PostQuitMessage(0);
+            return 0;
+    }
+    return DefWindowProcW(hwnd, uMsg, wParam, lParam);
+}
+
+// Helper: Setup / Installer Routine with Modern Progress Bar (Discord / Chrome Style)
+static int RunSetupInstaller(const wchar_t* currentExePath, bool isSilent) {
+    HINSTANCE hInstance = GetModuleHandleW(NULL);
+    HWND hWnd = NULL;
+    HWND hProgress = NULL;
+    HWND hStatus = NULL;
+    HWND hTitle = NULL;
+    HWND hSub = NULL;
+    HWND hFooter = NULL;
+    HFONT hFontTitle = NULL;
+    HFONT hFontSub = NULL;
+    HFONT hFontStatus = NULL;
+    HFONT hFontFooter = NULL;
+
+    const int WIN_WIDTH = 480;
+    const int WIN_HEIGHT = 230;
+
+    if (!isSilent) {
+        WNDCLASSEXW wc = {0};
+        wc.cbSize = sizeof(WNDCLASSEXW);
+        wc.style = CS_HREDRAW | CS_VREDRAW | CS_DROPSHADOW;
+        wc.lpfnWndProc = InstallerWndProc;
+        wc.hInstance = hInstance;
+        wc.hCursor = LoadCursor(NULL, IDC_ARROW);
+        wc.hbrBackground = (HBRUSH)GetStockObject(WHITE_BRUSH);
+        wc.lpszClassName = L"ClassDeskInstallerClass";
+        RegisterClassExW(&wc);
+
+        int screenW = GetSystemMetrics(SM_CXSCREEN);
+        int screenH = GetSystemMetrics(SM_CYSCREEN);
+        int posX = (screenW - WIN_WIDTH) / 2;
+        int posY = (screenH - WIN_HEIGHT) / 2;
+
+        hWnd = CreateWindowExW(
+            WS_EX_TOPMOST,
+            L"ClassDeskInstallerClass",
+            L"Installazione ClassDesk",
+            WS_POPUP | WS_VISIBLE | WS_CLIPCHILDREN,
+            posX, posY, WIN_WIDTH, WIN_HEIGHT,
+            NULL, NULL, hInstance, NULL
+        );
+
+        if (hWnd) {
+            hFontTitle = CreateFontW(-20, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE,
+                                     DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
+                                     CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_SWISS, L"Segoe UI");
+            hFontSub = CreateFontW(-12, 0, 0, 0, FW_SEMIBOLD, FALSE, FALSE, FALSE,
+                                   DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
+                                   CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_SWISS, L"Segoe UI");
+            hFontStatus = CreateFontW(-13, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
+                                      DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
+                                      CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_SWISS, L"Segoe UI");
+            hFontFooter = CreateFontW(-11, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
+                                      DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
+                                      CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_SWISS, L"Segoe UI");
+
+            hTitle = CreateWindowExW(0, L"STATIC", L"ClassDesk",
+                WS_CHILD | WS_VISIBLE | SS_CENTER,
+                30, 26, WIN_WIDTH - 60, 26,
+                hWnd, (HMENU)1000, hInstance, NULL);
+            SendMessageW(hTitle, WM_SETFONT, (WPARAM)hFontTitle, TRUE);
+
+            hSub = CreateWindowExW(0, L"STATIC", L"Installazione guidata dell'applicazione",
+                WS_CHILD | WS_VISIBLE | SS_CENTER,
+                30, 56, WIN_WIDTH - 60, 18,
+                hWnd, (HMENU)1004, hInstance, NULL);
+            SendMessageW(hSub, WM_SETFONT, (WPARAM)hFontSub, TRUE);
+
+            hProgress = CreateWindowExW(0, PROGRESS_CLASSW, NULL,
+                WS_CHILD | WS_VISIBLE | PBS_SMOOTH,
+                40, 92, WIN_WIDTH - 80, 10,
+                hWnd, (HMENU)1001, hInstance, NULL);
+            SendMessageW(hProgress, PBM_SETRANGE32, 0, 100);
+            SendMessageW(hProgress, PBM_SETPOS, 0, 0);
+
+            hStatus = CreateWindowExW(0, L"STATIC", L"Avvio dell'installazione in corso...",
+                WS_CHILD | WS_VISIBLE | SS_CENTER,
+                30, 116, WIN_WIDTH - 60, 22,
+                hWnd, (HMENU)1002, hInstance, NULL);
+            SendMessageW(hStatus, WM_SETFONT, (WPARAM)hFontStatus, TRUE);
+
+            std::wstring footerStr = std::wstring(L"ClassDesk v") + APP_VERSION + L" • Ideato da " + AUTHOR_NAME;
+            hFooter = CreateWindowExW(0, L"STATIC", footerStr.c_str(),
+                WS_CHILD | WS_VISIBLE | SS_CENTER,
+                30, 188, WIN_WIDTH - 60, 18,
+                hWnd, (HMENU)1003, hInstance, NULL);
+            SendMessageW(hFooter, WM_SETFONT, (WPARAM)hFontFooter, TRUE);
+
+            UpdateWindow(hWnd);
+        }
+    }
+
+    auto PumpMessages = [&]() {
+        if (!hWnd) return;
+        MSG msg;
+        while (PeekMessageW(&msg, NULL, 0, 0, PM_REMOVE)) {
+            TranslateMessage(&msg);
+            DispatchMessageW(&msg);
+        }
+    };
+
+    auto SetProgressUI = [&](int percent, const wchar_t* statusMsg) {
+        if (hProgress) SendMessageW(hProgress, PBM_SETPOS, (WPARAM)percent, 0);
+        if (hStatus) SetWindowTextW(hStatus, statusMsg);
+        PumpMessages();
+    };
+
+    // Phase 1 (10%): Initializing
+    SetProgressUI(10, L"Inizializzazione dei componenti di sistema...");
+    Sleep(200);
+
+    // Phase 2 (25%): Terminate old running instances (zero cmd console windows!)
+    SetProgressUI(25, L"Chiusura istanze precedenti in esecuzione...");
+    KillProcessesByName(L"Class Management.exe");
+    KillProcessesByName(L"ClassManagement.exe");
+    KillProcessesByName(L"ClassDesk.exe");
+    Sleep(300);
+
+    // Phase 3 (40%): Prepare destination directory %LOCALAPPDATA%\Programs\ClassDesk
+    SetProgressUI(40, L"Preparazione directory di installazione...");
     wchar_t localAppData[MAX_PATH];
     if (!SUCCEEDED(SHGetFolderPathW(NULL, CSIDL_LOCAL_APPDATA, NULL, 0, localAppData))) {
         wcscpy(localAppData, L"C:\\");
@@ -275,49 +522,88 @@ static int RunSetupInstaller(const wchar_t* currentExePath, bool isSilent) {
     std::wstring programsDir = std::wstring(localAppData) + L"\\Programs";
     CreateDirectoryW(programsDir.c_str(), NULL);
 
-    std::wstring targetDir = programsDir + L"\\Class Management";
+    std::wstring targetDir = programsDir + L"\\ClassDesk";
     CreateDirectoryW(targetDir.c_str(), NULL);
 
-    // Clean up legacy Electron clutter from target directory to free up ~150MB
-    std::wstring rmCmd = L"rd /s /q \"" + targetDir + L"\\resources\" 2>nul";
-    _wsystem(rmCmd.c_str());
-    rmCmd = L"rd /s /q \"" + targetDir + L"\\locales\" 2>nul";
-    _wsystem(rmCmd.c_str());
+    // Clean up legacy Electron clutter safely with pure Win32 API
+    DeleteDirectoryRecursive(targetDir + L"\\resources");
+    DeleteDirectoryRecursive(targetDir + L"\\locales");
 
-    std::wstring targetExe = targetDir + L"\\Class Management.exe";
+    // Also clean old Programs\Class Management directory if present
+    std::wstring oldTargetDir = programsDir + L"\\Class Management";
+    if (GetFileAttributesW(oldTargetDir.c_str()) != INVALID_FILE_ATTRIBUTES) {
+        DeleteDirectoryRecursive(oldTargetDir + L"\\resources");
+        DeleteDirectoryRecursive(oldTargetDir + L"\\locales");
+        DeleteFileW((oldTargetDir + L"\\Class Management.exe").c_str());
+        DeleteFileW((oldTargetDir + L"\\AppIcon.ico").c_str());
+        RemoveDirectoryW(oldTargetDir.c_str());
+    }
+    Sleep(250);
+
+    // Phase 4 (60%): Copy executable and extract AppIcon.ico
+    SetProgressUI(60, L"Estrazione e copia dei file di ClassDesk...");
+    std::wstring targetExe = targetDir + L"\\ClassDesk.exe";
     std::wstring targetIcon = targetDir + L"\\AppIcon.ico";
 
-    // Copy current executable to target destination
     BOOL copyOk = CopyFileW(currentExePath, targetExe.c_str(), FALSE);
     if (!copyOk) {
-        // If file locked, retry once after force kill
-        system("taskkill /F /IM \"Class Management.exe\" /T 2>nul");
+        KillProcessesByName(L"ClassDesk.exe");
         Sleep(500);
         copyOk = CopyFileW(currentExePath, targetExe.c_str(), FALSE);
     }
 
-    // Extract AppIcon.ico
     EnsureAssetFile(targetIcon, ASSET_APP_ICON_ICO, ASSET_APP_ICON_ICO_LEN);
+    Sleep(250);
 
-    // 3. Create Desktop shortcut
+    // Phase 5 (75%): Seamless user data migration (Zero data loss guarantee!)
+    SetProgressUI(75, L"Verifica e migrazione sicura dei dati utente...");
+    std::wstring oldAppDir = std::wstring(localAppData) + L"\\ClassManagement_App";
+    std::wstring newAppDir = std::wstring(localAppData) + L"\\ClassDesk_App";
+    if (GetFileAttributesW(newAppDir.c_str()) == INVALID_FILE_ATTRIBUTES &&
+        GetFileAttributesW(oldAppDir.c_str()) != INVALID_FILE_ATTRIBUTES) {
+        CopyDirectoryRecursive(oldAppDir, newAppDir);
+    }
+
+    wchar_t roamingDataPath[MAX_PATH];
+    if (SUCCEEDED(SHGetFolderPathW(NULL, CSIDL_APPDATA, NULL, 0, roamingDataPath))) {
+        std::wstring oldRoaming = std::wstring(roamingDataPath) + L"\\ClassManagement_Native_Data";
+        std::wstring newRoaming = std::wstring(roamingDataPath) + L"\\ClassDesk_Native_Data";
+        if (GetFileAttributesW(newRoaming.c_str()) == INVALID_FILE_ATTRIBUTES &&
+            GetFileAttributesW(oldRoaming.c_str()) != INVALID_FILE_ATTRIBUTES) {
+            CopyDirectoryRecursive(oldRoaming, newRoaming);
+        }
+    }
+    Sleep(200);
+
+    // Phase 6 (90%): Shortcuts & Windows Registry
+    SetProgressUI(90, L"Creazione collegamenti Desktop e Menu Start...");
+
+    // Desktop shortcut
     wchar_t desktopPath[MAX_PATH];
     if (SUCCEEDED(SHGetFolderPathW(NULL, CSIDL_DESKTOPDIRECTORY, NULL, 0, desktopPath))) {
-        std::wstring desktopLnk = std::wstring(desktopPath) + L"\\Class Management.lnk";
+        std::wstring oldDesktopLnk = std::wstring(desktopPath) + L"\\Class Management.lnk";
+        DeleteFileW(oldDesktopLnk.c_str());
+
+        std::wstring desktopLnk = std::wstring(desktopPath) + L"\\ClassDesk.lnk";
         CreateShellShortcut(targetExe.c_str(), desktopLnk.c_str(), targetIcon.c_str());
     }
 
-    // 4. Create Start Menu shortcut
+    // Start Menu shortcut
     wchar_t startMenuPath[MAX_PATH];
     if (SUCCEEDED(SHGetFolderPathW(NULL, CSIDL_PROGRAMS, NULL, 0, startMenuPath))) {
-        std::wstring startLnk = std::wstring(startMenuPath) + L"\\Class Management.lnk";
+        std::wstring oldStartLnk = std::wstring(startMenuPath) + L"\\Class Management.lnk";
+        DeleteFileW(oldStartLnk.c_str());
+
+        std::wstring startLnk = std::wstring(startMenuPath) + L"\\ClassDesk.lnk";
         CreateShellShortcut(targetExe.c_str(), startLnk.c_str(), targetIcon.c_str());
     }
 
-    // 5. Register in Windows Registry (Installed Programs)
+    // Register in Windows Registry (Installed Programs)
+    RegDeleteKeyW(HKEY_CURRENT_USER, L"Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\ClassManagement");
     HKEY hKey;
-    const wchar_t* uninstSubKey = L"Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\ClassManagement";
+    const wchar_t* uninstSubKey = L"Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\ClassDesk";
     if (RegCreateKeyExW(HKEY_CURRENT_USER, uninstSubKey, 0, NULL, 0, KEY_WRITE, NULL, &hKey, NULL) == ERROR_SUCCESS) {
-        const wchar_t* dName = L"Class Management";
+        const wchar_t* dName = L"ClassDesk";
         const wchar_t* dVer = APP_VERSION;
         const wchar_t* pub = AUTHOR_NAME;
         std::wstring iconVal = targetExe + L",0";
@@ -334,21 +620,20 @@ static int RunSetupInstaller(const wchar_t* currentExePath, bool isSilent) {
         RegSetValueExW(hKey, L"NoRepair", 0, REG_DWORD, (const BYTE*)&dword1, sizeof(DWORD));
         RegCloseKey(hKey);
     }
+    Sleep(250);
 
-    if (!isSilent) {
-        std::wstring msg = L"Class Management v" + std::wstring(APP_VERSION) + L" è stato installato con successo!\n\n"
-                           L"La nuova versione nativa ultra-leggera sostituisce la versione precedente.\n"
-                           L"Tutti i dati, corsi e backup storici sono stati preservati al 100%.\n\n"
-                           L"L'applicazione verrà avviata ora.";
-        MessageBoxW(
-            NULL,
-            msg.c_str(),
-            L"Class Management - Installazione Completata",
-            MB_OK | MB_ICONINFORMATION
-        );
+    // Phase 7 (100%): Launch installed application
+    SetProgressUI(100, L"Installazione completata! Avvio di ClassDesk...");
+    Sleep(600);
+
+    if (hWnd) {
+        DestroyWindow(hWnd);
+        if (hFontTitle) DeleteObject(hFontTitle);
+        if (hFontSub) DeleteObject(hFontSub);
+        if (hFontStatus) DeleteObject(hFontStatus);
+        if (hFontFooter) DeleteObject(hFontFooter);
     }
 
-    // Launch installed application
     ShellExecuteW(NULL, L"open", targetExe.c_str(), NULL, targetDir.c_str(), SW_SHOWNORMAL);
     return 0;
 }
@@ -359,7 +644,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     OleInitialize(NULL);
     INITCOMMONCONTROLSEX icex;
     icex.dwSize = sizeof(INITCOMMONCONTROLSEX);
-    icex.dwICC = ICC_STANDARD_CLASSES | ICC_WIN95_CLASSES;
+    icex.dwICC = ICC_STANDARD_CLASSES | ICC_WIN95_CLASSES | ICC_PROGRESS_CLASS;
     InitCommonControlsEx(&icex);
 
     wchar_t currentExePath[MAX_PATH];
@@ -380,17 +665,22 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     if (isUninstallCmd) {
         wchar_t desktopPath[MAX_PATH];
         if (SUCCEEDED(SHGetFolderPathW(NULL, CSIDL_DESKTOPDIRECTORY, NULL, 0, desktopPath))) {
-            std::wstring desktopLnk = std::wstring(desktopPath) + L"\\Class Management.lnk";
+            std::wstring desktopLnk = std::wstring(desktopPath) + L"\\ClassDesk.lnk";
             DeleteFileW(desktopLnk.c_str());
+            std::wstring oldDesktopLnk = std::wstring(desktopPath) + L"\\Class Management.lnk";
+            DeleteFileW(oldDesktopLnk.c_str());
         }
         wchar_t startMenuPath[MAX_PATH];
         if (SUCCEEDED(SHGetFolderPathW(NULL, CSIDL_PROGRAMS, NULL, 0, startMenuPath))) {
-            std::wstring startLnk = std::wstring(startMenuPath) + L"\\Class Management.lnk";
+            std::wstring startLnk = std::wstring(startMenuPath) + L"\\ClassDesk.lnk";
             DeleteFileW(startLnk.c_str());
+            std::wstring oldStartLnk = std::wstring(startMenuPath) + L"\\Class Management.lnk";
+            DeleteFileW(oldStartLnk.c_str());
         }
+        RegDeleteKeyW(HKEY_CURRENT_USER, L"Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\ClassDesk");
         RegDeleteKeyW(HKEY_CURRENT_USER, L"Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\ClassManagement");
         if (!isSilent) {
-            MessageBoxW(NULL, L"Class Management è stato disinstallato dal sistema.\nI tuoi dati e i file di backup in Documenti sono stati conservati.", L"Class Management", MB_OK | MB_ICONINFORMATION);
+            MessageBoxW(NULL, L"ClassDesk è stato disinstallato dal sistema.\nI tuoi dati e i file di backup in Documenti sono stati conservati.", L"ClassDesk", MB_OK | MB_ICONINFORMATION);
         }
         return 0;
     }
@@ -401,13 +691,20 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     }
 
     // Standard Application Mode
-    // 1. Prepare App Data and Assets Directory (%LOCALAPPDATA%\ClassManagement_App)
+    // 1. Prepare App Data and Assets Directory (%LOCALAPPDATA%\ClassDesk_App)
     wchar_t localAppData[MAX_PATH];
     if (!SUCCEEDED(SHGetFolderPathW(NULL, CSIDL_LOCAL_APPDATA, NULL, 0, localAppData))) {
         wcscpy(localAppData, L"C:\\");
     }
 
-    std::wstring appDir = std::wstring(localAppData) + L"\\ClassManagement_App";
+    std::wstring appDir = std::wstring(localAppData) + L"\\ClassDesk_App";
+    std::wstring oldAppDir = std::wstring(localAppData) + L"\\ClassManagement_App";
+
+    // Backward compatibility: migrate old directory if new one doesn't exist
+    if (GetFileAttributesW(appDir.c_str()) == INVALID_FILE_ATTRIBUTES &&
+        GetFileAttributesW(oldAppDir.c_str()) != INVALID_FILE_ATTRIBUTES) {
+        CopyDirectoryRecursive(oldAppDir, appDir);
+    }
     CreateDirectoryW(appDir.c_str(), NULL);
 
     std::wstring logsDir = appDir + L"\\Logs";
@@ -431,9 +728,9 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         int choice = MessageBoxW(
             NULL,
             L"Microsoft Edge WebView2 Runtime non risulta installato sul sistema.\n\n"
-            L"Class Management richiede il componente WebView2 per eseguire l'interfaccia ad alte prestazioni.\n\n"
+            L"ClassDesk richiede il componente WebView2 per eseguire l'interfaccia ad alte prestazioni.\n\n"
             L"Desideri scaricare ora il componente gratuito ufficiale da Microsoft?",
-            L"Class Management - Runtime WebView2 Richiesto",
+            L"ClassDesk - Runtime WebView2 Richiesto",
             MB_YESNO | MB_ICONINFORMATION
         );
         if (choice == IDYES) {
@@ -448,7 +745,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     HWND hwnd = (HWND)w.window();
 
     // Set Window Title and Size
-    w.set_title("Class Management v26.10.4-015 [UNSTABLE]");
+    w.set_title(WideToUtf8(WINDOW_TITLE).c_str());
     w.set_size(1400, 900, WEBVIEW_HINT_NONE);
     w.set_size(980, 650, WEBVIEW_HINT_MIN);
 
@@ -485,18 +782,20 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         return "true";
     });
 
-    // B. saveAutoBackup: Saves backup JSON into %USERPROFILE%/Documents/GestioneCorsi_Backups
+    // B. saveAutoBackup: Saves backup JSON into %USERPROFILE%/Documents/ClassDesk/Backup (and mirror to GestioneCorsi_Backups)
     w.bind("__native_save_auto_backup", [](std::string req) -> std::string {
         std::string filename = ParseJsonArg(req, 0);
         std::string data = ParseJsonArg(req, 1);
-        if (filename.empty()) filename = "ClassManagement_Backup.json";
+        if (filename.empty()) filename = "ClassDesk_Backup.json";
 
         wchar_t docsPath[MAX_PATH];
         if (!SUCCEEDED(SHGetFolderPathW(NULL, CSIDL_MYDOCUMENTS, NULL, 0, docsPath))) {
             return "{\"success\":false,\"error\":\"Cannot find Documents folder\"}";
         }
 
-        std::wstring backupDir = std::wstring(docsPath) + L"\\GestioneCorsi_Backups";
+        std::wstring classDeskDir = std::wstring(docsPath) + L"\\ClassDesk";
+        std::wstring backupDir = classDeskDir + L"\\Backup";
+        CreateDirectoryW(classDeskDir.c_str(), NULL);
         CreateDirectoryW(backupDir.c_str(), NULL);
 
         std::wstring filePath = backupDir + L"\\" + Utf8ToWide(filename);
@@ -509,11 +808,22 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         WriteFile(hFile, data.c_str(), (DWORD)data.size(), &written, NULL);
         CloseHandle(hFile);
 
+        // Mirror write to legacy GestioneCorsi_Backups folder for rollback safety
+        std::wstring legacyBackupDir = std::wstring(docsPath) + L"\\GestioneCorsi_Backups";
+        CreateDirectoryW(legacyBackupDir.c_str(), NULL);
+        std::wstring legacyFilePath = legacyBackupDir + L"\\" + Utf8ToWide(filename);
+        HANDLE hLegacyFile = CreateFileW(legacyFilePath.c_str(), GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+        if (hLegacyFile != INVALID_HANDLE_VALUE) {
+            DWORD legWritten = 0;
+            WriteFile(hLegacyFile, data.c_str(), (DWORD)data.size(), &legWritten, NULL);
+            CloseHandle(hLegacyFile);
+        }
+
         std::string pathUtf8 = WideToUtf8(filePath);
         return "{\"success\":true,\"path\":\"" + JsonEscape(pathUtf8) + "\"}";
     });
 
-    // C. saveDiagnostic: Saves diagnostic log into %LOCALAPPDATA%/ClassManagement_App/Logs
+    // C. saveDiagnostic: Saves diagnostic log into %LOCALAPPDATA%/ClassDesk_App/Logs
     w.bind("__native_save_diagnostic", [appDir](std::string req) -> std::string {
         std::string report = ParseJsonArg(req, 0);
         std::string errorDetails = ParseJsonArg(req, 1);
@@ -527,7 +837,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
         HANDLE hFile = CreateFileW(logFilePath.c_str(), GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
         if (hFile != INVALID_HANDLE_VALUE) {
-            std::string content = "Class Management Diagnostic Log\n=================================\n" + report + "\n\nDetails:\n" + errorDetails + "\n";
+            std::string content = "ClassDesk Diagnostic Log\n=========================\n" + report + "\n\nDetails:\n" + errorDetails + "\n";
             DWORD written = 0;
             WriteFile(hFile, content.c_str(), (DWORD)content.size(), &written, NULL);
             CloseHandle(hFile);
@@ -614,7 +924,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
                                     size_t endPos = reqStr.find_first_of(" &\r\n", codePos + 5);
                                     std::string code = reqStr.substr(codePos + 5, endPos - (codePos + 5));
 
-                                    std::string html = "<!DOCTYPE html><html lang='it'><head><meta charset='utf-8'><title>Accesso riuscito</title><style>body{font-family:Segoe UI,sans-serif;text-align:center;padding:50px;background:#f8fafc;color:#0f172a;}h2{color:#0284c7;}</style></head><body><h2>✓ Accesso a Google Calendar completato!</h2><p>Puoi chiudere questa scheda e tornare a <strong>Class Management</strong>.</p><script>setTimeout(function(){window.close();},2500);</script></body></html>";
+                                    std::string html = "<!DOCTYPE html><html lang='it'><head><meta charset='utf-8'><title>Accesso riuscito</title><style>body{font-family:Segoe UI,sans-serif;text-align:center;padding:50px;background:#f8fafc;color:#0f172a;}h2{color:#0284c7;}</style></head><body><h2>✓ Accesso a Google Calendar completato!</h2><p>Puoi chiudere questa scheda e tornare a <strong>ClassDesk</strong>.</p><script>setTimeout(function(){window.close();},2500);</script></body></html>";
                                     std::string resp = "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: " + std::to_string(html.size()) + "\r\nConnection: close\r\n\r\n" + html;
                                     send(clientSock, resp.c_str(), (int)resp.size(), 0);
 
@@ -623,7 +933,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
                                         w.eval(js);
                                     });
                                 } else {
-                                    std::string html = "<!DOCTYPE html><html lang='it'><head><meta charset='utf-8'><title>Accesso annullato</title><style>body{font-family:Segoe UI,sans-serif;text-align:center;padding:50px;background:#f8fafc;color:#0f172a;}h2{color:#e11d48;}</style></head><body><h2>✕ Accesso a Google Calendar non completato</h2><p>L'autorizzazione è stata annullata o rifiutata. Puoi chiudere questa scheda e riprovare in <strong>Class Management</strong>.</p><script>setTimeout(function(){window.close();},3500);</script></body></html>";
+                                    std::string html = "<!DOCTYPE html><html lang='it'><head><meta charset='utf-8'><title>Accesso annullato</title><style>body{font-family:Segoe UI,sans-serif;text-align:center;padding:50px;background:#f8fafc;color:#0f172a;}h2{color:#e11d48;}</style></head><body><h2>✕ Accesso a Google Calendar non completato</h2><p>L'autorizzazione è stata annullata o rifiutata. Puoi chiudere questa scheda e riprovare in <strong>ClassDesk</strong>.</p><script>setTimeout(function(){window.close();},3500);</script></body></html>";
                                     std::string resp = "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: " + std::to_string(html.size()) + "\r\nConnection: close\r\n\r\n" + html;
                                     send(clientSock, resp.c_str(), (int)resp.size(), 0);
 
@@ -749,7 +1059,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     });
 
     // 5. Inject JavaScript Bridge Shim (window.electronAPI)
-    const char* bridge_js = R"JS(
+    std::string verStr = WideToUtf8(APP_VERSION);
+    std::string bridge_js = std::string(R"JS(
     (function() {
         window.electronAPI = {
             platform: 'win32',
@@ -782,7 +1093,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
                 return window.__native_show_in_folder(filePath);
             },
             getAppVersion: function() {
-                return Promise.resolve('26.10.4-013');
+                return Promise.resolve(')JS") + verStr + std::string(R"JS(');
             },
             startGoogleOAuth: function(authUrl) {
                 return window.__native_start_google_oauth(authUrl);
@@ -814,9 +1125,9 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
                 return Promise.resolve(true);
             }
         };
-        console.log('[Native C++] Class Management WebView2 Bridge Initialized.');
+        console.log('[Native C++] ClassDesk WebView2 Bridge Initialized.');
     })();
-    )JS";
+    )JS");
 
     w.init(bridge_js);
 

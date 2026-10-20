@@ -27,6 +27,10 @@ public struct GitHubAsset: Codable, Identifiable, Equatable {
         name.lowercased().hasSuffix(".pkg")
     }
 
+    public var isZip: Bool {
+        name.lowercased().hasSuffix(".zip")
+    }
+
     public var formattedSize: String {
         guard let size = size, size > 0 else { return "" }
         let mb = Double(size) / (1024.0 * 1024.0)
@@ -48,6 +52,12 @@ public struct GitHubRelease: Codable, Identifiable, Equatable {
         tag_name.trimmingCharacters(in: CharacterSet(charactersIn: "vV \t\n\r"))
     }
 
+    public var zipAsset: GitHubAsset? {
+        assets.first(where: {
+            $0.isZip && ($0.name.lowercased().contains("macos") || $0.name.lowercased().contains("classdesk") || $0.name.lowercased().contains("class-management"))
+        })
+    }
+
     public var pkgAsset: GitHubAsset? {
         assets.first(where: { $0.isPkg })
     }
@@ -56,7 +66,7 @@ public struct GitHubRelease: Codable, Identifiable, Equatable {
         if let name = name, !name.trimmingCharacters(in: .whitespaces).isEmpty {
             return name
         }
-        return "Class Management \(tag_name)"
+        return "ClassDesk \(tag_name)"
     }
 }
 
@@ -199,7 +209,7 @@ public final class UpdateManager: NSObject, URLSessionDownloadDelegate {
 
         var request = URLRequest(url: url)
         request.setValue("application/vnd.github.v3+json", forHTTPHeaderField: "Accept")
-        request.setValue("ClassManagement-App/\(AuthorAttribution.appVersion)", forHTTPHeaderField: "User-Agent")
+        request.setValue("ClassDesk-App/\(AuthorAttribution.appVersion)", forHTTPHeaderField: "User-Agent")
 
         Task {
             do {
@@ -297,7 +307,7 @@ public final class UpdateManager: NSObject, URLSessionDownloadDelegate {
         let timestamp = df.string(from: Date())
         let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first
             ?? FileManager.default.temporaryDirectory
-        let backupsDir = docs.appendingPathComponent("ClassManagement_Backups")
+        let backupsDir = docs.appendingPathComponent("ClassDesk_Backups")
         try? FileManager.default.createDirectory(at: backupsDir, withIntermediateDirectories: true)
         let backupUrl = backupsDir.appendingPathComponent("AutoBackup_pre_update_\(AuthorAttribution.appVersion)_\(timestamp).json")
 
@@ -306,7 +316,7 @@ public final class UpdateManager: NSObject, URLSessionDownloadDelegate {
         if let data = try? encoder.encode(store.state) {
             do {
                 try data.write(to: backupUrl, options: .atomic)
-                store.showToast("💾 Backup automatico salvato in Documenti/ClassManagement_Backups")
+                store.showToast("💾 Backup automatico salvato in Documenti/ClassDesk_Backups")
                 return true
             } catch {
                 return false
@@ -315,14 +325,14 @@ public final class UpdateManager: NSObject, URLSessionDownloadDelegate {
         return false
     }
 
-    /// Downloads the `.pkg` installer from the release assets, performs an automatic backup, and opens the installer.
+    /// Downloads the `.zip` (for silent 1-click update) or `.pkg` installer from the release assets, performs an automatic backup, and installs the update.
     public func downloadAndInstall(release: GitHubRelease, store: AppStore? = nil) {
         if let st = store {
             performPreUpdateBackup(store: st)
         }
 
-        guard let asset = release.pkgAsset else {
-            // If no pkg asset, open release page on GitHub
+        guard let asset = release.zipAsset ?? release.pkgAsset else {
+            // If no zip or pkg asset, open release page on GitHub
             openInBrowser(release: release)
             return
         }
@@ -338,7 +348,7 @@ public final class UpdateManager: NSObject, URLSessionDownloadDelegate {
         self.activeDownloadAsset = asset
 
         var request = URLRequest(url: downloadUrl)
-        request.setValue("ClassManagement-App/\(AuthorAttribution.appVersion)", forHTTPHeaderField: "User-Agent")
+        request.setValue("ClassDesk-App/\(AuthorAttribution.appVersion)", forHTTPHeaderField: "User-Agent")
 
         self.downloadTask = session.downloadTask(with: request)
         self.downloadTask?.resume()
@@ -424,18 +434,66 @@ public final class UpdateManager: NSObject, URLSessionDownloadDelegate {
             } else {
                 self.isDownloading = false
                 self.downloadProgress = 1.0
+
+                if fileName.lowercased().hasSuffix(".zip") {
+                    self.statusMessage = "Estrazione ed installazione silenziosa in corso..."
+
+                    let extractDir = FileManager.default.temporaryDirectory.appendingPathComponent("ClassDesk_Extract_\(UUID().uuidString)")
+                    try? FileManager.default.createDirectory(at: extractDir, withIntermediateDirectories: true)
+
+                    let ditto = Process()
+                    ditto.executableURL = URL(fileURLWithPath: "/usr/bin/ditto")
+                    ditto.arguments = ["-xk", destinationUrl.path, extractDir.path]
+                    try? ditto.run()
+                    ditto.waitUntilExit()
+
+                    let subItems = (try? FileManager.default.contentsOfDirectory(atPath: extractDir.path)) ?? []
+                    let foundApp = subItems.first(where: { $0.hasSuffix(".app") }) ?? "ClassDesk.app"
+                    let sourceAppPath = extractDir.appendingPathComponent(foundApp).path
+
+                    if FileManager.default.fileExists(atPath: sourceAppPath) {
+                        self.statusMessage = "Installazione completata! Riavvio di ClassDesk..."
+
+                        let targetApp = "/Applications/ClassDesk.app"
+                        let legacyApp = "/Applications/Class Management.app"
+                        let updateScript = """
+                        sleep 0.8
+                        pkill -f "ClassDesk" 2>/dev/null || true
+                        pkill -f "ClassManagement" 2>/dev/null || true
+                        rm -rf "\(targetApp)" 2>/dev/null || true
+                        rm -rf "\(legacyApp)" 2>/dev/null || true
+                        cp -R "\(sourceAppPath)" "\(targetApp)"
+                        xattr -cr "\(targetApp)" 2>/dev/null || true
+                        open "\(targetApp)"
+                        rm -rf "\(extractDir.path)" 2>/dev/null || true
+                        rm -f "\(destinationUrl.path)" 2>/dev/null || true
+                        """
+                        let p = Process()
+                        p.executableURL = URL(fileURLWithPath: "/bin/sh")
+                        p.arguments = ["-c", updateScript]
+                        try? p.run()
+
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+                            NSApplication.shared.terminate(nil)
+                        }
+                        return
+                    }
+                }
+
                 self.statusMessage = "Installer scaricato con successo. Avvio dell'installazione..."
 
                 let launched = NSWorkspace.shared.open(destinationUrl)
                 if launched {
                     self.statusMessage = "Installer avviato. L'applicazione si chiuderà e si riavvierà al termine dell'aggiornamento..."
 
-                    // Background script: blocks on open -W until macOS installer completes, then relaunches Class Management
+                    // Background script: blocks on open -W until macOS installer completes, then relaunches ClassDesk
                     let pkgPath = destinationUrl.path.replacingOccurrences(of: "\"", with: "\\\"")
                     let relaunchScript = """
                     sleep 1
                     open -W "\(pkgPath)"
-                    if [ -d "/Applications/Class Management.app" ]; then
+                    if [ -d "/Applications/ClassDesk.app" ]; then
+                        open "/Applications/ClassDesk.app"
+                    elif [ -d "/Applications/Class Management.app" ]; then
                         open "/Applications/Class Management.app"
                     fi
                     """

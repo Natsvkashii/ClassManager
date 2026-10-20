@@ -16,7 +16,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Class Management v26.10.4-019 (Windows Native Edition)</title>
+    <title>ClassDesk v26.10.4-021 (Windows Native Edition)</title>
     <link rel="icon" type="image/png" href="logo.png">
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -145,7 +145,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 <div class="h-16 px-3 border-b border-sky-100 dark:border-slate-800 flex items-center justify-between gap-1.5 sidebar-brand-wrap">
                     <div class="flex items-center gap-2.5 flex-1 min-w-0">
                         <div id="sidebarBrandLogoBox" class="w-9 h-9 flex items-center justify-center shrink-0">
-                            <img src="logo.png" alt="Class Management" class="w-8 h-8 object-contain">
+                            <img src="logo.png" alt="ClassDesk" class="w-8 h-8 object-contain">
                         </div>
                     </div>
                     <button id="sidebarToggleMiniBtn" onclick="app.toggleSidebarMini()" class="hidden lg:flex w-8 h-8 rounded-lg hover:bg-sky-50 dark:hover:bg-navy-800 items-center justify-center text-slate-500 dark:text-slate-400 transition shrink-0" title="Espandi / Riduci">
@@ -167,7 +167,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                     <span class="sidebar-text" id="sidebarFeedbackBtnText">Invia Feedback</span>
                 </button>
                 <div class="sidebar-footer-card p-1.5 rounded-xl bg-slate-50 dark:bg-navy-950/40 text-[10px] text-center text-slate-400 dark:text-slate-500 font-semibold">
-                    <span id="sidebarVersionBadge">Class Management v26.10.3</span>
+                    <span id="sidebarVersionBadge">ClassDesk v26.10.4-021</span>
                 </div>
             </div>
         </aside>
@@ -249,7 +249,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
 
         const I18N = {
             it: {
-                appTitle: "Class Management",
+                appTitle: "ClassDesk",
                 appSubtitle: "Presenze, Piano Lezioni, Voti, Attività, Schede di Valutazione e Costi",
                 footerPlatformDesc: "Piattaforma Accademica Multi-Livello QCER",
                 footerDevelopedBy: "Concepito e Sviluppato da",
@@ -535,7 +535,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 daysShortSun: ["Dom", "Lun", "Mar", "Mer", "Gio", "Ven", "Sab"]
             },
             en: {
-                appTitle: "Class Management",
+                appTitle: "ClassDesk",
                 appSubtitle: "Attendance, Lesson Planner, Grades, Activities, Rubrics & Billing",
                 footerPlatformDesc: "Multi-Level CEFR Academic Platform",
                 footerDevelopedBy: "Conceived and Developed by",
@@ -821,7 +821,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 daysShortSun: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
             },
             es: {
-                appTitle: "Class Management",
+                appTitle: "ClassDesk",
                 appSubtitle: "Asistencia, Plan de Clases, Notas, Actividades, Rúbricas y Facturación",
                 footerPlatformDesc: "Plataforma Académica Multinivel MCER",
                 footerDevelopedBy: "Concebido y Desarrollado por",
@@ -1146,12 +1146,22 @@ Removing, obfuscating, or altering these credits violates the author's attributi
         ];
 
         const INITIAL_DATA = {
-            version: "26.10.4-020",
+            version: "26.10.4-021",
             channel: "unstable",
             deletedItems: [],
             lastUpdated: new Date().toISOString(),
             activeCourseId: "",
             changelog: [
+                {
+                    version: "26.10.4-021",
+                    date: "2026-10-20",
+                    changes: [
+                        "Nuovo nome dell'applicazione: 'ClassDesk', più semplice, diretto e intuitivo, con migrazione automatica al 100% di tutti i dati storici, configurazioni e backup da Class Management senza perdita di continuità.",
+                        "macOS 1-Click Silent Update: aggiornamento in-app istantaneo con un solo clic senza finestre di installazione né richieste di password amministrativa, con sostituzione atomica e riavvio automatico.",
+                        "Nuovo Installer Windows moderno: rimozione delle finestre cmd nere e introduzione della finestra di installazione nativa con barra di avanzamento continua e messaggi di stato in tempo reale (in stile Discord/Chrome).",
+                        "Migliorata la visualizzazione del Calendario Mensile su Windows e ottimizzato il ridimensionamento dinamico delle schede giornaliere."
+                    ]
+                },
                 {
                     version: "26.10.4-020",
                     date: "2026-10-20",
@@ -1628,7 +1638,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                     console.warn("IndexedDB load fallback:", e);
                 }
                 try {
-                    const raw = localStorage.getItem("class_management_state_v1") || localStorage.getItem("gestione_corsi_state_v1");
+                    const raw = localStorage.getItem("classdesk_state_v1") || localStorage.getItem("class_management_state_v1") || localStorage.getItem("gestione_corsi_state_v1");
                     if (raw) {
                         const parsed = JSON.parse(raw);
                         if (parsed && Array.isArray(parsed.courses) && parsed.courses.length > 0) return parsed;
@@ -1656,7 +1666,8 @@ Removing, obfuscating, or altering these credits violates the author's attributi
 
             async saveState(state) {
                 try {
-                    localStorage.setItem("class_management_state_v1", JSON.stringify(state));
+                    localStorage.setItem("classdesk_state_v1", JSON.stringify(state));
+                    localStorage.setItem("class_management_state_v1", JSON.stringify(state)); // mirror for backward compatibility
                 } catch (e) {
                     console.warn("localStorage save warning:", e);
                 }
@@ -1676,6 +1687,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
 
             async clearAll() {
                 try {
+                    localStorage.removeItem("classdesk_state_v1");
                     localStorage.removeItem("class_management_state_v1");
                     localStorage.removeItem("gestione_corsi_state_v1");
                 } catch (e) {}
@@ -5508,7 +5520,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 });
 
                 txt += `
-✨ *Class Management*`;
+✨ *ClassDesk*`;
                 navigator.clipboard.writeText(txt).then(() => {
                     this.showToast("📋 Testo copiato per WhatsApp con successo!", "success");
                 }).catch(() => {
@@ -5744,9 +5756,9 @@ Removing, obfuscating, or altering these credits violates the author's attributi
 
                 // Footer watermark
                 const watermarkMap = {
-                    it: "Class Management • Concepito e Sviluppato da Guaira Jaramillo Nitoglia (guaira.jaramillo.nitoglia@gmail.com)",
-                    en: "Class Management • Designed and Developed by Guaira Jaramillo Nitoglia (guaira.jaramillo.nitoglia@gmail.com)",
-                    es: "Class Management • Concebido y Desarrollado por Guaira Jaramillo Nitoglia (guaira.jaramillo.nitoglia@gmail.com)"
+                    it: "ClassDesk • Concepito e Sviluppato da Guaira Jaramillo Nitoglia (guaira.jaramillo.nitoglia@gmail.com)",
+                    en: "ClassDesk • Designed and Developed by Guaira Jaramillo Nitoglia (guaira.jaramillo.nitoglia@gmail.com)",
+                    es: "ClassDesk • Concebido y Desarrollado por Guaira Jaramillo Nitoglia (guaira.jaramillo.nitoglia@gmail.com)"
                 };
                 ctx.fillStyle = "#64748b";
                 ctx.font = "15px sans-serif";
@@ -6675,13 +6687,13 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                                     const isToday = cell.iso === todayIso;
                                     const hasEvents = cell.events && cell.events.length > 0;
                                     return `
-                                        <div class="min-h-[112px] p-2 rounded-xl border transition flex flex-col justify-start gap-1.5 ${isToday ? 'border-blue-400 dark:border-blue-500 bg-blue-50/20 dark:bg-blue-950/20 ring-2 ring-blue-400/20 shadow-xs' : (cell.inMonth ? 'bg-white dark:bg-navy-900 border-sky-100 dark:border-slate-800' : 'bg-slate-50/50 dark:bg-navy-950/40 border-slate-100 dark:border-slate-800/40 opacity-45')}">
+                                        <div class="min-h-[120px] h-auto p-2 rounded-xl border transition flex flex-col justify-start gap-1.5 ${isToday ? 'border-blue-400 dark:border-blue-500 bg-blue-50/20 dark:bg-blue-950/20 ring-2 ring-blue-400/20 shadow-xs' : (cell.inMonth ? 'bg-white dark:bg-navy-900 border-sky-100 dark:border-slate-800' : 'bg-slate-50/50 dark:bg-navy-950/40 border-slate-100 dark:border-slate-800/40 opacity-45')}">
                                             <div class="flex items-center justify-between pb-0.5">
                                                 <span class="text-xs font-black ${isToday ? 'text-blue-600 dark:text-blue-400 font-extrabold' : (cell.inMonth ? 'text-slate-800 dark:text-slate-200' : 'text-slate-400 dark:text-slate-500')}">${cell.dayNum}</span>
-                                                ${hasEvents ? `<span class="px-1.5 py-0.2 rounded-full bg-slate-100 dark:bg-slate-800 text-[9px] font-bold text-slate-500 dark:text-slate-400">${cell.events.length}</span>` : ''}
+                                                ${hasEvents ? `<span class="px-1.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-[9px] font-bold text-slate-500 dark:text-slate-400">${cell.events.length}</span>` : ''}
                                             </div>
-                                            <div class="flex-1 flex flex-col gap-1 min-w-0">
-                                                ${cell.events.map(ev => this.renderCalEventCard(ev, false, false)).join("")}
+                                            <div class="flex-1 flex flex-col gap-1 min-w-0 overflow-y-auto max-h-[170px] custom-scrollbar pr-0.5">
+                                                ${cell.events.map(ev => this.renderCalEventCard(ev, true, false)).join("")}
                                             </div>
                                         </div>
                                     `;
@@ -8082,9 +8094,9 @@ Removing, obfuscating, or altering these credits violates the author's attributi
 
                 // 5. Watermark attribution
                 const watermarkMap = {
-                    it: "Class Management • Concepito e Sviluppato da Guaira Jaramillo Nitoglia (guaira.jaramillo.nitoglia@gmail.com)",
-                    en: "Class Management • Designed and Developed by Guaira Jaramillo Nitoglia (guaira.jaramillo.nitoglia@gmail.com)",
-                    es: "Class Management • Concebido y Desarrollado por Guaira Jaramillo Nitoglia (guaira.jaramillo.nitoglia@gmail.com)"
+                    it: "ClassDesk • Concepito e Sviluppato da Guaira Jaramillo Nitoglia (guaira.jaramillo.nitoglia@gmail.com)",
+                    en: "ClassDesk • Designed and Developed by Guaira Jaramillo Nitoglia (guaira.jaramillo.nitoglia@gmail.com)",
+                    es: "ClassDesk • Concebido y Desarrollado por Guaira Jaramillo Nitoglia (guaira.jaramillo.nitoglia@gmail.com)"
                 };
                 ctx.fillStyle = "#94a3b8";
                 ctx.font = "12px sans-serif";
@@ -8250,11 +8262,11 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 try {
                     const now = new Date();
                     const dStr = now.toISOString().replace(/[:.]/g, "-");
-                    const filename = `ClassManagement_BetaBackup_${dStr}.json`;
+                    const filename = `ClassDesk_BetaBackup_${dStr}.json`;
                     const payload = JSON.stringify(this.state, null, 2);
                     const res = await window.electronAPI.saveBetaAutoBackup(filename, payload);
                     if (res && res.success) {
-                        console.log("[Beta Auto-Backup] Salvataggio automatico 5 min completato in Documenti/Class Manager/Backup:", res.path);
+                        console.log("[Beta Auto-Backup] Salvataggio automatico 5 min completato in Documenti/ClassDesk/Backup:", res.path);
                     }
                 } catch (e) {
                     console.error("[Beta Auto-Backup] Errore nel salvataggio del backup:", e);
@@ -8293,7 +8305,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                             <div class="flex items-center gap-1.5 font-bold text-amber-600 dark:text-amber-400">
                                 <i class="fa-solid fa-shield-halved"></i> Protezione di Sicurezza Attiva
                             </div>
-                            <p>Nelle versioni beta, Class Management crea automaticamente un backup ogni 5 minuti in <em>Documenti/Class Manager/Backup</em> e genera report diagnostici automatici in caso di anomalie.</p>
+                            <p>Nelle versioni beta, ClassDesk crea automaticamente un backup ogni 5 minuti in <em>Documenti/ClassDesk/Backup</em> e genera report diagnostici automatici in caso di anomalie.</p>
                         </div>
 
                         <div class="flex items-center justify-end gap-2.5 pt-2">
@@ -8342,7 +8354,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                             <img src="icon.png" class="w-14 h-14 object-contain shrink-0 drop-shadow-sm" alt="Logo">
                             <div>
                                 <div class="flex items-center gap-2">
-                                    <h2 class="text-xl font-black text-slate-900 dark:text-white">Benvenuto in Class Management</h2>
+                                    <h2 class="text-xl font-black text-slate-900 dark:text-white">Benvenuto in ClassDesk</h2>
                                     ${isBeta ? '<span class="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-600 dark:text-amber-400 font-black text-[10px] uppercase">Beta</span>' : ''}
                                 </div>
                                 <p class="text-slate-500 dark:text-slate-400 text-xs mt-0.5">Configurazione guidata iniziale delle tue preferenze di lavoro</p>
@@ -8431,7 +8443,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                         <!-- Completion CTA -->
                         <div class="pt-2">
                             <button type="button" onclick="app.completeOnboarding()" class="w-full py-3.5 rounded-xl bg-gradient-to-r from-sky-600 to-indigo-600 hover:from-sky-500 hover:to-indigo-500 text-white font-black text-sm shadow-md transition flex items-center justify-center gap-2">
-                                <span>Inizia a usare Class Management</span>
+                                <span>Inizia a usare ClassDesk</span>
                                 <i class="fa-solid fa-arrow-right"></i>
                             </button>
                         </div>
@@ -8518,18 +8530,18 @@ Removing, obfuscating, or altering these credits violates the author's attributi
             sendFeedbackEmail() {
                 const authorEmail = "guaira.jaramillo.nitoglia@gmail.com";
                 const currentVer = this.state?.version || INITIAL_DATA.version || "26.10.3";
-                const subject = `FEEDBACK CLASS MANAGEMENT v. ${currentVer}`;
+                const subject = `FEEDBACK CLASSDESK v. ${currentVer}`;
                 const osName = (navigator.userAgent.indexOf("Windows") !== -1) ? "Windows" : (navigator.userAgent.indexOf("Mac") !== -1 ? "macOS" : "Desktop");
                 const lang = this.state?.settings?.language || "it";
                 const body = `Ciao Guaira,
 
-Vorrei inviarti il seguente feedback riguardo a Class Management:
+Vorrei inviarti il seguente feedback riguardo a ClassDesk:
 
 [Scrivi qui i tuoi commenti, suggerimenti o segnalazioni...]
 
 --------------------------------------------------
 Dettagli di Sistema:
-- Versione Applicazione: Class Management v${currentVer}
+- Versione Applicazione: ClassDesk v${currentVer}
 - Sistema Operativo: ${osName}
 - Lingua Interfaccia: ${lang}
 --------------------------------------------------`;
@@ -8835,14 +8847,14 @@ Dettagli di Sistema:
                                 if (m && m.version) {
                                     releases = [{
                                         tag_name: m.tag_name || `v${m.version}`,
-                                        name: `Class Management v${m.version}`,
+                                        name: `ClassDesk v${m.version}`,
                                         prerelease: m.prerelease === true,
                                         published_at: m.published_at || new Date().toISOString(),
                                         body: m.body || '',
                                         html_url: `https://github.com/Natsvkashii/ClassManager/releases/tag/${m.tag_name || 'v' + m.version}`,
                                         assets: [
-                                            { name: m.setupName || `Class-Management-${m.version}-Setup.exe`, browser_download_url: m.setupUrl },
-                                            ...(m.portableUrl ? [{ name: m.portableName || `Class-Management-${m.version}-Portable.exe`, browser_download_url: m.portableUrl }] : [])
+                                            { name: m.setupName || `ClassDesk-${m.version}-Setup.exe`, browser_download_url: m.setupUrl },
+                                            ...(m.portableUrl ? [{ name: m.portableName || `ClassDesk-${m.version}-Native.exe`, browser_download_url: m.portableUrl }] : [])
                                         ]
                                     }];
                                 }
@@ -8970,7 +8982,7 @@ Dettagli di Sistema:
                                         <i class="fa-solid fa-circle-check"></i>
                                     </div>
                                     <div>
-                                        <h4 class="text-sm font-extrabold text-slate-900 dark:text-white">Class Management è Aggiornato!</h4>
+                                        <h4 class="text-sm font-extrabold text-slate-900 dark:text-white">ClassDesk è Aggiornato!</h4>
                                         <p class="text-slate-500 mt-1">Stai già utilizzando l'ultima versione disponibile (<strong>v${this.escapeHtml(this.state.version || INITIAL_DATA.version || "26.10.4-012")}</strong>). Non sono necessari aggiornamenti.</p>
                                     </div>
                                     <div class="pt-2">
@@ -9239,7 +9251,7 @@ Dettagli di Sistema:
                 const update = this.availableUpdate;
                 const isDownloading = this.updateState?.isDownloading;
                 const downloadPercent = this.updateState?.downloadPercent || 0;
-                const statusMsg = this.updateState?.statusText || (this.updateCheckInProgress ? "Verifica aggiornamenti in corso..." : (update ? `È disponibile una nuova versione: ${update.release.tag_name}` : "Class Management è aggiornato all'ultima versione."));
+                const statusMsg = this.updateState?.statusText || (this.updateCheckInProgress ? "Verifica aggiornamenti in corso..." : (update ? `È disponibile una nuova versione: ${update.release.tag_name}` : "ClassDesk è aggiornato all'ultima versione."));
 
                 container.innerHTML = `
                     <div class="max-w-3xl mx-auto space-y-5 text-xs">
@@ -9261,7 +9273,7 @@ Dettagli di Sistema:
                             <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-sky-100 dark:border-slate-800">
                                 <div class="flex items-center gap-3.5">
                                     <div class="w-12 h-12 flex items-center justify-center shrink-0">
-                                        <img src="logo.png" alt="Class Management" class="w-12 h-12 object-contain">
+                                        <img src="logo.png" alt="ClassDesk" class="w-12 h-12 object-contain">
                                     </div>
                                     <div>
                                         <div class="flex items-center gap-2">
@@ -9359,7 +9371,7 @@ Dettagli di Sistema:
                                 </div>
                             </div>
                             <p class="text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed">
-                                Installa e registra permanentemente <strong>Class Management</strong> in Windows (cartella <code>%LOCALAPPDATA%\\Programs\\Class Management</code>), crea i collegamenti sul Desktop e nel Menu Start, e registra il software in <em>Installazione applicazioni</em> di Windows, sostituendo la vecchia versione in modo pulito e sicuro.
+                                Installa e registra permanentemente <strong>ClassDesk</strong> in Windows (cartella <code>%LOCALAPPDATA%\\Programs\\ClassDesk</code>), crea i collegamenti sul Desktop e nel Menu Start, e registra il software in <em>Installazione applicazioni</em> di Windows, sostituendo la vecchia versione in modo pulito e sicuro.
                             </p>
                             <div class="pt-1 flex flex-wrap items-center gap-3">
                                 <button type="button" onclick="app.runNativeWindowsInstaller()" class="px-4 py-2.5 rounded-xl bg-gradient-to-r from-sky-600 to-blue-700 hover:from-sky-500 hover:to-blue-600 text-white font-extrabold flex items-center gap-2 shadow-sm transition">
@@ -9411,7 +9423,7 @@ Dettagli di Sistema:
                         <!-- Brand Header -->
                         <div class="flex items-center gap-3.5">
                             <div class="w-14 h-14 flex items-center justify-center shrink-0">
-                                <img src="logo.png" alt="Class Management" class="w-14 h-14 object-contain">
+                                <img src="logo.png" alt="ClassDesk" class="w-14 h-14 object-contain">
                             </div>
                             <div>
                                 <div class="flex items-center gap-2">
@@ -9433,7 +9445,7 @@ Dettagli di Sistema:
                         <div class="p-4 rounded-xl bg-emerald-50/70 dark:bg-emerald-950/40 border border-emerald-200/70 dark:border-emerald-800 space-y-1">
                             <p class="text-[10px] uppercase tracking-wider font-extrabold text-emerald-600 dark:text-emerald-400">Licenza d'uso / License</p>
                             <p class="text-sm font-extrabold text-slate-900 dark:text-white">GNU General Public License v3.0 (GPL-3.0)</p>
-                            <p class="text-slate-600 dark:text-slate-300">Class Management è software libero concesso sotto i termini della GNU General Public License v3.0 con piena libertà di esecuzione, studio e modifica sotto la medesima licenza.</p>
+                            <p class="text-slate-600 dark:text-slate-300">ClassDesk è software libero concesso sotto i termini della GNU General Public License v3.0 con piena libertà di esecuzione, studio e modifica sotto la medesima licenza.</p>
                         </div>
 
                         <!-- Installed Version Changelog -->
@@ -10722,7 +10734,7 @@ Dettagli di Sistema:
 
                 const payload = {
                     summary,
-                    description: `Stanza Google Meet permanente per ${course.name} — ${module.name}.\nGestita con Class Management.`,
+                    description: `Stanza Google Meet permanente per ${course.name} — ${module.name}.\nGestita con ClassDesk.`,
                     start: { dateTime: `${dateOnly}T${sTime}:00`, timeZone },
                     end: { dateTime: `${dateOnly}T${eTime}:00`, timeZone },
                     conferenceData: {

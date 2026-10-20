@@ -226,11 +226,11 @@ public final class GoogleCalendarManager: ObservableObject {
         let responseBody: String
         if authCode != nil {
             responseBody = """
-            <!DOCTYPE html><html lang="it"><head><meta charset="utf-8"><title>Accesso riuscito</title><style>body{font-family:system-ui,sans-serif;text-align:center;padding:50px;background:#f8fafc;color:#0f172a;}h2{color:#0284c7;}</style></head><body><h2>✓ Accesso a Google Calendar completato!</h2><p>Puoi chiudere questa scheda e tornare a <strong>Class Management</strong>.</p><script>setTimeout(function(){ window.close(); }, 2500);</script></body></html>
+            <!DOCTYPE html><html lang="it"><head><meta charset="utf-8"><title>Accesso riuscito</title><style>body{font-family:system-ui,sans-serif;text-align:center;padding:50px;background:#f8fafc;color:#0f172a;}h2{color:#0284c7;}</style></head><body><h2>✓ Accesso a Google Calendar completato!</h2><p>Puoi chiudere questa scheda e tornare a <strong>ClassDesk</strong>.</p><script>setTimeout(function(){ window.close(); }, 2500);</script></body></html>
             """
         } else {
             responseBody = """
-            <!DOCTYPE html><html lang="it"><head><meta charset="utf-8"><title>Accesso annullato</title><style>body{font-family:system-ui,sans-serif;text-align:center;padding:50px;background:#f8fafc;color:#0f172a;}h2{color:#e11d48;}</style></head><body><h2>✕ Accesso a Google Calendar non completato</h2><p>L'autorizzazione è stata annullata o rifiutata. Puoi chiudere questa scheda e riprovare in <strong>Class Management</strong>.</p><script>setTimeout(function(){ window.close(); }, 3500);</script></body></html>
+            <!DOCTYPE html><html lang="it"><head><meta charset="utf-8"><title>Accesso annullato</title><style>body{font-family:system-ui,sans-serif;text-align:center;padding:50px;background:#f8fafc;color:#0f172a;}h2{color:#e11d48;}</style></head><body><h2>✕ Accesso a Google Calendar non completato</h2><p>L'autorizzazione è stata annullata o rifiutata. Puoi chiudere questa scheda e riprovare in <strong>ClassDesk</strong>.</p><script>setTimeout(function(){ window.close(); }, 3500);</script></body></html>
             """
         }
 
@@ -533,7 +533,7 @@ public final class GoogleCalendarManager: ObservableObject {
 
         var eventPayload: [String: Any] = [
             "summary": eventSummary,
-            "description": "Stanza Google Meet permanente per \(course.name) — \(module.name).\nGestita con Class Management.",
+            "description": "Stanza Google Meet permanente per \(course.name) — \(module.name).\nGestita con ClassDesk.",
             "start": [
                 "dateTime": startDateTime,
                 "timeZone": timeZoneId

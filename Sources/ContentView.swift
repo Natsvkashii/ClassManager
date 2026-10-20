@@ -14,7 +14,7 @@ import SwiftUI
 import AppKit
 
 @main
-struct ClassManagementApp: App {
+struct ClassDeskApp: App {
     @State private var store = AppStore()
 
     var body: some Scene {
@@ -417,13 +417,13 @@ private struct SidebarView: View {
         let body = """
         Ciao Guaira,
 
-        Vorrei inviarti il seguente feedback riguardo a Class Management:
+        Vorrei inviarti il seguente feedback riguardo a \(AuthorAttribution.appName):
 
         [Scrivi qui i tuoi commenti, suggerimenti o segnalazioni...]
 
         --------------------------------------------------
         Dettagli di Sistema:
-        - Versione Applicazione: Class Management v\(currentVer)
+        - Versione Applicazione: \(AuthorAttribution.appName) v\(currentVer)
         - Sistema Operativo: \(osName)
         - Lingua Interfaccia: \(lang)
         --------------------------------------------------

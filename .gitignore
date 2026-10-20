@@ -10,6 +10,8 @@ __pycache__/
 *.pyc
 
 # Swift Build Outputs (binaries can be rebuilt via manage_version.py build)
+ClassDesk.app/Contents/MacOS/
+ClassDesk.app/Contents/_CodeSignature/
 Class Management.app/Contents/MacOS/
 Class Management.app/Contents/_CodeSignature/
 Gestione Corsi.app/Contents/MacOS/

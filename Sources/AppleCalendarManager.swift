@@ -32,11 +32,11 @@ public final class AppleCalendarManager {
     }
 
     private func getOrCreateTargetCalendar(for course: Course, mode: String, palette: CourseColorInfo) -> EKCalendar? {
-        let calTitle = (mode == "perCourse") ? "Corso: \(course.name)" : "Class Management"
+        let calTitle = (mode == "perCourse") ? "Corso: \(course.name)" : "ClassDesk"
         let calendars = eventStore.calendars(for: .event)
-        if let existing = calendars.first(where: { ($0.title == calTitle || (mode != "perCourse" && $0.title == "Gestione Corsi")) && $0.allowsContentModifications }) {
-            if mode != "perCourse" && existing.title == "Gestione Corsi" {
-                existing.title = "Class Management"
+        if let existing = calendars.first(where: { ($0.title == calTitle || (mode != "perCourse" && ($0.title == "Class Management" || $0.title == "Gestione Corsi"))) && $0.allowsContentModifications }) {
+            if mode != "perCourse" && existing.title != "ClassDesk" {
+                existing.title = "ClassDesk"
                 try? eventStore.saveCalendar(existing, commit: true)
             }
             if mode == "perCourse" {

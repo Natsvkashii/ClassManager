@@ -17,8 +17,8 @@ import AppKit
 public enum AuthorAttribution {
     public static let authorName = "Guaira Jaramillo Nitoglia"
     public static let authorEmail = "guaira.jaramillo.nitoglia@gmail.com"
-    public static let appName = "Class Management"
-    public static let appVersion = "26.10.4-020"
+    public static let appName = "ClassDesk"
+    public static let appVersion = "26.10.4-021"
     public static let appChannel = "unstable"
     public static let licenseName = "GNU General Public License v3.0 (GPL-3.0)"
 
@@ -1606,6 +1606,12 @@ public struct AppState: Codable, Equatable {
     ]
 
     public static let defaultChangelog: [ChangelogEntry] = [
+        ChangelogEntry(version: "26.10.4-021", date: "2026-10-20", changes: [
+            "Nuovo nome dell'applicazione: 'ClassDesk', più semplice, diretto e intuitivo, con migrazione automatica al 100% di tutti i dati storici, configurazioni e backup da Class Management senza perdita di continuità.",
+            "macOS 1-Click Silent Update: aggiornamento in-app istantaneo con un solo clic senza finestre di installazione né richieste di password amministrativa, con sostituzione atomica e riavvio automatico.",
+            "Nuovo Installer Windows moderno: rimozione delle finestre cmd nere e introduzione della finestra di installazione nativa con barra di avanzamento continua e messaggi di stato in tempo reale (in stile Discord/Chrome).",
+            "Migliorata la visualizzazione del Calendario Mensile su Windows e ottimizzato il ridimensionamento dinamico delle schede giornaliere."
+        ]),
         ChangelogEntry(version: "26.10.4-017", date: "2026-10-20", changes: [
             "Scheda Iscritti / Roster vuota: la barra degli strumenti rimane sempre fissa in alto, e l'area centrale adotta lo stesso stile pulito del Cestino e dell'Archivio con icona circolare, titolo e testo descrittivo.",
             "Integrità Eventi Google Calendar: il salvataggio dei piani lezione non sovrascrive né altera più gli eventi Google Calendar associati, preservando intatti titolo, descrizione originale e dettagli senza iniettare metadati.",

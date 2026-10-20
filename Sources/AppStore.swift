@@ -73,16 +73,20 @@ public final class AppStore {
     private var storageFileURL: URL {
         let fm = FileManager.default
         let appSupport = fm.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
-        let dir = appSupport.appendingPathComponent("ClassManagement", isDirectory: true)
-        let file = dir.appendingPathComponent("class_management_state_v1.json")
+        let dir = appSupport.appendingPathComponent("ClassDesk", isDirectory: true)
+        let file = dir.appendingPathComponent("classdesk_state_v1.json")
         if !fm.fileExists(atPath: dir.path) {
             try? fm.createDirectory(at: dir, withIntermediateDirectories: true)
         }
-        // Seamless migration from legacy path
-        let legacyDir = appSupport.appendingPathComponent("GestioneCorsi", isDirectory: true)
-        let legacyFile = legacyDir.appendingPathComponent("gestione_corsi_state_v1.json")
-        if !fm.fileExists(atPath: file.path) && fm.fileExists(atPath: legacyFile.path) {
-            try? fm.copyItem(at: legacyFile, to: file)
+        // Seamless migration from ClassManagement or GestioneCorsi
+        let cmFile = appSupport.appendingPathComponent("ClassManagement/class_management_state_v1.json")
+        let legacyFile = appSupport.appendingPathComponent("GestioneCorsi/gestione_corsi_state_v1.json")
+        if !fm.fileExists(atPath: file.path) {
+            if fm.fileExists(atPath: cmFile.path) {
+                try? fm.copyItem(at: cmFile, to: file)
+            } else if fm.fileExists(atPath: legacyFile.path) {
+                try? fm.copyItem(at: legacyFile, to: file)
+            }
         }
         return file
     }
@@ -94,22 +98,26 @@ public final class AppStore {
         guard fm.fileExists(atPath: cloudDocs.path) else {
             return nil
         }
-        let appCloudDir = cloudDocs.appendingPathComponent("ClassManagement", isDirectory: true)
+        let appCloudDir = cloudDocs.appendingPathComponent("ClassDesk", isDirectory: true)
         if !fm.fileExists(atPath: appCloudDir.path) {
             try? fm.createDirectory(at: appCloudDir, withIntermediateDirectories: true)
         }
-        // Seamless migration from legacy iCloud path
-        let legacyCloudDir = cloudDocs.appendingPathComponent("GestioneCorsi", isDirectory: true)
-        let legacyCloudFile = legacyCloudDir.appendingPathComponent("gestione_corsi_state_v1.json")
-        let targetFile = appCloudDir.appendingPathComponent("class_management_state_v1.json")
-        if !fm.fileExists(atPath: targetFile.path) && fm.fileExists(atPath: legacyCloudFile.path) {
-            try? fm.copyItem(at: legacyCloudFile, to: targetFile)
+        // Seamless migration from ClassManagement and GestioneCorsi iCloud paths
+        let targetFile = appCloudDir.appendingPathComponent("classdesk_state_v1.json")
+        let cmCloudFile = cloudDocs.appendingPathComponent("ClassManagement/class_management_state_v1.json")
+        let legacyCloudFile = cloudDocs.appendingPathComponent("GestioneCorsi/gestione_corsi_state_v1.json")
+        if !fm.fileExists(atPath: targetFile.path) {
+            if fm.fileExists(atPath: cmCloudFile.path) {
+                try? fm.copyItem(at: cmCloudFile, to: targetFile)
+            } else if fm.fileExists(atPath: legacyCloudFile.path) {
+                try? fm.copyItem(at: legacyCloudFile, to: targetFile)
+            }
         }
         return appCloudDir
     }
 
     public var iCloudDriveFileURL: URL? {
-        iCloudDriveDirectoryURL?.appendingPathComponent("class_management_state_v1.json")
+        iCloudDriveDirectoryURL?.appendingPathComponent("classdesk_state_v1.json")
     }
 
     public var isICloudDriveAvailable: Bool {
@@ -452,6 +460,14 @@ public final class AppStore {
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         if let data = try? encoder.encode(state) {
             try? data.write(to: storageFileURL, options: .atomic)
+            // Mirror to legacy ClassManagement path for seamless rollback/backward compatibility
+            if let cmDir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first?.appendingPathComponent("ClassManagement", isDirectory: true) {
+                if !FileManager.default.fileExists(atPath: cmDir.path) {
+                    try? FileManager.default.createDirectory(at: cmDir, withIntermediateDirectories: true)
+                }
+                let cmURL = cmDir.appendingPathComponent("class_management_state_v1.json")
+                try? data.write(to: cmURL, options: .atomic)
+            }
             if state.settings.iCloudSyncEnabled, let cloudURL = iCloudDriveFileURL {
                 try? data.write(to: cloudURL, options: .atomic)
                 lastICloudSyncDate = Date()
@@ -1444,12 +1460,12 @@ public final class AppStore {
 
     public func performBetaAutoBackup() {
         guard let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else { return }
-        let classManagerDir = docs.appendingPathComponent("Class Manager", isDirectory: true)
-        let backupDir = classManagerDir.appendingPathComponent("Backup", isDirectory: true)
+        let classDeskDir = docs.appendingPathComponent("ClassDesk", isDirectory: true)
+        let backupDir = classDeskDir.appendingPathComponent("Backup", isDirectory: true)
         try? FileManager.default.createDirectory(at: backupDir, withIntermediateDirectories: true)
 
         let timestamp = Self.timestampFormatter.string(from: Date())
-        let fileUrl = backupDir.appendingPathComponent("ClassManagement_BetaBackup_\(timestamp).json")
+        let fileUrl = backupDir.appendingPathComponent("ClassDesk_BetaBackup_\(timestamp).json")
 
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
@@ -1460,8 +1476,8 @@ public final class AppStore {
 
     public static func saveDiagnosticReport(_ message: String, error: Error? = nil) {
         guard let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else { return }
-        let classManagerDir = docs.appendingPathComponent("Class Manager", isDirectory: true)
-        let diagDir = classManagerDir.appendingPathComponent("Report Diagnostici", isDirectory: true)
+        let classDeskDir = docs.appendingPathComponent("ClassDesk", isDirectory: true)
+        let diagDir = classDeskDir.appendingPathComponent("Report Diagnostici", isDirectory: true)
         try? FileManager.default.createDirectory(at: diagDir, withIntermediateDirectories: true)
 
         let timestamp = Self.timestampFormatter.string(from: Date())
@@ -1470,7 +1486,7 @@ public final class AppStore {
         let errDesc = error != nil ? "\(error!)" : "Nessun dettaglio errore"
         let content = """
         ================================================================================
-        Class Management Diagnostic Report
+        ClassDesk Diagnostic Report
         App Version: \(AuthorAttribution.appVersion)
         Timestamp: \(Date())
         OS: macOS \(ProcessInfo.processInfo.operatingSystemVersionString)

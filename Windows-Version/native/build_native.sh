@@ -18,10 +18,10 @@ if [ -f "$REPO_ROOT/Sources/Models.swift" ]; then
     fi
 fi
 
-SETUP_NAME="Class-Management-${VERSION}-Setup.exe"
+SETUP_NAME="ClassDesk-${VERSION}-Setup.exe"
 SETUP_PATH="$REPO_ROOT/$SETUP_NAME"
 
-NATIVE_NAME="Class-Management-${VERSION}-Native.exe"
+NATIVE_NAME="ClassDesk-${VERSION}-Native.exe"
 NATIVE_PATH="$REPO_ROOT/$NATIVE_NAME"
 
 echo "=== Building Official Native Windows Executables (WebView2 C++ Core) ==="

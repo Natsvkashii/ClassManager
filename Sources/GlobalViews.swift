@@ -2330,11 +2330,11 @@ private struct BillingCalendarPosterView: View {
     private var watermarkAttribution: String {
         switch lang {
         case "en":
-            return "Class Management • Designed and Developed by Guaira Jaramillo Nitoglia (guaira.jaramillo.nitoglia@gmail.com)"
+            return "ClassDesk • Designed and Developed by Guaira Jaramillo Nitoglia (guaira.jaramillo.nitoglia@gmail.com)"
         case "es":
-            return "Class Management • Concebido y Desarrollado por Guaira Jaramillo Nitoglia (guaira.jaramillo.nitoglia@gmail.com)"
+            return "ClassDesk • Concebido y Desarrollado por Guaira Jaramillo Nitoglia (guaira.jaramillo.nitoglia@gmail.com)"
         default:
-            return "Class Management • Concepito e Sviluppato da Guaira Jaramillo Nitoglia (guaira.jaramillo.nitoglia@gmail.com)"
+            return "ClassDesk • Concepito e Sviluppato da Guaira Jaramillo Nitoglia (guaira.jaramillo.nitoglia@gmail.com)"
         }
     }
 
@@ -2664,7 +2664,7 @@ public struct SettingsView: View {
                         ))
 
                         HStack {
-                            Text("Cartella: iCloud Drive / ClassManagement / class_management_state_v1.json")
+                            Text("Cartella: iCloud Drive / ClassDesk / classdesk_state_v1.json")
                                 .font(.caption2)
                                 .foregroundStyle(.secondary)
                             Spacer()
@@ -3225,7 +3225,7 @@ public struct AppInfoAndCreditsSheet: View {
                             .textCase(.uppercase)
                         Text(AuthorAttribution.licenseName)
                             .font(.subheadline.bold())
-                        Text("Class Management è software libero concesso sotto i termini della GNU General Public License v3.0.")
+                        Text("ClassDesk è software libero concesso sotto i termini della GNU General Public License v3.0.")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
@@ -3310,7 +3310,7 @@ public struct OnboardingWizardView: View {
                 AppLogoImageView(size: 48)
                 VStack(alignment: .leading, spacing: 3) {
                     HStack(spacing: 8) {
-                        Text("Benvenuto in Class Management")
+                        Text("Benvenuto in ClassDesk")
                             .font(.title2.bold())
                         if AuthorAttribution.isBeta {
                             Text("BETA")
@@ -3450,7 +3450,7 @@ public struct OnboardingWizardView: View {
                         completeOnboarding()
                     } label: {
                         HStack {
-                            Text("Inizia a usare Class Management")
+                            Text("Inizia a usare ClassDesk")
                                 .font(.headline)
                             Image(systemName: "arrow.right")
                         }

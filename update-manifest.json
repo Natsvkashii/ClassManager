@@ -1,13 +1,17 @@
 {
-  "version": "26.10.4-019",
+  "version": "26.10.4-021",
   "channel": "unstable",
-  "tag_name": "v26.10.4-019",
+  "tag_name": "v26.10.4-021",
   "prerelease": true,
-  "published_at": "2026-10-20T04:10:00Z",
-  "name": "Class Management v26.10.4-019 [UNSTABLE]",
-  "body": "Novità versione 26.10.4-019:\n- Piano Lezioni (Windows): risolto il problema per cui cliccando su 'Piano lezioni' rimaneva aperta la scheda precedente, ripristinando il corretto caricamento del calendario del modulo.\n- Calendario Generale Mese (Windows): corretto il ridimensionamento delle schede dei giorni e dei blocchi eventi nella vista mensile; le card non vengono più tagliate o troncate e mostrano nitidamente orari e titoli.",
-  "setupUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.10.4-019/Class-Management-26.10.4-019-Setup.exe",
-  "setupName": "Class-Management-26.10.4-019-Setup.exe",
-  "nativeUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.10.4-019/Class-Management-26.10.4-019-Setup.exe",
-  "nativeName": "Class-Management-26.10.4-019-Setup.exe"
+  "published_at": "2026-10-20T16:15:00Z",
+  "name": "ClassDesk v26.10.4-021 [UNSTABLE]",
+  "body": "Novità versione 26.10.4-021:\n- Nuovo nome ufficiale 'ClassDesk': la transizione preserva al 100% tutti i corsi, allievi, lezioni, contabilità e backup storici con continuità trasparente.\n- Nuovo installer Windows moderno (stile Discord / Chrome): rimossa ogni finestra nera CMD lampeggiante, sostituita da un'interfaccia nativa pulita con barra di avanzamento e stato live di installazione.\n- Aggiornamento silenzioso in 1-click su macOS: aggiornamenti in-app immediati senza richiesta password di amministratore.",
+  "setupUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.10.4-021/ClassDesk-26.10.4-021-Setup.exe",
+  "setupName": "ClassDesk-26.10.4-021-Setup.exe",
+  "nativeUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.10.4-021/ClassDesk-26.10.4-021-Native.exe",
+  "nativeName": "ClassDesk-26.10.4-021-Native.exe",
+  "macZipUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.10.4-021/ClassDesk-26.10.4-021-macOS.zip",
+  "macZipName": "ClassDesk-26.10.4-021-macOS.zip",
+  "macPkgUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.10.4-021/ClassDesk-26.10.4-021-Installer.pkg",
+  "macPkgName": "ClassDesk-26.10.4-021-Installer.pkg"
 }

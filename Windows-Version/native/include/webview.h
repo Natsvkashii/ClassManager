@@ -2345,7 +2345,13 @@ private:
       return false;
     }
     wchar_t userDataFolder[MAX_PATH];
-    PathCombineW(userDataFolder, dataPath, L"ClassManagement_Native_Data");
+    PathCombineW(userDataFolder, dataPath, L"ClassDesk_Native_Data");
+    wchar_t oldUserDataFolder[MAX_PATH];
+    PathCombineW(oldUserDataFolder, dataPath, L"ClassManagement_Native_Data");
+    if (GetFileAttributesW(userDataFolder) == INVALID_FILE_ATTRIBUTES &&
+        GetFileAttributesW(oldUserDataFolder) != INVALID_FILE_ATTRIBUTES) {
+      MoveFileW(oldUserDataFolder, userDataFolder);
+    }
 
     m_com_handler = new webview2_com_handler(
         wnd, cb,
