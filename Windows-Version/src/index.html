@@ -147,10 +147,6 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                         <div id="sidebarBrandLogoBox" class="w-9 h-9 flex items-center justify-center shrink-0">
                             <img src="logo.png" alt="Class Management" class="w-8 h-8 object-contain">
                         </div>
-                        <div class="sidebar-text min-w-0 flex-1">
-                            <h2 id="sidebarBrandTitle" class="text-sm font-extrabold text-slate-900 dark:text-white leading-tight whitespace-nowrap overflow-visible">Class Management</h2>
-                            <p id="sidebarBrandCreator" class="text-[9.5px] font-semibold text-slate-400 dark:text-slate-400 truncate" title="Guaira Jaramillo Nitoglia"></p>
-                        </div>
                     </div>
                     <button id="sidebarToggleMiniBtn" onclick="app.toggleSidebarMini()" class="hidden lg:flex w-8 h-8 rounded-lg hover:bg-sky-50 dark:hover:bg-navy-800 items-center justify-center text-slate-500 dark:text-slate-400 transition shrink-0" title="Espandi / Riduci">
                         <i id="sidebarCollapseIcon" class="fa-solid fa-angles-left text-xs"></i>
@@ -188,14 +184,8 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                     <div id="headerCourseContextWrap" class="flex flex-wrap items-center gap-2 min-w-0 flex-1"></div>
                 </div>
 
-                <!-- Header Actions + Creator Attribution -->
+                <!-- Header Actions -->
                 <div class="flex items-center gap-2 shrink-0">
-                    <div id="headerCreatorBadge" class="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-slate-100 dark:bg-navy-800/80 border border-slate-200/60 dark:border-slate-700/60 text-[10.5px] text-slate-500 dark:text-slate-400 font-medium">
-                        <span class="font-extrabold text-slate-700 dark:text-slate-200">Class Management</span>
-                        <span>•</span>
-                        <span id="headerCreatorText"></span>
-                    </div>
-
                     <button onclick="app.openCourseModal()" class="px-3 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold flex items-center gap-1.5 shadow-xs transition">
                         <i class="fa-solid fa-plus"></i>
                         <span id="headerNewCourseBtnText" class="hidden md:inline">Nuovo Corso</span>
@@ -529,6 +519,16 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 lessonInviteLink: "Link per la lezione",
                 formerStudentsSubtitle: "Nessuno studente è stato archiviato tra gli ex studenti di questo gruppo.",
                 rosterEmptySubtitle: "Iscrivi studenti a questo modulo tramite il pulsante in alto a destra per iniziare a gestire presenze, voti e lezioni.",
+                liveLessonNow: "Lezione in corso adesso",
+                nextLessonHeading: "Prossima lezione",
+                subsequentLessonsHeading: "Prossime lezioni in programma",
+                joinLessonBtn: "Partecipa alla lezione",
+                noUpcomingLessonsScheduled: "Nessuna lezione programmata al momento",
+                durationLabel: "Durata",
+                timeScheduleLabel: "Orario",
+                yourCoursesHeading: "I tuoi corsi attivi",
+                googleCalendarBetaBadge: "Integrazione Google Calendar (BETA)",
+                googleCalendarBetaNotice: "Questa funzionalità è in fase sperimentale. In conformità con le policy di sicurezza di Google Cloud, l'accesso OAuth richiede la preventiva autorizzazione e abilitazione dell'account da parte dello sviluppatore (Guaira Jaramillo Nitoglia - guaira.jaramillo.nitoglia@gmail.com). Contatta lo sviluppatore per abilitare la tua email prima del primo accesso.",
                 months: ["Gennaio", "Febbraio", "Marzo", "Aprile", "Maggio", "Giugno", "Luglio", "Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre"],
                 daysFullMon: ["Lunedì", "Martedì", "Mercoledì", "Giovedì", "Venerdì", "Sabato", "Domenica"],
                 daysShortMon: ["Lun", "Mar", "Mer", "Gio", "Ven", "Sab", "Dom"],
@@ -805,6 +805,16 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 lessonInviteLink: "Lesson link",
                 formerStudentsSubtitle: "No students have been archived among former students for this group.",
                 rosterEmptySubtitle: "Enroll students in this module using the button at the top right to start managing attendance, grades and lessons.",
+                liveLessonNow: "Live lesson right now",
+                nextLessonHeading: "Next scheduled lesson",
+                subsequentLessonsHeading: "Following scheduled lessons",
+                joinLessonBtn: "Join lesson",
+                noUpcomingLessonsScheduled: "No lessons scheduled at the moment",
+                durationLabel: "Duration",
+                timeScheduleLabel: "Schedule",
+                yourCoursesHeading: "Your active courses",
+                googleCalendarBetaBadge: "Google Calendar Integration (BETA)",
+                googleCalendarBetaNotice: "This feature is currently in BETA. In accordance with Google Cloud OAuth security policies, access requires prior authorization and whitelisting of your Google account by the developer (Guaira Jaramillo Nitoglia - guaira.jaramillo.nitoglia@gmail.com). Contact the developer to whitelist your email before signing in.",
                 months: ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"],
                 daysFullMon: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
                 daysShortMon: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
@@ -1081,6 +1091,16 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 lessonInviteLink: "Enlace de la clase",
                 formerStudentsSubtitle: "Ningún alumno ha sido archivado entre los antiguos alumnos de este grupo.",
                 rosterEmptySubtitle: "Inscribe alumnos en este módulo con el botón arriba a la derecha para empezar a gestionar asistencias, notas y clases.",
+                liveLessonNow: "Clase en curso ahora",
+                nextLessonHeading: "Próxima clase programada",
+                subsequentLessonsHeading: "Siguientes clases programadas",
+                joinLessonBtn: "Unirse a la clase",
+                noUpcomingLessonsScheduled: "No hay clases programadas por el momento",
+                durationLabel: "Duración",
+                timeScheduleLabel: "Horario",
+                yourCoursesHeading: "Tus cursos activos",
+                googleCalendarBetaBadge: "Integración Google Calendar (BETA)",
+                googleCalendarBetaNotice: "Esta función se encuentra en fase BETA. De acuerdo con las políticas de seguridad de Google Cloud, el acceso OAuth requiere la autorización previa y habilitación de la cuenta por parte del desarrollador (Guaira Jaramillo Nitoglia - guaira.jaramillo.nitoglia@gmail.com). Contacta al desarrollador para habilitar tu correo antes de iniciar sesión.",
                 months: ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"],
                 daysFullMon: ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"],
                 daysShortMon: ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"],
@@ -1126,12 +1146,23 @@ Removing, obfuscating, or altering these credits violates the author's attributi
         ];
 
         const INITIAL_DATA = {
-            version: "26.10.4-019",
+            version: "26.10.4-020",
             channel: "unstable",
             deletedItems: [],
             lastUpdated: new Date().toISOString(),
             activeCourseId: "",
             changelog: [
+                {
+                    version: "26.10.4-020",
+                    date: "2026-10-20",
+                    changes: [
+                        "Menu Home Dinamico: introdotta la scheda hero in evidenza per la lezione in corso o la prossima lezione con durata, orario, accesso rapido a Meet e copia invito, seguita da schede compatte per le lezioni successive.",
+                        "Drag & Drop Piano Lezioni (Windows): ripristinato il trascinamento fluido delle schede lezione nel calendario modulo con tolleranza asincrona WebView2 e fallback puntatore/mouse integrato.",
+                        "Barra Superiore e Laterale Ottimizzate: rimosse le diciture e i badge ridondanti del creatore e del nome app dalla testata e dal logo per un'interfaccia più pulita e minimale.",
+                        "Google Calendar BETA: aggiunto avviso informativo sui requisiti di abilitazione preventiva dell'account da parte dello sviluppatore prima del primo accesso OAuth.",
+                        "Audit & Resilienza: inserite protezioni matematiche contro loop infiniti e verificata la robustezza dell'applicazione su Windows e macOS."
+                    ]
+                },
                 {
                     version: "26.10.4-019",
                     date: "2026-10-20",
@@ -2108,6 +2139,100 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 return false;
             }
 
+            openExternalLink(url) {
+                if (!url) return;
+                const trimmed = String(url).trim();
+                if (!trimmed) return;
+                if (window.electronAPI && typeof window.electronAPI.openExternal === "function") {
+                    window.electronAPI.openExternal(trimmed);
+                } else {
+                    window.open(trimmed, "_blank");
+                }
+            }
+
+            calculateLessonDurationMinutes(startTime, endTime) {
+                if (!startTime || !endTime) return 90;
+                const [sh, sm] = String(startTime).split(":").map(Number);
+                const [eh, em] = String(endTime).split(":").map(Number);
+                let diff = ((eh || 0) * 60 + (em || 0)) - ((sh || 0) * 60 + (sm || 0));
+                if (diff <= 0) diff += 24 * 60;
+                return diff || 90;
+            }
+
+            formatDurationHuman(diffMinutes) {
+                const mins = Math.max(1, parseInt(diffMinutes, 10) || 90);
+                const h = Math.floor(mins / 60);
+                const m = mins % 60;
+                if (h > 0 && m > 0) return `${h}h ${m}m`;
+                if (h > 0) return `${h}h`;
+                return `${m}m`;
+            }
+
+            getAllScheduledLessons(activeCourses) {
+                const list = [];
+                const now = new Date();
+                const todayIso = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+                const nowTime = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+
+                for (const c of (activeCourses || [])) {
+                    const pal = this.getCourseColorObj(c.color);
+                    for (const lvl of (c.levels || [])) {
+                        for (const mod of (lvl.modules || [])) {
+                            const badge = this.formatLevelModuleBadge(c, lvl, mod);
+                            const stCount = (mod.studentIds || []).length;
+                            const sortedSlots = this.sortModuleSlots(c, mod) || [];
+
+                            for (let i = 0; i < sortedSlots.length; i++) {
+                                const slotKey = sortedSlots[i];
+                                const dateIso = this.extractDateFromSlotKey(slotKey);
+                                const les = this.findLessonForSlot(c, mod.id, slotKey);
+                                const sTime = les?.time || mod.startTime || c.startTime || "19:00";
+                                const eTime = les?.endTime || mod.endTime || c.endTime || "20:30";
+                                const meetUrl = (les?.googleMeetUrl && les.googleMeetUrl.trim()) ? les.googleMeetUrl.trim() : (mod.googleMeetUrl ? mod.googleMeetUrl.trim() : "");
+                                const durMins = this.calculateLessonDurationMinutes(sTime, eTime);
+                                const durHuman = this.formatDurationHuman(durMins);
+                                const lessonNum = i + 1;
+                                const lessonTitle = les?.title || `${this.t("lessonNumberTitle")} ${lessonNum}`;
+                                const hasAttendance = this.hasAttendanceRecord(mod, slotKey);
+
+                                const isLiveNow = (dateIso === todayIso && sTime <= nowTime && nowTime < eTime);
+                                const isFutureOrToday = (dateIso > todayIso) || (dateIso === todayIso && eTime > nowTime);
+                                const isPast = (dateIso < todayIso) || (dateIso === todayIso && eTime <= nowTime);
+
+                                list.push({
+                                    course: c,
+                                    level: lvl,
+                                    module: mod,
+                                    slotKey,
+                                    dateIso,
+                                    sTime,
+                                    eTime,
+                                    durMins,
+                                    durHuman,
+                                    meetUrl,
+                                    lessonNum,
+                                    lessonTitle,
+                                    badge,
+                                    color: pal,
+                                    studentCount: stCount,
+                                    hasAttendance,
+                                    isLiveNow,
+                                    isFutureOrToday,
+                                    isPast
+                                });
+                            }
+                        }
+                    }
+                }
+
+                list.sort((a, b) => {
+                    if (a.dateIso !== b.dateIso) return a.dateIso.localeCompare(b.dateIso);
+                    return a.sTime.localeCompare(b.sTime);
+                });
+
+                return list;
+            }
+
             parseStudentWhatsAppPhone(rawPhone) {
                 if (!rawPhone) return { hasPrefix: false, cleanDigits: "" };
                 const trimmed = String(rawPhone).trim();
@@ -2849,53 +2974,246 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                     return;
                 }
 
+                const allScheduled = this.getAllScheduledLessons(activeCourses);
+                const liveLesson = allScheduled.find(l => l.isLiveNow);
+                const upcomingLessons = allScheduled.filter(l => l.isFutureOrToday);
+                const featuredLesson = liveLesson || upcomingLessons[0] || null;
+                const subsequentLessons = featuredLesson ? upcomingLessons.filter(l => l.slotKey !== featuredLesson.slotKey).slice(0, 4) : [];
+
                 container.innerHTML = `
                     <div class="space-y-6">
-                        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                            ${activeCourses.map(c => {
-                                const lvl = this.getActiveLevel(c);
-                                const mod = this.getActiveSection(c);
-                                const badge = this.formatLevelModuleBadge(c, lvl, mod);
-                                const stCount = (mod?.studentIds || []).length;
-                                const datesCount = (mod?.dates || []).length;
-                                const isCurrent = c.id === this.state.activeCourseId;
-                                const pal = this.getCourseColorObj(c.color);
+                        <!-- Featured Hero Lesson Card (Live Now or Next Lesson) -->
+                        ${featuredLesson ? `
+                            <div class="rounded-3xl border-2 p-6 sm:p-7 shadow-xs transition relative overflow-hidden bg-white dark:bg-navy-900"
+                                 style="border-color: ${featuredLesson.isLiveNow ? '#10b981' : featuredLesson.color.hex}; border-top-width: 6px; border-top-color: ${featuredLesson.isLiveNow ? '#10b981' : featuredLesson.color.hex};">
+                                
+                                <!-- Top Status Pill & Course Badge -->
+                                <div class="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-sky-100/80 dark:border-slate-800">
+                                    <div class="flex items-center gap-2.5 flex-wrap">
+                                        ${featuredLesson.isLiveNow ? `
+                                            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500 text-white font-black text-xs uppercase tracking-wider animate-pulse shadow-xs">
+                                                <span class="w-2 h-2 rounded-full bg-white"></span>
+                                                ${this.t("liveLessonNow")}
+                                            </span>
+                                        ` : `
+                                            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-sky-100 dark:bg-sky-950 text-sky-800 dark:text-sky-300 font-extrabold text-xs uppercase tracking-wide">
+                                                <i class="fa-solid fa-clock"></i>
+                                                ${this.t("nextLessonHeading")}
+                                            </span>
+                                        `}
+                                        <span class="px-2.5 py-1 rounded-lg text-white text-xs font-black shadow-2xs" style="background-color: ${featuredLesson.color.hex}">
+                                            ${this.escapeHtml(featuredLesson.badge)}
+                                        </span>
+                                        <span class="text-xs font-bold text-slate-500 dark:text-slate-400">
+                                            ${this.escapeHtml(featuredLesson.course.name)}
+                                        </span>
+                                    </div>
 
-                                return `
-                                    <div class="bg-white dark:bg-navy-900 rounded-2xl border-2 p-5 shadow-xs flex flex-col justify-between gap-4 hover:shadow-md transition" style="border-color: ${isCurrent ? pal.hex : pal.border}; border-top-width: 6px; border-top-color: ${pal.hex};">
-                                        <div class="space-y-3">
-                                            <div>
-                                                <h3 class="text-base font-extrabold text-slate-900 dark:text-white">${this.escapeHtml(c.name)}</h3>
-                                            </div>
-                                            <div class="flex items-center gap-2 flex-wrap">
-                                                <span class="px-2.5 py-0.5 rounded-lg text-white text-xs font-extrabold" style="background-color:${pal.hex}">${this.escapeHtml(badge)}</span>
-                                                <span class="px-2 py-0.5 rounded-lg bg-slate-100 dark:bg-navy-800 text-slate-600 dark:text-slate-300 text-[11px] font-semibold">
-                                                    ${c.type === "private" ? this.t("privateBadge") : this.t("groupBadge")}
-                                                </span>
-                                            </div>
-                                            <div class="grid grid-cols-2 gap-2 pt-1 text-xs">
-                                                <div class="p-2.5 rounded-xl bg-sky-50/60 dark:bg-navy-800/70">
-                                                    <span class="text-[10px] text-slate-400 block">${this.t("studentsCountLabel")}</span>
-                                                    <span class="font-extrabold text-slate-800 dark:text-slate-100">${stCount}</span>
-                                                </div>
-                                                <div class="p-2.5 rounded-xl bg-sky-50/60 dark:bg-navy-800/70">
-                                                    <span class="text-[10px] text-slate-400 block">${this.t("lessonsCountLabel")}</span>
-                                                    <span class="font-extrabold text-slate-800 dark:text-slate-100">${datesCount}</span>
-                                                </div>
-                                            </div>
+                                    <div class="flex items-center gap-2">
+                                        <span class="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-navy-800 text-slate-600 dark:text-slate-300 text-xs font-semibold">
+                                            <i class="fa-solid fa-users mr-1 opacity-70"></i> ${featuredLesson.studentCount} ${this.t("enrolledLower")}
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <!-- Lesson Title & Details Grid -->
+                                <div class="py-4 space-y-4">
+                                    <div>
+                                        <h2 class="text-xl sm:text-2xl font-black text-slate-900 dark:text-white leading-tight">
+                                            ${this.escapeHtml(featuredLesson.lessonTitle)}
+                                        </h2>
+                                        <p class="text-xs font-semibold text-slate-400 mt-1">
+                                            ${this.t("lessonNumberTitle")} ${featuredLesson.lessonNum} • ${this.escapeHtml(featuredLesson.module.name || 'Modulo')}
+                                        </p>
+                                    </div>
+
+                                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-1">
+                                        <div class="p-3 rounded-2xl bg-sky-50/70 dark:bg-navy-800/60 border border-sky-100/60 dark:border-slate-800">
+                                            <span class="text-[10px] uppercase font-bold text-slate-400 block mb-0.5"><i class="fa-regular fa-calendar mr-1"></i> Data</span>
+                                            <span class="font-extrabold text-xs sm:text-sm text-slate-800 dark:text-slate-100">${this.formatDateDisplay(featuredLesson.dateIso)}</span>
                                         </div>
-
-                                        <div class="flex items-center justify-between gap-2 pt-3 border-t border-sky-100/80 dark:border-slate-800">
-                                            <button onclick="app.switchCourse('${c.id}', 'attendance')" class="flex-1 py-2 px-3 rounded-xl text-white text-xs font-bold flex items-center justify-center gap-1.5 transition" style="background-color:${pal.hex}">
-                                                <i class="fa-solid fa-clipboard-user"></i> ${this.t("openCourseBtn")}
-                                            </button>
-                                            <button onclick="app.confirmDeleteOrArchiveCourse('${c.id}')" class="py-2 px-3 rounded-xl border border-rose-200 dark:border-rose-900/50 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 text-xs font-bold" title="${this.t("deleteBtn")}">
-                                                <i class="fa-solid fa-trash-can"></i>
-                                            </button>
+                                        <div class="p-3 rounded-2xl bg-sky-50/70 dark:bg-navy-800/60 border border-sky-100/60 dark:border-slate-800">
+                                            <span class="text-[10px] uppercase font-bold text-slate-400 block mb-0.5"><i class="fa-regular fa-clock mr-1"></i> ${this.t("timeScheduleLabel")}</span>
+                                            <span class="font-extrabold text-xs sm:text-sm text-slate-800 dark:text-slate-100">${this.formatTimeDisplay(featuredLesson.sTime)} - ${this.formatTimeDisplay(featuredLesson.eTime)}</span>
+                                        </div>
+                                        <div class="p-3 rounded-2xl bg-sky-50/70 dark:bg-navy-800/60 border border-sky-100/60 dark:border-slate-800">
+                                            <span class="text-[10px] uppercase font-bold text-slate-400 block mb-0.5"><i class="fa-solid fa-stopwatch mr-1"></i> ${this.t("durationLabel")}</span>
+                                            <span class="font-extrabold text-xs sm:text-sm text-slate-800 dark:text-slate-100">${featuredLesson.durHuman}</span>
+                                        </div>
+                                        <div class="p-3 rounded-2xl bg-sky-50/70 dark:bg-navy-800/60 border border-sky-100/60 dark:border-slate-800">
+                                            <span class="text-[10px] uppercase font-bold text-slate-400 block mb-0.5"><i class="fa-solid fa-chalkboard-user mr-1"></i> Tipo</span>
+                                            <span class="font-extrabold text-xs sm:text-sm text-slate-800 dark:text-slate-100">${featuredLesson.course.type === 'private' ? this.t("privateBadge") : this.t("groupBadge")}</span>
                                         </div>
                                     </div>
-                                `;
-                            }).join("")}
+                                </div>
+
+                                <!-- Action Buttons: Join, Copy details & link, Register -->
+                                <div class="flex flex-wrap items-center gap-2.5 pt-4 border-t border-sky-100/80 dark:border-slate-800">
+                                    ${featuredLesson.meetUrl ? `
+                                        <button type="button" onclick="app.openExternalLink('${this.escapeHtml(featuredLesson.meetUrl)}')"
+                                                class="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs flex items-center gap-2 shadow-md transition hover:scale-[1.02]">
+                                            <i class="fa-solid fa-video text-sm"></i>
+                                            <span>${this.t("joinLessonBtn")}</span>
+                                        </button>
+                                    ` : `
+                                        <button type="button" onclick="app.openLessonPlanModal('${featuredLesson.course.id}', '${featuredLesson.module.id}', '${featuredLesson.slotKey}')"
+                                                class="px-4 py-2.5 rounded-xl border border-dashed border-sky-300 dark:border-slate-700 hover:bg-sky-50 dark:hover:bg-navy-800 text-sky-700 dark:text-sky-300 font-bold text-xs flex items-center gap-2 transition">
+                                            <i class="fa-solid fa-link text-xs"></i>
+                                            <span>Imposta link riunione</span>
+                                        </button>
+                                    `}
+
+                                    <button type="button" onclick="app.copyLessonStudentInvitation('${featuredLesson.course.id}', '${featuredLesson.module.id}', '${featuredLesson.slotKey}')"
+                                            class="px-4 py-2.5 rounded-xl border border-sky-200 dark:border-slate-700 bg-white dark:bg-navy-800 hover:bg-sky-50 dark:hover:bg-navy-700 text-sky-700 dark:text-sky-200 font-bold text-xs flex items-center gap-2 transition shadow-2xs">
+                                        <i class="fa-solid fa-share-nodes text-xs"></i>
+                                        <span>${this.t("copyLessonInviteBtn")}</span>
+                                    </button>
+
+                                    <button type="button" onclick="app.switchCourse('${featuredLesson.course.id}', 'attendance')"
+                                            class="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-navy-800 text-slate-700 dark:text-slate-300 font-bold text-xs flex items-center gap-2 transition ml-auto">
+                                        <i class="fa-solid fa-clipboard-user text-xs"></i>
+                                        <span>Registro presenze</span>
+                                    </button>
+                                </div>
+                            </div>
+                        ` : `
+                            <div class="bg-gradient-to-r from-sky-50 to-indigo-50/50 dark:from-navy-900 dark:to-navy-800/80 rounded-2xl border border-sky-100 dark:border-slate-800 p-5 flex items-center justify-between gap-4">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-10 h-10 rounded-xl bg-sky-100 dark:bg-navy-800 text-sky-600 dark:text-sky-400 flex items-center justify-center text-lg shrink-0">
+                                        <i class="fa-solid fa-calendar-check"></i>
+                                    </div>
+                                    <div>
+                                        <h3 class="font-extrabold text-sm text-slate-800 dark:text-white">${this.t("noUpcomingLessonsScheduled")}</h3>
+                                        <p class="text-xs text-slate-500 dark:text-slate-400">Pianifica nuove lezioni nel piano lezioni dei tuoi corsi attivi.</p>
+                                    </div>
+                                </div>
+                                <button onclick="app.switchTab('calendar')" class="px-3.5 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-bold text-xs flex items-center gap-1.5 shrink-0 transition">
+                                    <i class="fa-regular fa-calendar-days"></i> Calendario
+                                </button>
+                            </div>
+                        `}
+
+                        <!-- Subsequent Lessons (Schede Ridotte) -->
+                        ${subsequentLessons.length > 0 ? `
+                            <div class="space-y-3">
+                                <div class="flex items-center justify-between">
+                                    <h3 class="text-sm font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
+                                        <i class="fa-solid fa-calendar-day text-sky-600"></i>
+                                        <span>${this.t("subsequentLessonsHeading")}</span>
+                                    </h3>
+                                    <span class="text-xs text-slate-400 font-semibold">${subsequentLessons.length} lezioni successive</span>
+                                </div>
+
+                                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                                    ${subsequentLessons.map(sl => `
+                                        <div class="bg-white dark:bg-navy-900 rounded-2xl border p-4 shadow-2xs flex flex-col justify-between gap-3 hover:shadow-md transition"
+                                             style="border-left-width: 4px; border-left-color: ${sl.color.hex}; border-color: ${sl.color.border};">
+                                            <div class="space-y-2">
+                                                <div class="flex items-center justify-between gap-1">
+                                                    <span class="px-2 py-0.5 rounded-md text-[10.5px] font-extrabold text-white" style="background-color: ${sl.color.hex}">
+                                                        ${this.escapeHtml(sl.badge)}
+                                                    </span>
+                                                    <span class="text-[10px] font-black px-1.5 py-0.5 rounded bg-slate-100 dark:bg-navy-800 text-slate-600 dark:text-slate-300">
+                                                        ${sl.durHuman}
+                                                    </span>
+                                                </div>
+                                                <div>
+                                                    <h4 class="font-extrabold text-xs text-slate-900 dark:text-white truncate" title="${this.escapeHtml(sl.lessonTitle)}">
+                                                        ${this.escapeHtml(sl.lessonTitle)}
+                                                    </h4>
+                                                    <p class="text-[10.5px] font-semibold text-slate-400 truncate">
+                                                        ${this.escapeHtml(sl.course.name)}
+                                                    </p>
+                                                </div>
+                                                <div class="text-[11px] font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5 pt-1">
+                                                    <i class="fa-regular fa-calendar text-sky-600 text-xs"></i>
+                                                    <span>${this.formatDateDisplay(sl.dateIso)}</span>
+                                                    <span class="text-slate-300 dark:text-slate-600">•</span>
+                                                    <span class="text-slate-500 dark:text-slate-400 font-mono text-[10.5px]">${this.formatTimeDisplay(sl.sTime)}</span>
+                                                </div>
+                                            </div>
+
+                                            <div class="flex items-center gap-1.5 pt-2 border-t border-slate-100 dark:border-slate-800/80">
+                                                ${sl.meetUrl ? `
+                                                    <button type="button" onclick="app.openExternalLink('${this.escapeHtml(sl.meetUrl)}')"
+                                                            class="flex-1 py-1.5 px-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-[10.5px] flex items-center justify-center gap-1 transition"
+                                                            title="Partecipa a riunione">
+                                                        <i class="fa-solid fa-video text-xs"></i> Entra
+                                                    </button>
+                                                ` : ''}
+                                                <button type="button" onclick="app.copyLessonStudentInvitation('${sl.course.id}', '${sl.module.id}', '${sl.slotKey}')"
+                                                        class="${sl.meetUrl ? 'p-1.5' : 'flex-1 py-1.5 px-2'} rounded-lg border border-sky-200 dark:border-slate-700 hover:bg-sky-50 dark:hover:bg-navy-800 text-sky-700 dark:text-sky-300 font-bold text-[10.5px] flex items-center justify-center gap-1 transition"
+                                                        title="${this.t('copyLessonInviteBtn')}">
+                                                    <i class="fa-solid fa-share-nodes text-xs"></i> ${sl.meetUrl ? '' : this.t('copyLessonInviteBtn')}
+                                                </button>
+                                                <button type="button" onclick="app.openLessonPlanModal('${sl.course.id}', '${sl.module.id}', '${sl.slotKey}')"
+                                                        class="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-navy-800 text-slate-600 dark:text-slate-400 text-xs transition"
+                                                        title="${this.t('lessonPlanTitle')}">
+                                                    <i class="fa-solid fa-book-open"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    `).join("")}
+                                </div>
+                            </div>
+                        ` : ''}
+
+                        <!-- Active Courses Grid Heading & Cards -->
+                        <div class="space-y-3 pt-2">
+                            <div class="flex items-center justify-between">
+                                <h3 class="text-sm font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
+                                    <i class="fa-solid fa-folder-open text-sky-600"></i>
+                                    <span>${this.t("yourCoursesHeading")}</span>
+                                </h3>
+                                <span class="text-xs text-slate-400 font-semibold">${activeCourses.length} corsi</span>
+                            </div>
+
+                            <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                                ${activeCourses.map(c => {
+                                    const lvl = this.getActiveLevel(c);
+                                    const mod = this.getActiveSection(c);
+                                    const badge = this.formatLevelModuleBadge(c, lvl, mod);
+                                    const stCount = (mod?.studentIds || []).length;
+                                    const datesCount = (mod?.dates || []).length;
+                                    const isCurrent = c.id === this.state.activeCourseId;
+                                    const pal = this.getCourseColorObj(c.color);
+
+                                    return `
+                                        <div class="bg-white dark:bg-navy-900 rounded-2xl border-2 p-5 shadow-xs flex flex-col justify-between gap-4 hover:shadow-md transition" style="border-color: ${isCurrent ? pal.hex : pal.border}; border-top-width: 6px; border-top-color: ${pal.hex};">
+                                            <div class="space-y-3">
+                                                <div>
+                                                    <h3 class="text-base font-extrabold text-slate-900 dark:text-white">${this.escapeHtml(c.name)}</h3>
+                                                </div>
+                                                <div class="flex items-center gap-2 flex-wrap">
+                                                    <span class="px-2.5 py-0.5 rounded-lg text-white text-xs font-extrabold" style="background-color:${pal.hex}">${this.escapeHtml(badge)}</span>
+                                                    <span class="px-2 py-0.5 rounded-lg bg-slate-100 dark:bg-navy-800 text-slate-600 dark:text-slate-300 text-[11px] font-semibold">
+                                                        ${c.type === "private" ? this.t("privateBadge") : this.t("groupBadge")}
+                                                    </span>
+                                                </div>
+                                                <div class="grid grid-cols-2 gap-2 pt-1 text-xs">
+                                                    <div class="p-2.5 rounded-xl bg-sky-50/60 dark:bg-navy-800/70">
+                                                        <span class="text-[10px] text-slate-400 block">${this.t("studentsCountLabel")}</span>
+                                                        <span class="font-extrabold text-slate-800 dark:text-slate-100">${stCount}</span>
+                                                    </div>
+                                                    <div class="p-2.5 rounded-xl bg-sky-50/60 dark:bg-navy-800/70">
+                                                        <span class="text-[10px] text-slate-400 block">${this.t("lessonsCountLabel")}</span>
+                                                        <span class="font-extrabold text-slate-800 dark:text-slate-100">${datesCount}</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div class="flex items-center justify-between gap-2 pt-3 border-t border-sky-100/80 dark:border-slate-800">
+                                                <button onclick="app.switchCourse('${c.id}', 'attendance')" class="flex-1 py-2 px-3 rounded-xl text-white text-xs font-bold flex items-center justify-center gap-1.5 transition" style="background-color:${pal.hex}">
+                                                    <i class="fa-solid fa-clipboard-user"></i> ${this.t("openCourseBtn")}
+                                                </button>
+                                                <button onclick="app.confirmDeleteOrArchiveCourse('${c.id}')" class="py-2 px-3 rounded-xl border border-rose-200 dark:border-rose-900/50 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 text-xs font-bold" title="${this.t("deleteBtn")}">
+                                                    <i class="fa-solid fa-trash-can"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    `;
+                                }).join("")}
+                            </div>
                         </div>
                     </div>
                 `;
@@ -4791,12 +5109,19 @@ Removing, obfuscating, or altering these credits violates the author's attributi
             // ==============================================================================
             // DYNAMIC DRAG & DROP MODULE CALENDAR ("CALENDARIO MODULO")
             // ==============================================================================
+            // DYNAMIC DRAG & DROP MODULE CALENDAR ("CALENDARIO MODULO")
+            // ==============================================================================
             handleLessonDragStart(e, slotKey) {
                 this.draggedSlotKey = slotKey;
                 this.isDraggingLesson = true;
-                e.dataTransfer.setData("text/plain", slotKey);
-                e.dataTransfer.effectAllowed = "move";
-                if (e.currentTarget) e.currentTarget.classList.add("opacity-40");
+                this.hasJustDragged = true;
+                if (e?.dataTransfer) {
+                    try {
+                        e.dataTransfer.setData("text/plain", slotKey);
+                        e.dataTransfer.effectAllowed = "move";
+                    } catch (_) {}
+                }
+                if (e?.currentTarget) e.currentTarget.classList.add("opacity-40");
                 document.querySelectorAll(".calendar-drag-sensor").forEach(el => {
                     el.classList.remove("hidden");
                     el.classList.add("flex");
@@ -4804,10 +5129,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
             }
 
             handleLessonDragEnd(e) {
-                this.draggedSlotKey = null;
-                this.isDraggingLesson = false;
-                this.stopAutoScroll();
-                if (e.currentTarget) e.currentTarget.classList.remove("opacity-40");
+                if (e?.currentTarget) e.currentTarget.classList.remove("opacity-40");
                 document.querySelectorAll(".calendar-day-cell").forEach(el => {
                     el.classList.remove("bg-sky-100", "dark:bg-sky-950/60", "border-sky-500");
                 });
@@ -4815,34 +5137,43 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                     el.classList.add("hidden");
                     el.classList.remove("flex");
                 });
+                this.stopAutoScroll();
+                // Delay clearing draggedSlotKey so that drop events dispatched asynchronously by WebView2 are handled properly
+                setTimeout(() => {
+                    this.draggedSlotKey = null;
+                    this.isDraggingLesson = false;
+                    setTimeout(() => { this.hasJustDragged = false; }, 200);
+                }, 350);
             }
 
             handleDayDragOver(e, dayIso) {
-                e.preventDefault();
-                e.dataTransfer.dropEffect = "move";
-                const cell = e.currentTarget;
+                if (e && typeof e.preventDefault === "function") e.preventDefault();
+                if (e?.dataTransfer) e.dataTransfer.dropEffect = "move";
+                const cell = e?.currentTarget;
                 if (cell) {
                     cell.classList.add("bg-sky-100", "dark:bg-sky-950/60", "border-sky-500");
                 }
             }
 
             handleDayDragLeave(e, dayIso) {
-                const cell = e.currentTarget;
+                const cell = e?.currentTarget;
                 if (cell) {
                     cell.classList.remove("bg-sky-100", "dark:bg-sky-950/60", "border-sky-500");
                 }
             }
 
             handleDayDrop(e, newDateStr) {
-                e.preventDefault();
+                if (e && typeof e.preventDefault === "function") e.preventDefault();
                 this.stopAutoScroll();
+                const slotKey = this.draggedSlotKey || (e?.dataTransfer ? e.dataTransfer.getData("text/plain") : null);
+                this.draggedSlotKey = null;
                 this.isDraggingLesson = false;
+                this.hasJustDragged = true;
+                setTimeout(() => { this.hasJustDragged = false; }, 350);
                 document.querySelectorAll(".calendar-drag-sensor").forEach(el => {
                     el.classList.add("hidden");
                     el.classList.remove("flex");
                 });
-                const slotKey = this.draggedSlotKey || e.dataTransfer.getData("text/plain");
-                this.draggedSlotKey = null;
                 document.querySelectorAll(".calendar-day-cell").forEach(el => {
                     el.classList.remove("bg-sky-100", "dark:bg-sky-950/60", "border-sky-500");
                 });
@@ -4861,6 +5192,66 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 } else {
                     this.moveLesson(slotKey, newDateStr);
                 }
+            }
+
+            startLessonMouseDrag(e, slotKey) {
+                if (e.button !== 0) return; // left click only
+                const startX = e.clientX;
+                const startY = e.clientY;
+                let isDragging = false;
+                let ghost = null;
+                let lastCell = null;
+
+                const onMouseMove = (moveEv) => {
+                    const dist = Math.hypot(moveEv.clientX - startX, moveEv.clientY - startY);
+                    if (!isDragging && dist > 5) {
+                        isDragging = true;
+                        this.isDraggingLesson = true;
+                        this.hasJustDragged = true;
+                        this.draggedSlotKey = slotKey;
+
+                        ghost = document.createElement("div");
+                        ghost.className = "fixed pointer-events-none z-50 px-2.5 py-1 rounded-lg bg-sky-600 text-white font-extrabold text-[10.5px] shadow-2xl opacity-90";
+                        ghost.innerHTML = `<i class="fa-solid fa-arrows-up-down-left-right mr-1"></i> Sposta lezione`;
+                        document.body.appendChild(ghost);
+                    }
+                    if (isDragging) {
+                        if (ghost) {
+                            ghost.style.left = `${moveEv.clientX + 10}px`;
+                            ghost.style.top = `${moveEv.clientY + 10}px`;
+                        }
+                        const el = document.elementFromPoint(moveEv.clientX, moveEv.clientY);
+                        const cell = el ? el.closest(".calendar-day-cell") : null;
+                        if (cell !== lastCell) {
+                            if (lastCell) lastCell.classList.remove("bg-sky-100", "dark:bg-sky-950/60", "border-sky-500");
+                            if (cell) cell.classList.add("bg-sky-100", "dark:bg-sky-950/60", "border-sky-500");
+                            lastCell = cell;
+                        }
+                    }
+                };
+
+                const onMouseUp = (upEv) => {
+                    window.removeEventListener("mousemove", onMouseMove);
+                    window.removeEventListener("mouseup", onMouseUp);
+                    if (ghost && ghost.parentNode) ghost.parentNode.removeChild(ghost);
+                    if (lastCell) lastCell.classList.remove("bg-sky-100", "dark:bg-sky-950/60", "border-sky-500");
+                    if (isDragging) {
+                        const el = document.elementFromPoint(upEv.clientX, upEv.clientY);
+                        const cell = el ? el.closest(".calendar-day-cell") : null;
+                        const dayIso = cell ? cell.getAttribute("data-day-iso") : null;
+                        if (dayIso && slotKey) {
+                            this.handleDayDrop({ preventDefault: () => {} }, dayIso);
+                        }
+                        setTimeout(() => {
+                            this.isDraggingLesson = false;
+                            this.draggedSlotKey = null;
+                            setTimeout(() => { this.hasJustDragged = false; }, 200);
+                        }, 100);
+                    }
+                };
+
+                window.addEventListener("mousemove", onMouseMove);
+                window.addEventListener("mouseup", onMouseUp);
             }
 
             openCollisionMoveModal(slotKey, newDateStr) {
@@ -5491,8 +5882,9 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                     const weeks = [];
                     let wCursor = new Date(startCursor);
                     let monthSessionCount = 0;
+                    let weekGuard = 0;
 
-                    while (wCursor <= endCursor) {
+                    while (wCursor <= endCursor && weekGuard++ < 12) {
                         const weekDays = [];
                         for (let i = 0; i < 7; i++) {
                             const curY = wCursor.getFullYear();
@@ -5606,6 +5998,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                                                         <div ondragover="app.handleDayDragOver(event, '${day.iso}')"
                                                              ondragleave="app.handleDayDragLeave(event, '${day.iso}')"
                                                              ondrop="app.handleDayDrop(event, '${day.iso}')"
+                                                             data-day-iso="${day.iso}"
                                                              class="calendar-day-cell min-h-[96px] rounded-xl p-2 border transition flex flex-col justify-start gap-1.5 ${hasLessons ? 'border-sky-300 dark:border-sky-800 bg-sky-50/30 dark:bg-navy-800/40' : (hasOtherPast ? 'border-slate-200 dark:border-slate-800 bg-slate-50/40 dark:bg-navy-950/20' : 'border-sky-100 dark:border-slate-800 bg-white dark:bg-navy-900')}">
                                                             <div class="flex items-center justify-between">
                                                                 <span class="text-xs font-bold text-slate-700 dark:text-slate-300">${day.dayNum}</span>
@@ -5624,6 +6017,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                                                                         <div draggable="true"
                                                                              ondragstart="app.handleLessonDragStart(event, '${sess.slotKey}')"
                                                                              ondragend="app.handleLessonDragEnd(event)"
+                                                                             onmousedown="app.startLessonMouseDrag(event, '${sess.slotKey}')"
                                                                              onclick="app.openLessonPlanModal('${course.id}', '${activeSection.id}', '${sess.slotKey}')"
                                                                              class="cursor-grab active:cursor-grabbing p-1.5 rounded-lg text-white shadow-2xs transition hover:brightness-110 select-none text-[10px]"
                                                                              style="background-color: ${pal.hex || '#0284c7'}">
@@ -6886,32 +7280,35 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                         });
                     });
 
-                    let mCursor = new Date(firstDate.getFullYear(), firstDate.getMonth(), 1);
-                    const maxMonth = new Date(lastDate.getFullYear(), lastDate.getMonth() + 1, 1);
+                    if (!isNaN(firstDate.getTime()) && !isNaN(lastDate.getTime())) {
+                        let mCursor = new Date(firstDate.getFullYear(), firstDate.getMonth(), 1);
+                        const maxMonth = new Date(lastDate.getFullYear(), lastDate.getMonth() + 1, 1);
+                        let monthGuard = 0;
 
-                    while (mCursor < maxMonth) {
-                        const y = mCursor.getFullYear();
-                        const m = mCursor.getMonth();
-                        const monthTitle = `${monthNames[m]} ${y}`;
+                        while (mCursor < maxMonth && monthGuard++ < 120) {
+                            const y = mCursor.getFullYear();
+                            const m = mCursor.getMonth();
+                            const monthTitle = `${monthNames[m]} ${y}`;
 
-                        const firstDayOfMonth = new Date(y, m, 1);
-                        const lastDayOfMonth = new Date(y, m + 1, 0);
+                            const firstDayOfMonth = new Date(y, m, 1);
+                            const lastDayOfMonth = new Date(y, m + 1, 0);
 
-                        const startCursor = new Date(firstDayOfMonth);
-                        const fDow = startCursor.getDay();
-                        const startOffset = startFirstDayMon ? (fDow === 0 ? -6 : 1 - fDow) : -fDow;
-                        startCursor.setDate(startCursor.getDate() + startOffset);
+                            const startCursor = new Date(firstDayOfMonth);
+                            const fDow = startCursor.getDay();
+                            const startOffset = startFirstDayMon ? (fDow === 0 ? -6 : 1 - fDow) : -fDow;
+                            startCursor.setDate(startCursor.getDate() + startOffset);
 
-                        const endCursor = new Date(lastDayOfMonth);
-                        const lDow = endCursor.getDay();
-                        const endOffset = startFirstDayMon ? (lDow === 0 ? 0 : 7 - lDow) : (6 - lDow);
-                        endCursor.setDate(endCursor.getDate() + endOffset);
+                            const endCursor = new Date(lastDayOfMonth);
+                            const lDow = endCursor.getDay();
+                            const endOffset = startFirstDayMon ? (lDow === 0 ? 0 : 7 - lDow) : (6 - lDow);
+                            endCursor.setDate(endCursor.getDate() + endOffset);
 
-                        const weeks = [];
-                        let wCursor = new Date(startCursor);
-                        let monthSessionCount = 0;
+                            const weeks = [];
+                            let wCursor = new Date(startCursor);
+                            let monthSessionCount = 0;
+                            let weekGuard = 0;
 
-                        while (wCursor <= endCursor) {
+                            while (wCursor <= endCursor && weekGuard++ < 12) {
                             const weekDays = [];
                             for (let i = 0; i < 7; i++) {
                                 const curY = wCursor.getFullYear();
@@ -6941,6 +7338,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                         });
 
                         mCursor.setMonth(mCursor.getMonth() + 1);
+                    }
                     }
                 }
 
@@ -8703,6 +9101,20 @@ Dettagli di Sistema:
 
                             <!-- Google Calendar & Google Meet Integration Card -->
                             <div class="pt-4 border-t border-sky-100 dark:border-slate-800 space-y-3">
+                                <!-- Beta Authorization Notice Banner -->
+                                <div class="p-3.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 flex items-start gap-2.5 text-xs text-amber-900 dark:text-amber-200">
+                                    <i class="fa-solid fa-flask text-amber-600 mt-0.5 shrink-0 text-sm"></i>
+                                    <div class="space-y-1">
+                                        <div class="font-extrabold flex items-center gap-1.5">
+                                            <span>${this.t("googleCalendarBetaBadge")}</span>
+                                            <span class="px-1.5 py-0.2 rounded bg-amber-200 dark:bg-amber-800 text-amber-900 dark:text-amber-100 text-[9.5px] font-black uppercase tracking-wider">Beta</span>
+                                        </div>
+                                        <p class="text-[11px] leading-relaxed text-amber-800 dark:text-amber-300">
+                                            ${this.t("googleCalendarBetaNotice")}
+                                        </p>
+                                    </div>
+                                </div>
+
                                 <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                                     <div>
                                         <h4 class="font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
@@ -9505,6 +9917,7 @@ Dettagli di Sistema:
             }
 
             openLessonPlanModal(courseId, sectionId, slotKey = null) {
+                if (this.isDraggingLesson || this.hasJustDragged) return;
                 const course = (this.state.courses || []).find(c => c.id === courseId) || this.getActiveCourse();
                 if (!course) return;
                 let targetSec = null;

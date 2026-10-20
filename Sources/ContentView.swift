@@ -336,15 +336,6 @@ private struct SidebarView: View {
             // Top Brand Header with Custom Uploaded Logo
             HStack(spacing: 10) {
                 AppLogoImageView(size: 36)
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(store.t("appTitle"))
-                        .font(.headline.bold())
-                        .lineLimit(1)
-                    Text(store.t("headerCreatedBy"))
-                        .font(.system(size: 9.5, weight: .medium))
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                }
                 Spacer()
             }
             .padding(.horizontal, 14)
@@ -716,13 +707,6 @@ private struct TopUnifiedHeaderBar: View {
             }
 
             Spacer()
-
-            Text(store.t("headerCreatedBy"))
-                .font(.system(size: 10, weight: .medium))
-                .foregroundStyle(.secondary)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 4)
-                .background(RoundedRectangle(cornerRadius: 6).fill(Color.secondary.opacity(0.08)))
 
             // Header Action Buttons (Undo + New Course + Theme)
             HStack(spacing: 8) {

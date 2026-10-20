@@ -2726,6 +2726,32 @@ public struct SettingsView: View {
 
                     // Google Calendar & Google Meet Section Card
                     VStack(alignment: .leading, spacing: 12) {
+                        // Google Calendar Beta Notice Banner
+                        HStack(alignment: .top, spacing: 10) {
+                            Image(systemName: "flask.fill")
+                                .font(.body)
+                                .foregroundStyle(.orange)
+                            VStack(alignment: .leading, spacing: 3) {
+                                HStack(spacing: 6) {
+                                    Text(store.t("googleCalendarBetaBadge"))
+                                        .font(.caption.bold())
+                                        .foregroundStyle(.orange)
+                                    Text("BETA")
+                                        .font(.system(size: 9, weight: .black))
+                                        .padding(.horizontal, 5)
+                                        .padding(.vertical, 1)
+                                        .background(RoundedRectangle(cornerRadius: 4).fill(Color.orange.opacity(0.18)))
+                                        .foregroundStyle(.orange)
+                                }
+                                Text(store.t("googleCalendarBetaNotice"))
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                                    .lineLimit(nil)
+                            }
+                        }
+                        .padding(10)
+                        .background(RoundedRectangle(cornerRadius: 10).fill(Color.orange.opacity(0.08)))
+
                         HStack {
                             VStack(alignment: .leading, spacing: 3) {
                                 HStack(spacing: 6) {

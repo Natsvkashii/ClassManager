@@ -83,20 +83,151 @@ public func tableRowCellStroke(_ scheme: ColorScheme) -> Color {
 
 // MARK: - Home View
 
+private struct ScheduledHomeLesson: Identifiable {
+    let id: String
+    let course: Course
+    let level: CourseLevel
+    let module: CourseModule
+    let slotKey: String
+    let dateIso: String
+    let startTime: String
+    let endTime: String
+    let durationMinutes: Int
+    let durationHuman: String
+    let meetUrl: String?
+    let lessonNum: Int
+    let lessonTitle: String
+    let badge: String
+    let studentCount: Int
+    let isLiveNow: Bool
+    let isFutureOrToday: Bool
+}
+
 public struct HomeView: View {
     @Environment(AppStore.self) private var store
     @Binding var activeSheet: ActiveModalSheet?
     @State private var courseToDeleteOrArchive: Course? = nil
 
+    private func getAllScheduledLessons() -> [ScheduledHomeLesson] {
+        var list: [ScheduledHomeLesson] = []
+        let now = Date()
+        let cal = Calendar.current
+        let todayIso = String(format: "%04d-%02d-%02d", cal.component(.year, from: now), cal.component(.month, from: now), cal.component(.day, from: now))
+        let nowTime = String(format: "%02d:%02d", cal.component(.hour, from: now), cal.component(.minute, from: now))
+
+        func parseMin(_ t: String) -> Int {
+            let p = t.split(separator: ":").compactMap { Int($0) }
+            if p.count >= 2 { return p[0] * 60 + p[1] }
+            return 19 * 60
+        }
+
+        for c in store.activeCourses {
+            for lvl in c.levels {
+                for mod in lvl.modules {
+                    let badge = store.formatLevelModuleBadge(course: c, level: lvl, module: mod)
+                    let sortedSlots = store.sortedSlots(for: c, module: mod)
+                    for (idx, slotKey) in sortedSlots.enumerated() {
+                        let dateIso = store.extractDate(from: slotKey)
+                        let lp = store.findLesson(in: c, sectionId: mod.id, slotKey: slotKey)
+                        let sTime = lp?.time ?? mod.startTime
+                        let eTime = lp?.endTime ?? mod.endTime
+                        let sMin = parseMin(sTime)
+                        let eMin = parseMin(eTime)
+                        var diff = eMin - sMin
+                        if diff <= 0 { diff += 24 * 60 }
+                        let h = diff / 60
+                        let m = diff % 60
+                        let durStr = (h > 0 && m > 0) ? "\(h)h \(m)m" : (h > 0 ? "\(h)h" : "\(m)m")
+                        let meet = (lp?.googleMeetUrl?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false) ? lp?.googleMeetUrl : mod.googleMeetUrl
+                        let title = (lp?.title.isEmpty == false) ? lp!.title : "\(store.t("lessonNumberTitle")) \(idx + 1)"
+                        let isLive = (dateIso == todayIso && sTime <= nowTime && nowTime < eTime)
+                        let isFuture = (dateIso > todayIso) || (dateIso == todayIso && eTime > nowTime)
+
+                        list.append(ScheduledHomeLesson(
+                            id: "\(c.id)_\(mod.id)_\(slotKey)",
+                            course: c,
+                            level: lvl,
+                            module: mod,
+                            slotKey: slotKey,
+                            dateIso: dateIso,
+                            startTime: sTime,
+                            endTime: eTime,
+                            durationMinutes: diff,
+                            durationHuman: durStr,
+                            meetUrl: meet,
+                            lessonNum: idx + 1,
+                            lessonTitle: title,
+                            badge: badge,
+                            studentCount: mod.studentIds.count,
+                            isLiveNow: isLive,
+                            isFutureOrToday: isFuture
+                        ))
+                    }
+                }
+            }
+        }
+
+        list.sort {
+            if $0.dateIso != $1.dateIso { return $0.dateIso < $1.dateIso }
+            return $0.startTime < $1.startTime
+        }
+        return list
+    }
+
     public var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
+        let allLessons = getAllScheduledLessons()
+        let liveLesson = allLessons.first(where: { $0.isLiveNow })
+        let upcomingLessons = allLessons.filter { $0.isFutureOrToday }
+        let featuredLesson = liveLesson ?? upcomingLessons.first
+        let subsequentLessons = featuredLesson != nil ? upcomingLessons.filter { $0.id != featuredLesson!.id }.prefix(4) : []
+
+        return ScrollView {
+            VStack(alignment: .leading, spacing: 24) {
                 if store.activeCourses.isEmpty {
                     emptyCoursesCard
                 } else {
-                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 290, maximum: 420), spacing: 16)], spacing: 16) {
-                        ForEach(store.activeCourses) { course in
-                            courseCard(course)
+                    // Featured Hero Card (Live Now or Next Lesson)
+                    if let featured = featuredLesson {
+                        featuredHeroCard(featured)
+                    } else {
+                        noUpcomingLessonsCard
+                    }
+
+                    // Subsequent Lessons (Schede Ridotte)
+                    if !subsequentLessons.isEmpty {
+                        VStack(alignment: .leading, spacing: 12) {
+                            HStack {
+                                Label(store.t("subsequentLessonsHeading"), systemImage: "calendar.badge.clock")
+                                    .font(.headline.bold())
+                                Spacer()
+                                Text("\(subsequentLessons.count) \(store.t("lessonsLower"))")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+
+                            LazyVGrid(columns: [GridItem(.adaptive(minimum: 220, maximum: 300), spacing: 14)], spacing: 14) {
+                                ForEach(Array(subsequentLessons)) { item in
+                                    subsequentLessonCard(item)
+                                }
+                            }
+                        }
+                    }
+
+                    // Active Courses Overview
+                    VStack(alignment: .leading, spacing: 14) {
+                        HStack {
+                            Label(store.t("yourCoursesHeading"), systemImage: "folder")
+                                .font(.headline.bold())
+                            Spacer()
+                            Text("\(store.activeCourses.count) corsi")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+
+                        LazyVGrid(columns: [GridItem(.adaptive(minimum: 290, maximum: 420), spacing: 16)], spacing: 16) {
+                            ForEach(store.activeCourses) { course in
+                                courseCard(course)
+                            }
                         }
                     }
                 }
@@ -247,6 +378,253 @@ public struct HomeView: View {
             borderColor: isCurrent ? pal.color : pal.borderColor,
             lineWidth: isCurrent ? 2.5 : 1.2
         )
+    }
+
+    private func featuredHeroCard(_ item: ScheduledHomeLesson) -> some View {
+        let pal = store.palette(for: item.course.color)
+        let accentColor = item.isLiveNow ? Color.green : pal.color
+
+        return VStack(alignment: .leading, spacing: 18) {
+            // Top Bar: Live / Next Badge, Course Badge, Enrolled count
+            HStack(spacing: 10) {
+                if item.isLiveNow {
+                    HStack(spacing: 6) {
+                        Circle()
+                            .fill(Color.white)
+                            .frame(width: 8, height: 8)
+                        Text(store.t("liveLessonNow").uppercased())
+                            .font(.system(size: 11, weight: .black))
+                    }
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 4)
+                    .background(Capsule().fill(Color.green))
+                    .foregroundStyle(.white)
+                } else {
+                    HStack(spacing: 6) {
+                        Image(systemName: "clock")
+                            .font(.system(size: 11, weight: .bold))
+                        Text(store.t("nextLessonHeading").uppercased())
+                            .font(.system(size: 11, weight: .black))
+                    }
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 4)
+                    .background(Capsule().fill(Color.blue.opacity(0.12)))
+                    .foregroundStyle(.blue)
+                }
+
+                Text(item.badge)
+                    .font(.caption.bold())
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(RoundedRectangle(cornerRadius: 6).fill(pal.color))
+
+                Text(item.course.name)
+                    .font(.subheadline.bold())
+                    .foregroundStyle(.secondary)
+
+                Spacer()
+
+                HStack(spacing: 5) {
+                    Image(systemName: "person.2")
+                        .font(.caption)
+                    Text("\(item.studentCount) \(store.t("enrolledLower"))")
+                        .font(.caption.bold())
+                }
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(RoundedRectangle(cornerRadius: 6).fill(Color.secondary.opacity(0.1)))
+            }
+
+            // Title & Lesson Number
+            VStack(alignment: .leading, spacing: 4) {
+                Text(item.lessonTitle)
+                    .font(.title2.bold())
+                Text("\(store.t("lessonNumberTitle")) \(item.lessonNum) • \(item.module.name)")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+
+            // Metric Cards: Date, Time, Duration, Type
+            HStack(spacing: 12) {
+                metricBox(icon: "calendar", title: store.t("lessonInviteDate"), value: store.formatDateDisplay(item.dateIso))
+                metricBox(icon: "clock", title: store.t("timeScheduleLabel"), value: "\(item.startTime) - \(item.endTime)")
+                metricBox(icon: "stopwatch", title: store.t("durationLabel"), value: item.durationHuman)
+                metricBox(icon: "graduationcap", title: "Tipo", value: item.course.type == "private" ? store.t("privateBadge") : store.t("groupBadge"))
+            }
+
+            Divider()
+
+            // Actions: Join, Copy, Register
+            HStack(spacing: 12) {
+                if let meet = item.meetUrl, !meet.isEmpty, let url = URL(string: meet) {
+                    Button {
+                        NSWorkspace.shared.open(url)
+                    } label: {
+                        Label(store.t("joinLessonBtn"), systemImage: "video.fill")
+                            .font(.callout.bold())
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(.green)
+                }
+
+                Button {
+                    store.copyLessonStudentInvitation(course: item.course, module: item.module, slotKey: item.slotKey)
+                } label: {
+                    Label(store.t("copyLessonInviteBtn"), systemImage: "square.and.arrow.up")
+                        .font(.callout.bold())
+                }
+                .buttonStyle(.bordered)
+
+                Spacer()
+
+                Button {
+                    store.switchCourse(item.course.id, tab: .attendance)
+                } label: {
+                    Label(store.t("openCourseBtn"), systemImage: "checklist")
+                        .font(.callout.bold())
+                }
+                .buttonStyle(.bordered)
+            }
+        }
+        .padding(22)
+        .appCardStyle(cornerRadius: 20)
+        .overlay(
+            RoundedRectangle(cornerRadius: 20)
+                .strokeBorder(accentColor.opacity(item.isLiveNow ? 0.7 : 0.35), lineWidth: item.isLiveNow ? 2.5 : 1.5)
+        )
+    }
+
+    private func metricBox(icon: String, title: String, value: String) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            HStack(spacing: 4) {
+                Image(systemName: icon)
+                    .font(.system(size: 10))
+                Text(title)
+                    .font(.system(size: 10, weight: .semibold))
+            }
+            .foregroundStyle(.secondary)
+
+            Text(value)
+                .font(.system(size: 13, weight: .bold))
+                .lineLimit(1)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(10)
+        .background(RoundedRectangle(cornerRadius: 10).fill(Color.secondary.opacity(0.06)))
+    }
+
+    private func subsequentLessonCard(_ item: ScheduledHomeLesson) -> some View {
+        let pal = store.palette(for: item.course.color)
+
+        return VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text(item.badge)
+                    .font(.caption2.bold())
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(RoundedRectangle(cornerRadius: 4).fill(pal.color))
+                Spacer()
+                Text(item.durationHuman)
+                    .font(.caption2.bold())
+                    .padding(.horizontal, 5)
+                    .padding(.vertical, 2)
+                    .background(RoundedRectangle(cornerRadius: 4).fill(Color.secondary.opacity(0.12)))
+            }
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(item.lessonTitle)
+                    .font(.subheadline.bold())
+                    .lineLimit(1)
+                Text(item.course.name)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+
+            HStack(spacing: 4) {
+                Image(systemName: "calendar")
+                    .font(.caption2)
+                    .foregroundStyle(.blue)
+                Text(store.formatDateDisplay(item.dateIso))
+                    .font(.caption.bold())
+                Text("•")
+                    .foregroundStyle(.secondary)
+                Text(item.startTime)
+                    .font(.caption.monospaced())
+                    .foregroundStyle(.secondary)
+            }
+
+            Divider()
+
+            HStack(spacing: 6) {
+                if let meet = item.meetUrl, !meet.isEmpty, let url = URL(string: meet) {
+                    Button {
+                        NSWorkspace.shared.open(url)
+                    } label: {
+                        Label("Entra", systemImage: "video.fill")
+                            .font(.caption2.bold())
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(.green)
+                    .controlSize(.small)
+                }
+
+                Button {
+                    store.copyLessonStudentInvitation(course: item.course, module: item.module, slotKey: item.slotKey)
+                } label: {
+                    Image(systemName: "square.and.arrow.up")
+                        .font(.caption)
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+                .help(store.t("copyLessonInviteBtn"))
+
+                Spacer()
+
+                Button {
+                    store.switchCourse(item.course.id, tab: .attendance)
+                } label: {
+                    Image(systemName: "checklist")
+                        .font(.caption)
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+                .help(store.t("openCourseBtn"))
+            }
+        }
+        .padding(14)
+        .appCardStyle(cornerRadius: 14)
+        .overlay(
+            RoundedRectangle(cornerRadius: 14)
+                .strokeBorder(pal.color.opacity(0.35), lineWidth: 1)
+        )
+    }
+
+    private var noUpcomingLessonsCard: some View {
+        HStack(spacing: 14) {
+            Image(systemName: "calendar.badge.clock")
+                .font(.title)
+                .foregroundStyle(.blue)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(store.t("noUpcomingLessonsScheduled"))
+                    .font(.headline)
+                Text("Pianifica nuove lezioni nel piano lezioni dei tuoi corsi attivi.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
+            Button {
+                store.currentTab = .calendar
+            } label: {
+                Label(store.t("navCalendar"), systemImage: "calendar")
+                    .font(.caption.bold())
+            }
+            .buttonStyle(.borderedProminent)
+        }
+        .padding(18)
+        .appCardStyle(cornerRadius: 16)
     }
 }
 

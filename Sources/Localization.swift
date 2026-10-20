@@ -300,7 +300,17 @@ public struct L10n {
             "lessonInviteLesson": "Lezione",
             "lessonInviteDate": "Data",
             "lessonInviteTime": "Orario",
-            "lessonInviteLink": "Link per la lezione"
+            "lessonInviteLink": "Link per la lezione",
+            "liveLessonNow": "Lezione in corso adesso",
+            "nextLessonHeading": "Prossima lezione",
+            "subsequentLessonsHeading": "Prossime lezioni in programma",
+            "joinLessonBtn": "Partecipa alla lezione",
+            "noUpcomingLessonsScheduled": "Nessuna lezione programmata al momento",
+            "durationLabel": "Durata",
+            "timeScheduleLabel": "Orario",
+            "yourCoursesHeading": "I tuoi corsi attivi",
+            "googleCalendarBetaBadge": "Integrazione Google Calendar (BETA)",
+            "googleCalendarBetaNotice": "Questa funzionalità è in fase sperimentale. In conformità con le policy di sicurezza di Google Cloud, l'accesso OAuth richiede la preventiva autorizzazione e abilitazione dell'account da parte dello sviluppatore (Guaira Jaramillo Nitoglia - guaira.jaramillo.nitoglia@gmail.com). Contatta lo sviluppatore per abilitare la tua email prima del primo accesso."
         ],
         "en": [
             "appTitle": "Class Management",
@@ -594,7 +604,17 @@ public struct L10n {
             "lessonInviteLesson": "Lesson",
             "lessonInviteDate": "Date",
             "lessonInviteTime": "Time",
-            "lessonInviteLink": "Lesson link"
+            "lessonInviteLink": "Lesson link",
+            "liveLessonNow": "Live lesson right now",
+            "nextLessonHeading": "Next scheduled lesson",
+            "subsequentLessonsHeading": "Following scheduled lessons",
+            "joinLessonBtn": "Join lesson",
+            "noUpcomingLessonsScheduled": "No lessons scheduled at the moment",
+            "durationLabel": "Duration",
+            "timeScheduleLabel": "Schedule",
+            "yourCoursesHeading": "Your active courses",
+            "googleCalendarBetaBadge": "Google Calendar Integration (BETA)",
+            "googleCalendarBetaNotice": "This feature is currently in BETA. In accordance with Google Cloud OAuth security policies, access requires prior authorization and whitelisting of your Google account by the developer (Guaira Jaramillo Nitoglia - guaira.jaramillo.nitoglia@gmail.com). Contact the developer to whitelist your email before signing in."
         ],
         "es": [
             "appTitle": "Class Management",
@@ -888,7 +908,17 @@ public struct L10n {
             "lessonInviteLesson": "Clase",
             "lessonInviteDate": "Fecha",
             "lessonInviteTime": "Horario",
-            "lessonInviteLink": "Enlace de la clase"
+            "lessonInviteLink": "Enlace de la clase",
+            "liveLessonNow": "Clase en curso ahora",
+            "nextLessonHeading": "Próxima clase programada",
+            "subsequentLessonsHeading": "Siguientes clases programadas",
+            "joinLessonBtn": "Unirse a la clase",
+            "noUpcomingLessonsScheduled": "No hay clases programadas por el momento",
+            "durationLabel": "Duración",
+            "timeScheduleLabel": "Horario",
+            "yourCoursesHeading": "Tus cursos activos",
+            "googleCalendarBetaBadge": "Integración Google Calendar (BETA)",
+            "googleCalendarBetaNotice": "Esta función se encuentra en fase BETA. De acuerdo con las políticas de seguridad de Google Cloud, el acceso OAuth requiere la autorización previa y habilitación de la cuenta por parte del desarrollador (Guaira Jaramillo Nitoglia - guaira.jaramillo.nitoglia@gmail.com). Contacta al desarrollador para habilitar tu correo antes de iniciar sesión."
         ]
     ]
 
