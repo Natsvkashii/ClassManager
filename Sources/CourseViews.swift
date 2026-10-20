@@ -121,12 +121,6 @@ public struct HomeView: View {
         let todayIso = String(format: "%04d-%02d-%02d", cal.component(.year, from: now), cal.component(.month, from: now), cal.component(.day, from: now))
         let nowTime = String(format: "%02d:%02d", cal.component(.hour, from: now), cal.component(.minute, from: now))
 
-        func parseMin(_ t: String) -> Int {
-            let p = t.split(separator: ":").compactMap { Int($0) }
-            if p.count >= 2 { return p[0] * 60 + p[1] }
-            return 19 * 60
-        }
-
         for c in store.activeCourses {
             for lvl in c.levels {
                 for mod in lvl.modules {
@@ -140,8 +134,8 @@ public struct HomeView: View {
                         let lp = store.findLesson(in: c, sectionId: mod.id, slotKey: slotKey)
                         let sTime = lp?.time ?? mod.startTime
                         let eTime = lp?.endTime ?? mod.endTime
-                        let sMin = parseMin(sTime)
-                        let eMin = parseMin(eTime)
+                        let sMin = sTime.minutesFromTimeString(defaultMinutes: 19 * 60)
+                        let eMin = eTime.minutesFromTimeString(defaultMinutes: 20 * 60 + 30)
                         var diff = eMin - sMin
                         if diff <= 0 { diff += 24 * 60 }
                         let h = diff / 60

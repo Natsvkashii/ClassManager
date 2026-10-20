@@ -1702,22 +1702,25 @@ Removing, obfuscating, or altering these credits violates the author's attributi
 
             async saveState(state) {
                 try {
-                    localStorage.setItem("classdesk_state_v1", JSON.stringify(state));
-                    localStorage.setItem("class_management_state_v1", JSON.stringify(state)); // mirror for backward compatibility
+                    // Optimization: prune historical changelog bloat before disk/storage serialization
+                    const toPersist = {
+                        ...state,
+                        changelog: Array.isArray(state.changelog) && state.changelog.length > 0 ? [state.changelog[0]] : []
+                    };
+                    const serialized = JSON.stringify(toPersist);
+                    localStorage.setItem("classdesk_state_v1", serialized);
+                    localStorage.setItem("class_management_state_v1", serialized); // mirror for backward compatibility
+                    if (this.db) {
+                        await new Promise((resolve) => {
+                            const tx = this.db.transaction(this.storeName, "readwrite");
+                            const store = tx.objectStore(this.storeName);
+                            store.put(toPersist, "rootState");
+                            tx.oncomplete = () => resolve(true);
+                            tx.onerror = () => resolve(false);
+                        });
+                    }
                 } catch (e) {
-                    console.warn("localStorage save warning:", e);
-                }
-                if (!this.db) return;
-                try {
-                    await new Promise((resolve) => {
-                        const tx = this.db.transaction(this.storeName, "readwrite");
-                        const store = tx.objectStore(this.storeName);
-                        store.put(state, "rootState");
-                        tx.oncomplete = () => resolve(true);
-                        tx.onerror = () => resolve(false);
-                    });
-                } catch (e) {
-                    console.warn("IndexedDB write warning:", e);
+                    console.warn("localStorage/IndexedDB save warning:", e);
                 }
             }
 
@@ -1956,27 +1959,29 @@ Removing, obfuscating, or altering these credits violates the author's attributi
 
             syncAllStudentsLevels() {
                 if (!Array.isArray(this.state.studentsDirectory)) return;
-                this.state.studentsDirectory.forEach(st => {
-                    let bestCode = null;
-                    let bestDisplay = null;
-                    (this.state.courses || []).forEach(course => {
-                        if (course.archived) return;
-                        this.syncCourseLevelsAndSections(course);
-                        (course.levels || []).forEach(lvl => {
-                            const lvlCode = this.normalizeCefrLevel(lvl.code || lvl.name || course.level);
-                            (lvl.modules || []).forEach((mod, mIdx) => {
-                                if ((mod.studentIds || []).includes(st.id)) {
-                                    const mShort = this.extractModuleShortCode(mod.name, mIdx + 1);
-                                    bestCode = lvlCode;
-                                    bestDisplay = lvlCode === "Altro" ? `${lvl.customName || this.t("otherLevelOpt")} ${mShort}` : `${lvlCode} ${mShort}`;
-                                }
+                // High-performance single-pass inverse index lookup O(C*L*M + S)
+                const studentMap = new Map();
+                (this.state.courses || []).forEach(course => {
+                    if (course.archived) return;
+                    this.syncCourseLevelsAndSections(course);
+                    (course.levels || []).forEach(lvl => {
+                        const lvlCode = this.normalizeCefrLevel(lvl.code || lvl.name || course.level);
+                        const lvlName = (lvlCode === "Altro") ? (lvl.customName || this.t("otherLevelOpt")) : lvlCode;
+                        (lvl.modules || []).forEach((mod, mIdx) => {
+                            const mShort = this.extractModuleShortCode(mod.name, mIdx + 1);
+                            const display = `${lvlName} ${mShort}`;
+                            (mod.studentIds || []).forEach(stId => {
+                                studentMap.set(stId, { code: lvlCode, display: display });
                             });
                         });
                     });
+                });
 
-                    if (bestCode) {
-                        st.currentLevel = bestCode;
-                        st.lastFollowedLevel = bestDisplay;
+                this.state.studentsDirectory.forEach(st => {
+                    const match = studentMap.get(st.id);
+                    if (match) {
+                        st.currentLevel = match.code;
+                        st.lastFollowedLevel = match.display;
                     } else {
                         const fallbackCode = this.normalizeCefrLevel(st.currentLevel) || "A1";
                         st.currentLevel = fallbackCode;
@@ -2134,9 +2139,10 @@ Removing, obfuscating, or altering these credits violates the author's attributi
 
                 if (this.state.version !== INITIAL_DATA.version) {
                     this.state.version = INITIAL_DATA.version;
-                    this.state.changelog = JSON.parse(JSON.stringify(INITIAL_DATA.changelog));
                     migrated = true;
                 }
+                // Always populate full historical release notes for the UI changelog modal
+                this.state.changelog = INITIAL_DATA.changelog;
 
                 if (migrated) {
                     this.persist();
@@ -2676,15 +2682,27 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 return `${d}/${m}/${y}`;
             }
 
+            deepClone(obj) {
+                if (typeof structuredClone === "function") {
+                    try { return structuredClone(obj); } catch (e) {}
+                }
+                return JSON.parse(JSON.stringify(obj));
+            }
+
             formatShortWeekdayDate(dateStr) {
                 if (!dateStr) return "";
+                if (!this._shortDateCache) this._shortDateCache = new Map();
+                const cached = this._shortDateCache.get(dateStr);
+                if (cached) return cached;
                 const d = new Date(dateStr + "T12:00:00");
                 if (isNaN(d.getTime())) return dateStr;
                 const daysSun = this.t("daysShortSun");
                 const months = this.t("months");
                 const dayName = daysSun[d.getDay()];
                 const mShort = (months[d.getMonth()] || "").substring(0, 3);
-                return `${dayName} ${d.getDate()} ${mShort}`;
+                const res = `${dayName} ${d.getDate()} ${mShort}`;
+                this._shortDateCache.set(dateStr, res);
+                return res;
             }
 
             formatTimeDisplay(timeStr) {
@@ -2699,6 +2717,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
             }
 
             renderAll() {
+                this._shortDateCache = new Map();
                 this.applyActiveCourseColorTheme();
                 this.renderHeaderAndSidebarControls();
                 this.renderCourseContextHeaderBar();
@@ -3395,15 +3414,15 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                         </div>
 
                         ${this.attendanceDateEditMode && dates.length > 0 ? `
-                            <div class="bg-amber-50/90 dark:bg-amber-950/30 border border-amber-300 dark:border-amber-800 rounded-2xl px-4 py-2.5 flex flex-wrap items-center justify-between gap-3 text-xs">
+                            <div id="attendanceBatchToolbarContainer" class="bg-amber-50/90 dark:bg-amber-950/30 border border-amber-300 dark:border-amber-800 rounded-2xl px-4 py-2.5 flex flex-wrap items-center justify-between gap-3 text-xs">
                                 <div class="flex flex-wrap items-center gap-3">
                                     <label class="flex items-center gap-2 font-extrabold text-amber-900 dark:text-amber-200 cursor-pointer">
                                         <input type="checkbox" onchange="app.toggleSelectAllModuleDates(this.checked)" ${selectedDatesCount === dates.length && dates.length > 0 ? 'checked' : ''} class="w-4 h-4 accent-rose-600 rounded">
                                         <span>${this.t("allDatesLabel")} (${dates.length})</span>
                                     </label>
-                                    <span class="text-amber-700 dark:text-amber-300 font-semibold">• ${selectedDatesCount} ${this.t("selectedLower")}</span>
+                                    <span id="attendanceBatchSelectedCount" class="text-amber-700 dark:text-amber-300 font-semibold">• ${selectedDatesCount} ${this.t("selectedLower")}</span>
                                 </div>
-                                <div class="flex items-center gap-2">
+                                <div id="attendanceBatchActionsContainer" class="flex items-center gap-2">
                                     ${selectedDatesCount > 0 ? `
                                         <button onclick="app.confirmBatchDeleteDates()" class="px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold flex items-center gap-1.5 shadow-2xs transition">
                                             <i class="fa-solid fa-trash-can"></i> ${this.t("deleteBtn")} (${selectedDatesCount})
@@ -3431,7 +3450,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                                                 const eTime = lessonObj?.endTime || activeSection.endTime || course.endTime || "20:30";
                                                 const isDateSelected = this.selectedDatesForDelete.has(slotKey);
                                                 return `
-                                                    <th class="align-top px-2 py-2.5 text-center font-bold min-w-[122px] border-r border-sky-100/60 dark:border-slate-800 group ${isDateSelected ? 'bg-rose-50/80 dark:bg-rose-950/30' : ''}">
+                                                    <th data-slotkey="${this.escapeHtml(slotKey)}" class="align-top px-2 py-2.5 text-center font-bold min-w-[122px] border-r border-sky-100/60 dark:border-slate-800 group ${isDateSelected ? 'bg-rose-50/80 dark:bg-rose-950/30' : ''}">
                                                         <button onclick="app.openLessonPlanModal('${course.id}', '${activeSection.id}', '${slotKey}')" class="w-full min-h-[76px] rounded-lg p-1 hover:bg-sky-100/70 dark:hover:bg-navy-900 transition flex flex-col items-center justify-between" title="${this.t("lessonPlanTitle")}">
                                                             <div class="flex items-center justify-center text-[10px] text-sky-700 dark:text-sky-400 font-extrabold">
                                                                 <span class="px-2 py-0.5 rounded bg-sky-100 dark:bg-navy-900">${idx + 1}</span>
@@ -3516,7 +3535,17 @@ Removing, obfuscating, or altering these credits violates the author's attributi
             toggleDateSelectionForDelete(dateStr, isChecked) {
                 if (isChecked) this.selectedDatesForDelete.add(dateStr);
                 else this.selectedDatesForDelete.delete(dateStr);
-                this.renderMainView();
+
+                // Targeted in-place DOM update (avoids entire view re-render and jitter)
+                const th = document.querySelector(`th[data-slotkey="${CSS.escape(dateStr)}"]`);
+                if (th) {
+                    if (isChecked) {
+                        th.classList.add('bg-rose-50/80', 'dark:bg-rose-950/30');
+                    } else {
+                        th.classList.remove('bg-rose-50/80', 'dark:bg-rose-950/30');
+                    }
+                }
+                this.updateAttendanceBatchToolbar();
             }
 
             toggleSelectAllModuleDates(isChecked) {
@@ -3528,7 +3557,43 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 } else {
                     this.selectedDatesForDelete.clear();
                 }
-                this.renderMainView();
+                document.querySelectorAll('th[data-slotkey]').forEach(th => {
+                    const sk = th.getAttribute('data-slotkey');
+                    const cb = th.querySelector('input[type="checkbox"]');
+                    const isSel = this.selectedDatesForDelete.has(sk);
+                    if (cb) cb.checked = isSel;
+                    if (isSel) {
+                        th.classList.add('bg-rose-50/80', 'dark:bg-rose-950/30');
+                    } else {
+                        th.classList.remove('bg-rose-50/80', 'dark:bg-rose-950/30');
+                    }
+                });
+                this.updateAttendanceBatchToolbar();
+            }
+
+            updateAttendanceBatchToolbar() {
+                const course = this.getActiveCourse();
+                const sec = this.getActiveSection(course);
+                if (!sec) return;
+                const dates = Array.isArray(sec.dates) ? sec.dates : [];
+                const selectedDatesCount = Array.from(this.selectedDatesForDelete).filter(d => dates.includes(d)).length;
+
+                const countEl = document.getElementById("attendanceBatchSelectedCount");
+                if (countEl) {
+                    countEl.textContent = `• ${selectedDatesCount} ${this.t("selectedLower")}`;
+                }
+                const actionsCont = document.getElementById("attendanceBatchActionsContainer");
+                if (actionsCont) {
+                    actionsCont.innerHTML = selectedDatesCount > 0 ? `
+                        <button onclick="app.confirmBatchDeleteDates()" class="px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold flex items-center gap-1.5 shadow-2xs transition">
+                            <i class="fa-solid fa-trash-can"></i> ${this.t("deleteBtn")} (${selectedDatesCount})
+                        </button>
+                    ` : `<span class="text-[11px] text-amber-700 dark:text-amber-400">${this.t("selectDatesToDeleteHint")}</span>`;
+                }
+                const selectAllCb = document.querySelector('#attendanceBatchToolbarContainer input[type="checkbox"]');
+                if (selectAllCb) {
+                    selectAllCb.checked = (selectedDatesCount === dates.length && dates.length > 0);
+                }
             }
 
             confirmBatchDeleteDates() {
@@ -6200,22 +6265,6 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 setTimeout(scrollToCurrent, 40);
             }
 
-            copyModuleScheduleText() {
-                const course = this.getActiveCourse();
-                const sec = this.getActiveSection(course);
-                if (!course || !sec) return;
-                const slots = [...this.sortModuleSlots(course, sec)];
-                const lines = slots.map((slotKey, idx) => {
-                    const dStr = this.extractDateFromSlotKey(slotKey);
-                    const les = this.findLessonForSlot(course, sec.id, slotKey);
-                    const sTime = les?.time || sec.startTime || "19:00";
-                    const eTime = les?.endTime || sec.endTime || "20:30";
-                    return `${idx + 1}. ${this.formatDateDisplay(dStr)} (${this.formatTimeDisplay(sTime)} - ${this.formatTimeDisplay(eTime)})${les?.title ? ` - ${les.title}` : ''}`;
-                });
-                navigator.clipboard?.writeText(lines.join("\n"));
-                this.showToast(this.t("copyTextBtn"), "success");
-            }
-
             /**
              * Roster & Former Students ("Iscritti") View
              * - Blurs sensitive personal data unless showSensitiveGroupData is toggled on
@@ -8666,79 +8715,6 @@ Dettagli di Sistema:
                 } else {
                     window.location.href = mailtoUrl;
                 }
-            }
-
-            copyUpdateDownloadLogs() {
-                const logs = (this.downloadLogs || []).join('\n');
-                if (!logs) {
-                    this.showToast("Nessun log disponibile da copiare", "info");
-                    return;
-                }
-                if (navigator.clipboard && navigator.clipboard.writeText) {
-                    navigator.clipboard.writeText(logs).then(() => {
-                        this.showToast("Log diagnostici copiati negli appunti!", "success");
-                    }).catch(() => {
-                        this.showToast("Impossibile copiare negli appunti", "error");
-                    });
-                } else {
-                    this.showToast("Funzione appunti non supportata dal sistema", "error");
-                }
-            }
-
-            appendDownloadLog(data) {
-                const text = typeof data === 'string' ? data : (data?.text || data?.raw || JSON.stringify(data));
-                if (!this.downloadLogs) this.downloadLogs = [];
-                this.downloadLogs.push(text);
-
-                const term = document.getElementById("modalTerminalOutput");
-                if (!term) return;
-
-                const line = document.createElement("div");
-                line.className = "whitespace-pre-wrap break-all";
-
-                let tagClass = "text-sky-400 font-bold";
-                let textClass = "text-slate-300";
-
-                if (text.includes("[ERRORE") || text.includes("FALLITO") || text.includes("TIMEOUT")) {
-                    tagClass = "text-rose-400 font-bold";
-                    textClass = "text-rose-300 font-semibold";
-                } else if (text.includes("[SUCCESSO]") || text.includes("[VERIFICA OK]") || text.includes("[COMPLETATO]") || text.includes("[FALLBACK COMPLETATO]")) {
-                    tagClass = "text-emerald-400 font-bold";
-                    textClass = "text-emerald-200 font-semibold";
-                } else if (text.includes("[REDIRECT") || text.includes("[ATTENZIONE]") || text.includes("[AVVISO") || text.includes("[FALLBACK")) {
-                    tagClass = "text-amber-400 font-bold";
-                    textClass = "text-amber-200";
-                } else if (text.includes("[HTTP STATUS]") || text.includes("[INFO ASSET]") || text.includes("[IO DISCO]") || text.includes("[TARGET]")) {
-                    tagClass = "text-cyan-400 font-bold";
-                    textClass = "text-slate-200";
-                } else if (text.includes("[SICUREZZA]") || text.includes("[SISTEMA]")) {
-                    tagClass = "text-indigo-400 font-bold";
-                    textClass = "text-slate-300";
-                } else if (text.includes("[PROGRESSO]") || text.includes("[CURL LIVE]")) {
-                    tagClass = "text-slate-400 font-bold";
-                    textClass = "text-slate-400";
-                }
-
-                // Check for [TIME] [TAG] Message or [TAG] Message
-                const matchTimeTag = text.match(/^(\[[^\]]+\])\s+(\[[^\]]+\])\s*(.*)$/);
-                const matchSingleTag = !matchTimeTag ? text.match(/^(\[[^\]]+\])\s*(.*)$/) : null;
-
-                if (matchTimeTag) {
-                    const timePart = `<span class="text-slate-500 font-semibold">${this.escapeHtml(matchTimeTag[1])}</span>`;
-                    const tagPart = ` <span class="${tagClass}">${this.escapeHtml(matchTimeTag[2])}</span>`;
-                    const restPart = ` <span class="${textClass}">${this.escapeHtml(matchTimeTag[3] || '')}</span>`;
-                    line.innerHTML = timePart + tagPart + restPart;
-                } else if (matchSingleTag) {
-                    const tagPart = `<span class="${tagClass}">${this.escapeHtml(matchSingleTag[1])}</span>`;
-                    const restPart = ` <span class="${textClass}">${this.escapeHtml(matchSingleTag[2] || '')}</span>`;
-                    line.innerHTML = tagPart + restPart;
-                } else {
-                    line.className += ` ${textClass}`;
-                    line.textContent = text;
-                }
-
-                term.appendChild(line);
-                term.scrollTop = term.scrollHeight;
             }
 
             async checkPendingUpdateOnStartup() {

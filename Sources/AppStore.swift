@@ -26,26 +26,9 @@ public final class AppStore {
     public var activeModuleByLevel: [String: String] = [:]
 
     // High-performance cached DateFormatters (reusable across UI to avoid heavy heap allocations)
-    public static let isoDateFormatter: DateFormatter = {
-        let df = DateFormatter()
-        df.dateFormat = "yyyy-MM-dd"
-        df.locale = Locale(identifier: "en_US_POSIX")
-        return df
-    }()
-
-    public static let timeFormatter: DateFormatter = {
-        let tf = DateFormatter()
-        tf.dateFormat = "HH:mm"
-        tf.locale = Locale(identifier: "en_US_POSIX")
-        return tf
-    }()
-
-    public static let timestampFormatter: DateFormatter = {
-        let df = DateFormatter()
-        df.dateFormat = "yyyy-MM-dd_HH-mm-ss"
-        df.locale = Locale(identifier: "en_US_POSIX")
-        return df
-    }()
+    public static let isoDateFormatter: DateFormatter = AppDateFormatters.dateOnly
+    public static let timeFormatter: DateFormatter = AppDateFormatters.timeOnly
+    public static let timestampFormatter: DateFormatter = AppDateFormatters.filenameTimestamp
 
     // UI State
     public var attendanceDateEditMode: Bool = false
@@ -203,7 +186,7 @@ public final class AppStore {
     public func purgeExpiredTrashItems() {
         let now = Date()
         let maxAgeSeconds: TimeInterval = 30.0 * 24.0 * 3600.0
-        let iso = ISO8601DateFormatter()
+        let iso = AppDateFormatters.iso8601Standard
         state.deletedItems.removeAll { item in
             if let d = iso.date(from: item.deletedAt) {
                 return now.timeIntervalSince(d) >= maxAgeSeconds
@@ -213,7 +196,7 @@ public final class AppStore {
     }
 
     public func daysRemainingInTrash(for item: DeletedBinItem) -> Int {
-        let iso = ISO8601DateFormatter()
+        let iso = AppDateFormatters.iso8601Standard
         guard let deletedDate = iso.date(from: item.deletedAt) else { return 30 }
         let elapsedDays = Int(Date().timeIntervalSince(deletedDate) / 86400.0)
         return max(1, 30 - elapsedDays)
@@ -454,7 +437,7 @@ public final class AppStore {
 
     public func persist() {
         purgeExpiredTrashItems()
-        state.lastUpdated = ISO8601DateFormatter().string(from: Date())
+        state.lastUpdated = AppDateFormatters.currentIsoString()
         syncAllStudentsLevels()
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
@@ -556,26 +539,27 @@ public final class AppStore {
     }
 
     public func syncAllStudentsLevels() {
-        for i in state.studentsDirectory.indices {
-            let stId = state.studentsDirectory[i].id
-            var bestCode: String? = nil
-            var bestDisplay: String? = nil
-            for course in state.courses where !course.archived {
-                for lvl in course.levels {
-                    let code = normalizeCefrLevel(lvl.code)
-                    for (mIdx, mod) in lvl.modules.enumerated() {
-                        if mod.studentIds.contains(stId) {
-                            let mShort = mod.name.isEmpty ? "M\(mIdx + 1)" : mod.name
-                            bestCode = code
-                            let lvlName = (code == "Altro") ? (lvl.customName.isEmpty ? t("otherLevelOpt") : lvl.customName) : code
-                            bestDisplay = "\(lvlName) \(mShort)"
-                        }
+        // High-performance single-pass inverse index lookup O(C*L*M + S)
+        var studentLevelMap: [String: (code: String, display: String)] = [:]
+        for course in state.courses where !course.archived {
+            for lvl in course.levels {
+                let code = normalizeCefrLevel(lvl.code)
+                let lvlName = (code == "Altro") ? (lvl.customName.isEmpty ? t("otherLevelOpt") : lvl.customName) : code
+                for (mIdx, mod) in lvl.modules.enumerated() {
+                    let mShort = mod.name.isEmpty ? "M\(mIdx + 1)" : mod.name
+                    let display = "\(lvlName) \(mShort)"
+                    for stId in mod.studentIds {
+                        studentLevelMap[stId] = (code, display)
                     }
                 }
             }
-            if let bc = bestCode {
-                state.studentsDirectory[i].currentLevel = bc
-                state.studentsDirectory[i].lastFollowedLevel = bestDisplay
+        }
+
+        for i in state.studentsDirectory.indices {
+            let stId = state.studentsDirectory[i].id
+            if let best = studentLevelMap[stId] {
+                state.studentsDirectory[i].currentLevel = best.code
+                state.studentsDirectory[i].lastFollowedLevel = best.display
             } else {
                 let fallback = normalizeCefrLevel(state.studentsDirectory[i].currentLevel)
                 state.studentsDirectory[i].currentLevel = fallback
@@ -1340,21 +1324,6 @@ public final class AppStore {
         self.showToast("Link Google Meet rimosso dal modulo")
     }
 
-    public func syncCourseToGoogleCalendar(_ course: Course, showNotification: Bool = true) {
-        guard state.settings.googleCalendarConnected else { return }
-        Task { @MainActor in
-            guard let c = self.state.courses.first(where: { $0.id == course.id }) else { return }
-            for lvl in c.levels {
-                for mod in lvl.modules {
-                    self.syncModuleToGoogleCalendar(course: c, module: mod, showNotification: false)
-                }
-            }
-            if showNotification {
-                self.showToast("Tutti i moduli sincronizzati su Google Calendar")
-            }
-        }
-    }
-
     // MARK: - WhatsApp & Email Contact Helpers
 
     public func parseStudentWhatsAppPhone(_ rawPhone: String) -> (hasPrefix: Bool, cleanDigits: String) {
@@ -1396,7 +1365,7 @@ public final class AppStore {
 
     public func exportBackupJSONWithSavePanel() {
         let panel = NSSavePanel()
-        let dateStr = String(ISO8601DateFormatter().string(from: Date()).prefix(10))
+        let dateStr = AppDateFormatters.dateOnly.string(from: Date())
         panel.nameFieldStringValue = "gestione_corsi_backup_\(dateStr).json"
         panel.allowedContentTypes = [.json]
         panel.canCreateDirectories = true

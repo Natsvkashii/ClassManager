@@ -302,9 +302,7 @@ public final class UpdateManager: NSObject, URLSessionDownloadDelegate {
     /// Automatically creates a timestamped JSON backup in the user Documents directory before updating.
     @discardableResult
     public func performPreUpdateBackup(store: AppStore) -> Bool {
-        let df = DateFormatter()
-        df.dateFormat = "yyyyMMdd_HHmmss"
-        let timestamp = df.string(from: Date())
+        let timestamp = AppDateFormatters.backupTimestamp.string(from: Date())
         let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first
             ?? FileManager.default.temporaryDirectory
         let backupsDir = docs.appendingPathComponent("ClassDesk_Backups")

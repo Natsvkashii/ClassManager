@@ -143,14 +143,26 @@ public struct GlobalCalendarView: View {
         }
     }
 
+    private static let dayHeaderFormatterIt: DateFormatter = {
+        let df = DateFormatter()
+        df.locale = Locale(identifier: "it_IT")
+        df.dateFormat = "EEEE d MMMM yyyy"
+        return df
+    }()
+
+    private static let dayHeaderFormatterEn: DateFormatter = {
+        let df = DateFormatter()
+        df.locale = Locale(identifier: "en_US")
+        df.dateFormat = "EEEE d MMMM yyyy"
+        return df
+    }()
+
     private var headerTitle: String {
         let cal = Calendar.current
-        let df = DateFormatter()
-        df.locale = Locale(identifier: store.state.settings.language == "it" ? "it_IT" : "en_US")
 
         switch viewMode {
         case .day:
-            df.dateFormat = "EEEE d MMMM yyyy"
+            let df = store.state.settings.language == "it" ? Self.dayHeaderFormatterIt : Self.dayHeaderFormatterEn
             let str = df.string(from: store.calendarCursor)
             return str.prefix(1).uppercased() + str.dropFirst()
 
@@ -293,15 +305,9 @@ public struct GlobalCalendarView: View {
     private func calculateSideBySideLayout(events: [CalEvent], startHour: Int) -> [PlacedDayEvent] {
         guard !events.isEmpty else { return [] }
 
-        func parseMin(_ tStr: String) -> Int {
-            let p = tStr.split(separator: ":").compactMap { Int($0) }
-            if p.count >= 2 { return p[0] * 60 + p[1] }
-            return 9 * 60
-        }
-
         let items = events.map { ev -> (event: CalEvent, start: Int, end: Int) in
-            let s = parseMin(ev.time)
-            let e = max(s + 30, parseMin(ev.endTime))
+            let s = ev.time.minutesFromTimeString(defaultMinutes: 9 * 60)
+            let e = max(s + 30, ev.endTime.minutesFromTimeString(defaultMinutes: s + 60))
             return (ev, s, e)
         }.sorted {
             if $0.start != $1.start { return $0.start < $1.start }

@@ -37,6 +37,77 @@ public enum AuthorAttribution {
     }
 }
 
+// MARK: - Thread-Safe Cached Date & Time Formatters (High-Performance Optimization)
+
+public enum AppDateFormatters {
+    public static let iso8601Standard: ISO8601DateFormatter = {
+        let f = ISO8601DateFormatter()
+        return f
+    }()
+
+    public static let iso8601Full: ISO8601DateFormatter = {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return f
+    }()
+
+    public static func currentIsoString() -> String {
+        return iso8601Standard.string(from: Date())
+    }
+
+    public static let backupTimestamp: DateFormatter = {
+        let df = DateFormatter()
+        df.dateFormat = "yyyyMMdd_HHmmss"
+        df.locale = Locale(identifier: "en_US_POSIX")
+        return df
+    }()
+
+    public static let dateOnly: DateFormatter = {
+        let df = DateFormatter()
+        df.dateFormat = "yyyy-MM-dd"
+        df.locale = Locale(identifier: "en_US_POSIX")
+        return df
+    }()
+
+    public static let timeOnly: DateFormatter = {
+        let tf = DateFormatter()
+        tf.dateFormat = "HH:mm"
+        tf.locale = Locale(identifier: "en_US_POSIX")
+        return tf
+    }()
+
+    public static let displayDateTime: DateFormatter = {
+        let df = DateFormatter()
+        df.dateStyle = .medium
+        df.timeStyle = .short
+        return df
+    }()
+
+    public static let filenameTimestamp: DateFormatter = {
+        let df = DateFormatter()
+        df.dateFormat = "yyyy-MM-dd_HH-mm-ss"
+        df.locale = Locale(identifier: "en_US_POSIX")
+        return df
+    }()
+
+    public static let lessonDateTime: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd HH:mm"
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        return formatter
+    }()
+}
+
+extension String {
+    public func minutesFromTimeString(defaultMinutes: Int = 0) -> Int {
+        let parts = self.split(separator: ":").compactMap { Int($0) }
+        if parts.count >= 2 {
+            return parts[0] * 60 + parts[1]
+        }
+        return defaultMinutes
+    }
+}
+
 public enum NavigationTab: String, CaseIterable, Identifiable {
     case home
     case attendance
@@ -1109,7 +1180,7 @@ public struct ActivityItem: Codable, Identifiable, Equatable {
     public var instructions: String = ""
     public var materials: String = ""
     public var criteriaNotes: String = ""
-    public var createdAt: String = ISO8601DateFormatter().string(from: Date())
+    public var createdAt: String = AppDateFormatters.currentIsoString()
 
     enum CodingKeys: String, CodingKey {
         case id, name, weight, startDate, endDate, useRubric, rubricId, objectives, contents, instructions, materials, criteriaNotes, createdAt
@@ -1127,7 +1198,7 @@ public struct ActivityItem: Codable, Identifiable, Equatable {
                 instructions: String = "",
                 materials: String = "",
                 criteriaNotes: String = "",
-                createdAt: String = ISO8601DateFormatter().string(from: Date())) {
+                createdAt: String = AppDateFormatters.currentIsoString()) {
         self.id = id
         self.name = name
         self.weight = weight
@@ -1158,7 +1229,7 @@ public struct ActivityItem: Codable, Identifiable, Equatable {
         instructions = c.flexString(.instructions, default: "")
         materials = c.flexString(.materials, default: "")
         criteriaNotes = c.flexString(.criteriaNotes, default: "")
-        createdAt = c.flexString(.createdAt, default: ISO8601DateFormatter().string(from: Date()))
+        createdAt = c.flexString(.createdAt, default: AppDateFormatters.currentIsoString())
     }
 
     public init(dict: [String: Any]) {
@@ -1175,7 +1246,7 @@ public struct ActivityItem: Codable, Identifiable, Equatable {
         instructions = JSONDictHelper.str(dict["instructions"], default: "")
         materials = JSONDictHelper.str(dict["materials"], default: "")
         criteriaNotes = JSONDictHelper.str(dict["criteriaNotes"], default: "")
-        createdAt = JSONDictHelper.str(dict["createdAt"], default: ISO8601DateFormatter().string(from: Date()))
+        createdAt = JSONDictHelper.str(dict["createdAt"], default: AppDateFormatters.currentIsoString())
     }
 }
 
@@ -1440,7 +1511,7 @@ public struct DeletedBinItem: Codable, Identifiable, Equatable {
                 itemType: String,
                 title: String,
                 subtitle: String = "",
-                deletedAt: String = ISO8601DateFormatter().string(from: Date()),
+                deletedAt: String = AppDateFormatters.currentIsoString(),
                 courseId: String? = nil,
                 sectionId: String? = nil,
                 payloadJSON: String = "") {
@@ -1460,7 +1531,7 @@ public struct DeletedBinItem: Codable, Identifiable, Equatable {
         itemType = c.flexString(.itemType, default: "item")
         title = c.flexString(.title, default: "")
         subtitle = c.flexString(.subtitle, default: "")
-        deletedAt = c.flexString(.deletedAt, default: ISO8601DateFormatter().string(from: Date()))
+        deletedAt = c.flexString(.deletedAt, default: AppDateFormatters.currentIsoString())
         courseId = c.flexOptString(.courseId)
         sectionId = c.flexOptString(.sectionId)
         payloadJSON = c.flexString(.payloadJSON, default: "")
@@ -1471,7 +1542,7 @@ public struct DeletedBinItem: Codable, Identifiable, Equatable {
         itemType = JSONDictHelper.str(dict["itemType"], default: "item")
         title = JSONDictHelper.str(dict["title"], default: "")
         subtitle = JSONDictHelper.str(dict["subtitle"], default: "")
-        deletedAt = JSONDictHelper.str(dict["deletedAt"], default: ISO8601DateFormatter().string(from: Date()))
+        deletedAt = JSONDictHelper.str(dict["deletedAt"], default: AppDateFormatters.currentIsoString())
         courseId = JSONDictHelper.optStr(dict["courseId"])
         sectionId = JSONDictHelper.optStr(dict["sectionId"])
         payloadJSON = JSONDictHelper.str(dict["payloadJSON"], default: "")
@@ -1480,7 +1551,7 @@ public struct DeletedBinItem: Codable, Identifiable, Equatable {
 
 public struct AppState: Codable, Equatable {
     public var version: String = AuthorAttribution.appVersion
-    public var lastUpdated: String = ISO8601DateFormatter().string(from: Date())
+    public var lastUpdated: String = AppDateFormatters.currentIsoString()
     public var activeCourseId: String = ""
     public var changelog: [ChangelogEntry] = AppState.defaultChangelog
     public var settings: AppSettings = AppSettings()
@@ -1498,9 +1569,9 @@ public struct AppState: Codable, Equatable {
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         version = c.flexString(.version, default: AuthorAttribution.appVersion)
-        lastUpdated = c.flexString(.lastUpdated, default: ISO8601DateFormatter().string(from: Date()))
+        lastUpdated = c.flexString(.lastUpdated, default: AppDateFormatters.currentIsoString())
         activeCourseId = c.flexString(.activeCourseId, default: "")
-        changelog = (try? c.decodeIfPresent([ChangelogEntry].self, forKey: .changelog)) ?? AppState.defaultChangelog
+        changelog = AppState.defaultChangelog
         settings = (try? c.decodeIfPresent(AppSettings.self, forKey: .settings)) ?? AppSettings()
         rubrics = (try? c.decodeIfPresent([Rubric].self, forKey: .rubrics)) ?? AppState.defaultRubrics
         studentsDirectory = (try? c.decodeIfPresent([Student].self, forKey: .studentsDirectory)) ?? []
@@ -1508,9 +1579,24 @@ public struct AppState: Codable, Equatable {
         deletedItems = (try? c.decodeIfPresent([DeletedBinItem].self, forKey: .deletedItems)) ?? []
     }
 
+    public func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(version, forKey: .version)
+        try c.encode(lastUpdated, forKey: .lastUpdated)
+        try c.encode(activeCourseId, forKey: .activeCourseId)
+        // Optimization: serialize only the current release changelog entry to reduce file & iCloud sync bloat
+        let prunedChangelog = Array(changelog.prefix(1))
+        try c.encode(prunedChangelog, forKey: .changelog)
+        try c.encode(settings, forKey: .settings)
+        try c.encode(rubrics, forKey: .rubrics)
+        try c.encode(studentsDirectory, forKey: .studentsDirectory)
+        try c.encode(courses, forKey: .courses)
+        try c.encode(deletedItems, forKey: .deletedItems)
+    }
+
     public init(dict: [String: Any]) {
         version = JSONDictHelper.str(dict["version"], default: AuthorAttribution.appVersion)
-        lastUpdated = JSONDictHelper.str(dict["lastUpdated"], default: ISO8601DateFormatter().string(from: Date()))
+        lastUpdated = JSONDictHelper.str(dict["lastUpdated"], default: AppDateFormatters.currentIsoString())
         activeCourseId = JSONDictHelper.str(dict["activeCourseId"], default: "")
 
         if let setDict = dict["settings"] as? [String: Any] {

@@ -377,7 +377,7 @@ public final class GoogleCalendarManager: ObservableObject {
         let minDate = cal.date(byAdding: .day, value: -14, to: startOfMonth) ?? startOfMonth
         let maxDate = cal.date(byAdding: .day, value: 50, to: startOfMonth) ?? startOfMonth
 
-        let isoFmt = ISO8601DateFormatter()
+        let isoFmt = AppDateFormatters.iso8601Standard
         let timeMinStr = isoFmt.string(from: minDate).addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
         let timeMaxStr = isoFmt.string(from: maxDate).addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
 

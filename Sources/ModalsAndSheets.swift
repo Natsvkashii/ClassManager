@@ -787,10 +787,7 @@ public struct LessonPlanSheet: View {
 
         if let sk = slotKey {
             let dOnly = store.extractDate(from: sk)
-            let df = DateFormatter()
-            df.dateFormat = "yyyy-MM-dd"
-            df.locale = Locale(identifier: "en_US_POSIX")
-            if let parsed = df.date(from: dOnly) { lessonDate = parsed }
+            if let parsed = AppDateFormatters.dateOnly.date(from: dOnly) { lessonDate = parsed }
             if let les = store.findLesson(in: course, sectionId: sectionId, slotKey: sk) {
                 startTime = les.time
                 endTime = les.endTime
@@ -822,10 +819,7 @@ public struct LessonPlanSheet: View {
 
         store.recordUndoSnapshot()
 
-        let df = DateFormatter()
-        df.dateFormat = "yyyy-MM-dd"
-        df.locale = Locale(identifier: "en_US_POSIX")
-        let newDateStr = df.string(from: lessonDate)
+        let newDateStr = AppDateFormatters.dateOnly.string(from: lessonDate)
 
         var finalSlotKey = slotKey ?? ""
         let existingDates = store.state.courses[cIdx].levels[lIdx].modules[mIdx].dates
@@ -1041,9 +1035,7 @@ public struct RecurringLessonsSheet: View {
         store.state.courses[cIdx].levels[lIdx].modules[mIdx].endTime = endTime
         store.state.courses[cIdx].levels[lIdx].modules[mIdx].weekdays = Array(selectedWeekdays).sorted()
 
-        let df = DateFormatter()
-        df.dateFormat = "yyyy-MM-dd"
-        df.locale = Locale(identifier: "en_US_POSIX")
+        let df = AppDateFormatters.dateOnly
         let cal = Calendar.current
         var cur = startDate
         var added = 0
@@ -1179,12 +1171,7 @@ public struct ActivityFormSheet: View {
     @State private var criteriaNotes: String = ""
     @State private var showDraftPrompt: Bool = false
 
-    private static let ymdFormatter: DateFormatter = {
-        let f = DateFormatter()
-        f.dateFormat = "yyyy-MM-dd"
-        f.calendar = Calendar(identifier: .gregorian)
-        return f
-    }()
+    private static let ymdFormatter: DateFormatter = AppDateFormatters.dateOnly
 
     public init(editingActivity: ActivityItem?) {
         self.editingActivity = editingActivity
@@ -1549,7 +1536,7 @@ public struct ActivityFormSheet: View {
             instructions: instructions,
             materials: materials,
             criteriaNotes: criteriaNotes,
-            createdAt: editingActivity?.createdAt ?? ISO8601DateFormatter().string(from: Date())
+            createdAt: editingActivity?.createdAt ?? AppDateFormatters.currentIsoString()
         )
 
         if let existing = editingActivity,
@@ -1582,7 +1569,7 @@ public struct ActivityFormSheet: View {
             instructions: instructions,
             materials: materials,
             criteriaNotes: criteriaNotes,
-            createdAt: editingActivity?.createdAt ?? ISO8601DateFormatter().string(from: Date())
+            createdAt: editingActivity?.createdAt ?? AppDateFormatters.currentIsoString()
         )
 
         if let existing = editingActivity,
