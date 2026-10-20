@@ -776,15 +776,15 @@ public struct StudentsDirectoryView: View {
                     Text("\(store.t("studentCol")) (\(filtered.count))")
                         .frame(width: 260, alignment: .leading)
                     Text(store.t("studentGroupsCol"))
-                        .frame(width: 185, alignment: .leading)
+                        .frame(width: 200, alignment: .leading)
                     Text(store.t("studentLatestLevelCol"))
-                        .frame(width: 70, alignment: .center)
+                        .frame(width: 80, alignment: .center)
                     Text(store.t("studentPhoneLabel"))
                         .frame(width: 135, alignment: .leading)
                     Text(store.t("emailCol"))
                         .frame(maxWidth: .infinity, alignment: .leading)
                     Text(store.t("cityCol"))
-                        .frame(width: 125, alignment: .leading)
+                        .frame(width: 135, alignment: .leading)
                     Text(store.t("actionsCol"))
                         .frame(width: 125, alignment: .trailing)
                 }
@@ -865,7 +865,7 @@ public struct StudentsDirectoryView: View {
                                         .padding(.vertical, 3)
                                         .background(Capsule().fill(Color.blue.opacity(0.15)))
                                         .foregroundStyle(.blue)
-                                        .frame(width: 75, alignment: .center)
+                                        .frame(width: 80, alignment: .center)
 
                                     // Column 4: Phone
                                     HStack(spacing: 5) {
@@ -910,7 +910,7 @@ public struct StudentsDirectoryView: View {
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
                                     .blur(radius: store.showSensitiveDirectoryData ? 0 : 5)
-                                    .frame(width: 140, alignment: .leading)
+                                    .frame(width: 135, alignment: .leading)
 
                                     // Column 7: Actions (Scheda + Delete with Confirmation)
                                     HStack(spacing: 8) {

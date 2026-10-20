@@ -97,8 +97,14 @@ private struct ScheduledHomeLesson: Identifiable {
     let meetUrl: String?
     let lessonNum: Int
     let lessonTitle: String
+    let hasCustomTitle: Bool
     let badge: String
     let studentCount: Int
+    let studentNames: [String]
+    let topics: String
+    let objectives: String
+    let homework: String
+    let notes: String
     let isLiveNow: Bool
     let isFutureOrToday: Bool
 }
@@ -126,6 +132,9 @@ public struct HomeView: View {
                 for mod in lvl.modules {
                     let badge = store.formatLevelModuleBadge(course: c, level: lvl, module: mod)
                     let sortedSlots = store.sortedSlots(for: c, module: mod)
+                    let enrolledStudentNames: [String] = mod.studentIds.compactMap { sid in
+                        store.state.studentsDirectory.first(where: { $0.id == sid })?.fullName
+                    }
                     for (idx, slotKey) in sortedSlots.enumerated() {
                         let dateIso = store.extractDate(from: slotKey)
                         let lp = store.findLesson(in: c, sectionId: mod.id, slotKey: slotKey)
@@ -139,7 +148,9 @@ public struct HomeView: View {
                         let m = diff % 60
                         let durStr = (h > 0 && m > 0) ? "\(h)h \(m)m" : (h > 0 ? "\(h)h" : "\(m)m")
                         let meet = (lp?.googleMeetUrl?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false) ? lp?.googleMeetUrl : mod.googleMeetUrl
-                        let title = (lp?.title.isEmpty == false) ? lp!.title : "\(store.t("lessonNumberTitle")) \(idx + 1)"
+                        let rawTitle = lp?.title.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+                        let hasCustom = !rawTitle.isEmpty
+                        let title = hasCustom ? rawTitle : "\(store.t("lessonNumberTitle")) \(idx + 1)"
                         let isLive = (dateIso == todayIso && sTime <= nowTime && nowTime < eTime)
                         let isFuture = (dateIso > todayIso) || (dateIso == todayIso && eTime > nowTime)
 
@@ -157,8 +168,14 @@ public struct HomeView: View {
                             meetUrl: meet,
                             lessonNum: idx + 1,
                             lessonTitle: title,
+                            hasCustomTitle: hasCustom,
                             badge: badge,
                             studentCount: mod.studentIds.count,
+                            studentNames: enrolledStudentNames,
+                            topics: lp?.topics.trimmingCharacters(in: .whitespacesAndNewlines) ?? "",
+                            objectives: lp?.objectives.trimmingCharacters(in: .whitespacesAndNewlines) ?? "",
+                            homework: lp?.homework.trimmingCharacters(in: .whitespacesAndNewlines) ?? "",
+                            notes: lp?.notes.trimmingCharacters(in: .whitespacesAndNewlines) ?? "",
                             isLiveNow: isLive,
                             isFutureOrToday: isFuture
                         ))
@@ -438,11 +455,19 @@ public struct HomeView: View {
 
             // Title & Lesson Number
             VStack(alignment: .leading, spacing: 4) {
-                Text(item.lessonTitle)
-                    .font(.title2.bold())
-                Text("\(store.t("lessonNumberTitle")) \(item.lessonNum) • \(item.module.name)")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                if item.hasCustomTitle {
+                    Text(item.lessonTitle)
+                        .font(.title2.bold())
+                    Text("\(store.t("lessonNumberTitle")) \(item.lessonNum) • \(item.module.name)")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                } else {
+                    Text("\(store.t("lessonNumberTitle")) \(item.lessonNum)")
+                        .font(.title2.bold())
+                    Text("\(item.level.name) • \(item.module.name)")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
             }
 
             // Metric Cards: Date, Time, Duration, Type
@@ -453,9 +478,123 @@ public struct HomeView: View {
                 metricBox(icon: "graduationcap", title: "Tipo", value: item.course.type == "private" ? store.t("privateBadge") : store.t("groupBadge"))
             }
 
+            // Enrolled Students Roster Row (if students enrolled)
+            if !item.studentNames.isEmpty {
+                HStack(spacing: 8) {
+                    Image(systemName: "person.2.fill")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                    Text("\(store.t("enrolledStudentsCountLabel")):")
+                        .font(.caption.bold())
+                        .foregroundStyle(.secondary)
+
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 6) {
+                            ForEach(item.studentNames, id: \.self) { sName in
+                                HStack(spacing: 4) {
+                                    Circle()
+                                        .fill(pal.color)
+                                        .frame(width: 5, height: 5)
+                                    Text(sName)
+                                        .font(.caption.weight(.semibold))
+                                }
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 3)
+                                .background(Capsule().fill(Color.secondary.opacity(0.10)))
+                            }
+                        }
+                    }
+                }
+                .padding(.horizontal, 4)
+            }
+
+            // Didactic Details: Topics, Objectives, Homework, Notes
+            let hasDidactics = !item.topics.isEmpty || !item.objectives.isEmpty || !item.homework.isEmpty || !item.notes.isEmpty
+            if hasDidactics {
+                VStack(alignment: .leading, spacing: 8) {
+                    if !item.topics.isEmpty {
+                        VStack(alignment: .leading, spacing: 3) {
+                            Label(store.t("topicsContentsLabel"), systemImage: "list.bullet")
+                                .font(.caption.bold())
+                                .foregroundStyle(.blue)
+                            Text(item.topics)
+                                .font(.callout)
+                                .foregroundStyle(.primary)
+                        }
+                        .padding(10)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(RoundedRectangle(cornerRadius: 10).fill(Color.blue.opacity(0.06)))
+                    }
+
+                    if !item.objectives.isEmpty {
+                        VStack(alignment: .leading, spacing: 3) {
+                            Label(store.t("objectivesLabel"), systemImage: "target")
+                                .font(.caption.bold())
+                                .foregroundStyle(.indigo)
+                            Text(item.objectives)
+                                .font(.callout)
+                                .foregroundStyle(.primary)
+                        }
+                        .padding(10)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(RoundedRectangle(cornerRadius: 10).fill(Color.indigo.opacity(0.06)))
+                    }
+
+                    if !item.homework.isEmpty || !item.notes.isEmpty {
+                        HStack(spacing: 8) {
+                            if !item.homework.isEmpty {
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Label(store.t("homeworkVerifyLabel"), systemImage: "book.closed")
+                                        .font(.caption.bold())
+                                        .foregroundStyle(.orange)
+                                    Text(item.homework)
+                                        .font(.caption)
+                                        .lineLimit(3)
+                                }
+                                .padding(8)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .background(RoundedRectangle(cornerRadius: 8).fill(Color.orange.opacity(0.06)))
+                            }
+                            if !item.notes.isEmpty {
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Label(store.t("notesLabel"), systemImage: "note.text")
+                                        .font(.caption.bold())
+                                        .foregroundStyle(.purple)
+                                    Text(item.notes)
+                                        .font(.caption)
+                                        .lineLimit(3)
+                                }
+                                .padding(8)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .background(RoundedRectangle(cornerRadius: 8).fill(Color.purple.opacity(0.06)))
+                            }
+                        }
+                    }
+                }
+            } else {
+                HStack(spacing: 8) {
+                    Image(systemName: "pencil.and.list.clipboard")
+                        .foregroundStyle(.secondary)
+                    Text(store.t("lessonNoTopicsYet"))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Button {
+                        activeSheet = .lessonPlan(courseId: item.course.id, sectionId: item.module.id, slotKey: item.slotKey)
+                    } label: {
+                        Label(store.t("addLessonPlanQuickBtn"), systemImage: "plus")
+                            .font(.caption.bold())
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                }
+                .padding(10)
+                .background(RoundedRectangle(cornerRadius: 10).fill(Color.secondary.opacity(0.05)))
+            }
+
             Divider()
 
-            // Actions: Join, Copy, Register
+            // Actions: Join, Copy, Lesson Plan, Register
             HStack(spacing: 12) {
                 if let meet = item.meetUrl, !meet.isEmpty, let url = URL(string: meet) {
                     Button {
@@ -472,6 +611,14 @@ public struct HomeView: View {
                     store.copyLessonStudentInvitation(course: item.course, module: item.module, slotKey: item.slotKey)
                 } label: {
                     Label(store.t("copyLessonInviteBtn"), systemImage: "square.and.arrow.up")
+                        .font(.callout.bold())
+                }
+                .buttonStyle(.bordered)
+
+                Button {
+                    activeSheet = .lessonPlan(courseId: item.course.id, sectionId: item.module.id, slotKey: item.slotKey)
+                } label: {
+                    Label(store.t("lessonPlanTitle"), systemImage: "text.book.closed")
                         .font(.callout.bold())
                 }
                 .buttonStyle(.bordered)
@@ -534,13 +681,19 @@ public struct HomeView: View {
             }
 
             VStack(alignment: .leading, spacing: 2) {
-                Text(item.lessonTitle)
+                Text(item.hasCustomTitle ? item.lessonTitle : "\(store.t("lessonNumberTitle")) \(item.lessonNum)")
                     .font(.subheadline.bold())
                     .lineLimit(1)
-                Text(item.course.name)
+                Text("\(item.course.name) • \(item.module.name)")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
+                if !item.topics.isEmpty {
+                    Text(item.topics)
+                        .font(.system(size: 10))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
             }
 
             HStack(spacing: 4) {
@@ -580,6 +733,16 @@ public struct HomeView: View {
                 .buttonStyle(.bordered)
                 .controlSize(.small)
                 .help(store.t("copyLessonInviteBtn"))
+
+                Button {
+                    activeSheet = .lessonPlan(courseId: item.course.id, sectionId: item.module.id, slotKey: item.slotKey)
+                } label: {
+                    Image(systemName: "text.book.closed")
+                        .font(.caption)
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+                .help(store.t("lessonPlanTitle"))
 
                 Spacer()
 

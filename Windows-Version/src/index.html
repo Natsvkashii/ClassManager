@@ -16,7 +16,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ClassDesk v26.10.4-021 (Windows Native Edition)</title>
+    <title>ClassDesk v26.10.4-022 (Windows Native Edition)</title>
     <link rel="icon" type="image/png" href="logo.png">
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -167,7 +167,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                     <span class="sidebar-text" id="sidebarFeedbackBtnText">Invia Feedback</span>
                 </button>
                 <div class="sidebar-footer-card p-1.5 rounded-xl bg-slate-50 dark:bg-navy-950/40 text-[10px] text-center text-slate-400 dark:text-slate-500 font-semibold">
-                    <span id="sidebarVersionBadge">ClassDesk v26.10.4-021</span>
+                    <span id="sidebarVersionBadge">ClassDesk v26.10.4-022</span>
                 </div>
             </div>
         </aside>
@@ -517,6 +517,12 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 lessonInviteDate: "Data",
                 lessonInviteTime: "Orario",
                 lessonInviteLink: "Link per la lezione",
+                lessonNumberTitle: "Lezione",
+                lessonDetailsHeading: "Dettagli della lezione",
+                lessonNoTopicsYet: "Nessun argomento o obiettivo specificato per questa lezione.",
+                addLessonPlanQuickBtn: "Compila Piano Didattico",
+                viewAttendanceQuickBtn: "Registro Presenze",
+                enrolledStudentsCountLabel: "Studenti iscritti",
                 formerStudentsSubtitle: "Nessuno studente è stato archiviato tra gli ex studenti di questo gruppo.",
                 rosterEmptySubtitle: "Iscrivi studenti a questo modulo tramite il pulsante in alto a destra per iniziare a gestire presenze, voti e lezioni.",
                 liveLessonNow: "Lezione in corso adesso",
@@ -803,6 +809,12 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 lessonInviteDate: "Date",
                 lessonInviteTime: "Time",
                 lessonInviteLink: "Lesson link",
+                lessonNumberTitle: "Lesson",
+                lessonDetailsHeading: "Lesson details",
+                lessonNoTopicsYet: "No topics or objectives specified for this lesson.",
+                addLessonPlanQuickBtn: "Fill Lesson Plan",
+                viewAttendanceQuickBtn: "Attendance Roster",
+                enrolledStudentsCountLabel: "Enrolled students",
                 formerStudentsSubtitle: "No students have been archived among former students for this group.",
                 rosterEmptySubtitle: "Enroll students in this module using the button at the top right to start managing attendance, grades and lessons.",
                 liveLessonNow: "Live lesson right now",
@@ -1089,6 +1101,12 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 lessonInviteDate: "Fecha",
                 lessonInviteTime: "Horario",
                 lessonInviteLink: "Enlace de la clase",
+                lessonNumberTitle: "Clase",
+                lessonDetailsHeading: "Detalles de la clase",
+                lessonNoTopicsYet: "Ningún tema u objetivo especificado para esta clase.",
+                addLessonPlanQuickBtn: "Completar Plan Didáctico",
+                viewAttendanceQuickBtn: "Registro de Asistencia",
+                enrolledStudentsCountLabel: "Alumnos inscritos",
                 formerStudentsSubtitle: "Ningún alumno ha sido archivado entre los antiguos alumnos de este grupo.",
                 rosterEmptySubtitle: "Inscribe alumnos en este módulo con el botón arriba a la derecha para empezar a gestionar asistencias, notas y clases.",
                 liveLessonNow: "Clase en curso ahora",
@@ -1146,12 +1164,21 @@ Removing, obfuscating, or altering these credits violates the author's attributi
         ];
 
         const INITIAL_DATA = {
-            version: "26.10.4-021",
+            version: "26.10.4-022",
             channel: "unstable",
             deletedItems: [],
             lastUpdated: new Date().toISOString(),
             activeCourseId: "",
             changelog: [
+                {
+                    version: "26.10.4-022",
+                    date: "2026-10-20",
+                    changes: [
+                        "Allineamento millimetrico della colonna 'Livello' nell'Anagrafica studenti con sincronizzazione perfetta dei frame tra testata e celle.",
+                        "Layout responsive della barra superiore: eliminato l'accavallamento verticale del testo modulo su finestre ridotte e protetto il pulsante '+ Nuovo Corso' da troncamenti.",
+                        "Scheda Dinamica arricchita: risolta la chiave di localizzazione della lezione ('Lezione 1' anziché stringa grezza), eliminata la duplicazione del titolo e integrata la visualizzazione completa di studenti iscritti, argomenti, obiettivi, compiti, note e scorciatoia rapida al piano didattico."
+                    ]
+                },
                 {
                     version: "26.10.4-021",
                     date: "2026-10-20",
@@ -2194,6 +2221,11 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                             const stCount = (mod.studentIds || []).length;
                             const sortedSlots = this.sortModuleSlots(c, mod) || [];
 
+                            const enrolledStudentNames = (mod.studentIds || []).map(sid => {
+                                const st = (this.state.studentsDirectory || []).find(s => s.id === sid);
+                                return st ? `${st.firstName} ${st.lastName}`.trim() : "";
+                            }).filter(Boolean);
+
                             for (let i = 0; i < sortedSlots.length; i++) {
                                 const slotKey = sortedSlots[i];
                                 const dateIso = this.extractDateFromSlotKey(slotKey);
@@ -2204,7 +2236,9 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                                 const durMins = this.calculateLessonDurationMinutes(sTime, eTime);
                                 const durHuman = this.formatDurationHuman(durMins);
                                 const lessonNum = i + 1;
-                                const lessonTitle = les?.title || `${this.t("lessonNumberTitle")} ${lessonNum}`;
+                                const rawTitle = (les?.title || "").trim();
+                                const hasCustomTitle = rawTitle.length > 0;
+                                const lessonTitle = hasCustomTitle ? rawTitle : `${this.t("lessonNumberTitle")} ${lessonNum}`;
                                 const hasAttendance = this.hasAttendanceRecord(mod, slotKey);
 
                                 const isLiveNow = (dateIso === todayIso && sTime <= nowTime && nowTime < eTime);
@@ -2224,9 +2258,15 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                                     meetUrl,
                                     lessonNum,
                                     lessonTitle,
+                                    hasCustomTitle,
                                     badge,
                                     color: pal,
                                     studentCount: stCount,
+                                    studentNames: enrolledStudentNames,
+                                    topics: (les?.topics || "").trim(),
+                                    objectives: (les?.objectives || "").trim(),
+                                    homework: (les?.homework || "").trim(),
+                                    notes: (les?.notes || "").trim(),
                                     hasAttendance,
                                     isLiveNow,
                                     isFutureOrToday,
@@ -3032,10 +3072,10 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                                 <div class="py-4 space-y-4">
                                     <div>
                                         <h2 class="text-xl sm:text-2xl font-black text-slate-900 dark:text-white leading-tight">
-                                            ${this.escapeHtml(featuredLesson.lessonTitle)}
+                                            ${this.escapeHtml(featuredLesson.hasCustomTitle ? featuredLesson.lessonTitle : `${this.t("lessonNumberTitle")} ${featuredLesson.lessonNum}`)}
                                         </h2>
                                         <p class="text-xs font-semibold text-slate-400 mt-1">
-                                            ${this.t("lessonNumberTitle")} ${featuredLesson.lessonNum} • ${this.escapeHtml(featuredLesson.module.name || 'Modulo')}
+                                            ${featuredLesson.hasCustomTitle ? `${this.t("lessonNumberTitle")} ${featuredLesson.lessonNum} • ${this.escapeHtml(featuredLesson.module.name || 'Modulo')}` : `${this.escapeHtml(featuredLesson.level.name || '')} • ${this.escapeHtml(featuredLesson.module.name || 'Modulo')}`}
                                         </p>
                                     </div>
 
@@ -3057,6 +3097,60 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                                             <span class="font-extrabold text-xs sm:text-sm text-slate-800 dark:text-slate-100">${featuredLesson.course.type === 'private' ? this.t("privateBadge") : this.t("groupBadge")}</span>
                                         </div>
                                     </div>
+
+                                    ${(featuredLesson.studentNames && featuredLesson.studentNames.length > 0) ? `
+                                        <div class="flex items-center gap-2 flex-wrap pt-1 text-xs">
+                                            <span class="font-bold text-slate-500 dark:text-slate-400 flex items-center gap-1">
+                                                <i class="fa-solid fa-users text-[10px]"></i> ${this.t("enrolledStudentsCountLabel")}:
+                                            </span>
+                                            ${featuredLesson.studentNames.map(sn => `
+                                                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-100 dark:bg-navy-800 text-slate-700 dark:text-slate-200 font-semibold text-xs border border-slate-200/60 dark:border-slate-700">
+                                                    <span class="w-1.5 h-1.5 rounded-full" style="background-color: ${featuredLesson.color.hex}"></span>
+                                                    ${this.escapeHtml(sn)}
+                                                </span>
+                                            `).join('')}
+                                        </div>
+                                    ` : ''}
+
+                                    ${(featuredLesson.topics || featuredLesson.objectives || featuredLesson.homework || featuredLesson.notes) ? `
+                                        <div class="space-y-2 pt-2 border-t border-sky-100/60 dark:border-slate-800">
+                                            ${featuredLesson.topics ? `
+                                                <div class="p-3 rounded-xl bg-sky-50/50 dark:bg-navy-800/40 border border-sky-100/60 dark:border-slate-800 text-xs">
+                                                    <span class="font-bold text-sky-700 dark:text-sky-300 block mb-0.5"><i class="fa-solid fa-list-check mr-1"></i> ${this.t("topicsContentsLabel")}</span>
+                                                    <p class="text-slate-700 dark:text-slate-200 whitespace-pre-wrap">${this.escapeHtml(featuredLesson.topics)}</p>
+                                                </div>
+                                            ` : ''}
+                                            ${featuredLesson.objectives ? `
+                                                <div class="p-3 rounded-xl bg-indigo-50/50 dark:bg-navy-800/40 border border-indigo-100/60 dark:border-slate-800 text-xs">
+                                                    <span class="font-bold text-indigo-700 dark:text-indigo-300 block mb-0.5"><i class="fa-solid fa-bullseye mr-1"></i> ${this.t("objectivesLabel")}</span>
+                                                    <p class="text-slate-700 dark:text-slate-200 whitespace-pre-wrap">${this.escapeHtml(featuredLesson.objectives)}</p>
+                                                </div>
+                                            ` : ''}
+                                            ${(featuredLesson.homework || featuredLesson.notes) ? `
+                                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                                    ${featuredLesson.homework ? `
+                                                        <div class="p-2.5 rounded-xl bg-amber-50/50 dark:bg-navy-800/40 border border-amber-100/60 dark:border-slate-800 text-xs">
+                                                            <span class="font-bold text-amber-700 dark:text-amber-300 block mb-0.5"><i class="fa-solid fa-book-open mr-1"></i> ${this.t("homeworkVerifyLabel")}</span>
+                                                            <p class="text-slate-700 dark:text-slate-200 line-clamp-3">${this.escapeHtml(featuredLesson.homework)}</p>
+                                                        </div>
+                                                    ` : ''}
+                                                    ${featuredLesson.notes ? `
+                                                        <div class="p-2.5 rounded-xl bg-purple-50/50 dark:bg-navy-800/40 border border-purple-100/60 dark:border-slate-800 text-xs">
+                                                            <span class="font-bold text-purple-700 dark:text-purple-300 block mb-0.5"><i class="fa-solid fa-note-sticky mr-1"></i> ${this.t("notesLabel")}</span>
+                                                            <p class="text-slate-700 dark:text-slate-200 line-clamp-3">${this.escapeHtml(featuredLesson.notes)}</p>
+                                                        </div>
+                                                    ` : ''}
+                                                </div>
+                                            ` : ''}
+                                        </div>
+                                    ` : `
+                                        <div class="p-3 rounded-xl bg-slate-50 dark:bg-navy-800/30 border border-dashed border-slate-200 dark:border-slate-800 flex items-center justify-between gap-3 text-xs">
+                                            <span class="text-slate-400"><i class="fa-solid fa-file-pen mr-1"></i> ${this.t("lessonNoTopicsYet")}</span>
+                                            <button type="button" onclick="app.openLessonPlanModal('${featuredLesson.course.id}', '${featuredLesson.module.id}', '${featuredLesson.slotKey}')" class="px-2.5 py-1 rounded-lg border border-sky-300 dark:border-slate-700 text-sky-700 dark:text-sky-300 font-bold hover:bg-sky-50 dark:hover:bg-navy-800 transition">
+                                                <i class="fa-solid fa-plus mr-1"></i> ${this.t("addLessonPlanQuickBtn")}
+                                            </button>
+                                        </div>
+                                    `}
                                 </div>
 
                                 <!-- Action Buttons: Join, Copy details & link, Register -->
@@ -3079,6 +3173,12 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                                             class="px-4 py-2.5 rounded-xl border border-sky-200 dark:border-slate-700 bg-white dark:bg-navy-800 hover:bg-sky-50 dark:hover:bg-navy-700 text-sky-700 dark:text-sky-200 font-bold text-xs flex items-center gap-2 transition shadow-2xs">
                                         <i class="fa-solid fa-share-nodes text-xs"></i>
                                         <span>${this.t("copyLessonInviteBtn")}</span>
+                                    </button>
+
+                                    <button type="button" onclick="app.openLessonPlanModal('${featuredLesson.course.id}', '${featuredLesson.module.id}', '${featuredLesson.slotKey}')"
+                                            class="px-4 py-2.5 rounded-xl border border-sky-200 dark:border-slate-700 bg-white dark:bg-navy-800 hover:bg-sky-50 dark:hover:bg-navy-700 text-sky-700 dark:text-sky-200 font-bold text-xs flex items-center gap-2 transition shadow-2xs">
+                                        <i class="fa-solid fa-book-open text-xs"></i>
+                                        <span>${this.t("lessonPlanTitle")}</span>
                                     </button>
 
                                     <button type="button" onclick="app.switchCourse('${featuredLesson.course.id}', 'attendance')"
@@ -3130,12 +3230,17 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                                                     </span>
                                                 </div>
                                                 <div>
-                                                    <h4 class="font-extrabold text-xs text-slate-900 dark:text-white truncate" title="${this.escapeHtml(sl.lessonTitle)}">
-                                                        ${this.escapeHtml(sl.lessonTitle)}
+                                                    <h4 class="font-extrabold text-xs text-slate-900 dark:text-white truncate" title="${this.escapeHtml(sl.hasCustomTitle ? sl.lessonTitle : `${this.t('lessonNumberTitle')} ${sl.lessonNum}`)}">
+                                                        ${this.escapeHtml(sl.hasCustomTitle ? sl.lessonTitle : `${this.t('lessonNumberTitle')} ${sl.lessonNum}`)}
                                                     </h4>
                                                     <p class="text-[10.5px] font-semibold text-slate-400 truncate">
-                                                        ${this.escapeHtml(sl.course.name)}
+                                                        ${this.escapeHtml(sl.course.name)} • ${this.escapeHtml(sl.module.name || '')}
                                                     </p>
+                                                    ${sl.topics ? `
+                                                        <p class="text-[10px] text-slate-500 dark:text-slate-400 truncate mt-0.5" title="${this.escapeHtml(sl.topics)}">
+                                                            ${this.escapeHtml(sl.topics)}
+                                                        </p>
+                                                    ` : ''}
                                                 </div>
                                                 <div class="text-[11px] font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5 pt-1">
                                                     <i class="fa-regular fa-calendar text-sky-600 text-xs"></i>

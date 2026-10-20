@@ -532,178 +532,198 @@ private struct TopUnifiedHeaderBar: View {
                 let activeMod = store.getActiveModule(for: course)
                 let badge = store.formatLevelModuleBadge(course: course, level: activeLevel, module: activeMod)
 
-                // Active Course Selector + Badge + Edit Button
-                HStack(spacing: 6) {
-                    HStack(spacing: 5) {
-                        Circle()
-                            .fill(Color.white)
-                            .frame(width: 6, height: 6)
-                        Text(badge)
-                            .font(.system(size: 11, weight: .heavy))
-                            .foregroundStyle(.white)
-                    }
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 3)
-                    .background(RoundedRectangle(cornerRadius: 7).fill(palette.color))
-
-                    Picker("", selection: Binding(
-                        get: { course.id },
-                        set: { store.switchCourse($0) }
-                    )) {
-                        ForEach(activeCourses) { c in
-                            let cBadge = store.formatLevelModuleBadge(course: c)
-                            Text("\(c.name) (\(cBadge))").tag(c.id)
-                        }
-                    }
-                    .labelsHidden()
-                    .frame(maxWidth: 230)
-
-                    Button {
-                        onEditActiveCourse()
-                    } label: {
-                        Image(systemName: "pencil")
-                            .font(.caption.bold())
-                            .padding(5)
-                            .background(RoundedRectangle(cornerRadius: 6).fill(palette.color.opacity(0.15)))
-                            .foregroundStyle(palette.color)
-                    }
-                    .buttonStyle(.plain)
-                    .help(store.t("editBtn"))
-                }
-                .padding(.horizontal, 10)
-                .frame(height: 36)
-                .background(
-                    RoundedRectangle(cornerRadius: 10)
-                        .fill(palette.color.opacity(0.09))
-                        .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(palette.color.opacity(0.28)))
-                )
-
-                // Level Selector Pills
-                HStack(spacing: 4) {
-                    Text("\(store.t("levelShort")):")
-                        .font(.system(size: 10, weight: .bold))
-                        .foregroundStyle(.secondary)
-                        .textCase(.uppercase)
-                        .padding(.horizontal, 4)
-
-                    ForEach(course.levels) { lvl in
-                        let isSelected = activeLevel?.id == lvl.id
-                        let lvlTitle = lvl.code == "Altro" ? (lvl.customName.isEmpty ? store.t("otherLevelOpt") : lvl.customName) : lvl.code
-                        let displayTitle = lvl.sublevel.isEmpty ? lvlTitle : "\(lvlTitle) (\(lvl.sublevel))"
-                        Button {
-                            store.switchLevel(lvl.id)
-                        } label: {
-                            Text(displayTitle)
-                                .font(.caption.bold())
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 4)
-                                .frame(height: 28)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 7)
-                                        .fill(isSelected ? palette.color : Color.clear)
-                                )
-                                .foregroundStyle(isSelected ? Color.white : Color.primary)
-                        }
-                        .buttonStyle(.plain)
-                    }
-
-                    if let activeLevel = activeLevel {
-                        Button {
-                            onEditActiveLevel(activeLevel)
-                        } label: {
-                            Image(systemName: "pencil")
-                                .font(.system(size: 10, weight: .bold))
-                                .padding(5)
-                                .background(RoundedRectangle(cornerRadius: 6).fill(palette.color.opacity(0.15)))
-                                .foregroundStyle(palette.color)
-                        }
-                        .buttonStyle(.plain)
-                        .help("\(store.t("editBtn")) \(store.t("levelShort"))")
-                    }
-
-                    Button {
-                        onAddLevel()
-                    } label: {
-                        Image(systemName: "plus")
-                            .font(.caption.bold())
-                            .padding(5)
-                            .background(RoundedRectangle(cornerRadius: 6).fill(palette.color.opacity(0.15)))
-                            .foregroundStyle(palette.color)
-                    }
-                    .buttonStyle(.plain)
-                    .help(store.t("addLevelBtn"))
-                }
-                .padding(.horizontal, 6)
-                .frame(height: 36)
-                .background(
-                    RoundedRectangle(cornerRadius: 10)
-                        .fill(palette.color.opacity(0.09))
-                        .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(palette.color.opacity(0.28)))
-                )
-
-                // Module Selector Pills
-                if let lvl = activeLevel {
-                    HStack(spacing: 4) {
-                        Text("\(store.t("moduleShort")):")
-                            .font(.system(size: 10, weight: .bold))
-                            .foregroundStyle(.secondary)
-                            .textCase(.uppercase)
-                            .padding(.horizontal, 4)
-
-                        ForEach(lvl.modules) { mod in
-                            let isSelected = activeMod?.id == mod.id
-                            Button {
-                                store.switchModule(mod.id)
-                            } label: {
-                                Text(mod.name)
-                                    .font(.caption.bold())
-                                    .padding(.horizontal, 8)
-                                    .padding(.vertical, 4)
-                                    .frame(height: 28)
-                                    .background(
-                                        RoundedRectangle(cornerRadius: 7)
-                                            .fill(isSelected ? palette.color : Color.clear)
-                                    )
-                                    .foregroundStyle(isSelected ? Color.white : Color.primary)
+                // Selectors container wrapped in ScrollView so pills maintain their size and never crush or wrap vertically
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        // Active Course Selector + Badge + Edit Button
+                        HStack(spacing: 6) {
+                            HStack(spacing: 5) {
+                                Circle()
+                                    .fill(Color.white)
+                                    .frame(width: 6, height: 6)
+                                Text(badge)
+                                    .font(.system(size: 11, weight: .heavy))
+                                    .foregroundStyle(.white)
+                                    .lineLimit(1)
                             }
-                            .buttonStyle(.plain)
-                            .help(mod.description.isEmpty ? mod.name : mod.description)
-                        }
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 3)
+                            .background(RoundedRectangle(cornerRadius: 7).fill(palette.color))
 
-                        if let activeMod = activeMod {
+                            Picker("", selection: Binding(
+                                get: { course.id },
+                                set: { store.switchCourse($0) }
+                            )) {
+                                ForEach(activeCourses) { c in
+                                    let cBadge = store.formatLevelModuleBadge(course: c)
+                                    Text("\(c.name) (\(cBadge))").tag(c.id)
+                                }
+                            }
+                            .labelsHidden()
+                            .frame(minWidth: 100, idealWidth: 150, maxWidth: 220)
+                            .lineLimit(1)
+
                             Button {
-                                onEditActiveModule(lvl.id, activeMod)
+                                onEditActiveCourse()
                             } label: {
                                 Image(systemName: "pencil")
-                                    .font(.system(size: 10, weight: .bold))
+                                    .font(.caption.bold())
                                     .padding(5)
                                     .background(RoundedRectangle(cornerRadius: 6).fill(palette.color.opacity(0.15)))
                                     .foregroundStyle(palette.color)
                             }
                             .buttonStyle(.plain)
-                            .help("\(store.t("editBtn")) \(store.t("moduleShort"))")
+                            .help(store.t("editBtn"))
                         }
+                        .padding(.horizontal, 10)
+                        .frame(height: 36)
+                        .fixedSize(horizontal: true, vertical: false)
+                        .background(
+                            RoundedRectangle(cornerRadius: 10)
+                                .fill(palette.color.opacity(0.09))
+                                .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(palette.color.opacity(0.28)))
+                        )
 
-                        Button {
-                            onAddModule()
-                        } label: {
-                            Image(systemName: "plus")
-                                .font(.caption.bold())
-                                .padding(5)
-                                .background(RoundedRectangle(cornerRadius: 6).fill(palette.color.opacity(0.15)))
-                                .foregroundStyle(palette.color)
+                        // Level Selector Pills
+                        HStack(spacing: 4) {
+                            Text("\(store.t("levelShort")):")
+                                .font(.system(size: 10, weight: .bold))
+                                .foregroundStyle(.secondary)
+                                .textCase(.uppercase)
+                                .lineLimit(1)
+                                .fixedSize()
+                                .padding(.horizontal, 4)
+
+                            ForEach(course.levels) { lvl in
+                                let isSelected = activeLevel?.id == lvl.id
+                                let lvlTitle = lvl.code == "Altro" ? (lvl.customName.isEmpty ? store.t("otherLevelOpt") : lvl.customName) : lvl.code
+                                let displayTitle = lvl.sublevel.isEmpty ? lvlTitle : "\(lvlTitle) (\(lvl.sublevel))"
+                                Button {
+                                    store.switchLevel(lvl.id)
+                                } label: {
+                                    Text(displayTitle)
+                                        .font(.caption.bold())
+                                        .lineLimit(1)
+                                        .fixedSize()
+                                        .padding(.horizontal, 8)
+                                        .padding(.vertical, 4)
+                                        .frame(height: 28)
+                                        .background(
+                                            RoundedRectangle(cornerRadius: 7)
+                                                .fill(isSelected ? palette.color : Color.clear)
+                                        )
+                                        .foregroundStyle(isSelected ? Color.white : Color.primary)
+                                }
+                                .buttonStyle(.plain)
+                            }
+
+                            if let activeLevel = activeLevel {
+                                Button {
+                                    onEditActiveLevel(activeLevel)
+                                } label: {
+                                    Image(systemName: "pencil")
+                                        .font(.system(size: 10, weight: .bold))
+                                        .padding(5)
+                                        .background(RoundedRectangle(cornerRadius: 6).fill(palette.color.opacity(0.15)))
+                                        .foregroundStyle(palette.color)
+                                }
+                                .buttonStyle(.plain)
+                                .help("\(store.t("editBtn")) \(store.t("levelShort"))")
+                            }
+
+                            Button {
+                                onAddLevel()
+                            } label: {
+                                Image(systemName: "plus")
+                                    .font(.caption.bold())
+                                    .padding(5)
+                                    .background(RoundedRectangle(cornerRadius: 6).fill(palette.color.opacity(0.15)))
+                                    .foregroundStyle(palette.color)
+                            }
+                            .buttonStyle(.plain)
+                            .help(store.t("addLevelBtn"))
                         }
-                        .buttonStyle(.plain)
-                        .help(store.t("addModuleBtn"))
+                        .padding(.horizontal, 6)
+                        .frame(height: 36)
+                        .fixedSize(horizontal: true, vertical: false)
+                        .background(
+                            RoundedRectangle(cornerRadius: 10)
+                                .fill(palette.color.opacity(0.09))
+                                .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(palette.color.opacity(0.28)))
+                        )
+
+                        // Module Selector Pills
+                        if let lvl = activeLevel {
+                            HStack(spacing: 4) {
+                                Text("\(store.t("moduleShort")):")
+                                    .font(.system(size: 10, weight: .bold))
+                                    .foregroundStyle(.secondary)
+                                    .textCase(.uppercase)
+                                    .lineLimit(1)
+                                    .fixedSize()
+                                    .padding(.horizontal, 4)
+
+                                ForEach(lvl.modules) { mod in
+                                    let isSelected = activeMod?.id == mod.id
+                                    Button {
+                                        store.switchModule(mod.id)
+                                    } label: {
+                                        Text(mod.name)
+                                            .font(.caption.bold())
+                                            .lineLimit(1)
+                                            .fixedSize()
+                                            .padding(.horizontal, 8)
+                                            .padding(.vertical, 4)
+                                            .frame(height: 28)
+                                            .background(
+                                                RoundedRectangle(cornerRadius: 7)
+                                                    .fill(isSelected ? palette.color : Color.clear)
+                                            )
+                                            .foregroundStyle(isSelected ? Color.white : Color.primary)
+                                    }
+                                    .buttonStyle(.plain)
+                                    .help(mod.description.isEmpty ? mod.name : mod.description)
+                                }
+
+                                if let activeMod = activeMod {
+                                    Button {
+                                        onEditActiveModule(lvl.id, activeMod)
+                                    } label: {
+                                        Image(systemName: "pencil")
+                                            .font(.system(size: 10, weight: .bold))
+                                            .padding(5)
+                                            .background(RoundedRectangle(cornerRadius: 6).fill(palette.color.opacity(0.15)))
+                                            .foregroundStyle(palette.color)
+                                    }
+                                    .buttonStyle(.plain)
+                                    .help("\(store.t("editBtn")) \(store.t("moduleShort"))")
+                                }
+
+                                Button {
+                                    onAddModule()
+                                } label: {
+                                    Image(systemName: "plus")
+                                        .font(.caption.bold())
+                                        .padding(5)
+                                        .background(RoundedRectangle(cornerRadius: 6).fill(palette.color.opacity(0.15)))
+                                        .foregroundStyle(palette.color)
+                                }
+                                .buttonStyle(.plain)
+                                .help(store.t("addModuleBtn"))
+                            }
+                            .padding(.horizontal, 6)
+                            .frame(height: 36)
+                            .fixedSize(horizontal: true, vertical: false)
+                            .background(
+                                RoundedRectangle(cornerRadius: 10)
+                                    .fill(palette.color.opacity(0.09))
+                                    .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(palette.color.opacity(0.28)))
+                            )
+                        }
                     }
-                    .padding(.horizontal, 6)
-                    .frame(height: 36)
-                    .background(
-                        RoundedRectangle(cornerRadius: 10)
-                            .fill(palette.color.opacity(0.09))
-                            .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(palette.color.opacity(0.28)))
-                    )
+                    .padding(.vertical, 2)
                 }
+                .fixedSize(horizontal: false, vertical: true)
             }
 
             Spacer()
@@ -728,6 +748,7 @@ private struct TopUnifiedHeaderBar: View {
                 } label: {
                     Label(store.t("newCourseBtn"), systemImage: "plus")
                         .font(.system(size: 12, weight: .bold))
+                        .lineLimit(1)
                         .padding(.horizontal, 10)
                         .frame(height: 36)
                         .contentShape(Rectangle())
@@ -735,6 +756,7 @@ private struct TopUnifiedHeaderBar: View {
                 .buttonStyle(.borderedProminent)
                 .tint(palette.color)
                 .controlSize(.regular)
+                .fixedSize(horizontal: true, vertical: false)
 
                 Button {
                     cycleThemeMode()
@@ -748,6 +770,8 @@ private struct TopUnifiedHeaderBar: View {
                 .controlSize(.regular)
                 .help("\(store.t("visualThemeLabel")): \(themeLabel)")
             }
+            .fixedSize(horizontal: true, vertical: false)
+            .layoutPriority(2)
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
