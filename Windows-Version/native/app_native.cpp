@@ -25,6 +25,7 @@
 #include <winhttp.h>
 #include <dwmapi.h>
 #include <tlhelp32.h>
+#include <urlmon.h>
 
 #include <string>
 #include <vector>
@@ -34,6 +35,43 @@
 #include <algorithm>
 #include <thread>
 #include <atomic>
+#include <functional>
+
+// Progress callback for background asset downloads via URLDownloadToFileW
+class DownloadProgressCallback : public IBindStatusCallback {
+public:
+    std::function<void(ULONG ulProgress, ULONG ulProgressMax)> onProgress;
+    bool isAborted = false;
+
+    DownloadProgressCallback(std::function<void(ULONG, ULONG)> cb) : onProgress(cb) {}
+
+    HRESULT STDMETHODCALLTYPE OnProgress(ULONG ulProgress, ULONG ulProgressMax, ULONG ulStatusCode, LPCWSTR szStatusText) override {
+        if (isAborted) return E_ABORT;
+        if (onProgress && ulProgressMax > 0) {
+            onProgress(ulProgress, ulProgressMax);
+        }
+        return S_OK;
+    }
+
+    HRESULT STDMETHODCALLTYPE OnStartBinding(DWORD, IBinding*) override { return S_OK; }
+    HRESULT STDMETHODCALLTYPE GetPriority(LONG*) override { return S_OK; }
+    HRESULT STDMETHODCALLTYPE OnLowResource(DWORD) override { return S_OK; }
+    HRESULT STDMETHODCALLTYPE OnStopBinding(HRESULT, LPCWSTR) override { return S_OK; }
+    HRESULT STDMETHODCALLTYPE GetBindInfo(DWORD*, BINDINFO*) override { return S_OK; }
+    HRESULT STDMETHODCALLTYPE OnDataAvailable(DWORD, DWORD, FORMATETC*, STGMEDIUM*) override { return S_OK; }
+    HRESULT STDMETHODCALLTYPE OnObjectAvailable(REFIID, IUnknown*) override { return S_OK; }
+
+    ULONG STDMETHODCALLTYPE AddRef() override { return 1; }
+    ULONG STDMETHODCALLTYPE Release() override { return 1; }
+    HRESULT STDMETHODCALLTYPE QueryInterface(REFIID riid, void** ppvObject) override {
+        if (riid == IID_IUnknown || riid == IID_IBindStatusCallback) {
+            *ppvObject = this;
+            return S_OK;
+        }
+        *ppvObject = NULL;
+        return E_NOINTERFACE;
+    }
+};
 
 #include "include/webview.h"
 #include "assets_bundle.h"
@@ -1058,6 +1096,73 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         return "true";
     });
 
+    // K. downloadUpdate: Downloads GitHub release installer asset with real-time progress callbacks in background thread
+    w.bind("__native_download_update", [&w](const std::string& seq, const std::string& req, void* /*arg*/) {
+        std::string url = ParseJsonArg(req, 0);
+        std::string filename = ParseJsonArg(req, 1);
+        if (url.empty()) {
+            w.resolve(seq, 0, "{\"success\":false,\"error\":\"Empty download URL\"}");
+            return;
+        }
+        if (filename.empty()) {
+            filename = "ClassDesk-Update-Setup.exe";
+        }
+
+        std::thread([&w, seq, url, filename]() {
+            wchar_t tempPath[MAX_PATH];
+            if (!GetTempPathW(MAX_PATH, tempPath)) {
+                wcscpy(tempPath, L"C:\\Temp\\");
+            }
+            std::wstring destFile = std::wstring(tempPath) + L"ClassDesk_Update_" + Utf8ToWide(filename);
+
+            std::wstring urlW = Utf8ToWide(url);
+            DownloadProgressCallback callback([&w](ULONG cur, ULONG total) {
+                if (total > 0) {
+                    double pct = (double)cur / (double)total * 100.0;
+                    w.dispatch([&w, pct, cur, total]() {
+                        std::string js = "if(window.app && typeof window.app.onNativeDownloadProgress === 'function'){ window.app.onNativeDownloadProgress("
+                            + std::to_string(pct) + ", " + std::to_string(cur) + ", " + std::to_string(total) + "); }";
+                        w.eval(js);
+                    });
+                }
+            });
+
+            // Delete any previous file at this location
+            DeleteFileW(destFile.c_str());
+
+            HRESULT hr = URLDownloadToFileW(NULL, urlW.c_str(), destFile.c_str(), 0, &callback);
+            if (SUCCEEDED(hr)) {
+                std::string destUtf8 = WideToUtf8(destFile);
+                std::string res = "{\"success\":true,\"filePath\":\"" + JsonEscape(destUtf8) + "\"}";
+                w.resolve(seq, 0, res);
+            } else {
+                char errBuf[64];
+                snprintf(errBuf, sizeof(errBuf), "0x%08lX", (unsigned long)hr);
+                std::string res = "{\"success\":false,\"error\":\"Errore durante il download del pacchetto (codice " + std::string(errBuf) + ")\"}";
+                w.resolve(seq, 0, res);
+            }
+        }).detach();
+    }, nullptr);
+
+    // L. installUpdate: Launches downloaded setup exe to upgrade ClassDesk and terminates this process
+    w.bind("__native_install_update", [](std::string req) -> std::string {
+        std::string filePath = ParseJsonArg(req, 0);
+        if (filePath.empty()) {
+            return "{\"success\":false,\"error\":\"Empty installer path\"}";
+        }
+        std::wstring filePathW = Utf8ToWide(filePath);
+        HINSTANCE hInst = ShellExecuteW(NULL, L"open", filePathW.c_str(), L"", NULL, SW_SHOWNORMAL);
+        if ((INT_PTR)hInst > 32) {
+            std::thread([]() {
+                Sleep(800);
+                ExitProcess(0);
+            }).detach();
+            return "{\"success\":true}";
+        } else {
+            return "{\"success\":false,\"error\":\"Impossibile avviare il pacchetto di aggiornamento\"}";
+        }
+    });
+
     // 5. Inject JavaScript Bridge Shim (window.electronAPI)
     std::string verStr = WideToUtf8(APP_VERSION);
     std::string bridge_js = std::string(R"JS(
@@ -1108,12 +1213,10 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
                 return window.__native_check_legacy_data();
             },
             downloadUpdateAsset: function(url, filename, reveal, version, releaseInfo) {
-                window.__native_open_external(url);
-                return Promise.resolve({ success: true, filePath: '' });
+                return window.__native_download_update(url, filename || '');
             },
             installUpdateAndQuit: function(filePath) {
-                window.__native_open_path(filePath);
-                return Promise.resolve({ success: true });
+                return window.__native_install_update(filePath);
             },
             getPendingUpdate: function() {
                 return Promise.resolve(null);

@@ -66,6 +66,7 @@ echo "--> Compiling $SETUP_NAME with x86_64-windows target and -O3 optimization.
     -lwinhttp \
     -ldwmapi \
     -lgdi32 \
+    -lurlmon \
     -lws2_32
 
 # Create the portable copy as well

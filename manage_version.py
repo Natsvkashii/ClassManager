@@ -261,8 +261,15 @@ pkill -f "ClassDesk.app" 2>/dev/null || true
 pkill -f "Class Management.app" 2>/dev/null || true
 sleep 1
 
-# Launch newly installed application for current console user
+# Ensure proper user ownership and full permissions so future in-app updates are seamless
 CONSOLE_USER=$(stat -f "%Su" /dev/console 2>/dev/null)
+if [ -n "$CONSOLE_USER" ] && [ "$CONSOLE_USER" != "root" ]; then
+    chown -R "$CONSOLE_USER:admin" "/Applications/ClassDesk.app" 2>/dev/null || true
+fi
+chmod -R ugo+rwX "/Applications/ClassDesk.app" 2>/dev/null || true
+rm -rf /Applications/.ClassDesk_Old_*.app 2>/dev/null || true
+
+# Launch newly installed application for current console user
 if [ -n "$CONSOLE_USER" ] && [ "$CONSOLE_USER" != "root" ]; then
     sudo -u "$CONSOLE_USER" open "/Applications/ClassDesk.app"
 else

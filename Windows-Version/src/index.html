@@ -16,7 +16,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ClassDesk v26.10.4-022 (Windows Native Edition)</title>
+    <title>ClassDesk v26.10.4-023 (Windows Native Edition)</title>
     <link rel="icon" type="image/png" href="logo.png">
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -167,7 +167,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                     <span class="sidebar-text" id="sidebarFeedbackBtnText">Invia Feedback</span>
                 </button>
                 <div class="sidebar-footer-card p-1.5 rounded-xl bg-slate-50 dark:bg-navy-950/40 text-[10px] text-center text-slate-400 dark:text-slate-500 font-semibold">
-                    <span id="sidebarVersionBadge">ClassDesk v26.10.4-022</span>
+                    <span id="sidebarVersionBadge">ClassDesk v26.10.4-023</span>
                 </div>
             </div>
         </aside>
@@ -1164,12 +1164,21 @@ Removing, obfuscating, or altering these credits violates the author's attributi
         ];
 
         const INITIAL_DATA = {
-            version: "26.10.4-022",
+            version: "26.10.4-023",
             channel: "unstable",
             deletedItems: [],
             lastUpdated: new Date().toISOString(),
             activeCourseId: "",
             changelog: [
+                {
+                    version: "26.10.4-023",
+                    date: "2026-10-20",
+                    changes: [
+                        "macOS In-App Update Seamless Execution: risolto il problema del riavvio a vuoto senza applicazione dell'aggiornamento; introdotta sostituzione atomica delle directory in /Applications con backup temporaneo, sincronizzazione sicura sul PID del processo in esecuzione e isolamento contro interruzioni accidentali del processo.",
+                        "Windows True In-App Native Auto-Updater: implementato download nativo asincrono in background via URLDownloadToFileW in C++ con avanzamento e percentuale in tempo reale, backup automatico pre-aggiornamento e avvio automatico del nuovo installer che aggiorna l'app e la riavvia senza download manuali.",
+                        "Chiarimento Interfaccia Aggiornamenti Windows: distinzione chiara ed esplicita tra il pulsante di aggiornamento online ('Aggiorna Ora In-App') e il pulsante per installare e registrare nel sistema la copia portatile corrente ('Installa Copia Corrente nel Sistema')."
+                    ]
+                },
                 {
                     version: "26.10.4-022",
                     date: "2026-10-20",
@@ -8840,6 +8849,112 @@ Dettagli di Sistema:
                 }
             }
 
+            onNativeDownloadProgress(pct, cur, total) {
+                const bar = document.getElementById("inAppUpdateProgressBar");
+                const pctTxt = document.getElementById("inAppUpdatePercentText");
+                const bytesTxt = document.getElementById("inAppUpdateBytesText");
+                const rounded = Math.min(100, Math.max(0, Math.round(pct)));
+                if (bar) bar.style.width = `${rounded}%`;
+                if (pctTxt) pctTxt.innerText = `${rounded}%`;
+                if (bytesTxt && total > 0) {
+                    const curMb = (cur / (1024 * 1024)).toFixed(1);
+                    const totMb = (total / (1024 * 1024)).toFixed(1);
+                    bytesTxt.innerText = `${curMb} MB / ${totMb} MB`;
+                }
+            }
+
+            async startInAppUpdate(update) {
+                if (!update) update = this.availableUpdate;
+                if (!update) return;
+
+                const setupUrl = update.primaryUrl;
+                const setupName = update.primaryName || `ClassDesk-${update.parsed?.raw || 'update'}-Setup.exe`;
+                const tagName = update.release?.tag_name || update.parsed?.raw || '';
+
+                this.openModal(`
+                    <div class="p-6 space-y-4 text-xs max-w-md text-center">
+                        <div class="w-14 h-14 mx-auto rounded-2xl bg-sky-500/15 text-sky-600 flex items-center justify-center text-3xl border border-sky-500/25 shadow-xs">
+                            <i class="fa-solid fa-cloud-arrow-down fa-bounce"></i>
+                        </div>
+                        <div>
+                            <div class="flex items-center justify-center gap-2 mb-1">
+                                <h4 class="text-base font-extrabold text-slate-900 dark:text-white">Download Aggiornamento in Corso</h4>
+                                <span class="px-2 py-0.5 rounded-full bg-sky-100 text-sky-800 dark:bg-navy-800 dark:text-sky-300 text-[10px] font-extrabold">${this.escapeHtml(tagName)}</span>
+                            </div>
+                            <p class="text-slate-500 dark:text-slate-400 mt-1 leading-relaxed" id="inAppUpdateStatusText">
+                                Salvataggio backup di sicurezza e download del pacchetto di installazione...
+                            </p>
+                        </div>
+
+                        <!-- Progress bar -->
+                        <div class="space-y-1.5 pt-2">
+                            <div class="w-full bg-slate-100 dark:bg-navy-950 rounded-full h-3 overflow-hidden border border-slate-200 dark:border-slate-800">
+                                <div id="inAppUpdateProgressBar" class="bg-gradient-to-r from-sky-500 to-indigo-600 h-3 rounded-full transition-all duration-300" style="width: 0%"></div>
+                            </div>
+                            <div class="flex items-center justify-between text-[11px] font-mono text-slate-500 font-bold px-1">
+                                <span id="inAppUpdatePercentText">0%</span>
+                                <span id="inAppUpdateBytesText">Connessione ai server GitHub...</span>
+                            </div>
+                        </div>
+
+                        <p class="text-[11px] text-emerald-600 dark:text-emerald-400 flex items-center justify-center gap-1.5 pt-1">
+                            <i class="fa-solid fa-shield-check"></i>
+                            <span>Tutti i tuoi corsi, dati e impostazioni sono al sicuro e vengono preservati.</span>
+                        </p>
+                    </div>
+                `, "max-w-md", true);
+
+                // 1. Automatic pre-update backup
+                await this.performPreUpdateBackup();
+
+                // 2. Execute download
+                setTimeout(async () => {
+                    try {
+                        if (window.electronAPI && typeof window.electronAPI.downloadUpdateAsset === "function") {
+                            const res = await window.electronAPI.downloadUpdateAsset(setupUrl, setupName, false, tagName, update.release);
+                            if (res && res.success && res.filePath) {
+                                const st = document.getElementById("inAppUpdateStatusText");
+                                if (st) st.innerText = "Download completato! Avvio dell'aggiornamento e chiusura applicazione...";
+                                const bar = document.getElementById("inAppUpdateProgressBar");
+                                if (bar) bar.style.width = "100%";
+                                const pctTxt = document.getElementById("inAppUpdatePercentText");
+                                if (pctTxt) pctTxt.innerText = "100%";
+
+                                setTimeout(() => {
+                                    window.electronAPI.installUpdateAndQuit(res.filePath);
+                                }, 700);
+                            } else {
+                                throw new Error(res?.error || "Download non riuscito");
+                            }
+                        } else {
+                            if (window.electronAPI && window.electronAPI.openExternal) {
+                                window.electronAPI.openExternal(setupUrl);
+                            } else {
+                                window.open(setupUrl, "_blank");
+                            }
+                            this.closeModal();
+                        }
+                    } catch (err) {
+                        console.error("In-app update error:", err);
+                        this.openModal(`
+                            <div class="p-6 space-y-4 text-xs max-w-md text-center">
+                                <div class="w-12 h-12 mx-auto rounded-full bg-rose-100 dark:bg-rose-950 text-rose-600 flex items-center justify-center text-xl">
+                                    <i class="fa-solid fa-triangle-exclamation"></i>
+                                </div>
+                                <div>
+                                    <h4 class="text-sm font-extrabold text-slate-900 dark:text-white">Aggiornamento Non Riuscito</h4>
+                                    <p class="text-slate-500 mt-1">${this.escapeHtml(err.message || "Impossibile scaricare l'aggiornamento")}</p>
+                                </div>
+                                <div class="flex items-center justify-center gap-2 pt-2">
+                                    <button type="button" onclick="app.closeModal()" class="px-4 py-2 rounded-xl border border-slate-300 dark:border-slate-700 font-bold">Chiudi</button>
+                                    <button type="button" onclick="if(window.electronAPI){window.electronAPI.openExternal('${setupUrl}');}else{window.open('${setupUrl}','_blank');}app.closeModal();" class="px-4 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-extrabold">Scarica dal Browser</button>
+                                </div>
+                            </div>
+                        `, "max-w-md");
+                    }
+                }, 350);
+            }
+
             async startBackgroundDownload(release, url, filename) {
                 if (this.isDownloadingUpdate || this.isBackgroundDownloading) return;
                 if (!window.electronAPI || typeof window.electronAPI.downloadUpdateAsset !== "function") return;
@@ -9066,14 +9181,12 @@ Dettagli di Sistema:
 
                                 <div class="flex flex-col sm:flex-row flex-wrap items-center justify-end gap-2 pt-1">
                                     <button type="button" onclick="app.closeModal()" class="w-full sm:w-auto px-4 py-2 rounded-xl border border-slate-300 dark:border-slate-700 font-bold hover:bg-slate-100 dark:hover:bg-navy-800 transition">Più tardi</button>
-                                    ${nativeUrl ? `
-                                        <button type="button" onclick="if(window.electronAPI){window.electronAPI.openExternal('${nativeUrl}');}else{window.open('${nativeUrl}','_blank');}app.closeModal();" class="w-full sm:w-auto px-3.5 py-2 rounded-xl border border-indigo-300 dark:border-indigo-700 bg-indigo-50 dark:bg-navy-800 text-indigo-700 dark:text-indigo-300 font-bold hover:bg-indigo-100 flex items-center justify-center gap-1.5 transition" title="Scarica la versione nativa C++ standalone">
-                                            <i class="fa-solid fa-microchip"></i> Versione Native (.exe)
-                                        </button>
-                                    ` : ''}
-                                    <button type="button" onclick="if(window.electronAPI){window.electronAPI.openExternal('${primaryUrl}');}else{window.open('${primaryUrl}','_blank');}app.closeModal();" class="w-full sm:w-auto px-4 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-extrabold shadow-md flex items-center justify-center gap-2 transition">
-                                        <i class="fa-solid fa-download"></i>
-                                        <span>Scarica Aggiornamento (.exe)</span>
+                                    <button type="button" onclick="if(window.electronAPI){window.electronAPI.openExternal('${primaryUrl}');}else{window.open('${primaryUrl}','_blank');}app.closeModal();" class="w-full sm:w-auto px-3.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-bold hover:bg-slate-100 dark:hover:bg-navy-800 transition flex items-center justify-center gap-1.5" title="Scarica manualmente con il browser web">
+                                        <i class="fa-solid fa-download"></i> Scarica dal Browser
+                                    </button>
+                                    <button type="button" onclick="app.closeModal(); app.startInAppUpdate();" class="w-full sm:w-auto px-5 py-2 rounded-xl bg-gradient-to-r from-sky-600 to-indigo-600 hover:from-sky-500 hover:to-indigo-500 text-white font-extrabold shadow-md flex items-center justify-center gap-2 transition">
+                                        <i class="fa-solid fa-cloud-arrow-down"></i>
+                                        <span>Aggiorna Ora (In-App)</span>
                                     </button>
                                 </div>
                             </div>
@@ -9447,17 +9560,21 @@ Dettagli di Sistema:
                                     ` : ''}
 
                                     <div class="flex flex-wrap items-center gap-2 pt-2">
-                                        <button type="button" onclick="if(window.electronAPI){window.electronAPI.openExternal('${update.primaryUrl}');}else{window.open('${update.primaryUrl}','_blank');}" class="px-4 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-extrabold shadow-2xs flex items-center gap-2 transition">
+                                        <button type="button" onclick="app.startInAppUpdate()" class="px-4 py-2.5 rounded-xl bg-gradient-to-r from-sky-600 to-indigo-600 hover:from-sky-500 hover:to-indigo-500 text-white font-extrabold shadow-md flex items-center gap-2 transition">
+                                            <i class="fa-solid fa-cloud-arrow-down"></i>
+                                            <span>Aggiorna Ora (In-App)</span>
+                                        </button>
+                                        <button type="button" onclick="if(window.electronAPI){window.electronAPI.openExternal('${update.primaryUrl}');}else{window.open('${update.primaryUrl}','_blank');}" class="px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-bold hover:bg-slate-100 dark:hover:bg-navy-800 transition flex items-center gap-1.5" title="Scarica manualmente con il browser web">
                                             <i class="fa-solid fa-download"></i>
-                                            <span>Scarica Aggiornamento (.exe)</span>
+                                            <span>Scarica dal Browser</span>
                                         </button>
                                         ${update.nativeUrl ? `
-                                            <button type="button" onclick="if(window.electronAPI){window.electronAPI.openExternal('${update.nativeUrl}');}else{window.open('${update.nativeUrl}','_blank');}" class="px-3.5 py-2 rounded-xl border border-indigo-300 dark:border-indigo-700 bg-indigo-50 dark:bg-navy-800 text-indigo-700 dark:text-indigo-300 font-bold hover:bg-indigo-100 flex items-center gap-1.5 transition" title="Scarica la versione nativa C++ standalone">
+                                            <button type="button" onclick="if(window.electronAPI){window.electronAPI.openExternal('${update.nativeUrl}');}else{window.open('${update.nativeUrl}','_blank');}" class="px-3 py-2.5 rounded-xl border border-indigo-300 dark:border-indigo-700 bg-indigo-50 dark:bg-navy-800 text-indigo-700 dark:text-indigo-300 font-bold hover:bg-indigo-100 flex items-center gap-1.5 transition" title="Scarica la versione nativa C++ standalone">
                                                 <i class="fa-solid fa-microchip"></i>
                                                 <span>Versione Native (.exe)</span>
                                             </button>
                                         ` : ''}
-                                        <button type="button" onclick="if(window.electronAPI){window.electronAPI.openExternal('${update.release.html_url}');}else{window.open('${update.release.html_url}','_blank');}" class="px-3.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-bold hover:bg-slate-100 dark:hover:bg-navy-800 transition flex items-center gap-1.5">
+                                        <button type="button" onclick="if(window.electronAPI){window.electronAPI.openExternal('${update.release.html_url}');}else{window.open('${update.release.html_url}','_blank');}" class="px-3 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-bold hover:bg-slate-100 dark:hover:bg-navy-800 transition flex items-center gap-1.5">
                                             <i class="fa-brands fa-github text-sky-600 dark:text-sky-400"></i>
                                             <span>Vedi su GitHub</span>
                                         </button>
@@ -9466,22 +9583,23 @@ Dettagli di Sistema:
                             ` : ''}
                         </div>
 
-                        <!-- Windows Native System Installer Card -->
+                        <!-- Windows Native System Registration Card -->
                         <div class="bg-white dark:bg-navy-900 rounded-2xl border border-sky-100 dark:border-slate-800 p-6 shadow-xs space-y-3">
                             <div class="flex items-center justify-between pb-2 border-b border-sky-100 dark:border-slate-800">
                                 <div class="flex items-center gap-2">
                                     <i class="fa-brands fa-windows text-sky-600 text-base"></i>
-                                    <h3 class="text-sm font-extrabold text-slate-900 dark:text-white">Installazione Ufficiale nel Sistema Windows</h3>
-                                    <span class="px-2 py-0.5 rounded-md bg-sky-100 text-sky-700 dark:bg-navy-800 dark:text-sky-300 font-bold text-[10px]">Nativo C++</span>
+                                    <h3 class="text-sm font-extrabold text-slate-900 dark:text-white">Registrazione Versione Corrente nel Sistema Windows</h3>
+                                    <span class="px-2 py-0.5 rounded-md bg-sky-100 text-sky-700 dark:bg-navy-800 dark:text-sky-300 font-bold text-[10px]">C++ Nativo</span>
                                 </div>
                             </div>
                             <p class="text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed">
-                                Installa e registra permanentemente <strong>ClassDesk</strong> in Windows (cartella <code>%LOCALAPPDATA%\\Programs\\ClassDesk</code>), crea i collegamenti sul Desktop e nel Menu Start, e registra il software in <em>Installazione applicazioni</em> di Windows, sostituendo la vecchia versione in modo pulito e sicuro.
+                                Registra la copia attualmente in esecuzione di <strong>ClassDesk</strong> in Windows (cartella <code>%LOCALAPPDATA%\\Programs\\ClassDesk</code>), crea i collegamenti sul Desktop e nel Menu Start, e registra il software in <em>Installazione applicazioni</em> di Windows.<br>
+                                <span class="text-slate-400">Nota: per aggiornare ad una nuova versione rilasciata online, usa il pulsante <strong>"Aggiorna Ora (In-App)"</strong> nel riquadro superiore degli aggiornamenti.</span>
                             </p>
                             <div class="pt-1 flex flex-wrap items-center gap-3">
-                                <button type="button" onclick="app.runNativeWindowsInstaller()" class="px-4 py-2.5 rounded-xl bg-gradient-to-r from-sky-600 to-blue-700 hover:from-sky-500 hover:to-blue-600 text-white font-extrabold flex items-center gap-2 shadow-sm transition">
-                                    <i class="fa-solid fa-download"></i>
-                                    <span>Avvia Installer Nativo Windows</span>
+                                <button type="button" onclick="app.runNativeWindowsInstaller()" class="px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-navy-800 text-slate-700 dark:text-slate-200 font-bold flex items-center gap-2 shadow-2xs transition">
+                                    <i class="fa-solid fa-folder-plus"></i>
+                                    <span>Installa Copia Corrente nel Sistema</span>
                                 </button>
                                 <span class="text-[11px] text-slate-400">Tutti i corsi, dati e impostazioni vengono preservati al 100%.</span>
                             </div>

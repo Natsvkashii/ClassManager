@@ -454,26 +454,82 @@ public final class UpdateManager: NSObject, URLSessionDownloadDelegate {
                     if FileManager.default.fileExists(atPath: sourceAppPath) {
                         self.statusMessage = "Installazione completata! Riavvio di ClassDesk..."
 
-                        let targetApp = "/Applications/ClassDesk.app"
+                        let currentBundle = Bundle.main.bundlePath
+                        let targetApp = currentBundle.hasSuffix(".app") ? currentBundle : "/Applications/ClassDesk.app"
                         let legacyApp = "/Applications/Class Management.app"
+                        let currentPid = ProcessInfo.processInfo.processIdentifier
+
+                        let scriptPath = FileManager.default.temporaryDirectory.appendingPathComponent("classdesk_updater_\(UUID().uuidString).sh").path
                         let updateScript = """
-                        sleep 0.8
-                        pkill -f "ClassDesk" 2>/dev/null || true
-                        pkill -f "ClassManagement" 2>/dev/null || true
-                        rm -rf "\(targetApp)" 2>/dev/null || true
-                        rm -rf "\(legacyApp)" 2>/dev/null || true
-                        cp -R "\(sourceAppPath)" "\(targetApp)"
-                        xattr -cr "\(targetApp)" 2>/dev/null || true
-                        open "\(targetApp)"
-                        rm -rf "\(extractDir.path)" 2>/dev/null || true
-                        rm -f "\(destinationUrl.path)" 2>/dev/null || true
+                        #!/bin/sh
+                        trap '' HUP INT TERM
+                        PID=\(currentPid)
+                        SOURCE="\(sourceAppPath)"
+                        TARGET="\(targetApp)"
+                        LEGACY="\(legacyApp)"
+                        EXTRACT="\(extractDir.path)"
+                        ZIPFILE="\(destinationUrl.path)"
+
+                        # 1. Wait for currently running application process to terminate
+                        TIMEOUT=50
+                        while [ $TIMEOUT -gt 0 ] && kill -0 "$PID" 2>/dev/null; do
+                            sleep 0.2
+                            TIMEOUT=$((TIMEOUT - 1))
+                        done
+                        if kill -0 "$PID" 2>/dev/null; then
+                            kill -15 "$PID" 2>/dev/null || true
+                            sleep 0.4
+                        fi
+
+                        # 2. Atomic directory replacement strategy in /Applications
+                        # Renaming within /Applications succeeds without sudo because /Applications
+                        # is group-writable (rwxrwxr-x root admin) and the user is in admin group.
+                        OLD_BACKUP="/Applications/.ClassDesk_Old_$(date +%s).app"
+                        if [ -d "$TARGET" ]; then
+                            mv "$TARGET" "$OLD_BACKUP" 2>/dev/null || true
+                        fi
+                        if [ -d "$LEGACY" ]; then
+                            mv "$LEGACY" "/Applications/.ClassManagement_Old_$(date +%s).app" 2>/dev/null || true
+                        fi
+
+                        # 3. Copy newly extracted application into target location
+                        cp -R "$SOURCE" "$TARGET"
+                        CP_STATUS=$?
+
+                        # If copy failed, restore old backup immediately
+                        if [ $CP_STATUS -ne 0 ] || [ ! -d "$TARGET" ]; then
+                            if [ -d "$OLD_BACKUP" ]; then
+                                mv "$OLD_BACKUP" "$TARGET" 2>/dev/null || true
+                            fi
+                        else
+                            xattr -cr "$TARGET" 2>/dev/null || true
+                            chmod -R ugo+rwX "$TARGET" 2>/dev/null || true
+                        fi
+
+                        # 4. Relaunch the updated application
+                        open "$TARGET"
+
+                        # 5. Clean up temporary files
+                        rm -rf "$OLD_BACKUP" 2>/dev/null || true
+                        rm -rf "/Applications/.ClassManagement_Old_"*.app 2>/dev/null || true
+                        rm -rf "$EXTRACT" 2>/dev/null || true
+                        rm -f "$ZIPFILE" 2>/dev/null || true
+                        rm -f "$0" 2>/dev/null || true
+                        exit 0
                         """
+                        try? updateScript.write(toFile: scriptPath, atomically: true, encoding: .utf8)
+                        let chmodProc = Process()
+                        chmodProc.executableURL = URL(fileURLWithPath: "/bin/chmod")
+                        chmodProc.arguments = ["+x", scriptPath]
+                        try? chmodProc.run()
+                        chmodProc.waitUntilExit()
+
                         let p = Process()
                         p.executableURL = URL(fileURLWithPath: "/bin/sh")
-                        p.arguments = ["-c", updateScript]
+                        p.arguments = [scriptPath]
                         try? p.run()
 
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
                             NSApplication.shared.terminate(nil)
                         }
                         return
