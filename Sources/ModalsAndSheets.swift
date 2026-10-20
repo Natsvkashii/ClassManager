@@ -625,6 +625,14 @@ public struct LessonPlanSheet: View {
                                     .buttonStyle(.borderedProminent)
                                     .tint(.blue)
                                 }
+                                Button {
+                                    copyStudentInvite()
+                                } label: {
+                                    Label(store.t("copyLessonInviteBtn"), systemImage: "doc.on.doc")
+                                        .font(.caption.bold())
+                                }
+                                .buttonStyle(.bordered)
+                                .help(store.t("copyLessonInviteBtn"))
                                 Button(role: .destructive) {
                                     googleMeetUrl = ""
                                 } label: {
@@ -752,6 +760,17 @@ public struct LessonPlanSheet: View {
             }
         }
         return nil
+    }
+
+    private func copyStudentInvite() {
+        guard let course = store.state.courses.first(where: { $0.id == courseId }) else { return }
+        var mod: CourseModule? = nil
+        for l in course.levels {
+            if let m = l.modules.first(where: { $0.id == sectionId }) { mod = m; break }
+        }
+        guard let m = mod else { return }
+        let sk = slotKey ?? AppStore.isoDateFormatter.string(from: lessonDate)
+        store.copyLessonStudentInvitation(course: course, module: m, slotKey: sk)
     }
 
     private func loadExisting() {
@@ -886,40 +905,6 @@ public struct LessonPlanSheet: View {
 
         if store.state.settings.autoSyncAppleCalendar {
             store.syncCourseToAppleCalendar(store.state.courses[cIdx], showNotification: false)
-        }
-
-        // Automatic Google Calendar & Meet Sync
-        if store.state.settings.googleCalendarConnected {
-            let courseCopy = store.state.courses[cIdx]
-            let modCopy = store.state.courses[cIdx].levels[lIdx].modules[mIdx]
-            let targetSlotKey = finalSlotKey
-            let currentLessonPlan = store.findLesson(in: courseCopy, sectionId: sectionId, slotKey: targetSlotKey)
-            let sIdx = (modCopy.dates.firstIndex(of: targetSlotKey) ?? 0) + 1
-
-            Task {
-                if let res = try? await GoogleCalendarManager.shared.syncLessonToGoogle(
-                    course: courseCopy,
-                    module: modCopy,
-                    lessonPlan: currentLessonPlan,
-                    slotKey: targetSlotKey,
-                    lessonNum: sIdx,
-                    attendees: parsedEmails,
-                    store: self.store
-                ) {
-                    await MainActor.run {
-                        if let cI = self.store.state.courses.firstIndex(where: { $0.id == self.courseId }),
-                           let lesI = self.store.state.courses[cI].lessons.firstIndex(where: {
-                               $0.slotKey == targetSlotKey && ($0.sectionId == nil || $0.sectionId == self.sectionId)
-                           }) {
-                            self.store.state.courses[cI].lessons[lesI].googleCalendarEventId = res.eventId
-                            if let mUrl = res.meetUrl, !mUrl.isEmpty {
-                                self.store.state.courses[cI].lessons[lesI].googleMeetUrl = mUrl
-                            }
-                            self.store.persist()
-                        }
-                    }
-                }
-            }
         }
 
         store.showToast(store.t("saveBtn"))

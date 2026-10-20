@@ -651,9 +651,9 @@ public final class GoogleCalendarManager: ObservableObject {
             eventPayload["location"] = meet
         }
 
-        let slotMarker = "[ClassManagementSlot:\(course.id):\(module.id):\(slotKey)]"
-        descLines.append(slotMarker)
-        eventPayload["description"] = descLines.joined(separator: "\n")
+        if !descLines.isEmpty {
+            eventPayload["description"] = descLines.joined(separator: "\n")
+        }
 
         // Prepare request
         let existingGoogleEventId = lessonPlan?.googleCalendarEventId

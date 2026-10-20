@@ -18,7 +18,7 @@ public enum AuthorAttribution {
     public static let authorName = "Guaira Jaramillo Nitoglia"
     public static let authorEmail = "guaira.jaramillo.nitoglia@gmail.com"
     public static let appName = "Class Management"
-    public static let appVersion = "26.10.4-016"
+    public static let appVersion = "26.10.4-017"
     public static let appChannel = "unstable"
     public static let licenseName = "GNU General Public License v3.0 (GPL-3.0)"
 
@@ -1606,6 +1606,11 @@ public struct AppState: Codable, Equatable {
     ]
 
     public static let defaultChangelog: [ChangelogEntry] = [
+        ChangelogEntry(version: "26.10.4-017", date: "2026-10-20", changes: [
+            "Scheda Iscritti / Roster vuota: la barra degli strumenti rimane sempre fissa in alto, e l'area centrale adotta lo stesso stile pulito del Cestino e dell'Archivio con icona circolare, titolo e testo descrittivo.",
+            "Integrità Eventi Google Calendar: il salvataggio dei piani lezione non sovrascrive né altera più gli eventi Google Calendar associati, preservando intatti titolo, descrizione originale e dettagli senza iniettare metadati.",
+            "Copia Invito Lezione per Alunno: nuova opzione per copiare negli appunti l'invito completo alla lezione con corso, modulo, data, giorno della settimana, orario e link Google Meet tradotti nella lingua dell'applicazione (IT, EN, ES)."
+        ]),
         ChangelogEntry(version: "26.10.4-016", date: "2026-10-20", changes: [
             "Codice Gruppo / Corso: aggiunto campo codice dedicato posizionato a sinistra del nome corso; gli eventi su Google Calendar includono il prefisso [CODICE] per identificare univocamente il gruppo.",
             "Scansione Intelligente & Associazione Google Calendar: scansione proattiva degli eventi Google Calendar per codice gruppo a partire dalla data desiderata (default prima data del modulo), con associazione automatica a due passaggi e rilevamento delle stanze Google Meet.",

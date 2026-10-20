@@ -293,7 +293,14 @@ public struct L10n {
             "updateFreqManual": "Solo manuale",
             "updateNowBtn": "Aggiorna Ora",
             "updateLaterBtn": "Più tardi",
-            "autoBackupPreUpdateHint": "Prima di installare verrà eseguito un backup automatico di sicurezza dei tuoi dati."
+            "autoBackupPreUpdateHint": "Prima di installare verrà eseguito un backup automatico di sicurezza dei tuoi dati.",
+            "copyLessonInviteBtn": "Copia invito alunno",
+            "inviteCopiedToast": "Invito alla lezione copiato negli appunti!",
+            "lessonInviteCourse": "Corso",
+            "lessonInviteLesson": "Lezione",
+            "lessonInviteDate": "Data",
+            "lessonInviteTime": "Orario",
+            "lessonInviteLink": "Link per la lezione"
         ],
         "en": [
             "appTitle": "Class Management",
@@ -580,7 +587,14 @@ public struct L10n {
             "updateFreqManual": "Manual only",
             "updateNowBtn": "Update Now",
             "updateLaterBtn": "Later",
-            "autoBackupPreUpdateHint": "An automatic safety backup of your data will be created before installing."
+            "autoBackupPreUpdateHint": "An automatic safety backup of your data will be created before installing.",
+            "copyLessonInviteBtn": "Copy student invitation",
+            "inviteCopiedToast": "Lesson invitation copied to clipboard!",
+            "lessonInviteCourse": "Course",
+            "lessonInviteLesson": "Lesson",
+            "lessonInviteDate": "Date",
+            "lessonInviteTime": "Time",
+            "lessonInviteLink": "Lesson link"
         ],
         "es": [
             "appTitle": "Class Management",
@@ -867,7 +881,14 @@ public struct L10n {
             "updateFreqManual": "Solo manual",
             "updateNowBtn": "Actualizar Ahora",
             "updateLaterBtn": "Más tarde",
-            "autoBackupPreUpdateHint": "Se creará una copia de seguridad automática de seguridad antes de instalar."
+            "autoBackupPreUpdateHint": "Se creará una copia de seguridad automática de seguridad antes de instalar.",
+            "copyLessonInviteBtn": "Copiar invitación alumno",
+            "inviteCopiedToast": "¡Invitación a la clase copiada al portapapeles!",
+            "lessonInviteCourse": "Curso",
+            "lessonInviteLesson": "Clase",
+            "lessonInviteDate": "Fecha",
+            "lessonInviteTime": "Horario",
+            "lessonInviteLink": "Enlace de la clase"
         ]
     ]
 

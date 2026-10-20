@@ -1129,6 +1129,49 @@ public final class AppStore {
         return lines.joined(separator: "\n")
     }
 
+    public func generateLessonInvitationText(course: Course, module: CourseModule, slotKey: String) -> String {
+        let les = findLesson(in: course, sectionId: module.id, slotKey: slotKey)
+        let sTime = les?.time ?? module.startTime
+        let eTime = les?.endTime ?? module.endTime
+        let timeRange = "\(formatTimeDisplay(sTime)) - \(formatTimeDisplay(eTime))"
+        let shortWeekday = formatShortWeekdayDate(slotKey)
+        let fullDate = formatDateDisplay(slotKey)
+
+        let allSlots = sortedSlots(for: course, module: module)
+        let lessonIdx = (allSlots.firstIndex(of: slotKey) ?? 0) + 1
+
+        let meetUrl = (les?.googleMeetUrl?.trimmingCharacters(in: .whitespaces).isEmpty == false ? les?.googleMeetUrl : module.googleMeetUrl)?.trimmingCharacters(in: .whitespaces) ?? ""
+
+        let customTitle = (les?.title ?? "").trimmingCharacters(in: .whitespaces)
+        let titleSuffix = customTitle.isEmpty ? "" : " — \(customTitle)"
+
+        let courseLbl = t("lessonInviteCourse")
+        let lessonLbl = t("lessonInviteLesson")
+        let dateLbl = t("lessonInviteDate")
+        let timeLbl = t("lessonInviteTime")
+        let linkLbl = t("lessonInviteLink")
+
+        var lines: [String] = [
+            "🎓 \(courseLbl): \(course.name) (\(module.name))",
+            "📌 \(lessonLbl) \(lessonIdx)\(titleSuffix)",
+            "📅 \(dateLbl): \(shortWeekday) (\(fullDate))",
+            "⏰ \(timeLbl): \(timeRange)"
+        ]
+
+        if !meetUrl.isEmpty {
+            lines.append("🔗 \(linkLbl): \(meetUrl)")
+        }
+
+        return lines.joined(separator: "\n")
+    }
+
+    public func copyLessonStudentInvitation(course: Course, module: CourseModule, slotKey: String) {
+        let text = generateLessonInvitationText(course: course, module: module, slotKey: slotKey)
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(text, forType: .string)
+        showToast("📋 \(t("inviteCopiedToast"))")
+    }
+
     // MARK: - Apple Calendar (EventKit) Synchronization
 
     public func syncCourseToAppleCalendar(_ course: Course, showNotification: Bool = true) {

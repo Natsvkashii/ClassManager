@@ -1920,6 +1920,19 @@ public struct ModuleCalendarView: View {
             .foregroundStyle(.white)
         }
         .buttonStyle(.plain)
+        .contextMenu {
+            Button {
+                store.copyLessonStudentInvitation(course: course, module: mod, slotKey: sess.slotKey)
+            } label: {
+                Label(store.t("copyLessonInviteBtn"), systemImage: "doc.on.doc")
+            }
+            Divider()
+            Button {
+                activeSheet = .lessonPlan(courseId: course.id, sectionId: mod.id, slotKey: sess.slotKey)
+            } label: {
+                Label("Pianifica lezione", systemImage: "pencil")
+            }
+        }
         .draggable(sess.slotKey) {
             HStack(spacing: 8) {
                 Image(systemName: "calendar.badge.clock")
@@ -2775,34 +2788,54 @@ public struct RosterView: View {
                 .padding(12)
                 .appCardStyle(cornerRadius: 12)
 
-                // Aligned Table Container
-                VStack(spacing: 0) {
-                    // Table Header Row
-                    HStack(spacing: 12) {
-                        Text(store.t("studentCol"))
-                            .frame(width: 280, alignment: .leading)
-                        Text(store.t("studentPhoneLabel"))
-                            .frame(width: 155, alignment: .leading)
-                        Text(store.t("emailBillingLabel"))
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                        Text(store.t("cityBillingLabel"))
-                            .frame(width: 130, alignment: .leading)
-                        Text(store.t("actionsCol"))
-                            .frame(width: 165, alignment: .trailing)
+                if listIds.isEmpty {
+                    VStack(spacing: 16) {
+                        Spacer()
+                        Image(systemName: store.showFormerGroupStudents ? "person.crop.circle.badge.clock" : "person.2.slash")
+                            .font(.system(size: 72, weight: .light))
+                            .foregroundStyle(Color.secondary.opacity(0.35))
+
+                        VStack(spacing: 8) {
+                            Text(store.showFormerGroupStudents ? store.t("noFormerStudentsMsg") : store.t("noEnrolledInModMsg"))
+                                .font(.title2.bold())
+                                .foregroundStyle(.primary)
+
+                            Text(store.showFormerGroupStudents
+                                ? "Nessuno studente è stato archiviato tra gli ex studenti di questo gruppo."
+                                : "Iscrivi studenti a questo modulo tramite il pulsante in alto a destra per iniziare a gestire presenze, voti e lezioni.")
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                                .multilineTextAlignment(.center)
+                                .frame(maxWidth: 480)
+                        }
+                        Spacer()
                     }
-                    .font(.caption.bold())
-                    .foregroundStyle(.secondary)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 10)
-                    .background(Color.secondary.opacity(0.10))
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .padding(32)
+                } else {
+                    // Aligned Table Container
+                    VStack(spacing: 0) {
+                        // Table Header Row
+                        HStack(spacing: 12) {
+                            Text(store.t("studentCol"))
+                                .frame(width: 280, alignment: .leading)
+                            Text(store.t("studentPhoneLabel"))
+                                .frame(width: 155, alignment: .leading)
+                            Text(store.t("emailBillingLabel"))
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                            Text(store.t("cityBillingLabel"))
+                                .frame(width: 130, alignment: .leading)
+                            Text(store.t("actionsCol"))
+                                .frame(width: 165, alignment: .trailing)
+                        }
+                        .font(.caption.bold())
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 10)
+                        .background(Color.secondary.opacity(0.10))
 
-                    Divider()
+                        Divider()
 
-                    if listIds.isEmpty {
-                        Text(store.showFormerGroupStudents ? store.t("noFormerStudentsMsg") : store.t("noEnrolledInModMsg"))
-                            .foregroundStyle(.secondary)
-                            .frame(maxWidth: .infinity, minHeight: 160)
-                    } else {
                         ScrollView {
                             VStack(spacing: 0) {
                                 ForEach(Array(listIds.enumerated()), id: \.element) { idx, stId in
@@ -2930,10 +2963,11 @@ public struct RosterView: View {
                             }
                         }
                     }
+                    .clipShape(RoundedRectangle(cornerRadius: 14))
+                    .appCardStyle(cornerRadius: 14)
                 }
-                .clipShape(RoundedRectangle(cornerRadius: 14))
-                .appCardStyle(cornerRadius: 14)
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             .padding(20)
             .alert(
                 "\(store.t("removeStudentPromptTitle")) (\(studentForRemovePrompt?.fullName ?? ""))",

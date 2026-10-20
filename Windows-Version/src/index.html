@@ -16,7 +16,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Class Management v26.10.4-016 (Windows Native Edition)</title>
+    <title>Class Management v26.10.4-017 (Windows Native Edition)</title>
     <link rel="icon" type="image/png" href="logo.png">
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -520,6 +520,15 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 mondayLabel: "Lunedì",
                 sundayLabel: "Domenica",
                 resetDataBtn: "Azzera Dati",
+                copyLessonInviteBtn: "Copia invito alunno",
+                inviteCopiedToast: "Invito alla lezione copiato negli appunti!",
+                lessonInviteCourse: "Corso",
+                lessonInviteLesson: "Lezione",
+                lessonInviteDate: "Data",
+                lessonInviteTime: "Orario",
+                lessonInviteLink: "Link per la lezione",
+                formerStudentsSubtitle: "Nessuno studente è stato archiviato tra gli ex studenti di questo gruppo.",
+                rosterEmptySubtitle: "Iscrivi studenti a questo modulo tramite il pulsante in alto a destra per iniziare a gestire presenze, voti e lezioni.",
                 months: ["Gennaio", "Febbraio", "Marzo", "Aprile", "Maggio", "Giugno", "Luglio", "Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre"],
                 daysFullMon: ["Lunedì", "Martedì", "Mercoledì", "Giovedì", "Venerdì", "Sabato", "Domenica"],
                 daysShortMon: ["Lun", "Mar", "Mer", "Gio", "Ven", "Sab", "Dom"],
@@ -787,6 +796,15 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 mondayLabel: "Monday",
                 sundayLabel: "Sunday",
                 resetDataBtn: "Reset Data",
+                copyLessonInviteBtn: "Copy student invitation",
+                inviteCopiedToast: "Lesson invitation copied to clipboard!",
+                lessonInviteCourse: "Course",
+                lessonInviteLesson: "Lesson",
+                lessonInviteDate: "Date",
+                lessonInviteTime: "Time",
+                lessonInviteLink: "Lesson link",
+                formerStudentsSubtitle: "No students have been archived among former students for this group.",
+                rosterEmptySubtitle: "Enroll students in this module using the button at the top right to start managing attendance, grades and lessons.",
                 months: ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"],
                 daysFullMon: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
                 daysShortMon: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
@@ -1054,6 +1072,15 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 mondayLabel: "Lunes",
                 sundayLabel: "Domingo",
                 resetDataBtn: "Restablecer Datos",
+                copyLessonInviteBtn: "Copiar invitación alumno",
+                inviteCopiedToast: "¡Invitación a la clase copiada al portapapeles!",
+                lessonInviteCourse: "Curso",
+                lessonInviteLesson: "Clase",
+                lessonInviteDate: "Fecha",
+                lessonInviteTime: "Horario",
+                lessonInviteLink: "Enlace de la clase",
+                formerStudentsSubtitle: "Ningún alumno ha sido archivado entre los antiguos alumnos de este grupo.",
+                rosterEmptySubtitle: "Inscribe alumnos en este módulo con el botón arriba a la derecha para empezar a gestionar asistencias, notas y clases.",
                 months: ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"],
                 daysFullMon: ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"],
                 daysShortMon: ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"],
@@ -1099,12 +1126,21 @@ Removing, obfuscating, or altering these credits violates the author's attributi
         ];
 
         const INITIAL_DATA = {
-            version: "26.10.4-016",
+            version: "26.10.4-017",
             channel: "unstable",
             deletedItems: [],
             lastUpdated: new Date().toISOString(),
             activeCourseId: "",
             changelog: [
+                {
+                    version: "26.10.4-017",
+                    date: "2026-10-20",
+                    changes: [
+                        "Scheda Iscritti / Roster vuota: la barra degli strumenti rimane sempre fissa in alto, e l'area centrale adotta lo stesso stile pulito del Cestino e dell'Archivio con icona circolare, titolo e testo descrittivo.",
+                        "Integrità Eventi Google Calendar: il salvataggio dei piani lezione non sovrascrive né altera più gli eventi Google Calendar associati, preservando intatti titolo, descrizione originale e dettagli senza iniettare metadati.",
+                        "Copia Invito Lezione per Alunno: nuova opzione per copiare negli appunti l'invito completo alla lezione con corso, modulo, data, giorno della settimana, orario e link Google Meet tradotti nella lingua dell'applicazione (IT, EN, ES)."
+                    ]
+                },
                 {
                     version: "26.10.4-016",
                     date: "2026-10-20",
@@ -5688,53 +5724,65 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                             </div>
                         </div>
 
-                        <div class="bg-white dark:bg-navy-900 rounded-2xl border border-sky-100 dark:border-slate-800 shadow-xs overflow-hidden">
-                            <table class="w-full text-left border-collapse text-xs">
-                                <thead>
-                                    <tr class="bg-sky-50/80 dark:bg-navy-800 border-b border-sky-100 dark:border-slate-800">
-                                        <th class="px-4 py-3 font-extrabold">${this.t("studentCol")}</th>
-                                        <th class="px-4 py-3 font-extrabold">${this.t("contactsAndCityCol")}</th>
-                                        <th class="px-4 py-3 font-extrabold text-right">${this.t("actionsCol")}</th>
-                                    </tr>
-                                </thead>
-                                <tbody class="divide-y divide-sky-100/60 dark:divide-slate-800">
-                                    ${listIds.length === 0 ? `
-                                        <tr>
-                                            <td colspan="3" class="px-6 py-10 text-center text-slate-400">
-                                                ${this.showFormerGroupStudents ? this.t("noFormerStudentsMsg") : this.t("noEnrolledInModMsg")}
-                                            </td>
+                        ${listIds.length === 0 ? `
+                            <div class="flex flex-col items-center justify-center min-h-[50vh] text-center space-y-4 p-8">
+                                <div class="w-24 h-24 rounded-full bg-slate-100 dark:bg-navy-800 flex items-center justify-center text-slate-300 dark:text-slate-600 text-4xl shadow-inner">
+                                    <i class="fa-solid ${this.showFormerGroupStudents ? 'fa-user-clock' : 'fa-user-slash'}"></i>
+                                </div>
+                                <div class="space-y-1.5 max-w-md">
+                                    <h3 class="text-lg font-bold text-slate-700 dark:text-slate-200">
+                                        ${this.showFormerGroupStudents ? this.t("noFormerStudentsMsg") : this.t("noEnrolledInModMsg")}
+                                    </h3>
+                                    <p class="text-xs text-slate-400 dark:text-slate-500">
+                                        ${this.showFormerGroupStudents
+                                            ? this.t("formerStudentsSubtitle")
+                                            : this.t("rosterEmptySubtitle")}
+                                    </p>
+                                </div>
+                            </div>
+                        ` : `
+                            <div class="bg-white dark:bg-navy-900 rounded-2xl border border-sky-100 dark:border-slate-800 shadow-xs overflow-hidden">
+                                <table class="w-full text-left border-collapse text-xs">
+                                    <thead>
+                                        <tr class="bg-sky-50/80 dark:bg-navy-800 border-b border-sky-100 dark:border-slate-800">
+                                            <th class="px-4 py-3 font-extrabold">${this.t("studentCol")}</th>
+                                            <th class="px-4 py-3 font-extrabold">${this.t("contactsAndCityCol")}</th>
+                                            <th class="px-4 py-3 font-extrabold text-right">${this.t("actionsCol")}</th>
                                         </tr>
-                                    ` : listIds.map(stId => {
-                                        const st = (this.state.studentsDirectory || []).find(s => s.id === stId) || { id: stId, firstName: "Studente", lastName: "" };
-                                        const fullName = `${st.firstName || ''} ${st.lastName || ''}`.trim();
-                                        return `
-                                            <tr class="hover:bg-sky-50/40 dark:hover:bg-navy-800/50">
-                                                <td class="px-4 py-3 font-bold">
-                                                    <button onclick="app.openStudentDetailModal('${st.id}')" class="hover:text-sky-600">${this.escapeHtml(fullName)}</button>
-                                                </td>
-                                                <td class="px-4 py-3">
-                                                    <div class="${blurCls} flex flex-wrap items-center gap-3 text-slate-600 dark:text-slate-300">
-                                                        ${st.phone ? `<span><i class="fa-solid fa-phone mr-1 text-sky-600"></i>${this.escapeHtml(st.phone)}</span>` : ''}
-                                                        ${st.email ? `<span><i class="fa-solid fa-envelope mr-1 text-sky-600"></i>${this.escapeHtml(st.email)}</span>` : ''}
-                                                        ${st.city ? `<span><i class="fa-solid fa-location-dot mr-1 text-sky-600"></i>${this.escapeHtml(st.city)}</span>` : ''}
-                                                    </div>
-                                                </td>
-                                                <td class="px-4 py-3 text-right">
-                                                    <div class="inline-flex items-center gap-2">
-                                                        <button onclick="app.openStudentDetailModal('${st.id}')" class="px-2.5 py-1 rounded-lg border border-sky-200 dark:border-slate-700 font-bold">${this.t("profileCardBtn")}</button>
-                                                        ${this.showFormerGroupStudents ? `
-                                                            <button onclick="app.reinsertFormerStudent('${st.id}')" class="px-2.5 py-1 rounded-lg bg-emerald-600 text-white font-bold">${this.t("reinsertBtn")}</button>
-                                                        ` : `
-                                                            <button onclick="app.openExcludeOrRemoveStudentModal('${st.id}')" class="px-2.5 py-1 rounded-lg border border-rose-200 text-rose-600 font-bold">${this.t("excludeRemoveBtn")}</button>
-                                                        `}
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        `;
-                                    }).join("")}
-                                </tbody>
-                            </table>
-                        </div>
+                                    </thead>
+                                    <tbody class="divide-y divide-sky-100/60 dark:divide-slate-800">
+                                        ${listIds.map(stId => {
+                                            const st = (this.state.studentsDirectory || []).find(s => s.id === stId) || { id: stId, firstName: "Studente", lastName: "" };
+                                            const fullName = `${st.firstName || ''} ${st.lastName || ''}`.trim();
+                                            return `
+                                                <tr class="hover:bg-sky-50/40 dark:hover:bg-navy-800/50">
+                                                    <td class="px-4 py-3 font-bold">
+                                                        <button onclick="app.openStudentDetailModal('${st.id}')" class="hover:text-sky-600">${this.escapeHtml(fullName)}</button>
+                                                    </td>
+                                                    <td class="px-4 py-3">
+                                                        <div class="${blurCls} flex flex-wrap items-center gap-3 text-slate-600 dark:text-slate-300">
+                                                            ${st.phone ? `<span><i class="fa-solid fa-phone mr-1 text-sky-600"></i>${this.escapeHtml(st.phone)}</span>` : ''}
+                                                            ${st.email ? `<span><i class="fa-solid fa-envelope mr-1 text-sky-600"></i>${this.escapeHtml(st.email)}</span>` : ''}
+                                                            ${st.city ? `<span><i class="fa-solid fa-location-dot mr-1 text-sky-600"></i>${this.escapeHtml(st.city)}</span>` : ''}
+                                                        </div>
+                                                    </td>
+                                                    <td class="px-4 py-3 text-right">
+                                                        <div class="inline-flex items-center gap-2">
+                                                            <button onclick="app.openStudentDetailModal('${st.id}')" class="px-2.5 py-1 rounded-lg border border-sky-200 dark:border-slate-700 font-bold">${this.t("profileCardBtn")}</button>
+                                                            ${this.showFormerGroupStudents ? `
+                                                                <button onclick="app.reinsertFormerStudent('${st.id}')" class="px-2.5 py-1 rounded-lg bg-emerald-600 text-white font-bold">${this.t("reinsertBtn")}</button>
+                                                            ` : `
+                                                                <button onclick="app.openExcludeOrRemoveStudentModal('${st.id}')" class="px-2.5 py-1 rounded-lg border border-rose-200 text-rose-600 font-bold">${this.t("excludeRemoveBtn")}</button>
+                                                            `}
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            `;
+                                        }).join("")}
+                                    </tbody>
+                                </table>
+                            </div>
+                        `}
                     </div>
                 `;
             }
@@ -9353,6 +9401,72 @@ Dettagli di Sistema:
                 this.renderAll();
             }
 
+            generateLessonInvitationText(course, module, slotKey) {
+                const les = this.findLessonForSlot(course, module.id, slotKey);
+                const sTime = les?.time || module.startTime || course.startTime || "19:00";
+                const eTime = les?.endTime || module.endTime || course.endTime || "20:30";
+                const timeRange = `${this.formatTimeDisplay(sTime)} - ${this.formatTimeDisplay(eTime)}`;
+                const shortWeekday = this.formatShortWeekdayDate(slotKey);
+                const fullDate = this.formatDateDisplay(slotKey);
+
+                const allSlots = this.sortModuleSlots(course, module);
+                const lessonIdx = (allSlots.indexOf(slotKey) >= 0 ? allSlots.indexOf(slotKey) + 1 : 1);
+
+                const meetUrl = (les?.googleMeetUrl && les.googleMeetUrl.trim()) ? les.googleMeetUrl.trim() : (module.googleMeetUrl ? module.googleMeetUrl.trim() : "");
+                const customTitle = (les?.title || "").trim();
+                const titleSuffix = customTitle ? ` — ${customTitle}` : "";
+
+                const courseLbl = this.t("lessonInviteCourse");
+                const lessonLbl = this.t("lessonInviteLesson");
+                const dateLbl = this.t("lessonInviteDate");
+                const timeLbl = this.t("lessonInviteTime");
+                const linkLbl = this.t("lessonInviteLink");
+
+                const lines = [
+                    `🎓 ${courseLbl}: ${course.name} (${module.name})`,
+                    `📌 ${lessonLbl} ${lessonIdx}${titleSuffix}`,
+                    `📅 ${dateLbl}: ${shortWeekday} (${fullDate})`,
+                    `⏰ ${timeLbl}: ${timeRange}`
+                ];
+
+                if (meetUrl) {
+                    lines.push(`🔗 ${linkLbl}: ${meetUrl}`);
+                }
+
+                return lines.join("\n");
+            },
+
+            copyLessonStudentInvitation(courseId, sectionId, slotKey) {
+                const course = (this.state.courses || []).find(c => c.id === courseId) || this.getActiveCourse();
+                if (!course) return;
+                let targetSec = null;
+                (course.levels || []).forEach(l => {
+                    const m = (l.modules || []).find(x => x.id === sectionId);
+                    if (m) targetSec = m;
+                });
+                if (!targetSec) targetSec = this.getActiveSection(course);
+                if (!targetSec) return;
+
+                const targetSlotKey = slotKey || (targetSec.dates && targetSec.dates[0]) || new Date().toISOString().substring(0, 10);
+                const text = this.generateLessonInvitationText(course, targetSec, targetSlotKey);
+
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard.writeText(text).then(() => {
+                        this.showToast(`📋 ${this.t("inviteCopiedToast")}`, "success");
+                    }).catch(() => {
+                        this.showToast("Errore durante la copia", "error");
+                    });
+                } else {
+                    const ta = document.createElement("textarea");
+                    ta.value = text;
+                    document.body.appendChild(ta);
+                    ta.select();
+                    document.execCommand("copy");
+                    document.body.removeChild(ta);
+                    this.showToast(`📋 ${this.t("inviteCopiedToast")}`, "success");
+                }
+            },
+
             /**
              * Unified Lesson Plan & New Lesson Modal (75vw two-column layout, multi-lesson per day support)
              */
@@ -9438,6 +9552,7 @@ Dettagli di Sistema:
                                     </div>
                                     <div class="flex items-center gap-1.5 shrink-0">
                                         <button type="button" onclick="navigator.clipboard.writeText('${this.escapeHtml(les?.googleMeetUrl || targetSec.googleMeetUrl)}'); app.showToast('Link Meet copiato!', 'success');" class="px-2 py-1 rounded-lg bg-emerald-100 hover:bg-emerald-200 text-emerald-800 text-[10.5px] font-bold" title="Copia link"><i class="fa-solid fa-copy"></i> Copia</button>
+                                        <button type="button" onclick="app.copyLessonStudentInvitation('${course.id}', '${targetSec.id}', '${slotKey || ''}')" class="px-2 py-1 rounded-lg bg-sky-100 hover:bg-sky-200 text-sky-800 dark:bg-sky-950 dark:text-sky-200 text-[10.5px] font-bold flex items-center gap-1" title="${this.t('copyLessonInviteBtn')}"><i class="fa-solid fa-share-nodes"></i> ${this.t('copyLessonInviteBtn')}</button>
                                         <button type="button" onclick="if(window.electronAPI){window.electronAPI.openExternal('${this.escapeHtml(les?.googleMeetUrl || targetSec.googleMeetUrl)}');}else{window.open('${this.escapeHtml(les?.googleMeetUrl || targetSec.googleMeetUrl)}','_blank');}" class="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[10.5px] font-bold flex items-center gap-1"><i class="fa-solid fa-arrow-up-right-from-square"></i> Partecipa</button>
                                         <button type="button" onclick="document.getElementById('lpGoogleMeetUrlInput').value = ''; document.getElementById('lpGoogleMeetCustomInput').value = ''; document.getElementById('lpMeetCardContainer').innerHTML = '<div class=\'p-3 rounded-xl bg-slate-50 dark:bg-navy-950/40 border border-slate-200 dark:border-slate-800 flex items-center gap-2.5\'><i class=\'fa-solid fa-video-slash text-slate-400 text-sm\'></i><div><div class=\'font-bold text-slate-800 dark:text-slate-200 text-xs\'>Nessun link Google Meet assegnato</div><div class=\'text-[10px] text-slate-400\'>I link Meet non vengono generati in automatico per evitare conflitti.</div></div></div>'; app.showToast('Link Meet rimosso per questa lezione', 'info');" class="w-7 h-7 rounded-lg text-rose-500 hover:bg-rose-100 dark:hover:bg-rose-950/50 flex items-center justify-center text-xs" title="Rimuovi link Meet"><i class="fa-solid fa-trash"></i></button>
                                     </div>
@@ -9517,6 +9632,7 @@ Dettagli di Sistema:
                                 <button type="button" onclick="app.confirmRemoveDateFromModule('${slotKey}')" class="px-3.5 py-2 rounded-xl border border-rose-200 text-rose-600 font-bold">${this.t("deleteBtn")}</button>
                             ` : `<div></div>`}
                             <div class="flex items-center gap-2">
+                                <button type="button" onclick="app.copyLessonStudentInvitation('${course.id}', '${targetSec.id}', '${slotKey || ''}')" class="px-3.5 py-2 rounded-xl border border-sky-300 dark:border-slate-700 font-bold text-sky-700 dark:text-sky-300 hover:bg-sky-50 dark:hover:bg-navy-800 transition flex items-center gap-1.5"><i class="fa-solid fa-share-nodes"></i> ${this.t("copyLessonInviteBtn")}</button>
                                 <button type="button" onclick="app.closeModal()" class="px-4 py-2 rounded-xl border border-slate-300 dark:border-slate-700 font-bold">${this.t("cancelBtn")}</button>
                                 <button type="submit" class="px-5 py-2 rounded-xl bg-sky-600 text-white font-extrabold">${this.t("saveBtn")}</button>
                             </div>
@@ -9608,10 +9724,6 @@ Dettagli di Sistema:
                     this.closeModal(true);
                     this.renderAll();
                     this.showToast(this.t("saveBtn"), "success");
-
-                    if (this.state.settings?.googleCalendarConnected) {
-                        this.syncLessonToGoogle(course, sec, lessonData);
-                    }
                 } catch (err) {
                     console.error("Error saving lesson plan:", err);
                     this.closeModal(true);
@@ -10659,8 +10771,9 @@ Dettagli di Sistema:
                     payload.location = existingMeetUrl;
                 }
 
-                descLines.push(`[ClassManagementSlot:${course.id}:${module.id}:${lessonData.slotKey}]`);
-                payload.description = descLines.join("\n");
+                if (descLines.length > 0) {
+                    payload.description = descLines.join("\n");
+                }
 
                 const isUpdate = !!lessonData.googleCalendarEventId;
                 const endpoint = isUpdate

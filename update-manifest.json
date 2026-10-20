@@ -1,13 +1,13 @@
 {
-  "version": "26.10.4-016",
+  "version": "26.10.4-017",
   "channel": "unstable",
-  "tag_name": "v26.10.4-016",
+  "tag_name": "v26.10.4-017",
   "prerelease": true,
-  "published_at": "2026-10-20T00:50:00Z",
-  "name": "Class Management v26.10.4-016 [UNSTABLE]",
-  "body": "Novità versione 26.10.4-016:\n- Codice Gruppo / Corso: aggiunto campo codice dedicato posizionato a sinistra del nome corso; gli eventi sincronizzati su Google Calendar includono il prefisso [CODICE] per identificare univocamente le lezioni del gruppo.\n- Scansione Intelligente & Associazione Google Calendar: scansione proattiva degli eventi Google Calendar per codice gruppo a partire dalla data desiderata (default prima data del modulo), con associazione automatica a due passaggi e rilevamento delle stanze Google Meet.\n- Gestione Conflitti Spostamento Lezioni: quando si sposta una lezione in un giorno già occupato da un'altra lezione dello stesso gruppo, l'app avvisa l'utente e permette di scegliere se mantenere entrambe le lezioni o spostare in avanti a cascata tutte le lezioni successive secondo la frequenza del modulo.\n- Fix Drag & Drop Windows: riabilitato il trascinamento fluido delle lezioni nella versione Windows nativa tramite inizializzazione OLE per WebView2.\n- Fix Salvataggio Lezione Windows: risolto il problema di mancata chiusura della schermata di dettaglio lezione dopo il salvataggio.\n- Miglioramento Visualizzazione macOS: ottimizzato il layout della scheda di pianificazione lezione con ScrollView responsive, eliminando ogni clipping o sovrapposizione visiva.",
-  "setupUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.10.4-016/Class-Management-26.10.4-016-Setup.exe",
-  "setupName": "Class-Management-26.10.4-016-Setup.exe",
-  "nativeUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.10.4-016/Class-Management-26.10.4-016-Setup.exe",
-  "nativeName": "Class-Management-26.10.4-016-Setup.exe"
+  "published_at": "2026-10-20T02:45:00Z",
+  "name": "Class Management v26.10.4-017 [UNSTABLE]",
+  "body": "Novità versione 26.10.4-017:\n- Scheda Iscritti / Roster vuota: la barra degli strumenti rimane sempre fissa in alto, e l'area centrale adotta lo stesso stile pulito del Cestino e dell'Archivio con icona circolare, titolo e testo descrittivo.\n- Integrità Eventi Google Calendar: il salvataggio dei piani lezione non sovrascrive né altera più gli eventi Google Calendar associati, preservando intatti titolo, descrizione originale e dettagli senza iniettare metadati.\n- Copia Invito Lezione per Alunno: nuova opzione per copiare negli appunti l'invito completo alla lezione con corso, modulo, data, giorno della settimana, orario e link Google Meet tradotti nella lingua dell'applicazione (IT, EN, ES).",
+  "setupUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.10.4-017/Class-Management-26.10.4-017-Setup.exe",
+  "setupName": "Class-Management-26.10.4-017-Setup.exe",
+  "nativeUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.10.4-017/Class-Management-26.10.4-017-Setup.exe",
+  "nativeName": "Class-Management-26.10.4-017-Setup.exe"
 }
