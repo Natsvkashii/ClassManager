@@ -41,9 +41,9 @@ static std::atomic<SOCKET> g_googleOAuthSock{INVALID_SOCKET};
 
 // Version and Metadata Constants
 static const wchar_t* APP_NAME = L"Class Management";
-static const wchar_t* APP_VERSION = L"26.10.4-015";
-static const wchar_t* APP_CHANNEL = L"UNSTABLE";
-static const wchar_t* WINDOW_TITLE = L"Class Management v26.10.4-015 [UNSTABLE]";
+static const wchar_t* APP_VERSION = BUNDLED_APP_VERSION;
+static const wchar_t* APP_CHANNEL = BUNDLED_APP_CHANNEL;
+static const wchar_t* WINDOW_TITLE = BUNDLED_WINDOW_TITLE;
 static const wchar_t* AUTHOR_NAME = L"Guaira Jaramillo Nitoglia";
 static const wchar_t* AUTHOR_EMAIL = L"guaira.jaramillo.nitoglia@gmail.com";
 static const wchar_t* GITHUB_RELEASES_URL = L"https://github.com/Natsvkashii/ClassManager/releases";
