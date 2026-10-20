@@ -16,7 +16,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Class Management v26.10.4-018 (Windows Native Edition)</title>
+    <title>Class Management v26.10.4-019 (Windows Native Edition)</title>
     <link rel="icon" type="image/png" href="logo.png">
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -1126,12 +1126,20 @@ Removing, obfuscating, or altering these credits violates the author's attributi
         ];
 
         const INITIAL_DATA = {
-            version: "26.10.4-018",
+            version: "26.10.4-019",
             channel: "unstable",
             deletedItems: [],
             lastUpdated: new Date().toISOString(),
             activeCourseId: "",
             changelog: [
+                {
+                    version: "26.10.4-019",
+                    date: "2026-10-20",
+                    changes: [
+                        "Piano Lezioni (Windows): risolto il blocco di navigazione verso la scheda del piano lezioni dovuto a una variabile non definita, ripristinando il corretto caricamento del calendario del modulo.",
+                        "Calendario Mensile Ottimizzato (Windows): risolta la troncatura delle schede degli eventi nella vista mensile; le celle dei giorni e le card degli impegni si ridimensionano ora in modo fluido e leggibile garantendo la completa visibilità di orari e titoli."
+                    ]
+                },
                 {
                     version: "26.10.4-018",
                     date: "2026-10-20",
@@ -5515,8 +5523,6 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                         sessionCount: monthSessionCount,
                         weeks
                     });
-
-                    mCursor.setMonth(mCursor.getMonth() + 1);
                 }
 
                 container.innerHTML = `
@@ -5592,7 +5598,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                                             <div class="grid grid-cols-7 gap-2">
                                                 ${week.map(day => {
                                                     if (!day.isCurrentMonth) {
-                                                        return `<div class="min-h-[92px] rounded-xl bg-slate-50/50 dark:bg-navy-950/40 border border-transparent"></div>`;
+                                                        return `<div class="min-h-[96px] rounded-xl bg-slate-50/50 dark:bg-navy-950/40 border border-transparent"></div>`;
                                                     }
                                                     const hasLessons = day.sessions.length > 0;
                                                     const hasOtherPast = day.otherPastSessions.length > 0;
@@ -5600,7 +5606,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                                                         <div ondragover="app.handleDayDragOver(event, '${day.iso}')"
                                                              ondragleave="app.handleDayDragLeave(event, '${day.iso}')"
                                                              ondrop="app.handleDayDrop(event, '${day.iso}')"
-                                                             class="calendar-day-cell min-h-[92px] rounded-xl p-2 border transition flex flex-col justify-between gap-1.5 ${hasLessons ? 'border-sky-300 dark:border-sky-800 bg-sky-50/30 dark:bg-navy-800/40' : (hasOtherPast ? 'border-slate-200 dark:border-slate-800 bg-slate-50/40 dark:bg-navy-950/20' : 'border-sky-100 dark:border-slate-800 bg-white dark:bg-navy-900')}">
+                                                             class="calendar-day-cell min-h-[96px] rounded-xl p-2 border transition flex flex-col justify-start gap-1.5 ${hasLessons ? 'border-sky-300 dark:border-sky-800 bg-sky-50/30 dark:bg-navy-800/40' : (hasOtherPast ? 'border-slate-200 dark:border-slate-800 bg-slate-50/40 dark:bg-navy-950/20' : 'border-sky-100 dark:border-slate-800 bg-white dark:bg-navy-900')}">
                                                             <div class="flex items-center justify-between">
                                                                 <span class="text-xs font-bold text-slate-700 dark:text-slate-300">${day.dayNum}</span>
                                                             </div>
@@ -5849,32 +5855,33 @@ Removing, obfuscating, or altering these credits violates the author's attributi
             /**
              * Global Calendar View (Day, Week, Month + Course Colors + Conflict Detection + Google Calendar Layout)
              */
-            renderCalEventCard(ev, compact = false) {
+            renderCalEventCard(ev, compact = false, fullHeight = false) {
+                const heightCls = fullHeight ? "h-full" : "min-h-[38px] shrink-0";
                 if (ev.isGoogleEvent) {
                     return `
                         <button onclick="if(window.electronAPI){window.electronAPI.openExternal('${this.escapeHtml(ev.hangoutLink || ev.htmlLink || 'https://calendar.google.com')}');}else{window.open('${this.escapeHtml(ev.hangoutLink || ev.htmlLink || 'https://calendar.google.com')}','_blank');}"
-                            class="w-full h-full text-left p-1.5 rounded-lg text-white font-bold transition hover:opacity-95 shadow-2xs flex flex-col justify-between overflow-hidden"
+                            class="w-full ${heightCls} text-left p-1.5 rounded-lg text-white font-bold transition hover:opacity-95 shadow-2xs flex flex-col justify-center overflow-hidden"
                             style="background-color:#2563eb;" title="Evento Google Calendar personale: ${this.escapeHtml(ev.title)}">
                             <div class="flex items-center justify-between gap-1 w-full min-w-0">
                                 <span class="truncate text-[10px] flex items-center gap-1 font-extrabold"><i class="fa-brands fa-google text-[9px] shrink-0"></i> <span class="truncate">${this.escapeHtml(ev.title)}</span></span>
                                 ${ev.hangoutLink ? `<i class="fa-solid fa-video text-emerald-200 text-[9px] shrink-0" title="Link Meet disponibile"></i>` : ''}
                             </div>
-                            ${!compact ? `<div class="text-[9px] opacity-90 truncate">${this.formatTimeDisplay(ev.time)} - ${this.formatTimeDisplay(ev.endTime)}</div>` : ''}
+                            ${!compact ? `<div class="text-[9px] opacity-90 truncate leading-tight mt-0.5">${this.formatTimeDisplay(ev.time)} - ${this.formatTimeDisplay(ev.endTime)}</div>` : ''}
                         </button>
                     `;
                 }
                 return `
                     <button onclick="app.openLessonPlanModal('${ev.courseId}', '${ev.sectionId}', '${ev.slotKey}')"
-                        class="w-full h-full text-left p-1.5 rounded-lg text-white font-bold transition hover:opacity-95 flex flex-col justify-between overflow-hidden shadow-2xs"
+                        class="w-full ${heightCls} text-left p-1.5 rounded-lg text-white font-bold transition hover:opacity-95 flex flex-col justify-center overflow-hidden shadow-2xs"
                         style="background-color:${ev.pal.hex}" title="${this.escapeHtml(ev.courseName)}${ev.title ? ' — ' + this.escapeHtml(ev.title) : ''}">
                         <div class="flex items-center justify-between gap-1 w-full min-w-0">
-                            <span class="truncate text-[10.5px] font-extrabold">${this.escapeHtml(ev.courseName)}</span>
+                            <span class="truncate text-[10.5px] font-extrabold leading-tight">${this.escapeHtml(ev.courseName)}</span>
                             ${ev.conflict ? `<i class="fa-solid fa-triangle-exclamation text-amber-200 text-[10px] shrink-0" title="${this.t("timeConflictWarning")}"></i>` : ''}
                         </div>
                         ${!compact ? `
-                            <div class="text-[9.5px] opacity-90 truncate">${ev.title ? this.escapeHtml(ev.title) + ' • ' : ''}${this.formatTimeDisplay(ev.time)} - ${this.formatTimeDisplay(ev.endTime)}</div>
+                            <div class="text-[9.5px] opacity-90 truncate leading-tight mt-0.5">${ev.title ? this.escapeHtml(ev.title) + ' • ' : ''}${this.formatTimeDisplay(ev.time)} - ${this.formatTimeDisplay(ev.endTime)}</div>
                         ` : `
-                            <div class="text-[8.5px] opacity-80 truncate">${this.formatTimeDisplay(ev.time)}</div>
+                            <div class="text-[8.5px] opacity-80 truncate leading-tight mt-0.5">${this.formatTimeDisplay(ev.time)}</div>
                         `}
                     </button>
                 `;
@@ -6168,7 +6175,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                             <div class="p-3 rounded-2xl bg-white dark:bg-navy-900 border border-sky-100 dark:border-slate-800 space-y-2 shadow-xs">
                                 <div class="text-[11px] font-extrabold uppercase text-slate-400">Tutto il giorno</div>
                                 <div class="flex flex-wrap gap-2">
-                                    ${allDayEvents.map(ev => `<div class="w-64 h-10">${this.renderCalEventCard(ev, true)}</div>`).join("")}
+                                    ${allDayEvents.map(ev => `<div class="w-64 h-10">${this.renderCalEventCard(ev, true, true)}</div>`).join("")}
                                 </div>
                             </div>
                         ` : ''}
@@ -6198,7 +6205,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                                         const leftPercent = placed.colIndex * widthPercent;
                                         return `
                                             <div class="absolute z-10" style="top: ${topY}px; height: ${durHeight}px; left: calc(${leftPercent}% + 2px); width: calc(${widthPercent}% - 4px);">
-                                                ${this.renderCalEventCard(placed.event, durHeight < 55)}
+                                                ${this.renderCalEventCard(placed.event, durHeight < 55, true)}
                                             </div>
                                         `;
                                     }).join("")}
@@ -6257,21 +6264,34 @@ Removing, obfuscating, or altering these credits violates the author's attributi
             }
 
             buildCalendarMonthView(cells, dayHeaders) {
+                const now = new Date();
+                const nowY = now.getFullYear();
+                const nowM = String(now.getMonth() + 1).padStart(2, "0");
+                const nowD = String(now.getDate()).padStart(2, "0");
+                const todayIso = `${nowY}-${nowM}-${nowD}`;
+
                 return `
                     <div class="bg-white dark:bg-navy-900 rounded-2xl border border-sky-100 dark:border-slate-800 p-4 shadow-xs overflow-x-auto custom-scrollbar">
-                        <div class="min-w-[720px] space-y-2">
+                        <div class="min-w-[760px] space-y-2.5">
                             <div class="grid grid-cols-7 gap-2 text-center text-[11px] font-extrabold uppercase text-slate-400">
                                 ${dayHeaders.map(h => `<div>${this.escapeHtml(h)}</div>`).join("")}
                             </div>
-                            <div class="grid grid-cols-7 gap-2">
-                                ${cells.map(cell => `
-                                    <div class="min-h-[100px] p-2 rounded-xl border ${cell.inMonth ? 'bg-white dark:bg-navy-900 border-sky-100 dark:border-slate-800' : 'bg-slate-50/50 dark:bg-navy-950/40 border-slate-100 dark:border-slate-800/50 opacity-50'} flex flex-col justify-between">
-                                        <div class="text-[11px] font-extrabold text-slate-600 dark:text-slate-300">${cell.dayNum}</div>
-                                        <div class="space-y-1 mt-1">
-                                            ${cell.events.map(ev => this.renderCalEventCard(ev, false)).join("")}
+                            <div class="grid grid-cols-7 gap-2 items-stretch">
+                                ${cells.map(cell => {
+                                    const isToday = cell.iso === todayIso;
+                                    const hasEvents = cell.events && cell.events.length > 0;
+                                    return `
+                                        <div class="min-h-[112px] p-2 rounded-xl border transition flex flex-col justify-start gap-1.5 ${isToday ? 'border-blue-400 dark:border-blue-500 bg-blue-50/20 dark:bg-blue-950/20 ring-2 ring-blue-400/20 shadow-xs' : (cell.inMonth ? 'bg-white dark:bg-navy-900 border-sky-100 dark:border-slate-800' : 'bg-slate-50/50 dark:bg-navy-950/40 border-slate-100 dark:border-slate-800/40 opacity-45')}">
+                                            <div class="flex items-center justify-between pb-0.5">
+                                                <span class="text-xs font-black ${isToday ? 'text-blue-600 dark:text-blue-400 font-extrabold' : (cell.inMonth ? 'text-slate-800 dark:text-slate-200' : 'text-slate-400 dark:text-slate-500')}">${cell.dayNum}</span>
+                                                ${hasEvents ? `<span class="px-1.5 py-0.2 rounded-full bg-slate-100 dark:bg-slate-800 text-[9px] font-bold text-slate-500 dark:text-slate-400">${cell.events.length}</span>` : ''}
+                                            </div>
+                                            <div class="flex-1 flex flex-col gap-1 min-w-0">
+                                                ${cell.events.map(ev => this.renderCalEventCard(ev, false, false)).join("")}
+                                            </div>
                                         </div>
-                                    </div>
-                                `).join("")}
+                                    `;
+                                }).join("")}
                             </div>
                         </div>
                     </div>
