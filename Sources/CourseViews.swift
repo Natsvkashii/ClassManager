@@ -502,90 +502,6 @@ public struct HomeView: View {
                 .padding(.horizontal, 4)
             }
 
-            // Didactic Details: Topics, Objectives, Homework, Notes
-            let hasDidactics = !item.topics.isEmpty || !item.objectives.isEmpty || !item.homework.isEmpty || !item.notes.isEmpty
-            if hasDidactics {
-                VStack(alignment: .leading, spacing: 8) {
-                    if !item.topics.isEmpty {
-                        VStack(alignment: .leading, spacing: 3) {
-                            Label(store.t("topicsContentsLabel"), systemImage: "list.bullet")
-                                .font(.caption.bold())
-                                .foregroundStyle(.blue)
-                            Text(item.topics)
-                                .font(.callout)
-                                .foregroundStyle(.primary)
-                        }
-                        .padding(10)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(RoundedRectangle(cornerRadius: 10).fill(Color.blue.opacity(0.06)))
-                    }
-
-                    if !item.objectives.isEmpty {
-                        VStack(alignment: .leading, spacing: 3) {
-                            Label(store.t("objectivesLabel"), systemImage: "target")
-                                .font(.caption.bold())
-                                .foregroundStyle(.indigo)
-                            Text(item.objectives)
-                                .font(.callout)
-                                .foregroundStyle(.primary)
-                        }
-                        .padding(10)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(RoundedRectangle(cornerRadius: 10).fill(Color.indigo.opacity(0.06)))
-                    }
-
-                    if !item.homework.isEmpty || !item.notes.isEmpty {
-                        HStack(spacing: 8) {
-                            if !item.homework.isEmpty {
-                                VStack(alignment: .leading, spacing: 3) {
-                                    Label(store.t("homeworkVerifyLabel"), systemImage: "book.closed")
-                                        .font(.caption.bold())
-                                        .foregroundStyle(.orange)
-                                    Text(item.homework)
-                                        .font(.caption)
-                                        .lineLimit(3)
-                                }
-                                .padding(8)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .background(RoundedRectangle(cornerRadius: 8).fill(Color.orange.opacity(0.06)))
-                            }
-                            if !item.notes.isEmpty {
-                                VStack(alignment: .leading, spacing: 3) {
-                                    Label(store.t("notesLabel"), systemImage: "note.text")
-                                        .font(.caption.bold())
-                                        .foregroundStyle(.purple)
-                                    Text(item.notes)
-                                        .font(.caption)
-                                        .lineLimit(3)
-                                }
-                                .padding(8)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .background(RoundedRectangle(cornerRadius: 8).fill(Color.purple.opacity(0.06)))
-                            }
-                        }
-                    }
-                }
-            } else {
-                HStack(spacing: 8) {
-                    Image(systemName: "pencil.and.list.clipboard")
-                        .foregroundStyle(.secondary)
-                    Text(store.t("lessonNoTopicsYet"))
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    Spacer()
-                    Button {
-                        activeSheet = .lessonPlan(courseId: item.course.id, sectionId: item.module.id, slotKey: item.slotKey)
-                    } label: {
-                        Label(store.t("addLessonPlanQuickBtn"), systemImage: "plus")
-                            .font(.caption.bold())
-                    }
-                    .buttonStyle(.bordered)
-                    .controlSize(.small)
-                }
-                .padding(10)
-                .background(RoundedRectangle(cornerRadius: 10).fill(Color.secondary.opacity(0.05)))
-            }
-
             Divider()
 
             // Actions: Join, Copy, Lesson Plan, Register
@@ -682,12 +598,6 @@ public struct HomeView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
-                if !item.topics.isEmpty {
-                    Text(item.topics)
-                        .font(.system(size: 10))
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                }
             }
 
             HStack(spacing: 4) {

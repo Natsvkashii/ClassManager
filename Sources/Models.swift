@@ -18,7 +18,7 @@ public enum AuthorAttribution {
     public static let authorName = "Guaira Jaramillo Nitoglia"
     public static let authorEmail = "guaira.jaramillo.nitoglia@gmail.com"
     public static let appName = "ClassDesk"
-    public static let appVersion = "26.10.4-024"
+    public static let appVersion = "26.10.4-025"
     public static let appChannel = "unstable"
     public static let licenseName = "GNU General Public License v3.0 (GPL-3.0)"
 
@@ -1111,16 +1111,35 @@ public struct LessonPlan: Codable, Identifiable, Equatable {
         self.time = time
         self.endTime = endTime
         self.title = title
-        self.objectives = objectives
-        self.topics = topics
+        self.objectives = LessonPlan.cleanDidacticText(objectives)
+        self.topics = LessonPlan.cleanDidacticText(topics)
         self.methodology = methodology
         self.materials = materials
-        self.homework = homework
-        self.notes = notes
+        self.homework = LessonPlan.cleanDidacticText(homework)
+        self.notes = LessonPlan.cleanDidacticText(notes)
         self.calendarEventIdentifier = calendarEventIdentifier
         self.googleMeetUrl = googleMeetUrl
         self.googleCalendarEventId = googleCalendarEventId
         self.invitedEmails = invitedEmails
+    }
+
+    public static func cleanDidacticText(_ raw: String) -> String {
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty || trimmed == "()" || trimmed == "(\n)" || trimmed == "[]" { return "" }
+        if trimmed.hasPrefix("(") && trimmed.hasSuffix(")") {
+            let inner = trimmed.dropFirst().dropLast().trimmingCharacters(in: .whitespacesAndNewlines)
+            if inner.isEmpty { return "" }
+            let lines = inner.components(separatedBy: .newlines)
+            let cleaned = lines.map { line -> String in
+                var l = line.trimmingCharacters(in: .whitespacesAndNewlines)
+                if l.hasPrefix("\"") { l.removeFirst() }
+                if l.hasSuffix(",") { l.removeLast() }
+                if l.hasSuffix("\"") { l.removeLast() }
+                return l.trimmingCharacters(in: .whitespaces)
+            }.filter { !$0.isEmpty }
+            return cleaned.joined(separator: "\n")
+        }
+        return trimmed
     }
 
     public init(from decoder: Decoder) throws {
@@ -1133,12 +1152,12 @@ public struct LessonPlan: Codable, Identifiable, Equatable {
         time = c.flexString(.time, default: "19:00")
         endTime = c.flexString(.endTime, default: "20:30")
         title = c.flexString(.title, default: "")
-        objectives = c.flexString(.objectives, default: "")
-        topics = c.flexString(.topics, default: "")
+        objectives = LessonPlan.cleanDidacticText(c.flexString(.objectives, default: ""))
+        topics = LessonPlan.cleanDidacticText(c.flexString(.topics, default: ""))
         methodology = c.flexString(.methodology, default: "")
         materials = c.flexString(.materials, default: "")
-        homework = c.flexString(.homework, default: "")
-        notes = c.flexString(.notes, default: "")
+        homework = LessonPlan.cleanDidacticText(c.flexString(.homework, default: ""))
+        notes = LessonPlan.cleanDidacticText(c.flexString(.notes, default: ""))
         calendarEventIdentifier = c.flexOptString(.calendarEventIdentifier)
         googleMeetUrl = c.flexOptString(.googleMeetUrl)
         googleCalendarEventId = c.flexOptString(.googleCalendarEventId)
@@ -1154,12 +1173,12 @@ public struct LessonPlan: Codable, Identifiable, Equatable {
         time = JSONDictHelper.str(dict["time"], default: "19:00")
         endTime = JSONDictHelper.str(dict["endTime"], default: "20:30")
         title = JSONDictHelper.str(dict["title"], default: "")
-        objectives = JSONDictHelper.str(dict["objectives"], default: "")
-        topics = JSONDictHelper.str(dict["topics"], default: "")
+        objectives = LessonPlan.cleanDidacticText(JSONDictHelper.str(dict["objectives"], default: ""))
+        topics = LessonPlan.cleanDidacticText(JSONDictHelper.str(dict["topics"], default: ""))
         methodology = JSONDictHelper.str(dict["methodology"], default: "")
         materials = JSONDictHelper.str(dict["materials"], default: "")
-        homework = JSONDictHelper.str(dict["homework"], default: "")
-        notes = JSONDictHelper.str(dict["notes"], default: "")
+        homework = LessonPlan.cleanDidacticText(JSONDictHelper.str(dict["homework"], default: ""))
+        notes = LessonPlan.cleanDidacticText(JSONDictHelper.str(dict["notes"], default: ""))
         calendarEventIdentifier = JSONDictHelper.optStr(dict["calendarEventIdentifier"])
         googleMeetUrl = JSONDictHelper.optStr(dict["googleMeetUrl"])
         googleCalendarEventId = JSONDictHelper.optStr(dict["googleCalendarEventId"])
@@ -1692,6 +1711,11 @@ public struct AppState: Codable, Equatable {
     ]
 
     public static let defaultChangelog: [ChangelogEntry] = [
+        ChangelogEntry(version: "26.10.4-025", date: "2026-10-20", changes: [
+            "Eliminazione ghost app su macOS: la procedura di aggiornamento atomica sposta ora il backup temporaneo in /tmp senza estensione .app, azzera gli alias nascosti e forza il refresh di LaunchServices e del Dock (lsregister e killall Dock), evitando che l'icona dell'applicazione compaia con il nome '.ClassDesk_Old...'.",
+            "Schede dinamiche Dashboard snellite: rimossa la sezione argomenti, didattica e note dalle schede dinamiche della Dashboard (sia hero card che schede successive) per evitare disordine visivo e parentesi vuote residue.",
+            "Sanitizzazione automatica didattica: eliminata qualsiasi formattazione legacy ('(\\n)' o stringhe plist grezze) dai campi argomenti, compiti e note."
+        ]),
         ChangelogEntry(version: "26.10.4-024", date: "2026-10-20", changes: [
             "Risoluzione crash critico macOS: eliminata la ricorsione nei vincoli di layout AppKit (EXC_BREAKPOINT) durante gli aggiornamenti in-app mediante throttling del progresso download, unificazione delle presentazioni modali ed eliminazione dei sub-scrollview orizzontali nelle celle.",
             "Tema scuro Fatturazione Windows: le schede modulo e livello nel riquadro 'Moduli e Livelli del Corso' ora si adattano perfettamente al tema scuro.",

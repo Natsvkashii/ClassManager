@@ -16,7 +16,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ClassDesk v26.10.4-024 (Windows Native Edition)</title>
+    <title>ClassDesk v26.10.4-025 (Windows Native Edition)</title>
     <link rel="icon" type="image/png" href="logo.png">
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -167,7 +167,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                     <span class="sidebar-text" id="sidebarFeedbackBtnText">Invia Feedback</span>
                 </button>
                 <div class="sidebar-footer-card p-1.5 rounded-xl bg-slate-50 dark:bg-navy-950/40 text-[10px] text-center text-slate-400 dark:text-slate-500 font-semibold">
-                    <span id="sidebarVersionBadge">ClassDesk v26.10.4-024</span>
+                    <span id="sidebarVersionBadge">ClassDesk v26.10.4-025</span>
                 </div>
             </div>
         </aside>
@@ -1164,12 +1164,21 @@ Removing, obfuscating, or altering these credits violates the author's attributi
         ];
 
         const INITIAL_DATA = {
-            version: "26.10.4-024",
+            version: "26.10.4-025",
             channel: "unstable",
             deletedItems: [],
             lastUpdated: new Date().toISOString(),
             activeCourseId: "",
             changelog: [
+                {
+                    version: "26.10.4-025",
+                    date: "2026-10-20",
+                    changes: [
+                        "Eliminazione ghost app su macOS: la procedura di aggiornamento atomica sposta ora il backup temporaneo in /tmp senza estensione .app, azzera gli alias nascosti e forza il refresh di LaunchServices e del Dock (lsregister e killall Dock), evitando che l'icona dell'applicazione compaia con il nome '.ClassDesk_Old...'.",
+                        "Schede dinamiche Dashboard snellite: rimossa la sezione argomenti, didattica e note dalle schede dinamiche della Dashboard (sia hero card che schede successive) per evitare disordine visivo e parentesi vuote residue.",
+                        "Sanitizzazione automatica didattica: eliminata qualsiasi formattazione legacy ('(\\n)' o stringhe plist grezze) dai campi argomenti, compiti e note."
+                    ]
+                },
                 {
                     version: "26.10.4-024",
                     date: "2026-10-20",
@@ -1940,6 +1949,24 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                     .replace(/'/g, "&#039;");
             }
 
+            sanitizeDidacticText(raw) {
+                if (!raw) return "";
+                const str = String(raw).trim();
+                if (str === "()" || str === "(\n)" || str === "[]") return "";
+                if (str.startsWith("(") && str.endsWith(")")) {
+                    const inner = str.slice(1, -1).trim();
+                    if (!inner) return "";
+                    return inner.split(/\r?\n/).map(l => {
+                        let line = l.trim();
+                        if (line.startsWith('"')) line = line.substring(1);
+                        if (line.endsWith(',')) line = line.slice(0, -1).trim();
+                        if (line.endsWith('"')) line = line.slice(0, -1);
+                        return line.trim();
+                    }).filter(Boolean).join("\n");
+                }
+                return str;
+            }
+
             normalizeCefrLevel(raw) {
                 if (!raw) return "A1";
                 const str = String(raw).trim().toUpperCase();
@@ -2291,10 +2318,10 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                                     color: pal,
                                     studentCount: stCount,
                                     studentNames: enrolledStudentNames,
-                                    topics: (les?.topics || "").trim(),
-                                    objectives: (les?.objectives || "").trim(),
-                                    homework: (les?.homework || "").trim(),
-                                    notes: (les?.notes || "").trim(),
+                                    topics: this.sanitizeDidacticText(les?.topics),
+                                    objectives: this.sanitizeDidacticText(les?.objectives),
+                                    homework: this.sanitizeDidacticText(les?.homework),
+                                    notes: this.sanitizeDidacticText(les?.notes),
                                     hasAttendance,
                                     isLiveNow,
                                     isFutureOrToday,
@@ -3155,49 +3182,9 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                                                     <span class="w-1.5 h-1.5 rounded-full" style="background-color: ${featuredLesson.color.hex}"></span>
                                                     ${this.escapeHtml(sn)}
                                                 </span>
-                                            `).join('')}
+                                             `).join('')}
                                         </div>
                                     ` : ''}
-
-                                    ${(featuredLesson.topics || featuredLesson.objectives || featuredLesson.homework || featuredLesson.notes) ? `
-                                        <div class="space-y-2 pt-2 border-t border-sky-100/60 dark:border-slate-800">
-                                            ${featuredLesson.topics ? `
-                                                <div class="p-3 rounded-xl bg-sky-50/50 dark:bg-navy-800/40 border border-sky-100/60 dark:border-slate-800 text-xs">
-                                                    <span class="font-bold text-sky-700 dark:text-sky-300 block mb-0.5"><i class="fa-solid fa-list-check mr-1"></i> ${this.t("topicsContentsLabel")}</span>
-                                                    <p class="text-slate-700 dark:text-slate-200 whitespace-pre-wrap">${this.escapeHtml(featuredLesson.topics)}</p>
-                                                </div>
-                                            ` : ''}
-                                            ${featuredLesson.objectives ? `
-                                                <div class="p-3 rounded-xl bg-indigo-50/50 dark:bg-navy-800/40 border border-indigo-100/60 dark:border-slate-800 text-xs">
-                                                    <span class="font-bold text-indigo-700 dark:text-indigo-300 block mb-0.5"><i class="fa-solid fa-bullseye mr-1"></i> ${this.t("objectivesLabel")}</span>
-                                                    <p class="text-slate-700 dark:text-slate-200 whitespace-pre-wrap">${this.escapeHtml(featuredLesson.objectives)}</p>
-                                                </div>
-                                            ` : ''}
-                                            ${(featuredLesson.homework || featuredLesson.notes) ? `
-                                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                                    ${featuredLesson.homework ? `
-                                                        <div class="p-2.5 rounded-xl bg-amber-50/50 dark:bg-navy-800/40 border border-amber-100/60 dark:border-slate-800 text-xs">
-                                                            <span class="font-bold text-amber-700 dark:text-amber-300 block mb-0.5"><i class="fa-solid fa-book-open mr-1"></i> ${this.t("homeworkVerifyLabel")}</span>
-                                                            <p class="text-slate-700 dark:text-slate-200 line-clamp-3">${this.escapeHtml(featuredLesson.homework)}</p>
-                                                        </div>
-                                                    ` : ''}
-                                                    ${featuredLesson.notes ? `
-                                                        <div class="p-2.5 rounded-xl bg-purple-50/50 dark:bg-navy-800/40 border border-purple-100/60 dark:border-slate-800 text-xs">
-                                                            <span class="font-bold text-purple-700 dark:text-purple-300 block mb-0.5"><i class="fa-solid fa-note-sticky mr-1"></i> ${this.t("notesLabel")}</span>
-                                                            <p class="text-slate-700 dark:text-slate-200 line-clamp-3">${this.escapeHtml(featuredLesson.notes)}</p>
-                                                        </div>
-                                                    ` : ''}
-                                                </div>
-                                            ` : ''}
-                                        </div>
-                                    ` : `
-                                        <div class="p-3 rounded-xl bg-slate-50 dark:bg-navy-800/30 border border-dashed border-slate-200 dark:border-slate-800 flex items-center justify-between gap-3 text-xs">
-                                            <span class="text-slate-400"><i class="fa-solid fa-file-pen mr-1"></i> ${this.t("lessonNoTopicsYet")}</span>
-                                            <button type="button" onclick="app.openLessonPlanModal('${featuredLesson.course.id}', '${featuredLesson.module.id}', '${featuredLesson.slotKey}')" class="px-2.5 py-1 rounded-lg border border-sky-300 dark:border-slate-700 text-sky-700 dark:text-sky-300 font-bold hover:bg-sky-50 dark:hover:bg-navy-800 transition">
-                                                <i class="fa-solid fa-plus mr-1"></i> ${this.t("addLessonPlanQuickBtn")}
-                                            </button>
-                                        </div>
-                                    `}
                                 </div>
 
                                 <!-- Action Buttons: Join, Copy details & link, Register -->
@@ -3283,11 +3270,6 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                                                     <p class="text-[10.5px] font-semibold text-slate-400 truncate">
                                                         ${this.escapeHtml(sl.course.name)} • ${this.escapeHtml(sl.module.name || '')}
                                                     </p>
-                                                    ${sl.topics ? `
-                                                        <p class="text-[10px] text-slate-500 dark:text-slate-400 truncate mt-0.5" title="${this.escapeHtml(sl.topics)}">
-                                                            ${this.escapeHtml(sl.topics)}
-                                                        </p>
-                                                    ` : ''}
                                                 </div>
                                                 <div class="text-[11px] font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5 pt-1">
                                                     <i class="fa-regular fa-calendar text-sky-600 text-xs"></i>

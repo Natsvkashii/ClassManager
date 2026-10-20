@@ -1,15 +1,15 @@
 {
-  "version": "26.10.4-024",
+  "version": "26.10.4-025",
   "channel": "unstable",
-  "tag_name": "v26.10.4-024",
+  "tag_name": "v26.10.4-025",
   "prerelease": true,
-  "published_at": "2026-10-20T20:20:00Z",
-  "name": "ClassDesk v26.10.4-024 [UNSTABLE]",
-  "body": "Novità versione 26.10.4-024:\n- Risoluzione crash critico macOS: eliminata la ricorsione nei vincoli di layout AppKit (EXC_BREAKPOINT) durante gli aggiornamenti in-app mediante throttling del progresso download, unificazione delle presentazioni modali ed eliminazione dei sub-scrollview orizzontali nelle celle.\n- Tema scuro Fatturazione Windows: le schede modulo e livello nel riquadro 'Moduli e Livelli del Corso' ora si adattano perfettamente al tema scuro.\n- Pulsante Dashboard indipendente: il pulsante Home è rinominato in 'Dashboard' in tutte le lingue (IT, EN, ES) ed è collocato come elemento autonomo in cima alla barra laterale, senza l'intestazione Menu.\n- Layout responsive Windows con barra fissa: bloccato il viewport per prevenire overflow e disallineamenti di barre inferiori; la barra superiore di gestione rapida resta sempre visibile durante lo scorrimento.\n- Distribuzione unificata & Installazione obbligatoria: rimosse tutte le build Portable da GitHub per distribuire esclusivamente gli installer ufficiali; avvio automatico del setup su Windows se eseguito fuori dal percorso di installazione.\n- Impostazioni pulite: rimossa la registrazione manuale della versione e aggiunto il pulsante 'Reinstalla applicazione' a fianco di 'Azzera dati'.\n- Doppia opzione aggiornamenti: scelta trasparente e dedicata tra aggiornamento in-app automatico a 1 clic e download manuale dell'installer nel browser.",
-  "setupUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.10.4-024/ClassDesk-26.10.4-024-Setup.exe",
-  "setupName": "ClassDesk-26.10.4-024-Setup.exe",
-  "macZipUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.10.4-024/ClassDesk-26.10.4-024-macOS.zip",
-  "macZipName": "ClassDesk-26.10.4-024-macOS.zip",
-  "macPkgUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.10.4-024/ClassDesk-26.10.4-024-Installer.pkg",
-  "macPkgName": "ClassDesk-26.10.4-024-Installer.pkg"
+  "published_at": "2026-10-20T20:50:00Z",
+  "name": "ClassDesk v26.10.4-025 [UNSTABLE]",
+  "body": "Novità versione 26.10.4-025:\n- Eliminazione ghost app su macOS: la procedura di aggiornamento atomica sposta ora il backup temporaneo in /tmp senza estensione .app, azzera gli alias nascosti e forza il refresh di LaunchServices e del Dock (lsregister e killall Dock), evitando che l'icona dell'applicazione compaia con il nome '.ClassDesk_Old...'.\n- Schede dinamiche Dashboard snellite: rimossa la sezione argomenti, didattica e note dalle schede dinamiche della Dashboard (sia hero card che schede successive) per evitare disordine visivo e parentesi vuote residue.\n- Sanitizzazione automatica didattica: eliminata qualsiasi formattazione legacy ('(\\n)' o stringhe plist grezze) dai campi argomenti, compiti e note.",
+  "setupUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.10.4-025/ClassDesk-26.10.4-025-Setup.exe",
+  "setupName": "ClassDesk-26.10.4-025-Setup.exe",
+  "macZipUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.10.4-025/ClassDesk-26.10.4-025-macOS.zip",
+  "macZipName": "ClassDesk-26.10.4-025-macOS.zip",
+  "macPkgUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.10.4-025/ClassDesk-26.10.4-025-Installer.pkg",
+  "macPkgName": "ClassDesk-26.10.4-025-Installer.pkg"
 }

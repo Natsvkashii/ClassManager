@@ -268,6 +268,10 @@ if [ -n "$CONSOLE_USER" ] && [ "$CONSOLE_USER" != "root" ]; then
 fi
 chmod -R ugo+rwX "/Applications/ClassDesk.app" 2>/dev/null || true
 rm -rf /Applications/.ClassDesk_Old_*.app 2>/dev/null || true
+find /Applications -maxdepth 1 -name ".*ClassDesk*" -exec rm -rf {} + 2>/dev/null || true
+find /Applications -maxdepth 1 -name ".*ClassManagement*" -exec rm -rf {} + 2>/dev/null || true
+/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -R "/Applications/ClassDesk.app" 2>/dev/null || true
+killall Dock 2>/dev/null || true
 
 # Launch newly installed application for current console user
 if [ -n "$CONSOLE_USER" ] && [ "$CONSOLE_USER" != "root" ]; then

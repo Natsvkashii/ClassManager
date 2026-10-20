@@ -484,15 +484,16 @@ public final class UpdateManager: NSObject, URLSessionDownloadDelegate {
                             sleep 0.4
                         fi
 
-                        # 2. Atomic directory replacement strategy in /Applications
-                        # Renaming within /Applications succeeds without sudo because /Applications
-                        # is group-writable (rwxrwxr-x root admin) and the user is in admin group.
-                        OLD_BACKUP="/Applications/.ClassDesk_Old_$(date +%s).app"
+                        # 2. Safe directory replacement strategy:
+                        # Move existing app to temporary backup folder OUTSIDE /Applications and WITHOUT .app extension
+                        # so macOS LaunchServices and Dock never index or register it as an application.
+                        OLD_BACKUP="/tmp/classdesk_backup_old_$$"
+                        rm -rf "$OLD_BACKUP" 2>/dev/null || true
                         if [ -d "$TARGET" ]; then
                             mv "$TARGET" "$OLD_BACKUP" 2>/dev/null || true
                         fi
                         if [ -d "$LEGACY" ]; then
-                            mv "$LEGACY" "/Applications/.ClassManagement_Old_$(date +%s).app" 2>/dev/null || true
+                            rm -rf "$LEGACY" 2>/dev/null || true
                         fi
 
                         # 3. Copy newly extracted application into target location
@@ -512,11 +513,15 @@ public final class UpdateManager: NSObject, URLSessionDownloadDelegate {
                         # 4. Relaunch the updated application
                         open "$TARGET"
 
-                        # 5. Clean up temporary files
+                        # 5. Clean up temporary files, prune any hidden ghost entries and refresh LaunchServices/Dock
                         rm -rf "$OLD_BACKUP" 2>/dev/null || true
-                        rm -rf "/Applications/.ClassManagement_Old_"*.app 2>/dev/null || true
+                        find /Applications -maxdepth 1 -name ".*ClassDesk*" -exec rm -rf {} + 2>/dev/null || true
+                        find /Applications -maxdepth 1 -name ".*ClassManagement*" -exec rm -rf {} + 2>/dev/null || true
                         rm -rf "$EXTRACT" 2>/dev/null || true
                         rm -f "$ZIPFILE" 2>/dev/null || true
+
+                        /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -R "$TARGET" 2>/dev/null || true
+                        killall Dock 2>/dev/null || true
                         rm -f "$0" 2>/dev/null || true
                         exit 0
                         """
