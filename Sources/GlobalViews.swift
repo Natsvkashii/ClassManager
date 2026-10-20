@@ -835,34 +835,42 @@ public struct StudentsDirectoryView: View {
                                     .frame(width: 260, alignment: .leading)
 
                                     // Column 2: Attended Courses Badges
-                                    ScrollView(.horizontal, showsIndicators: false) {
-                                        HStack(spacing: 5) {
-                                            if attendedCourses.isEmpty {
-                                                Text(store.t("withoutGroupLabel"))
-                                                    .font(.caption)
-                                                    .foregroundStyle(.secondary)
-                                            } else {
-                                                ForEach(attendedCourses) { c in
-                                                    HStack(spacing: 4) {
-                                                        Circle()
-                                                            .fill(store.palette(for: c.color).color)
-                                                            .frame(width: 7, height: 7)
-                                                        Text(c.name)
-                                                            .font(.caption2.bold())
-                                                            .lineLimit(1)
-                                                    }
-                                                    .padding(.horizontal, 7)
-                                                    .padding(.vertical, 3)
-                                                    .background(
-                                                        RoundedRectangle(cornerRadius: 6)
-                                                            .fill(store.palette(for: c.color).color.opacity(0.12))
-                                                            .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(store.palette(for: c.color).color.opacity(0.28)))
-                                                    )
+                                    HStack(spacing: 5) {
+                                        if attendedCourses.isEmpty {
+                                            Text(store.t("withoutGroupLabel"))
+                                                .font(.caption)
+                                                .foregroundStyle(.secondary)
+                                        } else {
+                                            ForEach(attendedCourses.prefix(2)) { c in
+                                                HStack(spacing: 4) {
+                                                    Circle()
+                                                        .fill(store.palette(for: c.color).color)
+                                                        .frame(width: 7, height: 7)
+                                                    Text(c.name)
+                                                        .font(.caption2.bold())
+                                                        .lineLimit(1)
                                                 }
+                                                .padding(.horizontal, 7)
+                                                .padding(.vertical, 3)
+                                                .background(
+                                                    RoundedRectangle(cornerRadius: 6)
+                                                        .fill(store.palette(for: c.color).color.opacity(0.12))
+                                                        .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(store.palette(for: c.color).color.opacity(0.28)))
+                                                )
+                                            }
+                                            if attendedCourses.count > 2 {
+                                                Text("+\(attendedCourses.count - 2)")
+                                                    .font(.system(size: 10, weight: .bold))
+                                                    .padding(.horizontal, 5)
+                                                    .padding(.vertical, 2)
+                                                    .background(Capsule().fill(Color.secondary.opacity(0.15)))
+                                                    .foregroundStyle(.secondary)
+                                                    .help(attendedCourses.dropFirst(2).map(\.name).joined(separator: ", "))
                                             }
                                         }
                                     }
                                     .frame(width: 200, alignment: .leading)
+                                    .clipped()
 
                                     // Column 3: Level Badge
                                     Text(st.lastFollowedLevel ?? st.currentLevel)

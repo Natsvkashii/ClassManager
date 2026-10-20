@@ -180,6 +180,7 @@ public final class UpdateManager: NSObject, URLSessionDownloadDelegate {
 
     @ObservationIgnored private var downloadTask: URLSessionDownloadTask? = nil
     @ObservationIgnored private var activeDownloadAsset: GitHubAsset? = nil
+    @ObservationIgnored private var lastProgressUpdateTime: Double = 0
     @ObservationIgnored private lazy var session: URLSession = {
         let config = URLSessionConfiguration.default
         config.requestCachePolicy = .reloadIgnoringLocalCacheData
@@ -380,11 +381,15 @@ public final class UpdateManager: NSObject, URLSessionDownloadDelegate {
             : 0.0
 
         Task { @MainActor in
-            self.downloadProgress = progress
-            if totalBytesExpectedToWrite > 0 {
-                let mbDownloaded = Double(totalBytesWritten) / (1024.0 * 1024.0)
-                let mbTotal = Double(totalBytesExpectedToWrite) / (1024.0 * 1024.0)
-                self.statusMessage = String(format: "Download: %.1f MB di %.1f MB (%.0f%%)", mbDownloaded, mbTotal, progress * 100.0)
+            let now = ProcessInfo.processInfo.systemUptime
+            if now - self.lastProgressUpdateTime >= 0.1 || progress >= 1.0 {
+                self.lastProgressUpdateTime = now
+                self.downloadProgress = progress
+                if totalBytesExpectedToWrite > 0 {
+                    let mbDownloaded = Double(totalBytesWritten) / (1024.0 * 1024.0)
+                    let mbTotal = Double(totalBytesExpectedToWrite) / (1024.0 * 1024.0)
+                    self.statusMessage = String(format: "Download: %.1f MB di %.1f MB (%.0f%%)", mbDownloaded, mbTotal, progress * 100.0)
+                }
             }
         }
     }
@@ -398,8 +403,8 @@ public final class UpdateManager: NSObject, URLSessionDownloadDelegate {
         // Therefore, we MUST synchronously move it before dispatching to the main actor!
         let rawName = downloadTask.response?.suggestedFilename
             ?? downloadTask.originalRequest?.url?.lastPathComponent
-            ?? "Class-Management-Update.pkg"
-        let fileName = rawName.isEmpty ? "Class-Management-Update.pkg" : rawName
+            ?? "ClassDesk-Update.pkg"
+        let fileName = rawName.isEmpty ? "ClassDesk-Update.pkg" : rawName
         let downloadsFolder = FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first
         let targetFolder = downloadsFolder ?? FileManager.default.temporaryDirectory
         var destinationUrl = targetFolder.appendingPathComponent(fileName)

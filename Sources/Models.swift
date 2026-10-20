@@ -18,7 +18,7 @@ public enum AuthorAttribution {
     public static let authorName = "Guaira Jaramillo Nitoglia"
     public static let authorEmail = "guaira.jaramillo.nitoglia@gmail.com"
     public static let appName = "ClassDesk"
-    public static let appVersion = "26.10.4-023"
+    public static let appVersion = "26.10.4-024"
     public static let appChannel = "unstable"
     public static let licenseName = "GNU General Public License v3.0 (GPL-3.0)"
 
@@ -1692,6 +1692,15 @@ public struct AppState: Codable, Equatable {
     ]
 
     public static let defaultChangelog: [ChangelogEntry] = [
+        ChangelogEntry(version: "26.10.4-024", date: "2026-10-20", changes: [
+            "Risoluzione crash critico macOS: eliminata la ricorsione nei vincoli di layout AppKit (EXC_BREAKPOINT) durante gli aggiornamenti in-app mediante throttling del progresso download, unificazione delle presentazioni modali ed eliminazione dei sub-scrollview orizzontali nelle celle.",
+            "Tema scuro Fatturazione Windows: le schede modulo e livello nel riquadro 'Moduli e Livelli del Corso' ora si adattano perfettamente al tema scuro.",
+            "Pulsante Dashboard indipendente: il pulsante Home è rinominato in 'Dashboard' in tutte le lingue (IT, EN, ES) ed è collocato come elemento autonomo in cima alla barra laterale, senza l'intestazione Menu.",
+            "Layout responsive Windows con barra fissa: bloccato il viewport per prevenire overflow e disallineamenti di barre inferiori; la barra superiore di gestione rapida resta sempre visibile durante lo scorrimento.",
+            "Distribuzione unificata & Installazione obbligatoria: rimosse tutte le build Portable da GitHub per distribuire esclusivamente gli installer ufficiali; avvio automatico del setup su Windows se eseguito fuori dal percorso di installazione.",
+            "Impostazioni pulite: rimossa la registrazione manuale della versione e aggiunto il pulsante 'Reinstalla applicazione' a fianco di 'Azzera dati'.",
+            "Doppia opzione aggiornamenti: scelta trasparente e dedicata tra aggiornamento in-app automatico a 1 clic e download manuale dell'installer nel browser."
+        ]),
         ChangelogEntry(version: "26.10.4-023", date: "2026-10-20", changes: [
             "macOS In-App Update Seamless Execution: risolto il problema del riavvio a vuoto senza applicazione dell'aggiornamento; introdotta sostituzione atomica delle directory in /Applications con backup temporaneo, sincronizzazione sicura sul PID del processo in esecuzione e isolamento contro interruzioni accidentali del processo.",
             "Windows True In-App Native Auto-Updater: implementato download nativo asincrono in background via URLDownloadToFileW in C++ con avanzamento e percentuale in tempo reale, backup automatico pre-aggiornamento e avvio automatico del nuovo installer che aggiorna l'app e la riavvia senza download manuali.",

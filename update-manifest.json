@@ -1,17 +1,15 @@
 {
-  "version": "26.10.4-023",
+  "version": "26.10.4-024",
   "channel": "unstable",
-  "tag_name": "v26.10.4-023",
+  "tag_name": "v26.10.4-024",
   "prerelease": true,
-  "published_at": "2026-10-20T18:15:00Z",
-  "name": "ClassDesk v26.10.4-023 [UNSTABLE]",
-  "body": "Novità versione 26.10.4-023:\n- macOS In-App Update Seamless Execution: risolto il problema del riavvio a vuoto senza applicazione dell'aggiornamento; introdotta sostituzione atomica delle directory in /Applications con backup temporaneo, sincronizzazione sicura sul PID del processo in esecuzione e isolamento contro interruzioni accidentali del processo.\n- Windows True In-App Native Auto-Updater: implementato download nativo asincrono in background via URLDownloadToFileW in C++ con avanzamento e percentuale in tempo reale, backup automatico pre-aggiornamento e avvio automatico del nuovo installer che aggiorna l'app e la riavvia senza download manuali.\n- Chiarimento Interfaccia Aggiornamenti Windows: distinzione chiara ed esplicita tra il pulsante di aggiornamento online ('Aggiorna Ora In-App') e il pulsante per installare e registrare nel sistema la copia portatile corrente ('Installa Copia Corrente nel Sistema').",
-  "setupUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.10.4-023/ClassDesk-26.10.4-023-Setup.exe",
-  "setupName": "ClassDesk-26.10.4-023-Setup.exe",
-  "nativeUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.10.4-023/ClassDesk-26.10.4-023-Native.exe",
-  "nativeName": "ClassDesk-26.10.4-023-Native.exe",
-  "macZipUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.10.4-023/ClassDesk-26.10.4-023-macOS.zip",
-  "macZipName": "ClassDesk-26.10.4-023-macOS.zip",
-  "macPkgUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.10.4-023/ClassDesk-26.10.4-023-Installer.pkg",
-  "macPkgName": "ClassDesk-26.10.4-023-Installer.pkg"
+  "published_at": "2026-10-20T20:20:00Z",
+  "name": "ClassDesk v26.10.4-024 [UNSTABLE]",
+  "body": "Novità versione 26.10.4-024:\n- Risoluzione crash critico macOS: eliminata la ricorsione nei vincoli di layout AppKit (EXC_BREAKPOINT) durante gli aggiornamenti in-app mediante throttling del progresso download, unificazione delle presentazioni modali ed eliminazione dei sub-scrollview orizzontali nelle celle.\n- Tema scuro Fatturazione Windows: le schede modulo e livello nel riquadro 'Moduli e Livelli del Corso' ora si adattano perfettamente al tema scuro.\n- Pulsante Dashboard indipendente: il pulsante Home è rinominato in 'Dashboard' in tutte le lingue (IT, EN, ES) ed è collocato come elemento autonomo in cima alla barra laterale, senza l'intestazione Menu.\n- Layout responsive Windows con barra fissa: bloccato il viewport per prevenire overflow e disallineamenti di barre inferiori; la barra superiore di gestione rapida resta sempre visibile durante lo scorrimento.\n- Distribuzione unificata & Installazione obbligatoria: rimosse tutte le build Portable da GitHub per distribuire esclusivamente gli installer ufficiali; avvio automatico del setup su Windows se eseguito fuori dal percorso di installazione.\n- Impostazioni pulite: rimossa la registrazione manuale della versione e aggiunto il pulsante 'Reinstalla applicazione' a fianco di 'Azzera dati'.\n- Doppia opzione aggiornamenti: scelta trasparente e dedicata tra aggiornamento in-app automatico a 1 clic e download manuale dell'installer nel browser.",
+  "setupUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.10.4-024/ClassDesk-26.10.4-024-Setup.exe",
+  "setupName": "ClassDesk-26.10.4-024-Setup.exe",
+  "macZipUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.10.4-024/ClassDesk-26.10.4-024-macOS.zip",
+  "macZipName": "ClassDesk-26.10.4-024-macOS.zip",
+  "macPkgUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.10.4-024/ClassDesk-26.10.4-024-Installer.pkg",
+  "macPkgName": "ClassDesk-26.10.4-024-Installer.pkg"
 }

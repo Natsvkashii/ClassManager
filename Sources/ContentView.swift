@@ -165,18 +165,15 @@ public struct ContentView: View {
             sheetView(for: sheet)
                 .environment(store)
         }
-        .sheet(isPresented: $updateManager.showStartupUpdatePrompt) {
-            StartupUpdatePromptSheet()
-                .environment(store)
-        }
-        .sheet(isPresented: $showOnboardingSheet) {
-            OnboardingWizardView()
-                .environment(store)
+        .onChange(of: updateManager.showStartupUpdatePrompt) { _, show in
+            if show, let rel = updateManager.latestRelease {
+                activeSheet = .updatePrompt(rel)
+            }
         }
         .onAppear {
             store.setupBetaBackupTimer()
             if !store.state.settings.onboardingCompleted {
-                showOnboardingSheet = true
+                activeSheet = .onboarding
             } else {
                 checkUpdatesOnStartupIfNeeded()
             }
@@ -281,6 +278,10 @@ public struct ContentView: View {
             StudentDetailSheet(studentId: studentId)
         case .newGlobalStudent:
             NewGlobalStudentSheet()
+        case .updatePrompt(let release):
+            StartupUpdatePromptSheet(release: release)
+        case .onboarding:
+            OnboardingWizardView()
         }
     }
 }
@@ -291,12 +292,6 @@ private struct SidebarView: View {
     @Environment(AppStore.self) private var store
     @Environment(\.colorScheme) private var colorScheme
     let palette: CourseColorInfo
-
-    private var overviewTabs: [(tab: NavigationTab, icon: String, labelKey: String)] {
-        [
-            (.home, "house.fill", "navHome")
-        ]
-    }
 
     private var courseTabs: [(tab: NavigationTab, icon: String, labelKey: String)] {
         [
@@ -343,21 +338,21 @@ private struct SidebarView: View {
 
             Divider()
 
-            // Navigation Sections (Matching original 4-section layout & exact localized names)
+            // Navigation Sections (Standalone Dashboard + Course, General, System sections)
             ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
-                    // 1. Menu / Overview Section
-                    sidebarSection(titleKey: "navOverviewSection", items: overviewTabs)
+                VStack(alignment: .leading, spacing: 14) {
+                    // Free Standalone Dashboard Button
+                    sidebarButton(tab: .home, icon: "house.fill", title: store.t("navHome"))
 
-                    // 2. Active Course Section
+                    // 1. Active Course Section
                     if store.activeCourse != nil {
                         sidebarSection(titleKey: "navCourseSection", items: courseTabs)
                     }
 
-                    // 3. General Section
+                    // 2. General Section
                     sidebarSection(titleKey: "navGlobalSection", items: globalTabs)
 
-                    // 4. System Section
+                    // 3. System Section
                     sidebarSection(titleKey: "navSystemSection", items: systemTabs)
                 }
                 .padding(10)
@@ -927,11 +922,13 @@ public struct UpdateNotificationBanner: View {
 
 private struct StartupUpdatePromptSheet: View {
     @Environment(AppStore.self) private var store
+    @Environment(\.dismiss) private var dismiss
     @State private var updateManager = UpdateManager.shared
+    let release: GitHubRelease
 
     var body: some View {
         VStack(spacing: 18) {
-            if let rel = updateManager.latestRelease {
+            let rel = release
                 HStack(spacing: 12) {
                     AppLogoImageView(size: 46)
                     VStack(alignment: .leading, spacing: 3) {
@@ -984,37 +981,44 @@ private struct StartupUpdatePromptSheet: View {
                 .background(RoundedRectangle(cornerRadius: 8).fill(Color.green.opacity(0.10)))
 
                 if updateManager.isDownloading {
-                    VStack(alignment: .leading, spacing: 6) {
+                    VStack(alignment: .leading, spacing: 8) {
                         ProgressView(value: updateManager.downloadProgress)
                         Text(updateManager.statusMessage)
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 } else {
-                    HStack(spacing: 12) {
+                    HStack(spacing: 10) {
                         Button(store.t("updateLaterBtn")) {
                             updateManager.showStartupUpdatePrompt = false
+                            dismiss()
                         }
                         .buttonStyle(.bordered)
 
                         Spacer()
 
                         Button {
-                            updateManager.downloadAndInstall(release: rel, store: store)
+                            updateManager.openInBrowser(release: rel)
                             updateManager.showStartupUpdatePrompt = false
+                            dismiss()
                         } label: {
-                            Label(store.t("updateNowBtn"), systemImage: "arrow.down.circle.fill")
+                            Label("Scarica installer dal browser", systemImage: "arrow.up.right.square")
+                        }
+                        .buttonStyle(.bordered)
+
+                        Button {
+                            updateManager.downloadAndInstall(release: rel, store: store)
+                        } label: {
+                            Label("Aggiorna direttamente dall'applicazione", systemImage: "arrow.down.circle.fill")
                         }
                         .buttonStyle(.borderedProminent)
                         .tint(.purple)
                     }
                 }
-            } else {
-                Text(store.t("closeBtn"))
-            }
         }
         .padding(24)
-        .frame(width: 480)
+        .frame(width: 550)
     }
 }
 

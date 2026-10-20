@@ -723,17 +723,24 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         return 0;
     }
 
-    // Handle Setup / Installer Mode
-    if (isSetupExe || isInstallCmd) {
+    wchar_t localAppData[MAX_PATH];
+    if (!SUCCEEDED(SHGetFolderPathW(NULL, CSIDL_LOCAL_APPDATA, NULL, 0, localAppData))) {
+        wcscpy(localAppData, L"C:\\");
+    }
+
+    std::wstring installedTargetExe = std::wstring(localAppData) + L"\\Programs\\ClassDesk\\ClassDesk.exe";
+    std::wstring installedLower = installedTargetExe;
+    std::transform(installedLower.begin(), installedLower.end(), installedLower.begin(), ::towlower);
+
+    // Enforce installable version rule:
+    // If the running executable is not the installed instance at %LOCALAPPDATA%\Programs\ClassDesk\ClassDesk.exe,
+    // or if setup/install flag was passed, run installer mode so it installs and launches the installed app.
+    if (isSetupExe || isInstallCmd || exeLower != installedLower) {
         return RunSetupInstaller(currentExePath, isSilent);
     }
 
     // Standard Application Mode
     // 1. Prepare App Data and Assets Directory (%LOCALAPPDATA%\ClassDesk_App)
-    wchar_t localAppData[MAX_PATH];
-    if (!SUCCEEDED(SHGetFolderPathW(NULL, CSIDL_LOCAL_APPDATA, NULL, 0, localAppData))) {
-        wcscpy(localAppData, L"C:\\");
-    }
 
     std::wstring appDir = std::wstring(localAppData) + L"\\ClassDesk_App";
     std::wstring oldAppDir = std::wstring(localAppData) + L"\\ClassManagement_App";

@@ -16,7 +16,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ClassDesk v26.10.4-023 (Windows Native Edition)</title>
+    <title>ClassDesk v26.10.4-024 (Windows Native Edition)</title>
     <link rel="icon" type="image/png" href="logo.png">
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -132,14 +132,14 @@ Removing, obfuscating, or altering these credits violates the author's attributi
     </style>
     <style id="dynamicCourseThemeStyle"></style>
 </head>
-<body class="bg-sky-50/70 dark:bg-navy-950 text-slate-800 dark:text-slate-100 min-h-screen flex flex-col transition-colors duration-200">
+<body class="bg-sky-50/70 dark:bg-navy-950 text-slate-800 dark:text-slate-100 h-screen w-screen overflow-hidden flex flex-col transition-colors duration-200 select-none">
 
     <!-- Mobile Backdrop -->
     <div id="sidebarBackdrop" onclick="app.closeMobileSidebar()" class="fixed inset-0 bg-slate-950/50 backdrop-blur-xs z-40 hidden lg:hidden"></div>
 
-    <div class="flex flex-1 min-h-screen w-full overflow-x-hidden">
+    <div class="flex flex-1 h-full w-full overflow-hidden">
         <!-- Dynamic Left Sidebar -->
-        <aside id="appSidebar" class="fixed lg:sticky top-0 left-0 z-50 h-screen bg-white/95 dark:bg-navy-900/95 border-r border-sky-100 dark:border-slate-800 flex flex-col justify-between shrink-0 -translate-x-full lg:translate-x-0 select-none shadow-sm">
+        <aside id="appSidebar" class="fixed lg:static top-0 left-0 z-50 h-full bg-white/95 dark:bg-navy-900/95 border-r border-sky-100 dark:border-slate-800 flex flex-col justify-between shrink-0 -translate-x-full lg:translate-x-0 select-none shadow-sm">
             <!-- Top Brand + Toggle (Single place where program name is shown) -->
             <div>
                 <div class="h-16 px-3 border-b border-sky-100 dark:border-slate-800 flex items-center justify-between gap-1.5 sidebar-brand-wrap">
@@ -167,15 +167,15 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                     <span class="sidebar-text" id="sidebarFeedbackBtnText">Invia Feedback</span>
                 </button>
                 <div class="sidebar-footer-card p-1.5 rounded-xl bg-slate-50 dark:bg-navy-950/40 text-[10px] text-center text-slate-400 dark:text-slate-500 font-semibold">
-                    <span id="sidebarVersionBadge">ClassDesk v26.10.4-023</span>
+                    <span id="sidebarVersionBadge">ClassDesk v26.10.4-024</span>
                 </div>
             </div>
         </aside>
 
         <!-- Main Workspace Column -->
-        <div class="flex-1 flex flex-col min-w-0 w-full">
-            <!-- Top Header with Unified Active Course Selector & Management Bar -->
-            <header class="min-h-16 py-2 bg-white/90 dark:bg-navy-900/90 backdrop-blur-md border-b border-sky-100 dark:border-slate-800 sticky top-0 z-30 px-4 sm:px-6 flex flex-wrap items-center justify-between gap-3">
+        <div class="flex-1 h-full flex flex-col min-w-0 overflow-hidden">
+            <!-- Top Header with Unified Active Course Selector & Management Bar (Always Fixed at Top) -->
+            <header class="shrink-0 min-h-16 py-2 bg-white/90 dark:bg-navy-900/90 backdrop-blur-md border-b border-sky-100 dark:border-slate-800 z-30 px-4 sm:px-6 flex flex-wrap items-center justify-between gap-3">
                 <div class="flex items-center gap-2.5 min-w-0 flex-1">
                     <button onclick="app.openMobileSidebar()" class="lg:hidden w-9 h-9 rounded-xl border border-sky-200 dark:border-slate-700 flex items-center justify-center text-slate-700 dark:text-slate-200 hover:bg-sky-50 dark:hover:bg-navy-800 shrink-0">
                         <i class="fa-solid fa-bars"></i>
@@ -197,15 +197,15 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 </div>
             </header>
 
-            <!-- Dynamic View Container -->
-            <main id="mainViewContainer" class="flex-1 w-full px-4 sm:px-6 lg:px-8 py-5"></main>
+            <!-- Dynamic View Container (Scrolls independently within full-height desktop window) -->
+            <main id="mainViewContainer" class="flex-1 w-full overflow-y-auto overflow-x-hidden px-4 sm:px-6 lg:px-8 py-5 custom-scrollbar"></main>
 
-            <!-- Footer Attribution (Single subtle place for version number) -->
-            <footer class="bg-white dark:bg-navy-900 border-t border-sky-100 dark:border-slate-800 py-3 mt-auto text-center text-xs text-slate-500 dark:text-slate-400 w-full">
+            <!-- Footer Attribution (Pinned at bottom, perfectly in view) -->
+            <footer class="shrink-0 bg-white dark:bg-navy-900 border-t border-sky-100 dark:border-slate-800 py-2.5 text-center text-xs text-slate-500 dark:text-slate-400 w-full">
                 <div class="w-full px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-2">
                     <p class="flex items-center gap-2">
                         <span id="footerPlatformDesc" class="text-slate-400 dark:text-slate-500">Piattaforma Accademica Multi-Livello QCER</span>
-                        <span id="footerVersionBadge" class="px-2 py-0.5 rounded-md bg-sky-100 dark:bg-navy-800 text-sky-700 dark:text-sky-300 text-[10px] font-bold">v26.10.3 (Windows Edition)</span>
+                        <span id="footerVersionBadge" class="px-2 py-0.5 rounded-md bg-sky-100 dark:bg-navy-800 text-sky-700 dark:text-sky-300 text-[10px] font-bold">v26.10.4 (Windows Edition)</span>
                     </p>
                     <p><span id="footerDevelopedBy">Concepito e Sviluppato da</span> <span class="font-semibold text-sky-700 dark:text-sky-400">Guaira Jaramillo Nitoglia</span> (<a href="mailto:guaira.jaramillo.nitoglia@gmail.com" class="underline hover:text-sky-600">guaira.jaramillo.nitoglia@gmail.com</a>)</p>
                 </div>
@@ -258,7 +258,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 navCourseSection: "Corso Attivo",
                 navGlobalSection: "Generale",
                 navSystemSection: "Sistema",
-                navHome: "Home",
+                navHome: "Dashboard",
                 navAttendance: "Presenze",
                 navGrades: "Voti",
                 navActivities: "Attività",
@@ -509,7 +509,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 firstDayOfWeekLabel: "Primo Giorno della Settimana",
                 mondayLabel: "Lunedì",
                 sundayLabel: "Domenica",
-                resetDataBtn: "Azzera Dati",
+                resetDataBtn: "Azzera dati",
                 copyLessonInviteBtn: "Copia invito alunno",
                 inviteCopiedToast: "Invito alla lezione copiato negli appunti!",
                 lessonInviteCourse: "Corso",
@@ -550,7 +550,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 navCourseSection: "Active Course",
                 navGlobalSection: "General",
                 navSystemSection: "System",
-                navHome: "Home",
+                navHome: "Dashboard",
                 navAttendance: "Attendance",
                 navGrades: "Grades",
                 navActivities: "Activities",
@@ -842,7 +842,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 navCourseSection: "Curso Activo",
                 navGlobalSection: "General",
                 navSystemSection: "Sistema",
-                navHome: "Inicio",
+                navHome: "Dashboard",
                 navAttendance: "Asistencia",
                 navGrades: "Notas",
                 navActivities: "Actividades",
@@ -1164,12 +1164,25 @@ Removing, obfuscating, or altering these credits violates the author's attributi
         ];
 
         const INITIAL_DATA = {
-            version: "26.10.4-023",
+            version: "26.10.4-024",
             channel: "unstable",
             deletedItems: [],
             lastUpdated: new Date().toISOString(),
             activeCourseId: "",
             changelog: [
+                {
+                    version: "26.10.4-024",
+                    date: "2026-10-20",
+                    changes: [
+                        "Risoluzione crash critico macOS: eliminata la ricorsione nei vincoli di layout AppKit (EXC_BREAKPOINT) durante gli aggiornamenti in-app mediante throttling del progresso download, unificazione delle presentazioni modali ed eliminazione dei sub-scrollview orizzontali nelle celle.",
+                        "Tema scuro Fatturazione Windows: le schede modulo e livello nel riquadro 'Moduli e Livelli del Corso' ora si adattano perfettamente al tema scuro.",
+                        "Pulsante Dashboard indipendente: il pulsante Home è rinominato in 'Dashboard' in tutte le lingue (IT, EN, ES) ed è collocato come elemento autonomo in cima alla barra laterale, senza l'intestazione Menu.",
+                        "Layout responsive Windows con barra fissa: bloccato il viewport per prevenire overflow e disallineamenti di barre inferiori; la barra superiore di gestione rapida resta sempre visibile durante lo scorrimento.",
+                        "Distribuzione unificata & Installazione obbligatoria: rimosse tutte le build Portable da GitHub per distribuire esclusivamente gli installer ufficiali; avvio automatico del setup su Windows se eseguito fuori dal percorso di installazione.",
+                        "Impostazioni pulite: rimossa la registrazione manuale della versione e aggiunto il pulsante 'Reinstalla applicazione' a fianco di 'Azzera dati'.",
+                        "Doppia opzione aggiornamenti: scelta trasparente e dedicata tra aggiornamento in-app automatico a 1 clic e download manuale dell'installer nel browser."
+                    ]
+                },
                 {
                     version: "26.10.4-023",
                     date: "2026-10-20",
@@ -2763,13 +2776,19 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 if (!navContainer) return;
 
                 const hasActiveCourse = !!this.getActiveCourse() && !this.getActiveCourse().archived;
+                const isHomeActive = this.currentTab === "home";
+                const homeHtml = `
+                    <div class="space-y-1 mb-2">
+                        <button onclick="app.switchTab('home')" title="${this.escapeHtml(this.t('navHome'))}" class="nav-item-btn w-full flex items-center gap-3 px-2.5 py-2 rounded-xl text-xs font-bold transition ${isHomeActive ? 'bg-sky-600 text-white shadow-xs' : 'text-slate-600 dark:text-slate-300 hover:bg-sky-50 dark:hover:bg-navy-800'}">
+                            <span class="nav-icon-box w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${isHomeActive ? 'bg-white/15 text-white' : 'bg-sky-50 dark:bg-navy-800 text-sky-700 dark:text-sky-400'}">
+                                <i class="fa-solid fa-house"></i>
+                            </span>
+                            <span class="sidebar-text truncate">${this.escapeHtml(this.t("navHome"))}</span>
+                        </button>
+                    </div>
+                `;
+
                 const groups = [
-                    {
-                        label: this.t("navOverviewSection"),
-                        items: [
-                            { id: "home", icon: "fa-solid fa-house", label: this.t("navHome") }
-                        ]
-                    },
                     ...(hasActiveCourse ? [{
                         label: this.t("navCourseSection"),
                         items: [
@@ -2801,7 +2820,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                     }
                 ];
 
-                navContainer.innerHTML = groups.map(g => `
+                navContainer.innerHTML = homeHtml + groups.map(g => `
                     <div class="space-y-1">
                         <p class="sidebar-section-label px-2.5 text-[10px] font-extrabold uppercase tracking-wider text-slate-400 dark:text-slate-500">${this.escapeHtml(g.label)}</p>
                         ${g.items.map(item => {
@@ -7586,8 +7605,8 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                                                 const isOpened = currentModule && currentModule.id === mod.id;
                                                 return `
                                                     <button type="button" onclick="app.selectedBillingModuleId = '${mod.id}'; app.renderMainView();"
-                                                        class="p-3.5 rounded-xl border text-left transition flex flex-col justify-between space-y-2 ${isOpened ? 'ring-2' : 'hover:border-sky-300 dark:hover:border-slate-700'}"
-                                                        style="${isOpened ? `border-color: ${pal.hex}; background-color: ${pal.hex}12; --tw-ring-color: ${pal.hex}` : 'border-color: rgba(226,232,240,0.8); background-color: rgba(248,250,252,0.5);'}">
+                                                        class="p-3.5 rounded-xl border text-left transition flex flex-col justify-between space-y-2 ${isOpened ? 'ring-2' : 'bg-slate-50/70 dark:bg-navy-800/60 border-slate-200/80 dark:border-slate-700/80 hover:border-sky-300 dark:hover:border-slate-600'}"
+                                                        style="${isOpened ? `border-color: ${pal.hex}; background-color: ${pal.hex}18; --tw-ring-color: ${pal.hex};` : ''}">
                                                         <div class="flex items-center justify-between gap-2">
                                                             <span class="font-extrabold text-slate-900 dark:text-white truncate">${this.escapeHtml(mod.name)}</span>
                                                             <span class="font-extrabold text-emerald-600 dark:text-emerald-400">${this.formatMoney(mCost)}</span>
@@ -9146,7 +9165,7 @@ Dettagli di Sistema:
 
                                 <div class="p-3.5 rounded-xl bg-slate-50 dark:bg-navy-950/70 border border-sky-100 dark:border-slate-800 space-y-2">
                                     <p class="text-slate-600 dark:text-slate-300 leading-relaxed text-[11px]">
-                                        È disponibile una nuova versione aggiornata di <strong>${this.t("appTitle")}</strong>. Puoi scaricare l'installer o la versione nativa C++ direttamente con il tuo browser web:
+                                        È disponibile una nuova versione aggiornata di <strong>${this.t("appTitle")}</strong>. Puoi aggiornare automaticamente direttamente dall'applicazione oppure scaricare l'installer dal browser:
                                     </p>
                                     ${rel.body ? `
                                         <div class="text-[11px] text-slate-500 dark:text-slate-400 whitespace-pre-line max-h-32 overflow-y-auto custom-scrollbar border-t border-sky-100 dark:border-slate-800 pt-2">
@@ -9157,12 +9176,12 @@ Dettagli di Sistema:
 
                                 <div class="flex flex-col sm:flex-row flex-wrap items-center justify-end gap-2 pt-1">
                                     <button type="button" onclick="app.closeModal()" class="w-full sm:w-auto px-4 py-2 rounded-xl border border-slate-300 dark:border-slate-700 font-bold hover:bg-slate-100 dark:hover:bg-navy-800 transition">Più tardi</button>
-                                    <button type="button" onclick="if(window.electronAPI){window.electronAPI.openExternal('${primaryUrl}');}else{window.open('${primaryUrl}','_blank');}app.closeModal();" class="w-full sm:w-auto px-3.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-bold hover:bg-slate-100 dark:hover:bg-navy-800 transition flex items-center justify-center gap-1.5" title="Scarica manualmente con il browser web">
-                                        <i class="fa-solid fa-download"></i> Scarica dal Browser
+                                    <button type="button" onclick="if(window.electronAPI){window.electronAPI.openExternal('${primaryUrl}');}else{window.open('${primaryUrl}','_blank');}app.closeModal();" class="w-full sm:w-auto px-3.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-bold hover:bg-slate-100 dark:hover:bg-navy-800 transition flex items-center justify-center gap-1.5" title="Scarica l'installer ufficiale con il browser web">
+                                        <i class="fa-solid fa-arrow-up-right-from-square"></i> Scarica installer dal browser
                                     </button>
                                     <button type="button" onclick="app.closeModal(); app.startInAppUpdate();" class="w-full sm:w-auto px-5 py-2 rounded-xl bg-gradient-to-r from-sky-600 to-indigo-600 hover:from-sky-500 hover:to-indigo-500 text-white font-extrabold shadow-md flex items-center justify-center gap-2 transition">
-                                        <i class="fa-solid fa-cloud-arrow-down"></i>
-                                        <span>Aggiorna Ora (In-App)</span>
+                                        <i class="fa-solid fa-bolt"></i>
+                                        <span>Aggiorna direttamente dall'applicazione</span>
                                     </button>
                                 </div>
                             </div>
@@ -9399,7 +9418,13 @@ Dettagli di Sistema:
                                     <button onclick="app.openExportModal()" class="px-4 py-2 rounded-xl bg-sky-600 text-white font-bold">${this.t("exportJsonBtn")}</button>
                                     <button onclick="app.openImportModal()" class="px-4 py-2 rounded-xl border border-sky-200 dark:border-slate-700 font-bold">${this.t("importBackupBtn")}</button>
                                 </div>
-                                <button onclick="app.confirmResetAllData()" class="px-4 py-2 rounded-xl border border-rose-200 text-rose-600 font-bold">${this.t("resetDataBtn")}</button>
+                                <div class="flex items-center gap-2">
+                                    <button type="button" onclick="app.reinstallApplication()" class="px-4 py-2 rounded-xl border border-sky-300 dark:border-slate-700 hover:bg-sky-50 dark:hover:bg-navy-800 text-sky-700 dark:text-sky-300 font-bold flex items-center gap-1.5 transition">
+                                        <i class="fa-solid fa-arrows-rotate"></i>
+                                        <span>Reinstalla applicazione</span>
+                                    </button>
+                                    <button onclick="app.confirmResetAllData()" class="px-4 py-2 rounded-xl border border-rose-200 dark:border-rose-900/50 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 font-bold">${this.t("resetDataBtn")}</button>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -9411,6 +9436,29 @@ Dettagli di Sistema:
                 if (key === "theme") this.applyTheme();
                 this.persist();
                 this.renderAll();
+            }
+
+            reinstallApplication() {
+                this.openModal(`
+                    <div class="p-6 space-y-4 text-xs max-w-md">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-xl bg-sky-100 dark:bg-navy-800 text-sky-600 flex items-center justify-center text-lg shrink-0">
+                                <i class="fa-solid fa-arrows-rotate"></i>
+                            </div>
+                            <div>
+                                <h4 class="text-sm font-extrabold text-slate-900 dark:text-white">Reinstalla Applicazione</h4>
+                                <p class="text-slate-500 mt-0.5">Avvia l'installer ufficiale per riparare o reinstallare ClassDesk.</p>
+                            </div>
+                        </div>
+                        <p class="text-slate-600 dark:text-slate-300 leading-relaxed text-[11px]">
+                            L'applicazione avvierà l'installer guidato nel sistema e si riavvierà automaticamente. Tutti i tuoi dati, corsi, lezioni, presenze e impostazioni sono al sicuro e vengono preservati al 100%.
+                        </p>
+                        <div class="flex justify-end gap-2 pt-2">
+                            <button type="button" onclick="app.closeModal()" class="px-4 py-2 rounded-xl border border-slate-300 dark:border-slate-700 font-bold">Annulla</button>
+                            <button type="button" onclick="app.closeModal(); app.runNativeWindowsInstaller();" class="px-4 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-extrabold shadow-sm transition">Avvia Reinstallazione</button>
+                        </div>
+                    </div>
+                `, "max-w-md");
             }
 
             confirmResetAllData() {
@@ -9537,19 +9585,13 @@ Dettagli di Sistema:
 
                                     <div class="flex flex-wrap items-center gap-2 pt-2">
                                         <button type="button" onclick="app.startInAppUpdate()" class="px-4 py-2.5 rounded-xl bg-gradient-to-r from-sky-600 to-indigo-600 hover:from-sky-500 hover:to-indigo-500 text-white font-extrabold shadow-md flex items-center gap-2 transition">
-                                            <i class="fa-solid fa-cloud-arrow-down"></i>
-                                            <span>Aggiorna Ora (In-App)</span>
+                                            <i class="fa-solid fa-bolt"></i>
+                                            <span>Aggiorna direttamente dall'applicazione</span>
                                         </button>
-                                        <button type="button" onclick="if(window.electronAPI){window.electronAPI.openExternal('${update.primaryUrl}');}else{window.open('${update.primaryUrl}','_blank');}" class="px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-bold hover:bg-slate-100 dark:hover:bg-navy-800 transition flex items-center gap-1.5" title="Scarica manualmente con il browser web">
-                                            <i class="fa-solid fa-download"></i>
-                                            <span>Scarica dal Browser</span>
+                                        <button type="button" onclick="if(window.electronAPI){window.electronAPI.openExternal('${update.primaryUrl}');}else{window.open('${update.primaryUrl}','_blank');}" class="px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-bold hover:bg-slate-100 dark:hover:bg-navy-800 transition flex items-center gap-1.5" title="Scarica l'installer ufficiale con il browser web">
+                                            <i class="fa-solid fa-arrow-up-right-from-square"></i>
+                                            <span>Scarica installer dal browser</span>
                                         </button>
-                                        ${update.nativeUrl ? `
-                                            <button type="button" onclick="if(window.electronAPI){window.electronAPI.openExternal('${update.nativeUrl}');}else{window.open('${update.nativeUrl}','_blank');}" class="px-3 py-2.5 rounded-xl border border-indigo-300 dark:border-indigo-700 bg-indigo-50 dark:bg-navy-800 text-indigo-700 dark:text-indigo-300 font-bold hover:bg-indigo-100 flex items-center gap-1.5 transition" title="Scarica la versione nativa C++ standalone">
-                                                <i class="fa-solid fa-microchip"></i>
-                                                <span>Versione Native (.exe)</span>
-                                            </button>
-                                        ` : ''}
                                         <button type="button" onclick="if(window.electronAPI){window.electronAPI.openExternal('${update.release.html_url}');}else{window.open('${update.release.html_url}','_blank');}" class="px-3 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-bold hover:bg-slate-100 dark:hover:bg-navy-800 transition flex items-center gap-1.5">
                                             <i class="fa-brands fa-github text-sky-600 dark:text-sky-400"></i>
                                             <span>Vedi su GitHub</span>
@@ -9557,28 +9599,6 @@ Dettagli di Sistema:
                                     </div>
                                 </div>
                             ` : ''}
-                        </div>
-
-                        <!-- Windows Native System Registration Card -->
-                        <div class="bg-white dark:bg-navy-900 rounded-2xl border border-sky-100 dark:border-slate-800 p-6 shadow-xs space-y-3">
-                            <div class="flex items-center justify-between pb-2 border-b border-sky-100 dark:border-slate-800">
-                                <div class="flex items-center gap-2">
-                                    <i class="fa-brands fa-windows text-sky-600 text-base"></i>
-                                    <h3 class="text-sm font-extrabold text-slate-900 dark:text-white">Registrazione Versione Corrente nel Sistema Windows</h3>
-                                    <span class="px-2 py-0.5 rounded-md bg-sky-100 text-sky-700 dark:bg-navy-800 dark:text-sky-300 font-bold text-[10px]">C++ Nativo</span>
-                                </div>
-                            </div>
-                            <p class="text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed">
-                                Registra la copia attualmente in esecuzione di <strong>ClassDesk</strong> in Windows (cartella <code>%LOCALAPPDATA%\\Programs\\ClassDesk</code>), crea i collegamenti sul Desktop e nel Menu Start, e registra il software in <em>Installazione applicazioni</em> di Windows.<br>
-                                <span class="text-slate-400">Nota: per aggiornare ad una nuova versione rilasciata online, usa il pulsante <strong>"Aggiorna Ora (In-App)"</strong> nel riquadro superiore degli aggiornamenti.</span>
-                            </p>
-                            <div class="pt-1 flex flex-wrap items-center gap-3">
-                                <button type="button" onclick="app.runNativeWindowsInstaller()" class="px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-navy-800 text-slate-700 dark:text-slate-200 font-bold flex items-center gap-2 shadow-2xs transition">
-                                    <i class="fa-solid fa-folder-plus"></i>
-                                    <span>Installa Copia Corrente nel Sistema</span>
-                                </button>
-                                <span class="text-[11px] text-slate-400">Tutti i corsi, dati e impostazioni vengono preservati al 100%.</span>
-                            </div>
                         </div>
 
                         <!-- ONLY Latest Version Changelog (Not all historical versions) -->

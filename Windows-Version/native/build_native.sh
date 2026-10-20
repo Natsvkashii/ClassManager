@@ -21,12 +21,9 @@ fi
 SETUP_NAME="ClassDesk-${VERSION}-Setup.exe"
 SETUP_PATH="$REPO_ROOT/$SETUP_NAME"
 
-NATIVE_NAME="ClassDesk-${VERSION}-Native.exe"
-NATIVE_PATH="$REPO_ROOT/$NATIVE_NAME"
-
-echo "=== Building Official Native Windows Executables (WebView2 C++ Core) ==="
+echo "=== Building Official Native Windows Executable (WebView2 C++ Core) ==="
 echo "Version: $VERSION"
-echo "Targets: $SETUP_NAME (Official Setup) & $NATIVE_NAME (Portable)"
+echo "Target: $SETUP_NAME (Official Setup)"
 
 # 1. Generate / Refresh Assets Bundle from index.html, logo.png, AppIcon.ico
 echo "--> Bundling HTML, Logo, and App Icon into C++ headers..."
@@ -69,19 +66,14 @@ echo "--> Compiling $SETUP_NAME with x86_64-windows target and -O3 optimization.
     -lurlmon \
     -lws2_32
 
-# Create the portable copy as well
-cp -f "$SETUP_PATH" "$NATIVE_PATH"
-
-# Also copy into Versions/v$VERSION/ and Windows-Version/dist/ if directories exist
+# Copy into Versions/v$VERSION/ and Windows-Version/dist/ if directories exist
 if [ -d "$REPO_ROOT/Versions/v$VERSION" ]; then
     cp -f "$SETUP_PATH" "$REPO_ROOT/Versions/v$VERSION/"
-    cp -f "$NATIVE_PATH" "$REPO_ROOT/Versions/v$VERSION/"
 fi
 if [ -d "$REPO_ROOT/Windows-Version/dist" ]; then
     cp -f "$SETUP_PATH" "$REPO_ROOT/Windows-Version/dist/"
-    cp -f "$NATIVE_PATH" "$REPO_ROOT/Windows-Version/dist/"
 fi
 
 echo "--> Build completed successfully!"
-ls -lh "$SETUP_PATH" "$NATIVE_PATH"
+ls -lh "$SETUP_PATH"
 file "$SETUP_PATH"

@@ -405,8 +405,8 @@ def publish_release(is_beta: bool = False):
                 release_id = res_obj.get("id")
                 print(f"✓ Created GitHub release ID: {release_id}")
 
-                # Upload assets: macOS .zip (1-click silent update), macOS .pkg Installer, Windows -Setup.exe, and Windows -Native.exe
-                valid_suffixes = ("-macOS.zip", "-Installer.pkg", "-Setup.exe", "-Native.exe")
+                # Upload assets: macOS .zip (1-click silent update), macOS .pkg Installer, and Windows -Setup.exe
+                valid_suffixes = ("-macOS.zip", "-Installer.pkg", "-Setup.exe")
                 assets_to_upload = sorted([
                     os.path.join(PROJECT_ROOT, f) for f in os.listdir(PROJECT_ROOT)
                     if (f.startswith(f"ClassDesk-{cur_ver}") or f.startswith(f"Class-Management-{cur_ver}"))
