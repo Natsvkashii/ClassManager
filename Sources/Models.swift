@@ -18,8 +18,8 @@ public enum AuthorAttribution {
     public static let authorName = "Guaira Jaramillo Nitoglia"
     public static let authorEmail = "guaira.jaramillo.nitoglia@gmail.com"
     public static let appName = "ClassDesk"
-    public static let appVersion = "26.10.4-025"
-    public static let appChannel = "unstable"
+    public static let appVersion = "26.10.4"
+    public static let appChannel = "stable"
     public static let licenseName = "GNU General Public License v3.0 (GPL-3.0)"
 
     public static var isBeta: Bool {
@@ -1711,6 +1711,15 @@ public struct AppState: Codable, Equatable {
     ]
 
     public static let defaultChangelog: [ChangelogEntry] = [
+        ChangelogEntry(version: "26.10.4", date: "2026-10-20", changes: [
+            "Release Stabile Ufficiale ClassDesk 26.10.4: transizione definitiva da 'Gestione Corsi' a 'ClassDesk' con nuovo logo e brand identity coordinata su macOS e Windows.",
+            "Nuova Architettura Windows Nativa WebView2: eseguibile C++ ad alte prestazioni compilato con Microsoft WebView2, avvio istantaneo, consumo minimo di RAM (<60MB) e installer ufficiale unificato (eliminazione completa delle versioni portable non registrate).",
+            "Auto-Updater In-App Diretto a 1 Clic: aggiornamento automatico atomico su macOS (senza prompt né etichette fantasma) e downloader asincrono nativo in C++ su Windows con avanzamento in tempo reale, backup pre-update e doppia scelta trasparente (in-app o browser).",
+            "Nuova Dashboard & Schede Dinamiche Snellite: pulsante 'Dashboard' autonomo e libero nella sidebar; schede dinamiche delle lezioni essenziali ed eleganti con rimozione del disordine didattico/parentesi vuote e sanitizzazione automatica dei testi.",
+            "Fatturazione & Dark Mode Completo: pieno supporto al tema scuro per le schede 'Moduli e Livelli del Corso' su Windows e filtri contabili avanzati.",
+            "Stabilità, Prestazioni & Risoluzione Crash: eliminato crash ricorsivo dei vincoli su macOS (EXC_BREAKPOINT), introdotto caching dei DateFormatter, sincronizzazione O(1) e potatura del changelog serialized per zero bloat.",
+            "Impostazioni Semplificate: nuovo pulsante 'Reinstalla applicazione' accanto a 'Azzera dati' e rimozione di registrazioni manuali ridondanti."
+        ]),
         ChangelogEntry(version: "26.10.4-025", date: "2026-10-20", changes: [
             "Eliminazione ghost app su macOS: la procedura di aggiornamento atomica sposta ora il backup temporaneo in /tmp senza estensione .app, azzera gli alias nascosti e forza il refresh di LaunchServices e del Dock (lsregister e killall Dock), evitando che l'icona dell'applicazione compaia con il nome '.ClassDesk_Old...'.",
             "Schede dinamiche Dashboard snellite: rimossa la sezione argomenti, didattica e note dalle schede dinamiche della Dashboard (sia hero card che schede successive) per evitare disordine visivo e parentesi vuote residue.",
