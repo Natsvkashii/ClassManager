@@ -1,13 +1,13 @@
 {
-  "version": "26.10.4-017",
+  "version": "26.10.4-018",
   "channel": "unstable",
-  "tag_name": "v26.10.4-017",
+  "tag_name": "v26.10.4-018",
   "prerelease": true,
-  "published_at": "2026-10-20T02:45:00Z",
-  "name": "Class Management v26.10.4-017 [UNSTABLE]",
-  "body": "Novità versione 26.10.4-017:\n- Scheda Iscritti / Roster vuota: la barra degli strumenti rimane sempre fissa in alto, e l'area centrale adotta lo stesso stile pulito del Cestino e dell'Archivio con icona circolare, titolo e testo descrittivo.\n- Integrità Eventi Google Calendar: il salvataggio dei piani lezione non sovrascrive né altera più gli eventi Google Calendar associati, preservando intatti titolo, descrizione originale e dettagli senza iniettare metadati.\n- Copia Invito Lezione per Alunno: nuova opzione per copiare negli appunti l'invito completo alla lezione con corso, modulo, data, giorno della settimana, orario e link Google Meet tradotti nella lingua dell'applicazione (IT, EN, ES).",
-  "setupUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.10.4-017/Class-Management-26.10.4-017-Setup.exe",
-  "setupName": "Class-Management-26.10.4-017-Setup.exe",
-  "nativeUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.10.4-017/Class-Management-26.10.4-017-Setup.exe",
-  "nativeName": "Class-Management-26.10.4-017-Setup.exe"
+  "published_at": "2026-10-20T03:35:00Z",
+  "name": "Class Management v26.10.4-018 [UNSTABLE]",
+  "body": "Novità versione 26.10.4-018:\n- Hotfix Avvio Windows: risolto l'errore di parsing JavaScript che provocava una schermata bianca all'avvio su Windows, ripristinando il normale caricamento dell'interfaccia utente, dei corsi e della barra di navigazione.\n- Scheda Iscritti / Roster vuota: la barra degli strumenti rimane sempre fissa in alto, e l'area centrale adotta lo stesso stile pulito del Cestino e dell'Archivio con icona circolare, titolo e testo descrittivo.\n- Integrità Eventi Google Calendar: il salvataggio dei piani lezione non sovrascrive né altera più gli eventi Google Calendar associati, preservando intatti titolo, descrizione originale e dettagli senza iniettare metadati.\n- Copia Invito Lezione per Alunno: nuova opzione per copiare negli appunti l'invito completo alla lezione con corso, modulo, data, giorno della settimana, orario e link Google Meet tradotti nella lingua dell'applicazione (IT, EN, ES).",
+  "setupUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.10.4-018/Class-Management-26.10.4-018-Setup.exe",
+  "setupName": "Class-Management-26.10.4-018-Setup.exe",
+  "nativeUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.10.4-018/Class-Management-26.10.4-018-Setup.exe",
+  "nativeName": "Class-Management-26.10.4-018-Setup.exe"
 }

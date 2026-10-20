@@ -16,7 +16,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Class Management v26.10.4-017 (Windows Native Edition)</title>
+    <title>Class Management v26.10.4-018 (Windows Native Edition)</title>
     <link rel="icon" type="image/png" href="logo.png">
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -1126,12 +1126,19 @@ Removing, obfuscating, or altering these credits violates the author's attributi
         ];
 
         const INITIAL_DATA = {
-            version: "26.10.4-017",
+            version: "26.10.4-018",
             channel: "unstable",
             deletedItems: [],
             lastUpdated: new Date().toISOString(),
             activeCourseId: "",
             changelog: [
+                {
+                    version: "26.10.4-018",
+                    date: "2026-10-20",
+                    changes: [
+                        "Hotfix Avvio Windows: risolto il problema di avvio con schermata bianca causato da un errore di sintassi JavaScript, ripristinando il corretto caricamento dell'interfaccia utente, dei corsi e della barra di navigazione."
+                    ]
+                },
                 {
                     version: "26.10.4-017",
                     date: "2026-10-20",
@@ -9434,7 +9441,7 @@ Dettagli di Sistema:
                 }
 
                 return lines.join("\n");
-            },
+            }
 
             copyLessonStudentInvitation(courseId, sectionId, slotKey) {
                 const course = (this.state.courses || []).find(c => c.id === courseId) || this.getActiveCourse();
@@ -9465,7 +9472,7 @@ Dettagli di Sistema:
                     document.body.removeChild(ta);
                     this.showToast(`📋 ${this.t("inviteCopiedToast")}`, "success");
                 }
-            },
+            }
 
             /**
              * Unified Lesson Plan & New Lesson Modal (75vw two-column layout, multi-lesson per day support)
