@@ -18,7 +18,7 @@ public enum AuthorAttribution {
     public static let authorName = "Guaira Jaramillo Nitoglia"
     public static let authorEmail = "guaira.jaramillo.nitoglia@gmail.com"
     public static let appName = "ClassDesk"
-    public static let appVersion = "26.10.4"
+    public static let appVersion = "26.10.4-026"
     public static let appChannel = "stable"
     public static let licenseName = "GNU General Public License v3.0 (GPL-3.0)"
 
@@ -1711,8 +1711,8 @@ public struct AppState: Codable, Equatable {
     ]
 
     public static let defaultChangelog: [ChangelogEntry] = [
-        ChangelogEntry(version: "26.10.4", date: "2026-10-20", changes: [
-            "Release Stabile Ufficiale ClassDesk 26.10.4: transizione definitiva da 'Gestione Corsi' a 'ClassDesk' con nuovo logo e brand identity coordinata su macOS e Windows.",
+        ChangelogEntry(version: "26.10.4-026", date: "2026-10-20", changes: [
+            "Release Stabile Ufficiale ClassDesk 26.10.4 (Release 026): transizione definitiva da 'Gestione Corsi' a 'ClassDesk' con nuovo logo e brand identity coordinata su macOS e Windows.",
             "Nuova Architettura Windows Nativa WebView2: eseguibile C++ ad alte prestazioni compilato con Microsoft WebView2, avvio istantaneo, consumo minimo di RAM (<60MB) e installer ufficiale unificato (eliminazione completa delle versioni portable non registrate).",
             "Auto-Updater In-App Diretto a 1 Clic: aggiornamento automatico atomico su macOS (senza prompt né etichette fantasma) e downloader asincrono nativo in C++ su Windows con avanzamento in tempo reale, backup pre-update e doppia scelta trasparente (in-app o browser).",
             "Nuova Dashboard & Schede Dinamiche Snellite: pulsante 'Dashboard' autonomo e libero nella sidebar; schede dinamiche delle lezioni essenziali ed eleganti con rimozione del disordine didattico/parentesi vuote e sanitizzazione automatica dei testi.",
