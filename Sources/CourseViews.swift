@@ -6,6 +6,7 @@
 
 import SwiftUI
 import AppKit
+import Combine
 import UniformTypeIdentifiers
 
 // MARK: - High-Contrast Card & Surface Styling (Sharp Delimitation in Light & Dark Themes)
@@ -113,6 +114,39 @@ public struct HomeView: View {
     @Environment(AppStore.self) private var store
     @Binding var activeSheet: ActiveModalSheet?
     @State private var courseToDeleteOrArchive: Course? = nil
+    @State private var currentTime: Date = Date()
+    private let countdownTimer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
+
+    private func countdownString(for item: ScheduledHomeLesson, now: Date) -> String {
+        if item.isLiveNow {
+            return store.t("liveLessonNow")
+        }
+        let dateParts = item.dateIso.split(separator: "-").compactMap { Int($0) }
+        let timeParts = item.startTime.split(separator: ":").compactMap { Int($0) }
+        guard dateParts.count == 3 else { return "" }
+        var comps = DateComponents()
+        comps.year = dateParts[0]
+        comps.month = dateParts[1]
+        comps.day = dateParts[2]
+        comps.hour = timeParts.count > 0 ? timeParts[0] : 19
+        comps.minute = timeParts.count > 1 ? timeParts[1] : 0
+        comps.second = 0
+
+        guard let targetDate = Calendar.current.date(from: comps) else { return "" }
+        let diff = Int(targetDate.timeIntervalSince(now))
+        if diff <= 0 {
+            return store.t("liveLessonNow")
+        }
+        let days = diff / 86400
+        let hours = (diff % 86400) / 3600
+        let minutes = (diff % 3600) / 60
+        let seconds = diff % 60
+        if days > 0 {
+            return String(format: "-%dg %02dh %02dm %02ds", days, hours, minutes, seconds)
+        } else {
+            return String(format: "-%02dh %02dm %02ds", hours, minutes, seconds)
+        }
+    }
 
     private func getAllScheduledLessons() -> [ScheduledHomeLesson] {
         var list: [ScheduledHomeLesson] = []
@@ -244,6 +278,9 @@ public struct HomeView: View {
                 }
             }
             .padding(24)
+        }
+        .onReceive(countdownTimer) { tick in
+            currentTime = tick
         }
         .confirmationDialog(
             "\(store.t("confirmDeleteTitle")): \(courseToDeleteOrArchive?.name ?? "")",
@@ -435,6 +472,29 @@ public struct HomeView: View {
                     .foregroundStyle(.secondary)
 
                 Spacer()
+
+                // Live Countdown Timer Badge before next lesson
+                let remainingText = countdownString(for: item, now: currentTime)
+                if !remainingText.isEmpty {
+                    HStack(spacing: 5) {
+                        Image(systemName: item.isLiveNow ? "dot.radiowaves.left.and.right" : "timer")
+                            .font(.system(size: 11, weight: .bold))
+                        Text(remainingText)
+                            .font(.system(size: 12, weight: .heavy).monospacedDigit())
+                    }
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 4)
+                    .background(
+                        Capsule()
+                            .fill(item.isLiveNow ? Color.green.opacity(0.18) : pal.color.opacity(0.15))
+                    )
+                    .overlay(
+                        Capsule()
+                            .strokeBorder(item.isLiveNow ? Color.green.opacity(0.5) : pal.color.opacity(0.4), lineWidth: 1)
+                    )
+                    .foregroundStyle(item.isLiveNow ? Color.green : pal.color)
+                    .help("Tempo rimanente prima della prossima lezione")
+                }
 
                 HStack(spacing: 5) {
                     Image(systemName: "person.2")
@@ -702,6 +762,12 @@ public struct AttendanceView: View {
     @Environment(\.colorScheme) private var colorScheme
     @Binding var activeSheet: ActiveModalSheet?
 
+    private var todayIsoString: String {
+        let cal = Calendar.current
+        let now = Date()
+        return String(format: "%04d-%02d-%02d", cal.component(.year, from: now), cal.component(.month, from: now), cal.component(.day, from: now))
+    }
+
     public var body: some View {
         guard let course = store.activeCourse,
               let mod = store.getActiveModule(for: course) else {
@@ -710,10 +776,11 @@ public struct AttendanceView: View {
         let students = store.getModuleStudents(course: course, module: mod)
         let slots = store.sortedSlots(for: course, module: mod)
         let pal = store.palette(for: course.color)
+        let todayIso = todayIsoString
 
         return AnyView(
             VStack(alignment: .leading, spacing: 14) {
-                // Action Toolbar
+                // Action Toolbar (Mac Calendar Sync & Enroll Students removed per user spec; "Seleziona" placed at rightmost end)
                 HStack(spacing: 10) {
                     HStack(spacing: 6) {
                         Text("\(students.count)").bold()
@@ -751,20 +818,8 @@ public struct AttendanceView: View {
                     } label: {
                         Label(
                             store.attendanceDateEditMode ? store.t("exitEditDatesModeBtn") : store.t("editDatesModeBtn"),
-                            systemImage: store.attendanceDateEditMode ? "checkmark" : "calendar"
+                            systemImage: store.attendanceDateEditMode ? "checkmark.circle.fill" : "checkmark.circle"
                         )
-                    }
-
-                    Button {
-                        activeSheet = .manageModuleStudents
-                    } label: {
-                        Label(store.t("addStudentToModBtn"), systemImage: "person.badge.plus")
-                    }
-
-                    Button {
-                        store.syncCourseToAppleCalendar(course)
-                    } label: {
-                        Label(store.t("syncAppleCalendarBtn"), systemImage: "calendar.badge.checkmark")
                     }
                 }
                 .padding(12)
@@ -804,141 +859,227 @@ public struct AttendanceView: View {
                     )
                 }
 
-                // Attendance Table
-                ScrollView([.horizontal, .vertical]) {
-                    Grid(alignment: .leading, horizontalSpacing: 2, verticalSpacing: 2) {
-                        // Header Row (Uniform Height & Alignment across all columns)
-                        GridRow {
-                            Text("\(store.t("studentCol")) (\(students.count))")
-                                .font(.caption.bold())
-                                .padding(.horizontal, 12)
-                                .frame(minWidth: 210, maxWidth: 210, minHeight: 86, maxHeight: .infinity, alignment: .leading)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 8)
-                                        .fill(tableHeaderCellFill(colorScheme))
-                                        .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(tableHeaderCellStroke(colorScheme)))
-                                )
-
-                            ForEach(Array(slots.enumerated()), id: \.element) { idx, slotKey in
-                                let les = store.findLesson(in: course, sectionId: mod.id, slotKey: slotKey)
-                                let sTime = les?.time ?? mod.startTime
-                                let eTime = les?.endTime ?? mod.endTime
-                                VStack(spacing: 3) {
-                                    Button {
-                                        activeSheet = .lessonPlan(courseId: course.id, sectionId: mod.id, slotKey: slotKey)
-                                    } label: {
-                                        VStack(spacing: 3) {
-                                            Text("\(idx + 1)")
-                                                .font(.caption2.bold())
-                                                .padding(.horizontal, 7)
-                                                .padding(.vertical, 2)
-                                                .background(Capsule().fill(pal.color.opacity(0.18)))
-                                                .foregroundStyle(pal.color)
-
-                                            Text(store.formatShortWeekdayDate(slotKey))
-                                                .font(.caption.bold())
-                                                .underline(pattern: .dot)
-
-                                            Text("\(store.formatTimeDisplay(sTime))-\(store.formatTimeDisplay(eTime))")
-                                                .font(.system(size: 9, weight: .semibold))
-                                                .foregroundStyle(.secondary)
-
-                                            if let t = les?.title, !t.isEmpty {
-                                                Text(t)
-                                                    .font(.system(size: 10, weight: .bold))
-                                                    .foregroundStyle(.green)
-                                                    .lineLimit(2)
-                                                    .multilineTextAlignment(.center)
-                                            } else {
-                                                Text(" ")
-                                                    .font(.system(size: 10, weight: .bold))
-                                                    .opacity(0)
-                                            }
-                                        }
-                                        .frame(width: 118)
-                                    }
-                                    .buttonStyle(.plain)
-
-                                    if store.attendanceDateEditMode {
-                                        Toggle("", isOn: Binding(
-                                            get: { store.selectedDatesForDelete.contains(slotKey) },
-                                            set: { val in
-                                                if val { store.selectedDatesForDelete.insert(slotKey) }
-                                                else { store.selectedDatesForDelete.remove(slotKey) }
-                                            }
-                                        ))
-                                        .labelsHidden()
-                                    }
-                                }
-                                .padding(.vertical, 8)
-                                .padding(.horizontal, 4)
-                                .frame(width: 124, alignment: .top)
-                                .frame(minHeight: 86, maxHeight: .infinity)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 8)
-                                        .fill(tableHeaderCellFill(colorScheme))
-                                        .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(tableHeaderCellStroke(colorScheme)))
-                                )
-                            }
-                        }
-
-                        // Student Rows
-                        if students.isEmpty {
-                            GridRow {
-                                Text(store.t("noStudentsInModulePrompt"))
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                                    .padding(20)
-                                    .gridCellColumns(max(1, slots.count + 1))
-                            }
-                        } else {
-                            ForEach(Array(students.enumerated()), id: \.element.id) { sIdx, st in
-                                let stAtt = mod.attendance[st.id] ?? [:]
-                                let isAlt = sIdx % 2 == 1
-                                GridRow {
-                                    Button {
-                                        activeSheet = .studentDetail(st.id)
-                                    } label: {
-                                        Text(st.fullName)
-                                            .font(.caption.bold())
-                                            .lineLimit(1)
-                                            .padding(.horizontal, 12)
-                                            .frame(width: 210, height: 42, alignment: .leading)
-                                    }
-                                    .buttonStyle(.plain)
+                // Attendance Table with Fixed Left Student Column & Horizontally Scrollable Date Columns
+                ScrollView(.vertical) {
+                    if students.isEmpty && slots.isEmpty {
+                        Text(store.t("noStudentsInModulePrompt"))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .padding(24)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    } else {
+                        HStack(alignment: .top, spacing: 2) {
+                            // LEFT FIXED STUDENT COLUMN (Sticky on left when scrolling right)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("\(store.t("studentCol")) (\(students.count))")
+                                    .font(.caption.bold())
+                                    .padding(.horizontal, 12)
+                                    .frame(width: 236, height: 92, alignment: .leading)
                                     .background(
                                         RoundedRectangle(cornerRadius: 8)
-                                            .fill(tableRowCellFill(colorScheme, isAlt: isAlt))
-                                            .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(tableRowCellStroke(colorScheme)))
+                                            .fill(tableHeaderCellFill(colorScheme))
+                                            .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(tableHeaderCellStroke(colorScheme)))
                                     )
 
-                                    ForEach(slots, id: \.self) { slotKey in
-                                        let val = stAtt[slotKey] ?? ""
+                                if students.isEmpty {
+                                    Text(store.t("noStudentsInModulePrompt"))
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                        .padding(.horizontal, 12)
+                                        .frame(width: 236, height: 52, alignment: .leading)
+                                } else {
+                                    ForEach(Array(students.enumerated()), id: \.element.id) { sIdx, st in
+                                        let stAtt = mod.attendance[st.id] ?? [:]
+                                        let isAlt = sIdx % 2 == 1
+                                        let totalCount = max(1, slots.count)
+                                        let pCount = slots.filter { stAtt[$0] == "P" }.count
+                                        let gCount = slots.filter { stAtt[$0] == "G" }.count
+                                        let aCount = slots.filter { stAtt[$0] == "A" }.count
+
                                         Button {
-                                            store.cycleAttendance(studentId: st.id, slotKey: slotKey)
+                                            activeSheet = .studentDetail(st.id)
                                         } label: {
-                                            Text(val.isEmpty ? "·" : val)
-                                                .font(.caption.bold())
-                                                .frame(width: 38, height: 28)
-                                                .background(
-                                                    RoundedRectangle(cornerRadius: 7)
-                                                        .fill(attendanceColor(for: val))
-                                                )
-                                                .foregroundStyle(val.isEmpty ? Color.secondary : Color.white)
+                                            VStack(alignment: .leading, spacing: 5) {
+                                                HStack(spacing: 4) {
+                                                    Text(st.fullName)
+                                                        .font(.caption.bold())
+                                                        .lineLimit(1)
+                                                    Spacer(minLength: 4)
+                                                    if !slots.isEmpty {
+                                                        Text("\(pCount)P · \(gCount)G · \(aCount)A")
+                                                            .font(.system(size: 9, weight: .semibold))
+                                                            .foregroundStyle(.secondary)
+                                                    }
+                                                }
+
+                                                // Student Participation Segmented Progress Bar (Green = P, Yellow = G, Red = A, Gray = Remaining)
+                                                GeometryReader { geo in
+                                                    let w = geo.size.width
+                                                    let pWidth = w * (CGFloat(pCount) / CGFloat(totalCount))
+                                                    let gWidth = w * (CGFloat(gCount) / CGFloat(totalCount))
+                                                    let aWidth = w * (CGFloat(aCount) / CGFloat(totalCount))
+
+                                                    ZStack(alignment: .leading) {
+                                                        Capsule()
+                                                            .fill(Color.gray.opacity(0.28))
+                                                            .frame(width: w, height: 6)
+
+                                                        HStack(spacing: 0) {
+                                                            if pWidth > 0 {
+                                                                Rectangle()
+                                                                    .fill(Color.green)
+                                                                    .frame(width: pWidth, height: 6)
+                                                            }
+                                                            if gWidth > 0 {
+                                                                Rectangle()
+                                                                    .fill(Color.yellow)
+                                                                    .frame(width: gWidth, height: 6)
+                                                            }
+                                                            if aWidth > 0 {
+                                                                Rectangle()
+                                                                    .fill(Color.red)
+                                                                    .frame(width: aWidth, height: 6)
+                                                            }
+                                                        }
+                                                        .clipShape(Capsule())
+                                                    }
+                                                }
+                                                .frame(height: 6)
+                                            }
+                                            .padding(.horizontal, 12)
+                                            .frame(width: 236, height: 52, alignment: .leading)
                                         }
                                         .buttonStyle(.plain)
-                                        .frame(width: 124, height: 42)
                                         .background(
-                                            RoundedRectangle(cornerRadius: 6)
+                                            RoundedRectangle(cornerRadius: 8)
                                                 .fill(tableRowCellFill(colorScheme, isAlt: isAlt))
-                                                .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(tableRowCellStroke(colorScheme)))
+                                                .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(tableRowCellStroke(colorScheme)))
                                         )
+                                    }
+                                }
+                            }
+
+                            // RIGHT HORIZONTALLY SCROLLABLE DATE COLUMNS
+                            ScrollView(.horizontal, showsIndicators: true) {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    // Date Header Row
+                                    HStack(spacing: 2) {
+                                        ForEach(Array(slots.enumerated()), id: \.element) { idx, slotKey in
+                                            let les = store.findLesson(in: course, sectionId: mod.id, slotKey: slotKey)
+                                            let sTime = les?.time ?? mod.startTime
+                                            let eTime = les?.endTime ?? mod.endTime
+                                            let isTodaySlot = (store.extractDate(from: slotKey) == todayIso)
+
+                                            VStack(spacing: 3) {
+                                                Button {
+                                                    activeSheet = .lessonPlan(courseId: course.id, sectionId: mod.id, slotKey: slotKey)
+                                                } label: {
+                                                    VStack(spacing: 3) {
+                                                        HStack(spacing: 4) {
+                                                            Text("\(idx + 1)")
+                                                                .font(.caption2.bold())
+                                                                .padding(.horizontal, 7)
+                                                                .padding(.vertical, 2)
+                                                                .background(Capsule().fill(isTodaySlot ? pal.color : pal.color.opacity(0.18)))
+                                                                .foregroundStyle(isTodaySlot ? Color.white : pal.color)
+
+                                                            if isTodaySlot {
+                                                                Text("OGGI")
+                                                                    .font(.system(size: 8.5, weight: .black))
+                                                                    .padding(.horizontal, 5)
+                                                                    .padding(.vertical, 1.5)
+                                                                    .background(Capsule().fill(Color.orange))
+                                                                    .foregroundStyle(.white)
+                                                            }
+                                                        }
+
+                                                        Text(store.formatShortWeekdayDate(slotKey))
+                                                            .font(.caption.bold())
+                                                            .foregroundStyle(isTodaySlot ? pal.color : Color.primary)
+                                                            .underline(pattern: .dot)
+
+                                                        Text("\(store.formatTimeDisplay(sTime))-\(store.formatTimeDisplay(eTime))")
+                                                            .font(.system(size: 9, weight: .semibold))
+                                                            .foregroundStyle(.secondary)
+
+                                                        if let t = les?.title, !t.isEmpty {
+                                                            Text(t)
+                                                                .font(.system(size: 10, weight: .bold))
+                                                                .foregroundStyle(.green)
+                                                                .lineLimit(1)
+                                                                .multilineTextAlignment(.center)
+                                                        } else {
+                                                            Text(" ")
+                                                                .font(.system(size: 10, weight: .bold))
+                                                                .opacity(0)
+                                                        }
+                                                    }
+                                                    .frame(width: 118)
+                                                }
+                                                .buttonStyle(.plain)
+
+                                                if store.attendanceDateEditMode {
+                                                    Toggle("", isOn: Binding(
+                                                        get: { store.selectedDatesForDelete.contains(slotKey) },
+                                                        set: { val in
+                                                            if val { store.selectedDatesForDelete.insert(slotKey) }
+                                                            else { store.selectedDatesForDelete.remove(slotKey) }
+                                                        }
+                                                    ))
+                                                    .labelsHidden()
+                                                }
+                                            }
+                                            .padding(.vertical, 6)
+                                            .padding(.horizontal, 4)
+                                            .frame(width: 124, height: 92, alignment: .top)
+                                            .background(
+                                                RoundedRectangle(cornerRadius: 8)
+                                                    .fill(isTodaySlot ? pal.color.opacity(colorScheme == .dark ? 0.24 : 0.14) : tableHeaderCellFill(colorScheme))
+                                                    .overlay(
+                                                        RoundedRectangle(cornerRadius: 8)
+                                                            .strokeBorder(isTodaySlot ? pal.color : tableHeaderCellStroke(colorScheme), lineWidth: isTodaySlot ? 2.2 : 1.0)
+                                                    )
+                                            )
+                                        }
+                                    }
+
+                                    // Student Attendance Cells
+                                    ForEach(Array(students.enumerated()), id: \.element.id) { sIdx, st in
+                                        let stAtt = mod.attendance[st.id] ?? [:]
+                                        let isAlt = sIdx % 2 == 1
+                                        HStack(spacing: 2) {
+                                            ForEach(slots, id: \.self) { slotKey in
+                                                let val = stAtt[slotKey] ?? ""
+                                                let isTodaySlot = (store.extractDate(from: slotKey) == todayIso)
+                                                Button {
+                                                    store.cycleAttendance(studentId: st.id, slotKey: slotKey)
+                                                } label: {
+                                                    Text(val.isEmpty ? "·" : val)
+                                                        .font(.caption.bold())
+                                                        .frame(width: 38, height: 28)
+                                                        .background(
+                                                            RoundedRectangle(cornerRadius: 7)
+                                                                .fill(attendanceColor(for: val))
+                                                        )
+                                                        .foregroundStyle(val.isEmpty ? Color.secondary : Color.white)
+                                                }
+                                                .buttonStyle(.plain)
+                                                .frame(width: 124, height: 52)
+                                                .background(
+                                                    RoundedRectangle(cornerRadius: 6)
+                                                        .fill(isTodaySlot ? pal.color.opacity(colorScheme == .dark ? 0.16 : 0.08) : tableRowCellFill(colorScheme, isAlt: isAlt))
+                                                        .overlay(
+                                                            RoundedRectangle(cornerRadius: 6)
+                                                                .strokeBorder(isTodaySlot ? pal.color.opacity(0.65) : tableRowCellStroke(colorScheme), lineWidth: isTodaySlot ? 1.5 : 1.0)
+                                                        )
+                                                )
+                                            }
+                                        }
                                     }
                                 }
                             }
                         }
                     }
-                    .background(Color.clear)
                 }
                 .clipShape(RoundedRectangle(cornerRadius: 14))
                 .appCardStyle(cornerRadius: 14)
@@ -947,8 +1088,8 @@ public struct AttendanceView: View {
                 HStack {
                     HStack(spacing: 14) {
                         Label("P = \(store.t("presentLabel"))", systemImage: "circle.fill").foregroundStyle(.green)
+                        Label("G = \(store.t("justifiedLabel"))", systemImage: "circle.fill").foregroundStyle(.yellow)
                         Label("A = \(store.t("absentLabel"))", systemImage: "circle.fill").foregroundStyle(.red)
-                        Label("G = \(store.t("justifiedLabel"))", systemImage: "circle.fill").foregroundStyle(.orange)
                     }
                     Spacer()
                     Text(store.t("attendanceFooterHint")).foregroundStyle(.secondary)
@@ -989,9 +1130,11 @@ public struct AttendanceView: View {
         store.selectedDatesForDelete.removeAll()
         store.persist()
 
-        Task {
-            for sk in toDelete {
-                await AppleCalendarManager.shared.removeLessonEvent(course: courseCopy, module: modCopy, slotKey: sk, savedEventId: nil)
+        if store.state.settings.autoSyncAppleCalendar {
+            Task {
+                for sk in toDelete {
+                    await AppleCalendarManager.shared.removeLessonEvent(course: courseCopy, module: modCopy, slotKey: sk, savedEventId: nil)
+                }
             }
         }
     }
@@ -1003,6 +1146,7 @@ public struct GradesView: View {
     @Environment(AppStore.self) private var store
     @Environment(\.colorScheme) private var colorScheme
     @Binding var activeSheet: ActiveModalSheet?
+    @State private var showAttendanceConfigPopover: Bool = false
 
     public var body: some View {
         guard let (cIdx, lIdx, mIdx) = store.activeIndices() else {
@@ -1014,6 +1158,7 @@ public struct GradesView: View {
         let activities = course.gradeConfig.activities
         let evalAtt = store.isAttendanceEvaluationEnabled(course: course, module: mod)
         let attWeight = store.getAttendanceWeight(course: course, module: mod)
+        let attMaxScore = store.getAttendanceMaxScore(course: course, module: mod)
 
         return AnyView(
             VStack(alignment: .leading, spacing: 14) {
@@ -1038,7 +1183,7 @@ public struct GradesView: View {
                         TextField("6", value: Binding(
                             get: { store.state.courses[cIdx].gradeConfig.minPass },
                             set: { val in
-                                store.state.courses[cIdx].gradeConfig.minPass = min(10, max(1, val))
+                                store.state.courses[cIdx].gradeConfig.minPass = min(100, max(1, val))
                                 store.persist()
                             }
                         ), format: .number)
@@ -1059,20 +1204,18 @@ public struct GradesView: View {
                         .font(.caption.bold())
 
                         if evalAtt {
-                            HStack(spacing: 2) {
-                                TextField("5", value: Binding(
-                                    get: { attWeight },
-                                    set: { val in
-                                        let clamped = min(100, max(0, val))
-                                        store.state.courses[cIdx].gradeConfig.attendanceWeight = clamped
-                                        store.state.courses[cIdx].levels[lIdx].modules[mIdx].attendanceWeight = clamped
-                                        store.persist()
-                                    }
-                                ), format: .number)
-                                .textFieldStyle(.roundedBorder)
-                                .frame(width: 48)
-                                Text("%").font(.caption.bold())
+                            Button {
+                                showAttendanceConfigPopover = true
+                            } label: {
+                                HStack(spacing: 4) {
+                                    Image(systemName: "slider.horizontal.3")
+                                    Text("Max \(String(format: "%.0f", attMaxScore)) • \(String(format: "%.0f", attWeight))%")
+                                }
+                                .font(.caption.bold())
                             }
+                            .buttonStyle(.bordered)
+                            .controlSize(.small)
+                            .tint(.green)
                         }
                     }
                     .padding(.horizontal, 10)
@@ -1106,13 +1249,95 @@ public struct GradesView: View {
                             )
 
                             if evalAtt {
-                                VStack(spacing: 3) {
-                                    Text(store.t("navAttendance")).font(.caption.bold()).foregroundStyle(.green)
-                                    Text("\(String(format: "%.0f", attWeight))%").font(.caption2.bold()).foregroundStyle(.green)
+                                Button {
+                                    showAttendanceConfigPopover = true
+                                } label: {
+                                    VStack(spacing: 3) {
+                                        HStack(spacing: 3) {
+                                            Text(store.t("navAttendance").uppercased())
+                                                .font(.caption.bold())
+                                                .underline(pattern: .dot)
+                                            Image(systemName: "gearshape.fill")
+                                                .font(.system(size: 9))
+                                        }
+                                        .foregroundStyle(.green)
+                                        Text("Max \(String(format: "%.0f", attMaxScore)) • \(String(format: "%.0f", attWeight))%")
+                                            .font(.caption2.bold())
+                                            .foregroundStyle(.green)
+                                    }
+                                    .padding(.horizontal, 8)
+                                    .frame(width: 128)
+                                    .frame(minHeight: 56, maxHeight: .infinity)
+                                    .contentShape(Rectangle())
                                 }
-                                .padding(.horizontal, 8)
-                                .frame(width: 110)
-                                .frame(minHeight: 56, maxHeight: .infinity)
+                                .buttonStyle(.plain)
+                                .help("Clicca per configurare Punteggio Massimo e Ponderazione delle Presenze")
+                                .popover(isPresented: $showAttendanceConfigPopover) {
+                                    VStack(alignment: .leading, spacing: 14) {
+                                        HStack {
+                                            Image(systemName: "checklist.checked")
+                                                .foregroundStyle(.green)
+                                            Text("Configurazione Attività Presenze")
+                                                .font(.headline.bold())
+                                        }
+
+                                        Text("Il punteggio viene calcolato automaticamente in base al numero di ore in cui lo studente è stato presente rispetto al totale delle ore del modulo.")
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                            .fixedSize(horizontal: false, vertical: true)
+
+                                        Divider()
+
+                                        HStack {
+                                            Text("Punteggio Massimo:")
+                                                .font(.subheadline.bold())
+                                            Spacer()
+                                            TextField("10", value: Binding(
+                                                get: { store.getAttendanceMaxScore(course: store.state.courses[cIdx], module: store.state.courses[cIdx].levels[lIdx].modules[mIdx]) },
+                                                set: { val in
+                                                    let clamped = min(1000, max(1, val))
+                                                    store.recordUndoSnapshot()
+                                                    store.state.courses[cIdx].gradeConfig.attendanceMaxScore = clamped
+                                                    store.state.courses[cIdx].levels[lIdx].modules[mIdx].attendanceMaxScore = clamped
+                                                    store.persist()
+                                                }
+                                            ), format: .number)
+                                            .textFieldStyle(.roundedBorder)
+                                            .frame(width: 75)
+                                        }
+
+                                        HStack {
+                                            Text("Ponderazione (%):")
+                                                .font(.subheadline.bold())
+                                            Spacer()
+                                            TextField("5", value: Binding(
+                                                get: { store.getAttendanceWeight(course: store.state.courses[cIdx], module: store.state.courses[cIdx].levels[lIdx].modules[mIdx]) },
+                                                set: { val in
+                                                    let clamped = min(100, max(0, val))
+                                                    store.recordUndoSnapshot()
+                                                    store.state.courses[cIdx].gradeConfig.attendanceWeight = clamped
+                                                    store.state.courses[cIdx].levels[lIdx].modules[mIdx].attendanceWeight = clamped
+                                                    store.persist()
+                                                }
+                                            ), format: .number)
+                                            .textFieldStyle(.roundedBorder)
+                                            .frame(width: 75)
+                                            Text("%")
+                                                .font(.subheadline.bold())
+                                        }
+
+                                        HStack {
+                                            Spacer()
+                                            Button("Chiudi") {
+                                                showAttendanceConfigPopover = false
+                                            }
+                                            .buttonStyle(.borderedProminent)
+                                            .tint(.green)
+                                        }
+                                    }
+                                    .padding(18)
+                                    .frame(width: 340)
+                                }
                                 .background(
                                     RoundedRectangle(cornerRadius: 8)
                                         .fill(Color.green.opacity(0.12))
@@ -1197,7 +1422,7 @@ public struct GradesView: View {
                                         )
                                 }
                                 .padding(.horizontal, 10)
-                                .frame(width: 260, height: 44)
+                                .frame(width: 260, height: 48)
                                 .background(
                                     RoundedRectangle(cornerRadius: 6)
                                         .fill(tableRowCellFill(colorScheme, isAlt: isAlt))
@@ -1205,23 +1430,27 @@ public struct GradesView: View {
                                 )
 
                                 if evalAtt {
-                                    HStack {
+                                    VStack(spacing: 2) {
                                         if let info = attInfo, info.totalLessons > 0 {
-                                            Text(String(format: "%.2f", info.score))
+                                            Text("\(String(format: "%.2f", info.score)) / \(String(format: "%.0f", info.maxScore))")
                                                 .font(.caption.bold())
-                                                .padding(.horizontal, 8)
-                                                .padding(.vertical, 4)
+                                                .padding(.horizontal, 6)
+                                                .padding(.vertical, 2)
                                                 .background(
-                                                    RoundedRectangle(cornerRadius: 8)
+                                                    RoundedRectangle(cornerRadius: 6)
                                                         .fill(info.isComplete ? Color.green.opacity(0.2) : Color.secondary.opacity(0.12))
                                                 )
                                                 .foregroundStyle(info.isComplete ? .green : .secondary)
                                                 .help(info.isComplete ? store.t("attendanceCompletedHint") : store.t("attendanceInProgressHint"))
+
+                                            Text("\(String(format: "%.1f", info.presentHours))/\(String(format: "%.1f", info.totalHours))h")
+                                                .font(.system(size: 9, weight: .semibold))
+                                                .foregroundStyle(.secondary)
                                         } else {
                                             Text("—").foregroundStyle(.secondary)
                                         }
                                     }
-                                    .frame(width: 110, height: 44)
+                                    .frame(width: 128, height: 48)
                                     .background(
                                         RoundedRectangle(cornerRadius: 6)
                                             .fill(tableRowCellFill(colorScheme, isAlt: isAlt))
@@ -1236,7 +1465,7 @@ public struct GradesView: View {
                                         activity: act,
                                         activeSheet: $activeSheet
                                     )
-                                    .frame(width: 150, height: 44)
+                                    .frame(width: 150, height: 48)
                                     .background(
                                         RoundedRectangle(cornerRadius: 6)
                                             .fill(tableRowCellFill(colorScheme, isAlt: isAlt))
@@ -1795,6 +2024,7 @@ public struct RubricsAndCriteriaView: View {
 
 public struct ModuleCalendarView: View {
     @Environment(AppStore.self) private var store
+    @Environment(\.colorScheme) private var colorScheme
     @Binding var activeSheet: ActiveModalSheet?
 
     @State private var hoveredDayIso: String? = nil
@@ -1929,52 +2159,6 @@ public struct ModuleCalendarView: View {
                             showExportLangModal = false
                         }
                     )
-                }
-
-                // Quick Month Navigation Strip (also acts as drag target to switch months)
-                if monthSections.count > 1 {
-                    ScrollViewReader { pillScrollProxy in
-                        ScrollView(.horizontal, showsIndicators: false) {
-                            HStack(spacing: 8) {
-                                ForEach(Array(monthSections.enumerated()), id: \.element.id) { idx, sec in
-                                    Button {
-                                        currentMonthScrollIndex = idx
-                                    } label: {
-                                        HStack(spacing: 6) {
-                                            Text(sec.title)
-                                                .font(.caption.bold())
-                                            if sec.totalSessionsInMonth > 0 {
-                                                Text("\(sec.totalSessionsInMonth)")
-                                                    .font(.system(size: 9, weight: .bold))
-                                                    .padding(.horizontal, 5)
-                                                    .padding(.vertical, 1)
-                                                    .background(Capsule().fill(pal.color))
-                                                    .foregroundStyle(.white)
-                                            }
-                                        }
-                                        .padding(.horizontal, 10)
-                                        .padding(.vertical, 5)
-                                        .background(
-                                            Capsule()
-                                                .fill(currentMonthScrollIndex == idx ? pal.color.opacity(0.18) : Color.secondary.opacity(0.08))
-                                        )
-                                        .overlay(
-                                            Capsule()
-                                                .strokeBorder(currentMonthScrollIndex == idx ? pal.color : Color.clear, lineWidth: 1.5)
-                                        )
-                                    }
-                                    .buttonStyle(.plain)
-                                    .dropDestination(for: String.self) { _, _ in false } isTargeted: { targeted in
-                                        if targeted {
-                                            currentMonthScrollIndex = idx
-                                        }
-                                    }
-                                }
-                            }
-                            .padding(.horizontal, 4)
-                            .padding(.vertical, 2)
-                        }
-                    }
                 }
 
                 // Interactive Multi-Month Calendar View with Drag & Drop and Auto-Scroll
@@ -2322,33 +2506,43 @@ public struct ModuleCalendarView: View {
 
     @ViewBuilder
     private func currentModuleSessionButton(sess: DaySession, course: Course, mod: CourseModule, pal: CourseColorInfo) -> some View {
+        let isOverdueUnrecorded = sess.isPast && !sess.isHeld
+        let boxBackground: Color = {
+            if sess.isHeld {
+                // Completed lesson: faded/lightened course color
+                return pal.color.opacity(0.42)
+            } else if isOverdueUnrecorded {
+                // Passed lesson without attendance recorded: black in Light theme, white in Dark theme
+                return colorScheme == .dark ? Color.white : Color.black
+            } else {
+                return pal.color
+            }
+        }()
+        let boxForeground: Color = {
+            if isOverdueUnrecorded {
+                return colorScheme == .dark ? Color.black : Color.white
+            } else {
+                return Color.white
+            }
+        }()
+        let pillBackground: Color = {
+            if isOverdueUnrecorded {
+                return colorScheme == .dark ? Color.black.opacity(0.14) : Color.white.opacity(0.24)
+            } else {
+                return Color.white.opacity(0.25)
+            }
+        }()
+
         Button {
             activeSheet = .lessonPlan(courseId: course.id, sectionId: mod.id, slotKey: sess.slotKey)
         } label: {
             VStack(alignment: .leading, spacing: 2) {
                 HStack {
-                    HStack(spacing: 4) {
-                        Text("\(sess.lessonNum)")
-                            .font(.caption2.bold())
-                            .padding(.horizontal, 5)
-                            .padding(.vertical, 1)
-                            .background(RoundedRectangle(cornerRadius: 4).fill(Color.white.opacity(0.25)))
-
-                        if sess.isHeld {
-                            Image(systemName: "checkmark")
-                                .font(.system(size: 7, weight: .black))
-                                .foregroundStyle(.white)
-                                .frame(width: 13, height: 13)
-                                .background(Circle().fill(Color.gray))
-                        } else if sess.isPast {
-                            Image(systemName: "xmark")
-                                .font(.system(size: 7, weight: .black))
-                                .foregroundStyle(.red)
-                                .frame(width: 13, height: 13)
-                                .background(Circle().fill(Color.white))
-                                .overlay(Circle().strokeBorder(Color.red, lineWidth: 1))
-                        }
-                    }
+                    Text("\(sess.lessonNum)")
+                        .font(.caption2.bold())
+                        .padding(.horizontal, 5)
+                        .padding(.vertical, 1)
+                        .background(RoundedRectangle(cornerRadius: 4).fill(pillBackground))
                     Spacer()
                     Text("\(store.formatTimeDisplay(sess.time))-\(store.formatTimeDisplay(sess.endTime))")
                         .font(.system(size: 9, weight: .bold))
@@ -2361,8 +2555,12 @@ public struct ModuleCalendarView: View {
             }
             .padding(6)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(RoundedRectangle(cornerRadius: 7).fill(pal.color))
-            .foregroundStyle(.white)
+            .background(RoundedRectangle(cornerRadius: 7).fill(boxBackground))
+            .overlay(
+                RoundedRectangle(cornerRadius: 7)
+                    .strokeBorder(isOverdueUnrecorded ? pal.color.opacity(0.55) : Color.clear, lineWidth: 1)
+            )
+            .foregroundStyle(boxForeground)
         }
         .buttonStyle(.plain)
         .contextMenu {
@@ -3074,6 +3272,8 @@ private struct ModuleSquareCalendarPosterView: View {
 public struct CourseStructureView: View {
     @Environment(AppStore.self) private var store
     @Binding var activeSheet: ActiveModalSheet?
+    @State private var levelPendingDelete: CourseLevel? = nil
+    @State private var modulePendingDelete: (levelId: String, module: CourseModule)? = nil
 
     public var body: some View {
         guard let course = store.activeCourse else {
@@ -3114,8 +3314,8 @@ public struct CourseStructureView: View {
 
                     ForEach(course.levels) { lvl in
                         VStack(alignment: .leading, spacing: 12) {
-                            HStack {
-                                Text(lvl.code == "Altro" ? store.t("otherLevelOpt") : lvl.code)
+                            HStack(spacing: 10) {
+                                Text(lvl.code == "Altro" ? (lvl.customName.isEmpty ? store.t("otherLevelOpt") : lvl.customName) : lvl.code)
                                     .font(.subheadline.bold())
                                     .foregroundStyle(.white)
                                     .padding(.horizontal, 10)
@@ -3130,6 +3330,14 @@ public struct CourseStructureView: View {
                                 } label: {
                                     Label(store.t("editBtn"), systemImage: "pencil")
                                 }
+
+                                Button(role: .destructive) {
+                                    levelPendingDelete = lvl
+                                } label: {
+                                    Label(store.t("deleteBtn"), systemImage: "trash")
+                                }
+                                .disabled(course.levels.count <= 1)
+                                .help(course.levels.count <= 1 ? "Ogni corso deve mantenere almeno un livello" : "Elimina livello")
                             }
                             Divider()
 
@@ -3147,6 +3355,17 @@ public struct CourseStructureView: View {
                                                     .font(.caption)
                                             }
                                             .buttonStyle(.borderless)
+
+                                            Button(role: .destructive) {
+                                                modulePendingDelete = (lvl.id, mod)
+                                            } label: {
+                                                Image(systemName: "trash")
+                                                    .font(.caption)
+                                                    .foregroundStyle(.red)
+                                            }
+                                            .buttonStyle(.borderless)
+                                            .disabled(lvl.modules.count <= 1)
+                                            .help(lvl.modules.count <= 1 ? "Ogni livello deve mantenere almeno un modulo" : "Elimina modulo")
                                         }
                                         if !mod.description.isEmpty {
                                             Text(mod.description).font(.caption).foregroundStyle(.secondary)
@@ -3177,6 +3396,48 @@ public struct CourseStructureView: View {
                     }
                 }
                 .padding(20)
+            }
+            .alert(
+                "Conferma eliminazione livello",
+                isPresented: Binding(
+                    get: { levelPendingDelete != nil },
+                    set: { if !$0 { levelPendingDelete = nil } }
+                )
+            ) {
+                Button(store.t("cancelBtn"), role: .cancel) {
+                    levelPendingDelete = nil
+                }
+                Button(store.t("deleteBtn"), role: .destructive) {
+                    if let lvl = levelPendingDelete {
+                        store.deleteLevel(courseId: course.id, levelId: lvl.id)
+                    }
+                    levelPendingDelete = nil
+                }
+            } message: {
+                if let lvl = levelPendingDelete {
+                    Text("Sei sicuro di voler eliminare il livello \"\(lvl.name)\" e tutti i moduli e le lezioni associati?")
+                }
+            }
+            .alert(
+                "Conferma eliminazione modulo",
+                isPresented: Binding(
+                    get: { modulePendingDelete != nil },
+                    set: { if !$0 { modulePendingDelete = nil } }
+                )
+            ) {
+                Button(store.t("cancelBtn"), role: .cancel) {
+                    modulePendingDelete = nil
+                }
+                Button(store.t("deleteBtn"), role: .destructive) {
+                    if let item = modulePendingDelete {
+                        store.deleteModule(courseId: course.id, levelId: item.levelId, moduleId: item.module.id)
+                    }
+                    modulePendingDelete = nil
+                }
+            } message: {
+                if let item = modulePendingDelete {
+                    Text("Sei sicuro di voler eliminare il modulo \"\(item.module.name)\" e tutte le lezioni e presenze associate?")
+                }
             }
         )
     }

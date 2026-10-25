@@ -12,7 +12,7 @@
 # =====================================================================================
 
 """
-Gestione Corsi — Automated Version, Branch & GitHub Release Manager
+ClassDesk — Automated Version, Branch & GitHub Release Manager
 Collaboratively designed with Qwen 2.5 Coder & Gemini Flash.
 Repository: Natsvkashii/ClassManager
 """

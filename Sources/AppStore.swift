@@ -15,6 +15,19 @@ public struct AttendanceEvalInfo: Equatable {
     public let recordedCount: Int
     public let totalLessons: Int
     public let isComplete: Bool
+    public let presentHours: Double
+    public let totalHours: Double
+    public let maxScore: Double
+
+    public init(score: Double, recordedCount: Int, totalLessons: Int, isComplete: Bool, presentHours: Double = 0.0, totalHours: Double = 0.0, maxScore: Double = 10.0) {
+        self.score = score
+        self.recordedCount = recordedCount
+        self.totalLessons = totalLessons
+        self.isComplete = isComplete
+        self.presentHours = presentHours
+        self.totalHours = totalHours
+        self.maxScore = maxScore
+    }
 }
 
 @Observable
@@ -45,12 +58,18 @@ public final class AppStore {
     public var toastMessage: String? = nil
     public var lastICloudSyncDate: Date? = nil
 
-    // Undo Stack for Command+Z (⌘Z)
+    // Undo & Redo Stacks for Command+Z (⌘Z) and Command+Y (⌘Y)
     private var undoStack: [Data] = []
+    private var redoStack: [Data] = []
     private let maxUndoHistory = 40
+    @ObservationIgnored private var dailyUpdateTimer: Timer? = nil
 
     public var canUndo: Bool {
         !undoStack.isEmpty
+    }
+
+    public var canRedo: Bool {
+        !redoStack.isEmpty
     }
 
     private var storageFileURL: URL {
@@ -120,8 +139,14 @@ public final class AppStore {
         if selectedRubricId.isEmpty {
             selectedRubricId = state.rubrics.first?.id ?? ""
         }
-        if state.settings.checkForUpdatesAutomatically {
-            UpdateManager.shared.checkForUpdates(includeBeta: state.settings.includeBetaUpdates, silent: true)
+        // Apply any staged silent background update if requested, and check for new updates at startup + every 24 hours
+        UpdateManager.shared.checkAndApplyStagedUpdateIfNeeded()
+        UpdateManager.shared.checkForUpdates(includeBeta: state.settings.includeBetaUpdates, silent: true, autoStageInBackground: true)
+        dailyUpdateTimer = Timer.scheduledTimer(withTimeInterval: 86400, repeats: true) { [weak self] _ in
+            Task { @MainActor in
+                guard let self = self else { return }
+                UpdateManager.shared.checkForUpdates(includeBeta: self.state.settings.includeBetaUpdates, silent: true, autoStageInBackground: true)
+            }
         }
     }
 
@@ -155,7 +180,7 @@ public final class AppStore {
         }
     }
 
-    // MARK: - Global Undo (Command+Z / ⌘Z)
+    // MARK: - Global Undo (Command+Z / ⌘Z) & Redo (Command+Y / ⌘Y)
 
     public func recordUndoSnapshot() {
         let encoder = JSONEncoder()
@@ -164,6 +189,7 @@ public final class AppStore {
             if undoStack.count > maxUndoHistory {
                 undoStack.removeFirst(undoStack.count - maxUndoHistory)
             }
+            redoStack.removeAll()
         }
     }
 
@@ -173,12 +199,40 @@ public final class AppStore {
             showToast(t("nothingToUndoMsg"))
             return
         }
+        let encoder = JSONEncoder()
+        if let currentSnap = try? encoder.encode(state) {
+            redoStack.append(currentSnap)
+            if redoStack.count > maxUndoHistory {
+                redoStack.removeFirst(redoStack.count - maxUndoHistory)
+            }
+        }
         self.state = restored
         if state.activeCourseId.isEmpty || !state.courses.contains(where: { $0.id == state.activeCourseId && !$0.archived }) {
             state.activeCourseId = state.courses.first(where: { !$0.archived })?.id ?? ""
         }
         persist()
         showToast("↩️ \(t("undoToastMsg"))")
+    }
+
+    public func redoLastAction() {
+        guard let nextSnap = redoStack.popLast(),
+              let restored = AppState.parseFlexibleJSON(from: nextSnap) else {
+            showToast(t("nothingToRedoMsg"))
+            return
+        }
+        let encoder = JSONEncoder()
+        if let currentSnap = try? encoder.encode(state) {
+            undoStack.append(currentSnap)
+            if undoStack.count > maxUndoHistory {
+                undoStack.removeFirst(undoStack.count - maxUndoHistory)
+            }
+        }
+        self.state = restored
+        if state.activeCourseId.isEmpty || !state.courses.contains(where: { $0.id == state.activeCourseId && !$0.archived }) {
+            state.activeCourseId = state.courses.first(where: { !$0.archived })?.id ?? ""
+        }
+        persist()
+        showToast("↪️ \(t("redoToastMsg"))")
     }
 
     // MARK: - 30-Day Trash Bin Management
@@ -959,28 +1013,113 @@ public final class AppStore {
 
     // MARK: - Grades, Rubrics & Attendance Evaluation
 
+    public func lessonDurationHours(course: Course, module: CourseModule, slotKey: String) -> Double {
+        let les = findLesson(in: course, sectionId: module.id, slotKey: slotKey)
+        let sTime = les?.time ?? module.startTime
+        let eTime = les?.endTime ?? module.endTime
+        return AppDateFormatters.calculateHours(from: sTime, to: eTime, fallback: state.settings.defaultLessonDurationHours)
+    }
+
+    public func moduleTotalHours(course: Course, module: CourseModule) -> Double {
+        var total = 0.0
+        for sk in module.dates {
+            total += lessonDurationHours(course: course, module: module, slotKey: sk)
+        }
+        return total
+    }
+
+    public func moduleCompletedHours(course: Course, module: CourseModule, todayIso: String) -> Double {
+        var total = 0.0
+        for sk in module.dates {
+            let dOnly = extractDate(from: sk)
+            let isCompleted = (dOnly <= todayIso) || (module.attendance.values.contains(where: { ($0[sk] ?? "") != "" }))
+            if isCompleted {
+                total += lessonDurationHours(course: course, module: module, slotKey: sk)
+            }
+        }
+        return total
+    }
+
+    public func moduleTotalGross(course: Course, module: CourseModule) -> Double {
+        let b = module.billing ?? ModuleBilling()
+        return b.totalGross(for: module.dates) { sk in
+            self.lessonDurationHours(course: course, module: module, slotKey: sk)
+        }
+    }
+
+    public func deleteLevel(courseId: String, levelId: String) {
+        guard let cIdx = state.courses.firstIndex(where: { $0.id == courseId }) else { return }
+        recordUndoSnapshot()
+        if state.courses[cIdx].levels.count > 1 {
+            state.courses[cIdx].levels.removeAll { $0.id == levelId }
+        } else {
+            let fallbackMod = CourseModule(name: "M1")
+            let fallbackLvl = CourseLevel(code: state.courses[cIdx].level, name: state.courses[cIdx].level, modules: [fallbackMod])
+            state.courses[cIdx].levels = [fallbackLvl]
+        }
+        selectLatestLevelAndModule(for: state.courses[cIdx])
+        persist()
+        showToast("🗑️ Livello eliminato")
+    }
+
+    public func deleteModule(courseId: String, levelId: String, moduleId: String) {
+        guard let cIdx = state.courses.firstIndex(where: { $0.id == courseId }),
+              let lIdx = state.courses[cIdx].levels.firstIndex(where: { $0.id == levelId }) else { return }
+        recordUndoSnapshot()
+        state.courses[cIdx].lessons.removeAll { $0.sectionId == moduleId }
+        if state.courses[cIdx].levels[lIdx].modules.count > 1 {
+            state.courses[cIdx].levels[lIdx].modules.removeAll { $0.id == moduleId }
+        } else {
+            state.courses[cIdx].levels[lIdx].modules = [CourseModule(name: "M1")]
+        }
+        if let firstMod = state.courses[cIdx].levels[lIdx].modules.first {
+            switchModule(firstMod.id)
+        }
+        persist()
+        showToast("🗑️ Modulo eliminato")
+    }
+
+    public func getAttendanceMaxScore(course: Course, module: CourseModule? = nil) -> Double {
+        if let mod = module ?? getActiveModule(for: course), let ms = mod.attendanceMaxScore, ms > 0 {
+            return ms
+        }
+        return max(1.0, course.gradeConfig.attendanceMaxScore)
+    }
+
     public func getStudentAttendanceEvalInfo(course: Course, studentId: String, module: CourseModule? = nil) -> AttendanceEvalInfo {
+        let maxScore = getAttendanceMaxScore(course: course, module: module)
         guard let mod = module ?? getActiveModule(for: course) else {
-            return AttendanceEvalInfo(score: 0, recordedCount: 0, totalLessons: 0, isComplete: false)
+            return AttendanceEvalInfo(score: 0, recordedCount: 0, totalLessons: 0, isComplete: false, presentHours: 0, totalHours: 0, maxScore: maxScore)
         }
         let total = mod.dates.count
         guard total > 0 else {
-            return AttendanceEvalInfo(score: 0, recordedCount: 0, totalLessons: 0, isComplete: false)
+            return AttendanceEvalInfo(score: 0, recordedCount: 0, totalLessons: 0, isComplete: false, presentHours: 0, totalHours: 0, maxScore: maxScore)
         }
         let stAtt = mod.attendance[studentId] ?? [:]
         var recorded = 0
-        var credit = 0
+        var presentHrs = 0.0
+        var totalHrs = 0.0
         for slot in mod.dates {
+            let h = lessonDurationHours(course: course, module: mod, slotKey: slot)
+            totalHrs += h
             if let status = stAtt[slot], ["P", "G", "A"].contains(status) {
                 recorded += 1
                 if status == "P" || status == "G" {
-                    credit += 1
+                    presentHrs += h
                 }
             }
         }
-        let rawScore = (Double(credit) / Double(total)) * 10.0
+        let rawScore = totalHrs > 0 ? (presentHrs / totalHrs) * maxScore : maxScore
         let rounded = (rawScore * 100).rounded() / 100
-        return AttendanceEvalInfo(score: rounded, recordedCount: recorded, totalLessons: total, isComplete: recorded == total)
+        return AttendanceEvalInfo(
+            score: rounded,
+            recordedCount: recorded,
+            totalLessons: total,
+            isComplete: recorded == total,
+            presentHours: presentHrs,
+            totalHours: totalHrs,
+            maxScore: maxScore
+        )
     }
 
     public func isAttendanceEvaluationEnabled(course: Course, module: CourseModule? = nil) -> Bool {
@@ -1175,6 +1314,9 @@ public final class AppStore {
     // MARK: - Apple Calendar (EventKit) Synchronization
 
     public func syncCourseToAppleCalendar(_ course: Course, showNotification: Bool = true) {
+        if !showNotification && !state.settings.autoSyncAppleCalendar {
+            return
+        }
         let mode = state.settings.calendarSyncMode
         let pal = palette(for: course.color)
         Task { @MainActor in

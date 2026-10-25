@@ -18,8 +18,8 @@ public enum AuthorAttribution {
     public static let authorName = "Guaira Jaramillo Nitoglia"
     public static let authorEmail = "guaira.jaramillo.nitoglia@gmail.com"
     public static let appName = "ClassDesk"
-    public static let appVersion = "26.10.4-027"
-    public static let appChannel = "stable"
+    public static let appVersion = "26.10.5-001"
+    public static let appChannel = "unstable"
     public static let licenseName = "GNU General Public License v3.0 (GPL-3.0)"
 
     public static var isBeta: Bool {
@@ -96,6 +96,15 @@ public enum AppDateFormatters {
         formatter.locale = Locale(identifier: "en_US_POSIX")
         return formatter
     }()
+
+    public static func calculateHours(from startTime: String, to endTime: String, fallback: Double = 1.5) -> Double {
+        let sMin = startTime.minutesFromTimeString(defaultMinutes: -1)
+        let eMin = endTime.minutesFromTimeString(defaultMinutes: -1)
+        if sMin >= 0 && eMin > sMin {
+            return Double(eMin - sMin) / 60.0
+        }
+        return fallback > 0 ? fallback : 1.5
+    }
 }
 
 extension String {
@@ -839,11 +848,12 @@ public struct ModuleBilling: Codable, Equatable {
         lessonOverrides = ov
     }
 
-    public func lessonNetPrice(for slotKey: String) -> Double {
+    public func lessonNetPrice(for slotKey: String, durationHours: Double? = nil) -> Double {
         if let o = lessonOverrides[slotKey], let p = o.price, p >= 0 {
             return p
         }
-        return hourlyRateNet * lessonDurationHours
+        let effHours = durationHours ?? lessonDurationHours
+        return hourlyRateNet * effHours
     }
 
     public func lessonVatPercent(for slotKey: String) -> Double {
@@ -853,8 +863,8 @@ public struct ModuleBilling: Codable, Equatable {
         return vatPercent
     }
 
-    public func lessonDiscountAmount(for slotKey: String) -> Double {
-        let net = lessonNetPrice(for: slotKey)
+    public func lessonDiscountAmount(for slotKey: String, durationHours: Double? = nil) -> Double {
+        let net = lessonNetPrice(for: slotKey, durationHours: durationHours)
         if let o = lessonOverrides[slotKey], let v = o.discountValue, v > 0 {
             let t = o.discountType ?? "percent"
             return t == "percent" ? (net * (v / 100.0)) : v
@@ -865,24 +875,116 @@ public struct ModuleBilling: Codable, Equatable {
         return 0.0
     }
 
-    public func lessonGrossPrice(for slotKey: String) -> Double {
-        let net = lessonNetPrice(for: slotKey)
-        let disc = lessonDiscountAmount(for: slotKey)
+    public func lessonGrossPrice(for slotKey: String, durationHours: Double? = nil) -> Double {
+        let net = lessonNetPrice(for: slotKey, durationHours: durationHours)
+        let disc = lessonDiscountAmount(for: slotKey, durationHours: durationHours)
         let afterDisc = max(0.0, net - disc)
         let vat = afterDisc * (lessonVatPercent(for: slotKey) / 100.0)
         return afterDisc + vat
     }
 
-    public func totalGross(for dates: [String]) -> Double {
+    public func totalGross(for dates: [String], durationProvider: ((String) -> Double)? = nil) -> Double {
         if dates.isEmpty { return 0.0 }
         var sum = 0.0
         for d in dates {
-            sum += lessonGrossPrice(for: d)
+            let dur = durationProvider?(d)
+            sum += lessonGrossPrice(for: d, durationHours: dur)
         }
         if discountType == "fixed" && discountValue > 0 && lessonOverrides.isEmpty {
             sum = max(0.0, sum - discountValue)
         }
         return sum
+    }
+}
+
+public struct BillingContact: Codable, Identifiable, Equatable {
+    public var id: String
+    public var idType: String = "cedula"
+    public var idNumber: String = ""
+    public var fullName: String = ""
+    public var city: String = ""
+    public var address: String = ""
+    public var phone: String = ""
+    public var email: String = ""
+    public var notes: String = ""
+    public var linkedCourseName: String = ""
+
+    enum CodingKeys: String, CodingKey {
+        case id, idType, idNumber, fullName, city, address, phone, email, notes, linkedCourseName
+    }
+
+    public init(id: String = "bc-" + UUID().uuidString.prefix(6).lowercased(),
+                idType: String = "cedula",
+                idNumber: String = "",
+                fullName: String = "",
+                city: String = "",
+                address: String = "",
+                phone: String = "",
+                email: String = "",
+                notes: String = "",
+                linkedCourseName: String = "") {
+        self.id = id
+        self.idType = idType
+        self.idNumber = idNumber
+        self.fullName = fullName
+        self.city = city
+        self.address = address
+        self.phone = phone
+        self.email = email
+        self.notes = notes
+        self.linkedCourseName = linkedCourseName
+    }
+
+    public init(from info: BillingInfo, linkedCourseName: String = "") {
+        self.id = "bc-" + UUID().uuidString.prefix(6).lowercased()
+        self.idType = info.idType
+        self.idNumber = info.idNumber
+        self.fullName = info.fullName
+        self.city = info.city
+        self.address = info.address
+        self.phone = info.phone
+        self.email = info.email
+        self.notes = ""
+        self.linkedCourseName = linkedCourseName
+    }
+
+    public var asBillingInfo: BillingInfo {
+        BillingInfo(
+            idType: idType,
+            idNumber: idNumber,
+            fullName: fullName,
+            city: city,
+            address: address,
+            phone: phone,
+            email: email
+        )
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = c.flexString(.id, default: "bc-" + UUID().uuidString.prefix(6).lowercased())
+        idType = c.flexString(.idType, default: "cedula")
+        idNumber = c.flexString(.idNumber, default: "")
+        fullName = c.flexString(.fullName, default: "")
+        city = c.flexString(.city, default: "")
+        address = c.flexString(.address, default: "")
+        phone = c.flexString(.phone, default: "")
+        email = c.flexString(.email, default: "")
+        notes = c.flexString(.notes, default: "")
+        linkedCourseName = c.flexString(.linkedCourseName, default: "")
+    }
+
+    public init(dict: [String: Any]) {
+        id = JSONDictHelper.str(dict["id"], default: "bc-" + UUID().uuidString.prefix(6).lowercased())
+        idType = JSONDictHelper.str(dict["idType"], default: "cedula")
+        idNumber = JSONDictHelper.str(dict["idNumber"], default: "")
+        fullName = JSONDictHelper.str(dict["fullName"], default: "")
+        city = JSONDictHelper.str(dict["city"], default: "")
+        address = JSONDictHelper.str(dict["address"], default: "")
+        phone = JSONDictHelper.str(dict["phone"], default: "")
+        email = JSONDictHelper.str(dict["email"], default: "")
+        notes = JSONDictHelper.str(dict["notes"], default: "")
+        linkedCourseName = JSONDictHelper.str(dict["linkedCourseName"], default: "")
     }
 }
 
@@ -898,12 +1000,13 @@ public struct CourseModule: Codable, Identifiable, Equatable {
     public var attendance: [String: [String: String]] = [:]
     public var evaluateAttendance: Bool? = false
     public var attendanceWeight: Double? = 5.0
+    public var attendanceMaxScore: Double? = 10.0
     public var billing: ModuleBilling? = ModuleBilling()
     public var googleMeetUrl: String? = nil
     public var weekdays: [Int] = []
 
     enum CodingKeys: String, CodingKey {
-        case id, name, description, startTime, endTime, scheduleNote, studentIds, dates, attendance, evaluateAttendance, attendanceWeight, billing, googleMeetUrl, weekdays
+        case id, name, description, startTime, endTime, scheduleNote, studentIds, dates, attendance, evaluateAttendance, attendanceWeight, attendanceMaxScore, billing, googleMeetUrl, weekdays
     }
 
     public init(id: String = "sec-" + UUID().uuidString.prefix(6).lowercased(),
@@ -917,6 +1020,7 @@ public struct CourseModule: Codable, Identifiable, Equatable {
                 attendance: [String: [String: String]] = [:],
                 evaluateAttendance: Bool? = false,
                 attendanceWeight: Double? = 5.0,
+                attendanceMaxScore: Double? = 10.0,
                 billing: ModuleBilling? = ModuleBilling(),
                 googleMeetUrl: String? = nil,
                 weekdays: [Int] = []) {
@@ -931,6 +1035,7 @@ public struct CourseModule: Codable, Identifiable, Equatable {
         self.attendance = attendance
         self.evaluateAttendance = evaluateAttendance
         self.attendanceWeight = attendanceWeight
+        self.attendanceMaxScore = attendanceMaxScore
         self.billing = billing
         self.googleMeetUrl = googleMeetUrl
         self.weekdays = weekdays
@@ -961,6 +1066,7 @@ public struct CourseModule: Codable, Identifiable, Equatable {
         }
         evaluateAttendance = c.flexOptBool(.evaluateAttendance)
         attendanceWeight = c.flexOptDouble(.attendanceWeight)
+        attendanceMaxScore = c.flexOptDouble(.attendanceMaxScore) ?? 10.0
         billing = (try? c.decodeIfPresent(ModuleBilling.self, forKey: .billing)) ?? ModuleBilling()
         googleMeetUrl = c.flexOptString(.googleMeetUrl)
         weekdays = (try? c.decodeIfPresent([Int].self, forKey: .weekdays)) ?? []
@@ -993,6 +1099,7 @@ public struct CourseModule: Codable, Identifiable, Equatable {
         attendance = cleanAtt
         evaluateAttendance = JSONDictHelper.optBool(dict["evaluateAttendance"])
         attendanceWeight = JSONDictHelper.optDbl(dict["attendanceWeight"])
+        attendanceMaxScore = JSONDictHelper.optDbl(dict["attendanceMaxScore"]) ?? 10.0
         if let bDict = dict["billing"] as? [String: Any] {
             billing = ModuleBilling(dict: bDict)
         } else {
@@ -1274,21 +1381,24 @@ public struct GradeConfig: Codable, Equatable {
     public var minPass: Double = 6.0
     public var evaluateAttendance: Bool = false
     public var attendanceWeight: Double = 5.0
+    public var attendanceMaxScore: Double = 10.0
     public var activities: [ActivityItem] = []
 
     enum CodingKeys: String, CodingKey {
-        case calcMethod, minPass, evaluateAttendance, attendanceWeight, activities
+        case calcMethod, minPass, evaluateAttendance, attendanceWeight, attendanceMaxScore, activities
     }
 
     public init(calcMethod: String = "average",
                 minPass: Double = 6.0,
                 evaluateAttendance: Bool = false,
                 attendanceWeight: Double = 5.0,
+                attendanceMaxScore: Double = 10.0,
                 activities: [ActivityItem] = []) {
         self.calcMethod = calcMethod
         self.minPass = minPass
         self.evaluateAttendance = evaluateAttendance
         self.attendanceWeight = attendanceWeight
+        self.attendanceMaxScore = attendanceMaxScore
         self.activities = activities
     }
 
@@ -1298,6 +1408,7 @@ public struct GradeConfig: Codable, Equatable {
         minPass = c.flexDouble(.minPass, default: 6.0)
         evaluateAttendance = c.flexBool(.evaluateAttendance, default: false)
         attendanceWeight = c.flexDouble(.attendanceWeight, default: 5.0)
+        attendanceMaxScore = c.flexDouble(.attendanceMaxScore, default: 10.0)
         activities = (try? c.decodeIfPresent([ActivityItem].self, forKey: .activities)) ?? []
     }
 
@@ -1306,6 +1417,7 @@ public struct GradeConfig: Codable, Equatable {
         minPass = JSONDictHelper.dbl(dict["minPass"], default: 6.0)
         evaluateAttendance = JSONDictHelper.bool(dict["evaluateAttendance"], default: false)
         attendanceWeight = JSONDictHelper.dbl(dict["attendanceWeight"], default: 5.0)
+        attendanceMaxScore = JSONDictHelper.dbl(dict["attendanceMaxScore"], default: 10.0)
         let acts = (dict["activities"] as? [[String: Any]]) ?? []
         activities = acts.map { ActivityItem(dict: $0) }
     }
@@ -1576,11 +1688,12 @@ public struct AppState: Codable, Equatable {
     public var settings: AppSettings = AppSettings()
     public var rubrics: [Rubric] = AppState.defaultRubrics
     public var studentsDirectory: [Student] = []
+    public var billingContacts: [BillingContact] = []
     public var courses: [Course] = []
     public var deletedItems: [DeletedBinItem] = []
 
     enum CodingKeys: String, CodingKey {
-        case version, lastUpdated, activeCourseId, changelog, settings, rubrics, studentsDirectory, courses, deletedItems
+        case version, lastUpdated, activeCourseId, changelog, settings, rubrics, studentsDirectory, billingContacts, courses, deletedItems
     }
 
     public init() {}
@@ -1594,8 +1707,11 @@ public struct AppState: Codable, Equatable {
         settings = (try? c.decodeIfPresent(AppSettings.self, forKey: .settings)) ?? AppSettings()
         rubrics = (try? c.decodeIfPresent([Rubric].self, forKey: .rubrics)) ?? AppState.defaultRubrics
         studentsDirectory = (try? c.decodeIfPresent([Student].self, forKey: .studentsDirectory)) ?? []
+        var decodedContacts = (try? c.decodeIfPresent([BillingContact].self, forKey: .billingContacts)) ?? []
         courses = (try? c.decodeIfPresent([Course].self, forKey: .courses)) ?? []
         deletedItems = (try? c.decodeIfPresent([DeletedBinItem].self, forKey: .deletedItems)) ?? []
+        AppState.syncBillingContactsFromCoursesAndStudents(contacts: &decodedContacts, courses: courses, students: studentsDirectory)
+        billingContacts = decodedContacts
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -1609,8 +1725,45 @@ public struct AppState: Codable, Equatable {
         try c.encode(settings, forKey: .settings)
         try c.encode(rubrics, forKey: .rubrics)
         try c.encode(studentsDirectory, forKey: .studentsDirectory)
+        try c.encode(billingContacts, forKey: .billingContacts)
         try c.encode(courses, forKey: .courses)
         try c.encode(deletedItems, forKey: .deletedItems)
+    }
+
+    public static func syncBillingContactsFromCoursesAndStudents(contacts: inout [BillingContact], courses: [Course], students: [Student]) {
+        for crs in courses {
+            let bInfo = crs.billingConfig.billingInfo
+            let cleanName = bInfo.fullName.trimmingCharacters(in: .whitespaces)
+            let cleanId = bInfo.idNumber.trimmingCharacters(in: .whitespaces)
+            if !cleanName.isEmpty || !cleanId.isEmpty {
+                let exists = contacts.contains {
+                    (!cleanId.isEmpty && $0.idNumber.lowercased() == cleanId.lowercased()) ||
+                    (!cleanName.isEmpty && $0.fullName.lowercased() == cleanName.lowercased())
+                }
+                if !exists {
+                    contacts.append(BillingContact(from: bInfo, linkedCourseName: crs.name))
+                }
+            }
+        }
+        for st in students {
+            let bInfo = st.billingInfo
+            let cleanName = (bInfo.fullName.isEmpty ? st.fullName : bInfo.fullName).trimmingCharacters(in: .whitespaces)
+            let cleanId = bInfo.idNumber.trimmingCharacters(in: .whitespaces)
+            if !cleanName.isEmpty {
+                let exists = contacts.contains {
+                    (!cleanId.isEmpty && $0.idNumber.lowercased() == cleanId.lowercased()) ||
+                    (!cleanName.isEmpty && $0.fullName.lowercased() == cleanName.lowercased())
+                }
+                if !exists {
+                    var infoCopy = bInfo
+                    if infoCopy.fullName.isEmpty { infoCopy.fullName = st.fullName }
+                    if infoCopy.phone.isEmpty { infoCopy.phone = st.phone }
+                    if infoCopy.email.isEmpty { infoCopy.email = st.email }
+                    if infoCopy.city.isEmpty { infoCopy.city = st.city }
+                    contacts.append(BillingContact(from: infoCopy, linkedCourseName: st.currentLevel))
+                }
+            }
+        }
     }
 
     public init(dict: [String: Any]) {
@@ -1633,6 +1786,11 @@ public struct AppState: Codable, Equatable {
         var parsedStudents: [Student] = []
         if let stArr = dict["studentsDirectory"] as? [[String: Any]] {
             parsedStudents = stArr.map { Student(dict: $0) }
+        }
+
+        var parsedContacts: [BillingContact] = []
+        if let bcArr = dict["billingContacts"] as? [[String: Any]] {
+            parsedContacts = bcArr.map { BillingContact(dict: $0) }
         }
 
         if let crsArr = dict["courses"] as? [[String: Any]] {
@@ -1659,6 +1817,8 @@ public struct AppState: Codable, Equatable {
         }
 
         studentsDirectory = parsedStudents
+        AppState.syncBillingContactsFromCoursesAndStudents(contacts: &parsedContacts, courses: courses, students: parsedStudents)
+        billingContacts = parsedContacts
         changelog = AppState.defaultChangelog
     }
 
@@ -1711,6 +1871,16 @@ public struct AppState: Codable, Equatable {
     ]
 
     public static let defaultChangelog: [ChangelogEntry] = [
+        ChangelogEntry(version: "26.10.5-001", date: "2026-10-25", changes: [
+            "Nuovo Sistema di Aggiornamento Silenzioso in Background: verifica automatica ad ogni avvio e ogni 24 ore, download autonomo silenzioso in background e installazione automatica trasparente al successivo riavvio del programma (con mantenimento dell'aggiornamento manuale di emergenza e nuova sezione Laboratorio Beta con log comandi e simulatore di aggiornamento).",
+            "Barra Superiore Adattiva & Ripristina Azione (⌘Y / Ctrl+Y): frecce di scorrimento laterale per moduli e livelli su finestre ridotte al minimo senza elementi tagliati, più nuovo pulsante 'Avanti / Ripristina' con scorciatoia da tastiera Command+Y.",
+            "Dashboard con Contatore Live: aggiunto timer in tempo reale che mostra il tempo restante prima dell'inizio della prossima lezione in programma.",
+            "Registro Presenze Potenziato: barra di stato partecipazione (verde presenze, giallo giustificazioni, rosso assenze, grigio lezioni future), colonna nomi studenti fissa a sinistra durante lo scorrimento orizzontale, evidenziazione del giorno odierno, tasto 'Seleziona' con icona a fine barra, 'Nuova ricorrenza' e pulizia pulsanti ridondanti.",
+            "Voti & Attività Presenze Configurabile: cliccando su 'PRESENZE' nella scheda Voti si apre la finestra per impostare punteggio massimo e percentuale di ponderazione, con calcolo del voto basato sul numero effettivo di ore di presenza.",
+            "Piano Lezioni & Struttura Corso: stati visivi ad alto contrasto per le lezioni (colore sbiadito per le lezioni svolte; casella nera con testo bianco nel tema chiaro / bianca con testo nero nel tema scuro per le lezioni passate senza presenze registrate), rimozione pulsanti mesi e badge ridondanti, ed eliminazione diretta di livelli e moduli con conferma in Struttura.",
+            "Fatturazione Automatica & Banca Dati Clienti: calcolo automatico della durata di ogni lezione dagli orari di inizio e fine (senza inserimento manuale) e nuova Banca Dati Clienti ricercabile con tutti i profili fiscali di corsi, moduli e studenti.",
+            "Anagrafica & Calendari: layout responsive del pannello sinistro in Anagrafica, nuovo pulsante nella scheda studente per consultare lo storico scorrevole delle note delle lezioni (solo per i gruppi in cui lo studente è attivo), rispetto rigoroso del toggle Calendario macOS e richiesta di conferma prima di creare serie ricorrenti su Google Calendar."
+        ]),
         ChangelogEntry(version: "26.10.4-027", date: "2026-10-20", changes: [
             "Release Stabile Ufficiale ClassDesk 26.10.4 (Release 027): transizione definitiva da 'Gestione Corsi' a 'ClassDesk' con nuovo logo e brand identity coordinata su macOS e Windows.",
             "Nuova Architettura Windows Nativa WebView2: eseguibile C++ ad alte prestazioni compilato con Microsoft WebView2, avvio istantaneo, consumo minimo di RAM (<60MB) e installer ufficiale unificato (eliminazione completa delle versioni portable non registrate).",

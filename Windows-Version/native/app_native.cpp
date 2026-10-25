@@ -672,8 +672,52 @@ static int RunSetupInstaller(const wchar_t* currentExePath, bool isSilent) {
         if (hFontFooter) DeleteObject(hFontFooter);
     }
 
-    ShellExecuteW(NULL, L"open", targetExe.c_str(), NULL, targetDir.c_str(), SW_SHOWNORMAL);
+    ShellExecuteW(NULL, L"open", targetExe.c_str(), isSilent ? L"--skip-staged-update" : NULL, targetDir.c_str(), SW_SHOWNORMAL);
     return 0;
+}
+
+// Helper: Append timestamped line to updater_command_log.txt
+static void AppendUpdaterLog(const std::wstring& logsDir, const std::string& message) {
+    CreateDirectoryW(logsDir.c_str(), NULL);
+    std::wstring logFile = logsDir + L"\\updater_command_log.txt";
+    SYSTEMTIME st;
+    GetLocalTime(&st);
+    char ts[32];
+    snprintf(ts, sizeof(ts), "[%02d:%02d:%02d] ", st.wHour, st.wMinute, st.wSecond);
+    std::string line = std::string(ts) + message + "\r\n";
+
+    HANDLE hFile = CreateFileW(logFile.c_str(), FILE_APPEND_DATA, FILE_SHARE_READ, NULL, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+    if (hFile != INVALID_HANDLE_VALUE) {
+        DWORD written = 0;
+        WriteFile(hFile, line.c_str(), (DWORD)line.size(), &written, NULL);
+        CloseHandle(hFile);
+    }
+}
+
+// Helper: Read whole small UTF-8 file
+static std::string ReadSmallUtf8File(const std::wstring& path) {
+    HANDLE hFile = CreateFileW(path.c_str(), GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+    if (hFile == INVALID_HANDLE_VALUE) return "";
+    DWORD sz = GetFileSize(hFile, NULL);
+    if (sz == 0 || sz > 2 * 1024 * 1024) {
+        CloseHandle(hFile);
+        return "";
+    }
+    std::string buf(sz, 0);
+    DWORD rd = 0;
+    ReadFile(hFile, &buf[0], sz, &rd, NULL);
+    CloseHandle(hFile);
+    return buf;
+}
+
+// Helper: Write small UTF-8 file
+static void WriteSmallUtf8File(const std::wstring& path, const std::string& content) {
+    HANDLE hFile = CreateFileW(path.c_str(), GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+    if (hFile != INVALID_HANDLE_VALUE) {
+        DWORD wr = 0;
+        WriteFile(hFile, content.c_str(), (DWORD)content.size(), &wr, NULL);
+        CloseHandle(hFile);
+    }
 }
 
 // WinMain Entry Point
@@ -754,6 +798,44 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
     std::wstring logsDir = appDir + L"\\Logs";
     CreateDirectoryW(logsDir.c_str(), NULL);
+
+    std::wstring stagedDir = appDir + L"\\StagedUpdate";
+    CreateDirectoryW(stagedDir.c_str(), NULL);
+
+    // 1B. Check & Apply Staged Silent Update on Startup before opening UI
+    bool skipStaged = (cmdLower.find("--skip-staged-update") != std::string::npos);
+    if (!skipStaged) {
+        std::wstring stagedExe = stagedDir + L"\\ClassDesk_Staged_Setup.exe";
+        std::wstring stagedVerFile = stagedDir + L"\\staged_version.txt";
+        std::wstring stagedSimFile = stagedDir + L"\\staged_simulated.txt";
+        if (GetFileAttributesW(stagedExe.c_str()) != INVALID_FILE_ATTRIBUTES &&
+            GetFileAttributesW(stagedVerFile.c_str()) != INVALID_FILE_ATTRIBUTES) {
+            std::string stagedVer = ReadSmallUtf8File(stagedVerFile);
+            while (!stagedVer.empty() && (stagedVer.back() == '\r' || stagedVer.back() == '\n' || stagedVer.back() == ' ')) {
+                stagedVer.pop_back();
+            }
+            bool isSim = (GetFileAttributesW(stagedSimFile.c_str()) != INVALID_FILE_ATTRIBUTES);
+            std::string curVerStr = WideToUtf8(APP_VERSION);
+            if (!stagedVer.empty() && (stagedVer != curVerStr || isSim)) {
+                DeleteFileW(stagedVerFile.c_str());
+                DeleteFileW(stagedSimFile.c_str());
+                AppendUpdaterLog(logsDir, std::string("$ [STARTUP-UPDATE] Rilevato aggiornamento pronto all'avvio: v") + stagedVer + (isSim ? " (Simulazione Beta)" : ""));
+                AppendUpdaterLog(logsDir, "$ [STARTUP-UPDATE] Esecuzione silenziosa di ClassDesk_Staged_Setup.exe --silent prima dell'apertura...");
+                ShellExecuteW(NULL, L"open", stagedExe.c_str(), L"--silent", stagedDir.c_str(), SW_HIDE);
+                return 0;
+            } else {
+                DeleteFileW(stagedVerFile.c_str());
+                DeleteFileW(stagedSimFile.c_str());
+                DeleteFileW(stagedExe.c_str());
+            }
+        }
+    } else {
+        // Clean up staged installer after silent startup upgrade completes
+        DeleteFileW((stagedDir + L"\\ClassDesk_Staged_Setup.exe").c_str());
+        DeleteFileW((stagedDir + L"\\staged_version.txt").c_str());
+        DeleteFileW((stagedDir + L"\\staged_simulated.txt").c_str());
+        AppendUpdaterLog(logsDir, std::string("$ [STARTUP-UPDATE] Aggiornamento all'avvio completato con successo (v") + WideToUtf8(APP_VERSION) + "). Avvio normale.");
+    }
 
     std::wstring indexPath = appDir + L"\\index.html";
     std::wstring logoPath = appDir + L"\\logo.png";
@@ -1170,6 +1252,76 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         }
     });
 
+    // M. Silent Background Updater Staging & Command Log Bindings
+    w.bind("__native_append_updater_log", [logsDir](std::string req) -> std::string {
+        std::string msg = ParseJsonArg(req, 0);
+        if (!msg.empty()) {
+            AppendUpdaterLog(logsDir, msg);
+        }
+        return "true";
+    });
+
+    w.bind("__native_clear_updater_logs", [logsDir](std::string /*req*/) -> std::string {
+        std::wstring logFile = logsDir + L"\\updater_command_log.txt";
+        DeleteFileW(logFile.c_str());
+        AppendUpdaterLog(logsDir, "$ [LOG] Log comandi aggiornamento azzerato dall'utente");
+        return "true";
+    });
+
+    w.bind("__native_get_updater_logs", [logsDir, stagedDir](std::string /*req*/) -> std::string {
+        std::string logText = ReadSmallUtf8File(logsDir + L"\\updater_command_log.txt");
+        std::string stagedVer = ReadSmallUtf8File(stagedDir + L"\\staged_version.txt");
+        while (!stagedVer.empty() && (stagedVer.back() == '\r' || stagedVer.back() == '\n' || stagedVer.back() == ' ')) {
+            stagedVer.pop_back();
+        }
+        return "{\"logs\":\"" + JsonEscape(logText) + "\",\"stagedVersion\":\"" + JsonEscape(stagedVer) + "\"}";
+    });
+
+    w.bind("__native_stage_silent_update", [&w, logsDir, stagedDir](const std::string& seq, const std::string& req, void* /*arg*/) {
+        std::string url = ParseJsonArg(req, 0);
+        std::string version = ParseJsonArg(req, 1);
+        std::string isSimStr = ParseJsonArg(req, 2);
+        bool isSim = (isSimStr == "true" || isSimStr == "1");
+
+        if (url.empty()) {
+            AppendUpdaterLog(logsDir, "$ [BG-STAGE] ERRORE: URL di download vuoto.");
+            w.resolve(seq, 0, "{\"success\":false,\"error\":\"Empty URL\"}");
+            return;
+        }
+
+        std::thread([&w, seq, url, version, isSim, logsDir, stagedDir]() {
+            CreateDirectoryW(stagedDir.c_str(), NULL);
+            std::wstring destFile = stagedDir + L"\\ClassDesk_Staged_Setup.exe";
+            std::wstring verFile = stagedDir + L"\\staged_version.txt";
+            std::wstring simFile = stagedDir + L"\\staged_simulated.txt";
+
+            AppendUpdaterLog(logsDir, std::string("$ [BG-STAGE] Avvio download silenzioso in background per v") + version + (isSim ? " (MODALITA SIMULAZIONE BETA)" : ""));
+            AppendUpdaterLog(logsDir, std::string("$ curl -sL \"") + url + "\" -o \"%LOCALAPPDATA%\\ClassDesk_App\\StagedUpdate\\ClassDesk_Staged_Setup.exe\"");
+
+            DeleteFileW(destFile.c_str());
+            std::wstring urlW = Utf8ToWide(url);
+            HRESULT hr = URLDownloadToFileW(NULL, urlW.c_str(), destFile.c_str(), 0, NULL);
+            if (SUCCEEDED(hr)) {
+                WriteSmallUtf8File(verFile, version);
+                if (isSim) {
+                    WriteSmallUtf8File(simFile, "1");
+                } else {
+                    DeleteFileW(simFile.c_str());
+                }
+                AppendUpdaterLog(logsDir, std::string("$ echo \"") + version + "\" > \"%LOCALAPPDATA%\\ClassDesk_App\\StagedUpdate\\staged_version.txt\"");
+                AppendUpdaterLog(logsDir, std::string("$ [BG-STAGE] Pacchetto v") + version + " pronto in StagedUpdate. Verra installato automaticamente al prossimo riavvio di ClassDesk!");
+                std::string res = "{\"success\":true,\"stagedVersion\":\"" + JsonEscape(version) + "\"}";
+                w.resolve(seq, 0, res);
+            } else {
+                char errBuf[64];
+                snprintf(errBuf, sizeof(errBuf), "0x%08lX", (unsigned long)hr);
+                AppendUpdaterLog(logsDir, std::string("$ [BG-STAGE] ERRORE download silenzioso: codice ") + errBuf);
+                std::string res = "{\"success\":false,\"error\":\"Download error " + std::string(errBuf) + "\"}";
+                w.resolve(seq, 0, res);
+            }
+        }).detach();
+    }, nullptr);
+
     // 5. Inject JavaScript Bridge Shim (window.electronAPI)
     std::string verStr = WideToUtf8(APP_VERSION);
     std::string bridge_js = std::string(R"JS(
@@ -1224,6 +1376,18 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
             },
             installUpdateAndQuit: function(filePath) {
                 return window.__native_install_update(filePath);
+            },
+            stageSilentUpdate: function(url, version, isSim) {
+                return window.__native_stage_silent_update(url, version || '', isSim ? 'true' : 'false');
+            },
+            appendUpdaterLog: function(msg) {
+                return window.__native_append_updater_log(msg || '');
+            },
+            clearUpdaterLogs: function() {
+                return window.__native_clear_updater_logs();
+            },
+            getUpdaterLogs: function() {
+                return window.__native_get_updater_logs();
             },
             getPendingUpdate: function() {
                 return Promise.resolve(null);

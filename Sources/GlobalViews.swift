@@ -734,14 +734,14 @@ public struct StudentsDirectoryView: View {
         }
 
         VStack(alignment: .leading, spacing: 14) {
-            // Top Search & Filter Toolbar
-            HStack(spacing: 12) {
+            // Top Search & Filter Toolbar (Responsive so left sidebar is never cut off when resizing window)
+            HStack(spacing: 10) {
                 TextField(store.t("searchStudentPlaceholder"), text: Binding(
                     get: { store.studentSearchQuery },
                     set: { store.studentSearchQuery = $0 }
                 ))
                 .textFieldStyle(.roundedBorder)
-                .frame(maxWidth: 320)
+                .frame(minWidth: 140, idealWidth: 240, maxWidth: 320)
 
                 Picker("", selection: Binding(
                     get: { store.studentLevelFilter },
@@ -752,9 +752,9 @@ public struct StudentsDirectoryView: View {
                         Text(l == "Altro" ? store.t("otherLevelOpt") : l).tag(l)
                     }
                 }
-                .frame(width: 150)
+                .frame(minWidth: 100, idealWidth: 135, maxWidth: 150)
 
-                Spacer()
+                Spacer(minLength: 4)
 
                 Button {
                     store.showSensitiveDirectoryData.toggle()
@@ -763,201 +763,206 @@ public struct StudentsDirectoryView: View {
                         store.showSensitiveDirectoryData ? store.t("hideSensitiveBtn") : store.t("showSensitiveBtn"),
                         systemImage: store.showSensitiveDirectoryData ? "eye.slash" : "eye"
                     )
+                    .lineLimit(1)
                 }
 
                 Button {
                     activeSheet = .newGlobalStudent
                 } label: {
                     Label(store.t("newGlobalStudentBtn"), systemImage: "person.badge.plus")
+                        .lineLimit(1)
                 }
                 .buttonStyle(.borderedProminent)
             }
             .padding(12)
             .appCardStyle(cornerRadius: 12)
 
-            // Aligned Directory Table Card
-            VStack(spacing: 0) {
-                // Table Header Row
-                HStack(spacing: 12) {
-                    Text("\(store.t("studentCol")) (\(filtered.count))")
-                        .frame(width: 260, alignment: .leading)
-                    Text(store.t("studentGroupsCol"))
-                        .frame(width: 200, alignment: .leading)
-                    Text(store.t("studentLatestLevelCol"))
-                        .frame(width: 80, alignment: .center)
-                    Text(store.t("studentPhoneLabel"))
-                        .frame(width: 135, alignment: .leading)
-                    Text(store.t("emailCol"))
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                    Text(store.t("cityCol"))
-                        .frame(width: 135, alignment: .leading)
-                    Text(store.t("actionsCol"))
-                        .frame(width: 125, alignment: .trailing)
-                }
-                .font(.caption.bold())
-                .foregroundStyle(.secondary)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 10)
-                .background(
-                    colorScheme == .dark
-                        ? Color(red: 0.08, green: 0.12, blue: 0.20)
-                        : Color(red: 0.94, green: 0.96, blue: 0.98)
-                )
+            // Aligned Directory Table Card wrapped in horizontal ScrollView so resizing window never clips left sidebar
+            ScrollView(.horizontal, showsIndicators: true) {
+                VStack(spacing: 0) {
+                    // Table Header Row
+                    HStack(spacing: 12) {
+                        Text("\(store.t("studentCol")) (\(filtered.count))")
+                            .frame(width: 220, alignment: .leading)
+                        Text(store.t("studentGroupsCol"))
+                            .frame(width: 185, alignment: .leading)
+                        Text(store.t("studentLatestLevelCol"))
+                            .frame(width: 76, alignment: .center)
+                        Text(store.t("studentPhoneLabel"))
+                            .frame(width: 125, alignment: .leading)
+                        Text(store.t("emailCol"))
+                            .frame(minWidth: 160, maxWidth: .infinity, alignment: .leading)
+                        Text(store.t("cityCol"))
+                            .frame(width: 120, alignment: .leading)
+                        Text(store.t("actionsCol"))
+                            .frame(width: 120, alignment: .trailing)
+                    }
+                    .font(.caption.bold())
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
+                    .background(
+                        colorScheme == .dark
+                            ? Color(red: 0.08, green: 0.12, blue: 0.20)
+                            : Color(red: 0.94, green: 0.96, blue: 0.98)
+                    )
 
-                Divider()
+                    Divider()
 
-                if filtered.isEmpty {
-                    Text(store.t("noStudentsFoundMsg"))
-                        .foregroundStyle(.secondary)
-                        .frame(maxWidth: .infinity, minHeight: 160)
-                } else {
-                    ScrollView {
-                        VStack(spacing: 0) {
-                            ForEach(Array(filtered.enumerated()), id: \.element.id) { idx, st in
-                                let attendedCourses = store.state.courses.filter { c in
-                                    c.levels.contains(where: { $0.modules.contains(where: { $0.studentIds.contains(st.id) }) }) || c.formerStudentIds.contains(st.id)
-                                }
-                                HStack(spacing: 12) {
-                                    // Column 1: Student Name
-                                    Button {
-                                        activeSheet = .studentDetail(st.id)
-                                    } label: {
-                                        HStack(spacing: 8) {
-                                            Image(systemName: "person.crop.circle.fill")
-                                                .foregroundStyle(store.activeCoursePalette.color)
-                                            Text(st.fullName)
-                                                .font(.body.weight(.semibold))
-                                                .lineLimit(2)
-                                                .multilineTextAlignment(.leading)
-                                        }
+                    if filtered.isEmpty {
+                        Text(store.t("noStudentsFoundMsg"))
+                            .foregroundStyle(.secondary)
+                            .frame(maxWidth: .infinity, minHeight: 160)
+                    } else {
+                        ScrollView(.vertical) {
+                            VStack(spacing: 0) {
+                                ForEach(Array(filtered.enumerated()), id: \.element.id) { idx, st in
+                                    let attendedCourses = store.state.courses.filter { c in
+                                        c.levels.contains(where: { $0.modules.contains(where: { $0.studentIds.contains(st.id) }) }) || c.formerStudentIds.contains(st.id)
                                     }
-                                    .buttonStyle(.plain)
-                                    .frame(width: 260, alignment: .leading)
-
-                                    // Column 2: Attended Courses Badges
-                                    HStack(spacing: 5) {
-                                        if attendedCourses.isEmpty {
-                                            Text(store.t("withoutGroupLabel"))
-                                                .font(.caption)
-                                                .foregroundStyle(.secondary)
-                                        } else {
-                                            ForEach(attendedCourses.prefix(2)) { c in
-                                                HStack(spacing: 4) {
-                                                    Circle()
-                                                        .fill(store.palette(for: c.color).color)
-                                                        .frame(width: 7, height: 7)
-                                                    Text(c.name)
-                                                        .font(.caption2.bold())
-                                                        .lineLimit(1)
-                                                }
-                                                .padding(.horizontal, 7)
-                                                .padding(.vertical, 3)
-                                                .background(
-                                                    RoundedRectangle(cornerRadius: 6)
-                                                        .fill(store.palette(for: c.color).color.opacity(0.12))
-                                                        .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(store.palette(for: c.color).color.opacity(0.28)))
-                                                )
-                                            }
-                                            if attendedCourses.count > 2 {
-                                                Text("+\(attendedCourses.count - 2)")
-                                                    .font(.system(size: 10, weight: .bold))
-                                                    .padding(.horizontal, 5)
-                                                    .padding(.vertical, 2)
-                                                    .background(Capsule().fill(Color.secondary.opacity(0.15)))
-                                                    .foregroundStyle(.secondary)
-                                                    .help(attendedCourses.dropFirst(2).map(\.name).joined(separator: ", "))
-                                            }
-                                        }
-                                    }
-                                    .frame(width: 200, alignment: .leading)
-                                    .clipped()
-
-                                    // Column 3: Level Badge
-                                    Text(st.lastFollowedLevel ?? st.currentLevel)
-                                        .font(.caption.bold())
-                                        .padding(.horizontal, 8)
-                                        .padding(.vertical, 3)
-                                        .background(Capsule().fill(Color.blue.opacity(0.15)))
-                                        .foregroundStyle(.blue)
-                                        .frame(width: 80, alignment: .center)
-
-                                    // Column 4: Phone
-                                    HStack(spacing: 5) {
-                                        if !st.phone.isEmpty {
-                                            Image(systemName: "phone.fill").font(.caption2).foregroundStyle(.secondary)
-                                            Text(st.phone).lineLimit(1)
-                                        } else {
-                                            Text("—").foregroundStyle(.tertiary)
-                                        }
-                                    }
-                                    .font(.caption)
-                                    .blur(radius: store.showSensitiveDirectoryData ? 0 : 5)
-                                    .frame(width: 135, alignment: .leading)
-
-                                    // Column 5: Email (Dedicated Column)
-                                    HStack(spacing: 6) {
-                                        if !st.email.isEmpty {
-                                            Image(systemName: "envelope.fill")
-                                                .font(.caption2)
-                                                .foregroundStyle(.secondary)
-                                            Text(st.email).lineLimit(1)
-                                        } else {
-                                            Text("—").foregroundStyle(.tertiary)
-                                        }
-                                    }
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                                    .blur(radius: store.showSensitiveDirectoryData ? 0 : 5)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-
-                                    // Column 6: City (Dedicated Column)
-                                    HStack(spacing: 6) {
-                                        if !st.city.isEmpty {
-                                            Image(systemName: "location.fill")
-                                                .font(.caption2)
-                                                .foregroundStyle(.cyan)
-                                            Text(st.city).lineLimit(1)
-                                        } else {
-                                            Text("—").foregroundStyle(.tertiary)
-                                        }
-                                    }
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                                    .blur(radius: store.showSensitiveDirectoryData ? 0 : 5)
-                                    .frame(width: 135, alignment: .leading)
-
-                                    // Column 7: Actions (Scheda + Delete with Confirmation)
-                                    HStack(spacing: 8) {
-                                        Button(store.t("profileCardBtn")) {
+                                    HStack(spacing: 12) {
+                                        // Column 1: Student Name
+                                        Button {
                                             activeSheet = .studentDetail(st.id)
-                                        }
-                                        .controlSize(.small)
-
-                                        Button(role: .destructive) {
-                                            studentToDelete = st
                                         } label: {
-                                            Image(systemName: "trash")
-                                                .font(.caption.bold())
-                                                .foregroundStyle(.white)
-                                                .frame(width: 28, height: 24)
-                                                .background(RoundedRectangle(cornerRadius: 6).fill(Color.red))
+                                            HStack(spacing: 8) {
+                                                Image(systemName: "person.crop.circle.fill")
+                                                    .foregroundStyle(store.activeCoursePalette.color)
+                                                Text(st.fullName)
+                                                    .font(.body.weight(.semibold))
+                                                    .lineLimit(2)
+                                                    .multilineTextAlignment(.leading)
+                                            }
                                         }
                                         .buttonStyle(.plain)
-                                        .help(store.t("deleteBtn"))
-                                    }
-                                    .frame(width: 125, alignment: .trailing)
-                                }
-                                .padding(.horizontal, 16)
-                                .padding(.vertical, 10)
-                                .background(idx % 2 == 1 ? Color.secondary.opacity(0.03) : Color.clear)
+                                        .frame(width: 220, alignment: .leading)
 
-                                if idx < filtered.count - 1 {
-                                    Divider()
+                                        // Column 2: Attended Courses Badges
+                                        HStack(spacing: 5) {
+                                            if attendedCourses.isEmpty {
+                                                Text(store.t("withoutGroupLabel"))
+                                                    .font(.caption)
+                                                    .foregroundStyle(.secondary)
+                                            } else {
+                                                ForEach(attendedCourses.prefix(2)) { c in
+                                                    HStack(spacing: 4) {
+                                                        Circle()
+                                                            .fill(store.palette(for: c.color).color)
+                                                            .frame(width: 7, height: 7)
+                                                        Text(c.name)
+                                                            .font(.caption2.bold())
+                                                            .lineLimit(1)
+                                                    }
+                                                    .padding(.horizontal, 7)
+                                                    .padding(.vertical, 3)
+                                                    .background(
+                                                        RoundedRectangle(cornerRadius: 6)
+                                                            .fill(store.palette(for: c.color).color.opacity(0.12))
+                                                            .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(store.palette(for: c.color).color.opacity(0.28)))
+                                                    )
+                                                }
+                                                if attendedCourses.count > 2 {
+                                                    Text("+\(attendedCourses.count - 2)")
+                                                        .font(.system(size: 10, weight: .bold))
+                                                        .padding(.horizontal, 5)
+                                                        .padding(.vertical, 2)
+                                                        .background(Capsule().fill(Color.secondary.opacity(0.15)))
+                                                        .foregroundStyle(.secondary)
+                                                        .help(attendedCourses.dropFirst(2).map(\.name).joined(separator: ", "))
+                                                }
+                                            }
+                                        }
+                                        .frame(width: 185, alignment: .leading)
+                                        .clipped()
+
+                                        // Column 3: Level Badge
+                                        Text(st.lastFollowedLevel ?? st.currentLevel)
+                                            .font(.caption.bold())
+                                            .padding(.horizontal, 8)
+                                            .padding(.vertical, 3)
+                                            .background(Capsule().fill(Color.blue.opacity(0.15)))
+                                            .foregroundStyle(.blue)
+                                            .frame(width: 76, alignment: .center)
+
+                                        // Column 4: Phone
+                                        HStack(spacing: 5) {
+                                            if !st.phone.isEmpty {
+                                                Image(systemName: "phone.fill").font(.caption2).foregroundStyle(.secondary)
+                                                Text(st.phone).lineLimit(1)
+                                            } else {
+                                                Text("—").foregroundStyle(.tertiary)
+                                            }
+                                        }
+                                        .font(.caption)
+                                        .blur(radius: store.showSensitiveDirectoryData ? 0 : 5)
+                                        .frame(width: 125, alignment: .leading)
+
+                                        // Column 5: Email (Dedicated Column)
+                                        HStack(spacing: 6) {
+                                            if !st.email.isEmpty {
+                                                Image(systemName: "envelope.fill")
+                                                    .font(.caption2)
+                                                    .foregroundStyle(.secondary)
+                                                Text(st.email).lineLimit(1)
+                                            } else {
+                                                Text("—").foregroundStyle(.tertiary)
+                                            }
+                                        }
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                        .blur(radius: store.showSensitiveDirectoryData ? 0 : 5)
+                                        .frame(minWidth: 160, maxWidth: .infinity, alignment: .leading)
+
+                                        // Column 6: City (Dedicated Column)
+                                        HStack(spacing: 6) {
+                                            if !st.city.isEmpty {
+                                                Image(systemName: "location.fill")
+                                                    .font(.caption2)
+                                                    .foregroundStyle(.cyan)
+                                                Text(st.city).lineLimit(1)
+                                            } else {
+                                                Text("—").foregroundStyle(.tertiary)
+                                            }
+                                        }
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                        .blur(radius: store.showSensitiveDirectoryData ? 0 : 5)
+                                        .frame(width: 120, alignment: .leading)
+
+                                        // Column 7: Actions (Scheda + Delete with Confirmation)
+                                        HStack(spacing: 8) {
+                                            Button(store.t("profileCardBtn")) {
+                                                activeSheet = .studentDetail(st.id)
+                                            }
+                                            .controlSize(.small)
+
+                                            Button(role: .destructive) {
+                                                studentToDelete = st
+                                            } label: {
+                                                Image(systemName: "trash")
+                                                    .font(.caption.bold())
+                                                    .foregroundStyle(.white)
+                                                    .frame(width: 28, height: 24)
+                                                    .background(RoundedRectangle(cornerRadius: 6).fill(Color.red))
+                                            }
+                                            .buttonStyle(.plain)
+                                            .help(store.t("deleteBtn"))
+                                        }
+                                        .frame(width: 120, alignment: .trailing)
+                                    }
+                                    .padding(.horizontal, 16)
+                                    .padding(.vertical, 10)
+                                    .background(idx % 2 == 1 ? Color.secondary.opacity(0.03) : Color.clear)
+
+                                    if idx < filtered.count - 1 {
+                                        Divider()
+                                    }
                                 }
                             }
                         }
                     }
                 }
+                .frame(minWidth: 960)
             }
             .clipShape(RoundedRectangle(cornerRadius: 14))
             .appCardStyle(cornerRadius: 14)
@@ -1214,15 +1219,19 @@ public struct TrashBinView: View {
 
 public struct BillingView: View {
     @Environment(AppStore.self) private var store
+    @State private var billingTabMode: String = "course" // "course" | "database"
+    @State private var clientSearchQuery: String = ""
+    @State private var editingContact: BillingContact? = nil
+    @State private var isCreatingNewContact: Bool = false
+
     @State private var selectedModuleId: String? = nil
     @State private var showFiscalModal: Bool = false
     @State private var editingSlotKey: String? = nil
     @State private var showExportBillingLangModal: Bool = false
     @State private var selectedExportBillingLang: String = "it"
 
-    // Global tool values for the currently opened module
+    // Global tool values for the currently opened module (duration is now automatic from lesson start/end times!)
     @State private var batchHourlyRate: Double = 10.0
-    @State private var batchDurationHours: Double = 1.5
     @State private var batchVatPercent: Double = 15.0
     @State private var batchDiscountType: String = "percent"
     @State private var batchDiscountValue: Double = 0.0
@@ -1233,69 +1242,339 @@ public struct BillingView: View {
     @State private var editDiscountType: String = "percent"
     @State private var editDiscountValue: Double = 0.0
 
+    /// Returns a human-readable list of Course / Level / Module tags associated with a BillingContact.
+    private func managedModulesContext(for contact: BillingContact) -> [String] {
+        var tags: [String] = []
+        let cleanName = contact.fullName.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let cleanId = contact.idNumber.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let cleanEmail = contact.email.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+
+        if !contact.linkedCourseName.isEmpty {
+            tags.append(contact.linkedCourseName)
+        }
+
+        for c in store.state.courses {
+            let bInfo = c.billingConfig.billingInfo
+            let cMatch = (!cleanId.isEmpty && bInfo.idNumber.lowercased() == cleanId) ||
+                         (!cleanName.isEmpty && bInfo.fullName.lowercased() == cleanName)
+            if cMatch {
+                for l in c.levels {
+                    for m in l.modules {
+                        let tag = "\(c.name) (\(l.code) • \(m.name))"
+                        if !tags.contains(tag) { tags.append(tag) }
+                    }
+                }
+            }
+            // Also check students enrolled in levels/modules matching name/email
+            for st in store.state.studentsDirectory {
+                let stMatch = (!cleanName.isEmpty && st.fullName.lowercased() == cleanName) ||
+                              (!cleanEmail.isEmpty && !st.email.isEmpty && st.email.lowercased() == cleanEmail)
+                if stMatch {
+                    for l in c.levels {
+                        for m in l.modules where m.studentIds.contains(st.id) {
+                            let tag = "\(c.name) (\(l.code) • \(m.name))"
+                            if !tags.contains(tag) { tags.append(tag) }
+                        }
+                    }
+                }
+            }
+        }
+        return tags
+    }
+
     public var body: some View {
-        guard let (cIdx, lIdx, mIdx) = store.activeIndices() else {
-            return AnyView(
-                Text(store.t("noActiveCoursesTitle"))
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+        let pal = store.activeCoursePalette
+
+        return VStack(alignment: .leading, spacing: 0) {
+            // Top Mode Switcher Bar: Course Billing vs Client Billing Database ("Banca Dati Clienti")
+            HStack(spacing: 14) {
+                Picker("", selection: $billingTabMode) {
+                    Text(store.t("billingTitle")).tag("course")
+                    Text("\(store.t("billingDatabaseTab")) (\(store.state.billingContacts.count))").tag("database")
+                }
+                .pickerStyle(.segmented)
+                .frame(maxWidth: 420)
+
+                Spacer()
+
+                if billingTabMode == "database" {
+                    Button {
+                        store.recordUndoSnapshot()
+                        AppState.syncBillingContactsFromCoursesAndStudents(
+                            contacts: &store.state.billingContacts,
+                            courses: store.state.courses,
+                            students: store.state.studentsDirectory
+                        )
+                        store.persist()
+                        store.showToast("Banca dati sincronizzata con corsi e iscritti")
+                    } label: {
+                        Label("Sincronizza da Corsi/Iscritti", systemImage: "arrow.triangle.2.circlepath")
+                            .font(.caption.bold())
+                    }
+                    .buttonStyle(.bordered)
+
+                    Button {
+                        isCreatingNewContact = true
+                        editingContact = BillingContact()
+                    } label: {
+                        Label("Nuovo Cliente", systemImage: "person.crop.circle.badge.plus")
+                            .font(.caption.bold())
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(pal.color)
+                } else {
+                    Button {
+                        billingTabMode = "database"
+                    } label: {
+                        Label(store.t("billingDatabaseTab"), systemImage: "person.text.rectangle.fill")
+                            .font(.caption.bold())
+                    }
+                    .buttonStyle(.bordered)
+                }
+            }
+            .padding(.horizontal, 22)
+            .padding(.top, 16)
+            .padding(.bottom, 8)
+
+            if billingTabMode == "database" {
+                billingContactsDatabaseView(pal: pal)
+            } else {
+                courseBillingMainView
+            }
+        }
+        .sheet(item: $editingContact) { contact in
+            BillingContactEditorSheet(
+                contact: contact,
+                isNew: isCreatingNewContact,
+                onSave: { updated in
+                    store.recordUndoSnapshot()
+                    if let idx = store.state.billingContacts.firstIndex(where: { $0.id == updated.id }) {
+                        store.state.billingContacts[idx] = updated
+                    } else {
+                        store.state.billingContacts.append(updated)
+                    }
+                    store.persist()
+                    editingContact = nil
+                    isCreatingNewContact = false
+                    store.showToast(store.t("saveBillingBtn"))
+                },
+                onCancel: {
+                    editingContact = nil
+                    isCreatingNewContact = false
+                }
             )
+            .environment(store)
         }
-        let course = store.state.courses[cIdx]
-        let activeLevel = course.levels[lIdx]
-        let activeMod = course.levels[lIdx].modules[mIdx]
-        let pal = store.palette(for: course.color)
+    }
 
-        // Find currently focused module or fallback to activeMod
-        let currentModule: CourseModule = {
-            if let selId = selectedModuleId {
+    @ViewBuilder
+    private func billingContactsDatabaseView(pal: CourseColorInfo) -> some View {
+        let query = clientSearchQuery.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let filteredContacts = store.state.billingContacts.filter { c in
+            guard !query.isEmpty else { return true }
+            let tags = managedModulesContext(for: c).joined(separator: " ").lowercased()
+            let hay = "\(c.fullName) \(c.idNumber) \(c.idType) \(c.email) \(c.phone) \(c.city) \(c.address) \(c.linkedCourseName) \(c.notes) \(tags)".lowercased()
+            return hay.contains(query)
+        }
+
+        VStack(alignment: .leading, spacing: 14) {
+            // Search & Filter Bar
+            HStack(spacing: 12) {
+                Image(systemName: "magnifyingglass")
+                    .foregroundStyle(.secondary)
+                TextField("Cerca cliente per nome, RUC/Cédula, email, città o corso/modulo/livello...", text: $clientSearchQuery)
+                    .textFieldStyle(.roundedBorder)
+
+                if !clientSearchQuery.isEmpty {
+                    Button {
+                        clientSearchQuery = ""
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundStyle(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                }
+
+                Spacer()
+
+                Text("\(filteredContacts.count) clienti")
+                    .font(.caption.bold())
+                    .foregroundStyle(.secondary)
+            }
+            .padding(12)
+            .appCardStyle(cornerRadius: 12)
+
+            if filteredContacts.isEmpty {
+                VStack(spacing: 10) {
+                    Image(systemName: "person.text.rectangle")
+                        .font(.largeTitle)
+                        .foregroundStyle(.secondary)
+                    Text("Nessun cliente trovato nella banca dati di fatturazione.")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+                .frame(maxWidth: .infinity, minHeight: 220)
+                .appCardStyle(cornerRadius: 14)
+            } else {
+                ScrollView {
+                    LazyVStack(spacing: 10) {
+                        ForEach(filteredContacts) { contact in
+                            let tags = managedModulesContext(for: contact)
+                            HStack(alignment: .center, spacing: 14) {
+                                Image(systemName: "person.crop.square.filled.and.at.rectangle")
+                                    .font(.title2)
+                                    .foregroundStyle(pal.color)
+                                    .frame(width: 36)
+
+                                VStack(alignment: .leading, spacing: 4) {
+                                    HStack(spacing: 8) {
+                                        Text(contact.fullName.isEmpty ? "Senza Nome" : contact.fullName)
+                                            .font(.headline.bold())
+
+                                        if !contact.idNumber.isEmpty {
+                                            Text("\(contact.idType.uppercased()): \(contact.idNumber)")
+                                                .font(.caption2.bold())
+                                                .padding(.horizontal, 7)
+                                                .padding(.vertical, 2)
+                                                .background(Capsule().fill(Color.blue.opacity(0.15)))
+                                                .foregroundStyle(.blue)
+                                        }
+                                    }
+
+                                    HStack(spacing: 12) {
+                                        if !contact.email.isEmpty {
+                                            Label(contact.email, systemImage: "envelope.fill")
+                                        }
+                                        if !contact.phone.isEmpty {
+                                            Label(contact.phone, systemImage: "phone.fill")
+                                        }
+                                        if !contact.city.isEmpty {
+                                            Label(contact.city + (contact.address.isEmpty ? "" : " — \(contact.address)"), systemImage: "location.fill")
+                                        }
+                                    }
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+
+                                    if !tags.isEmpty {
+                                        ScrollView(.horizontal, showsIndicators: false) {
+                                            HStack(spacing: 6) {
+                                                ForEach(tags, id: \.self) { t in
+                                                    Text(t)
+                                                        .font(.system(size: 10, weight: .bold))
+                                                        .padding(.horizontal, 7)
+                                                        .padding(.vertical, 2)
+                                                        .background(RoundedRectangle(cornerRadius: 5).fill(pal.color.opacity(0.12)))
+                                                        .foregroundStyle(pal.color)
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+
+                                Spacer()
+
+                                HStack(spacing: 8) {
+                                    if let cIdx = store.activeCourseIndex {
+                                        Button {
+                                            store.recordUndoSnapshot()
+                                            store.state.courses[cIdx].billingConfig.billingInfo = contact.asBillingInfo
+                                            store.persist()
+                                            store.showToast("Dati cliente applicati a \(store.state.courses[cIdx].name)")
+                                        } label: {
+                                            Label("Usa nel Corso", systemImage: "checkmark.circle")
+                                                .font(.caption.bold())
+                                        }
+                                        .buttonStyle(.bordered)
+                                        .tint(.green)
+                                        .help("Imposta questo cliente come intestatario di fatturazione del corso attivo")
+                                    }
+
+                                    Button {
+                                        isCreatingNewContact = false
+                                        editingContact = contact
+                                    } label: {
+                                        Label(store.t("editBtn"), systemImage: "pencil")
+                                            .font(.caption.bold())
+                                    }
+                                    .buttonStyle(.bordered)
+
+                                    Button(role: .destructive) {
+                                        store.recordUndoSnapshot()
+                                        store.state.billingContacts.removeAll { $0.id == contact.id }
+                                        store.persist()
+                                    } label: {
+                                        Image(systemName: "trash")
+                                            .font(.caption.bold())
+                                    }
+                                    .buttonStyle(.bordered)
+                                    .tint(.red)
+                                }
+                            }
+                            .padding(14)
+                            .appCardStyle(cornerRadius: 12)
+                        }
+                    }
+                    .padding(.vertical, 2)
+                }
+            }
+        }
+        .padding(.horizontal, 22)
+        .padding(.bottom, 22)
+    }
+
+    @ViewBuilder
+    private var courseBillingMainView: some View {
+        if let (cIdx, lIdx, mIdx) = store.activeIndices() {
+            let course = store.state.courses[cIdx]
+            let activeLevel = course.levels[lIdx]
+            let activeMod = course.levels[lIdx].modules[mIdx]
+            let pal = store.palette(for: course.color)
+
+            // Find currently focused module or fallback to activeMod
+            let currentModule: CourseModule = {
+                if let selId = selectedModuleId {
+                    for lvl in course.levels {
+                        if let found = lvl.modules.first(where: { $0.id == selId }) {
+                            return found
+                        }
+                    }
+                }
+                return activeMod
+            }()
+
+            let currentLevel: CourseLevel = {
                 for lvl in course.levels {
-                    if let found = lvl.modules.first(where: { $0.id == selId }) {
-                        return found
+                    if lvl.modules.contains(where: { $0.id == currentModule.id }) {
+                        return lvl
                     }
                 }
-            }
-            return activeMod
-        }()
+                return activeLevel
+            }()
 
-        let currentLevel: CourseLevel = {
-            for lvl in course.levels {
-                if lvl.modules.contains(where: { $0.id == currentModule.id }) {
-                    return lvl
-                }
-            }
-            return activeLevel
-        }()
+            // Compute Course-Level General Overview Statistics automatically from lesson start & end times
+            let todayIso = AppStore.isoDateFormatter.string(from: Date())
 
-        // Compute Course-Level General Overview Statistics
-        let todayIso = AppStore.isoDateFormatter.string(from: Date())
-
-        var totalScheduledHours: Double = 0.0
-        var totalCompletedHours: Double = 0.0
-        var totalCourseGross: Double = 0.0
-        var totalModulesCount: Int = 0
-
-        for lvl in course.levels {
-            for mod in lvl.modules {
-                totalModulesCount += 1
-                let b = mod.billing ?? ModuleBilling()
-                totalScheduledHours += Double(mod.dates.count) * b.lessonDurationHours
-                for d in mod.dates {
-                    let dOnly = store.extractDate(from: d)
-                    let isCompleted = (dOnly <= todayIso) || (mod.attendance.values.contains(where: { ($0[d] ?? "") != "" }))
-                    if isCompleted {
-                        totalCompletedHours += b.lessonDurationHours
+            let (totalScheduledHours, totalCompletedHours, totalCourseGross, totalModulesCount): (Double, Double, Double, Int) = {
+                var schedH: Double = 0.0
+                var compH: Double = 0.0
+                var gross: Double = 0.0
+                var count: Int = 0
+                for lvl in course.levels {
+                    for mod in lvl.modules {
+                        count += 1
+                        schedH += store.moduleTotalHours(course: course, module: mod)
+                        compH += store.moduleCompletedHours(course: course, module: mod, todayIso: todayIso)
+                        gross += store.moduleTotalGross(course: course, module: mod)
                     }
                 }
-                totalCourseGross += b.totalGross(for: mod.dates)
-            }
-        }
+                return (schedH, compH, gross, count)
+            }()
 
-        let curBilling = currentModule.billing ?? ModuleBilling()
-        let curModuleCost = curBilling.totalGross(for: currentModule.dates)
-        let curSortedSlots = store.sortedSlots(for: course, module: currentModule)
+            let curBilling = currentModule.billing ?? ModuleBilling()
+            let curModuleCost = store.moduleTotalGross(course: course, module: currentModule)
+            let curModuleHours = store.moduleTotalHours(course: course, module: currentModule)
+            let curSortedSlots = store.sortedSlots(for: course, module: currentModule)
 
-        return AnyView(
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
                     // 1. GENERAL OVERVIEW SPACE (Summary card of hours, total spent, and fiscal data modal button)
@@ -1331,7 +1610,7 @@ public struct BillingView: View {
 
                         // Metrics Summary Bar
                         HStack(spacing: 16) {
-                            // Total Hours Conducted Metric
+                            // Total Hours Conducted Metric (Automatically computed from lesson start/end times)
                             VStack(alignment: .leading, spacing: 4) {
                                 Text(store.t("totalLessonsHoursConducted"))
                                     .font(.caption.bold())
@@ -1366,7 +1645,7 @@ public struct BillingView: View {
                     .padding(18)
                     .appCardStyle(cornerRadius: 16)
 
-                    // 2. ALL MODULES AND LEVELS LIST (With cost for each module)
+                    // 2. ALL MODULES AND LEVELS LIST (With cost & automatic hours for each module)
                     VStack(alignment: .leading, spacing: 14) {
                         HStack {
                             Text("Moduli e Livelli del Corso")
@@ -1400,7 +1679,8 @@ public struct BillingView: View {
                                     LazyVGrid(columns: [GridItem(.adaptive(minimum: 220), spacing: 12)], spacing: 12) {
                                         ForEach(lvl.modules) { mod in
                                             let modB = mod.billing ?? ModuleBilling()
-                                            let cost = modB.totalGross(for: mod.dates)
+                                            let cost = store.moduleTotalGross(course: course, module: mod)
+                                            let modHours = store.moduleTotalHours(course: course, module: mod)
                                             let isSelected = mod.id == currentModule.id
 
                                             Button {
@@ -1417,7 +1697,7 @@ public struct BillingView: View {
                                                             .foregroundStyle(.green)
                                                     }
                                                     HStack {
-                                                        Text("\(mod.dates.count) \(store.t("lessonsLower")) • \(String(format: "%.1f", Double(mod.dates.count) * modB.lessonDurationHours)) h")
+                                                        Text("\(mod.dates.count) \(store.t("lessonsLower")) • \(String(format: "%.1f", modHours)) h")
                                                             .font(.caption2)
                                                             .foregroundStyle(.secondary)
                                                         Spacer()
@@ -1458,7 +1738,7 @@ public struct BillingView: View {
                                         .background(Capsule().fill(pal.color.opacity(0.15)))
                                         .foregroundStyle(pal.color)
                                 }
-                                Text("\(curSortedSlots.count) \(store.t("lessonsLower")) • \(String(format: "%.1f", Double(curSortedSlots.count) * curBilling.lessonDurationHours)) h")
+                                Text("\(curSortedSlots.count) \(store.t("lessonsLower")) • \(String(format: "%.1f", curModuleHours)) h (calcolate automaticamente dagli orari delle lezioni)")
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
                             }
@@ -1473,7 +1753,7 @@ public struct BillingView: View {
 
                         Divider()
 
-                        // GLOBAL TOOLBAR: Modify prices, VAT, and discounts across all lessons of the module
+                        // GLOBAL TOOLBAR: Modify prices, VAT, and discounts across all lessons of the module (no manual duration input!)
                         VStack(alignment: .leading, spacing: 10) {
                             HStack {
                                 Label(store.t("globalPricingTool"), systemImage: "slider.horizontal.3")
@@ -1496,10 +1776,6 @@ public struct BillingView: View {
                                 VStack(alignment: .leading, spacing: 3) {
                                     Text("Tariffa Oraria (\(store.state.settings.currency))").font(.caption.bold())
                                     TextField("10", value: $batchHourlyRate, format: .number).textFieldStyle(.roundedBorder)
-                                }
-                                VStack(alignment: .leading, spacing: 3) {
-                                    Text("Durata (h)").font(.caption.bold())
-                                    TextField("1.5", value: $batchDurationHours, format: .number).textFieldStyle(.roundedBorder)
                                 }
                                 VStack(alignment: .leading, spacing: 3) {
                                     Text("IVA (%)").font(.caption.bold())
@@ -1588,48 +1864,13 @@ public struct BillingView: View {
                                                                 }
 
                                                                 ForEach(cell.lessons) { lItem in
-                                                                    let vatPct = curBilling.lessonVatPercent(for: lItem.slotKey)
-                                                                    let discAmt = curBilling.lessonDiscountAmount(for: lItem.slotKey)
-                                                                    let gross = curBilling.lessonGrossPrice(for: lItem.slotKey)
-
-                                                                    Button {
-                                                                        openLessonPriceEditor(slotKey: lItem.slotKey, billing: curBilling)
-                                                                    } label: {
-                                                                        VStack(alignment: .leading, spacing: 2) {
-                                                                            HStack {
-                                                                                Text("L\(lItem.lessonNum)")
-                                                                                    .font(.system(size: 9, weight: .heavy))
-                                                                                    .padding(.horizontal, 4)
-                                                                                    .padding(.vertical, 1)
-                                                                                    .background(RoundedRectangle(cornerRadius: 3).fill(Color.white.opacity(0.25)))
-                                                                                Spacer()
-                                                                                Text(store.formatTimeDisplay(lItem.time))
-                                                                                    .font(.system(size: 8, weight: .bold))
-                                                                            }
-
-                                                                            // Lesson Price
-                                                                            Text(store.formatMoney(gross))
-                                                                                .font(.system(size: 11, weight: .heavy))
-
-                                                                            // VAT & Discount info
-                                                                            HStack(spacing: 3) {
-                                                                                Text("IVA \(Int(vatPct))%")
-                                                                                    .font(.system(size: 8))
-                                                                                    .opacity(0.9)
-                                                                                if discAmt > 0 {
-                                                                                    Text("-\(store.formatMoney(discAmt))")
-                                                                                        .font(.system(size: 8, weight: .bold))
-                                                                                        .foregroundStyle(.yellow)
-                                                                                }
-                                                                            }
-                                                                        }
-                                                                        .padding(5)
-                                                                        .frame(maxWidth: .infinity, alignment: .leading)
-                                                                        .background(RoundedRectangle(cornerRadius: 8).fill(pal.color))
-                                                                        .foregroundStyle(.white)
-                                                                    }
-                                                                    .buttonStyle(.plain)
-                                                                    .help(store.t("editLessonPricing"))
+                                                                    billingLessonCellButton(
+                                                                        course: course,
+                                                                        module: currentModule,
+                                                                        billing: curBilling,
+                                                                        lItem: lItem,
+                                                                        pal: pal
+                                                                    )
                                                                 }
                                                                 Spacer(minLength: 0)
                                                             }
@@ -1662,6 +1903,11 @@ public struct BillingView: View {
                 FiscalInfoModalSheet(course: course, onSave: { updatedInfo in
                     store.recordUndoSnapshot()
                     store.state.courses[cIdx].billingConfig.billingInfo = updatedInfo
+                    AppState.syncBillingContactsFromCoursesAndStudents(
+                        contacts: &store.state.billingContacts,
+                        courses: store.state.courses,
+                        students: store.state.studentsDirectory
+                    )
                     store.persist()
                     store.showToast(store.t("saveBillingBtn"))
                     showFiscalModal = false
@@ -1714,12 +1960,66 @@ public struct BillingView: View {
             .onAppear {
                 syncGlobalToolbar(for: curBilling)
             }
-        )
+        } else {
+            Text(store.t("noActiveCoursesTitle"))
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+    }
+
+    @ViewBuilder
+    private func billingLessonCellButton(
+        course: Course,
+        module: CourseModule,
+        billing: ModuleBilling,
+        lItem: BillingLessonItem,
+        pal: CourseColorInfo
+    ) -> some View {
+        let durH = store.lessonDurationHours(course: course, module: module, slotKey: lItem.slotKey)
+        let vatPct = billing.lessonVatPercent(for: lItem.slotKey)
+        let discAmt = billing.lessonDiscountAmount(for: lItem.slotKey, durationHours: durH)
+        let gross = billing.lessonGrossPrice(for: lItem.slotKey, durationHours: durH)
+
+        Button {
+            openLessonPriceEditor(course: course, module: module, slotKey: lItem.slotKey, billing: billing)
+        } label: {
+            VStack(alignment: .leading, spacing: 2) {
+                HStack {
+                    Text("L\(lItem.lessonNum)")
+                        .font(.system(size: 9, weight: .heavy))
+                        .padding(.horizontal, 4)
+                        .padding(.vertical, 1)
+                        .background(RoundedRectangle(cornerRadius: 3).fill(Color.white.opacity(0.25)))
+                    Spacer()
+                    Text("\(store.formatTimeDisplay(lItem.time)) (\(String(format: "%.1f", durH))h)")
+                        .font(.system(size: 8, weight: .bold))
+                }
+
+                Text(store.formatMoney(gross))
+                    .font(.system(size: 11, weight: .heavy))
+
+                HStack(spacing: 3) {
+                    Text("IVA \(Int(vatPct))%")
+                        .font(.system(size: 8))
+                        .opacity(0.9)
+                    if discAmt > 0 {
+                        Text("-\(store.formatMoney(discAmt))")
+                            .font(.system(size: 8, weight: .bold))
+                            .foregroundStyle(.yellow)
+                    }
+                }
+            }
+            .padding(5)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(RoundedRectangle(cornerRadius: 8).fill(pal.color))
+            .foregroundStyle(.white)
+        }
+        .buttonStyle(.plain)
+        .help(store.t("editLessonPricing"))
     }
 
     private func syncGlobalToolbar(for b: ModuleBilling) {
         batchHourlyRate = b.hourlyRateNet
-        batchDurationHours = b.lessonDurationHours
         batchVatPercent = b.vatPercent
         batchDiscountType = b.discountType
         batchDiscountValue = b.discountValue
@@ -1733,7 +2033,6 @@ public struct BillingView: View {
                     store.recordUndoSnapshot()
                     var b = store.state.courses[cIdx].levels[li].modules[mi].billing ?? ModuleBilling()
                     b.hourlyRateNet = batchHourlyRate
-                    b.lessonDurationHours = batchDurationHours
                     b.vatPercent = batchVatPercent
                     b.discountType = batchDiscountType
                     b.discountValue = batchDiscountValue
@@ -1748,15 +2047,16 @@ public struct BillingView: View {
         }
     }
 
-    private func openLessonPriceEditor(slotKey: String, billing: ModuleBilling) {
+    private func openLessonPriceEditor(course: Course, module: CourseModule, slotKey: String, billing: ModuleBilling) {
         editingSlotKey = slotKey
+        let durH = store.lessonDurationHours(course: course, module: module, slotKey: slotKey)
         if let ov = billing.lessonOverrides[slotKey] {
-            editNetPrice = ov.price ?? (billing.hourlyRateNet * billing.lessonDurationHours)
+            editNetPrice = ov.price ?? (billing.hourlyRateNet * durH)
             editVatPercent = ov.vatPercent ?? billing.vatPercent
             editDiscountType = ov.discountType ?? billing.discountType
             editDiscountValue = ov.discountValue ?? (billing.discountValue)
         } else {
-            editNetPrice = billing.hourlyRateNet * billing.lessonDurationHours
+            editNetPrice = billing.hourlyRateNet * durH
             editVatPercent = billing.vatPercent
             editDiscountType = billing.discountType
             editDiscountValue = (billing.discountType == "percent") ? billing.discountValue : 0.0
@@ -2173,6 +2473,144 @@ private struct FiscalInfoModalSheet: View {
     }
 }
 
+// MARK: - Billing Contact Editor Sheet ("Banca Dati Clienti")
+
+private struct BillingContactEditorSheet: View {
+    @Environment(AppStore.self) private var store
+    @Environment(\.dismiss) private var dismiss
+
+    let contact: BillingContact
+    let isNew: Bool
+    let onSave: (BillingContact) -> Void
+    var onCancel: (() -> Void)? = nil
+
+    @State private var fullName: String = ""
+    @State private var idType: String = "ruc"
+    @State private var idNumber: String = ""
+    @State private var city: String = ""
+    @State private var address: String = ""
+    @State private var phoneNumber: String = ""
+    @State private var email: String = ""
+    @State private var linkedCourseName: String = ""
+
+    init(contact: BillingContact, isNew: Bool, onSave: @escaping (BillingContact) -> Void, onCancel: (() -> Void)? = nil) {
+        self.contact = contact
+        self.isNew = isNew
+        self.onSave = onSave
+        self.onCancel = onCancel
+        _fullName = State(initialValue: contact.fullName)
+        _idType = State(initialValue: contact.idType)
+        _idNumber = State(initialValue: contact.idNumber)
+        _city = State(initialValue: contact.city)
+        _address = State(initialValue: contact.address)
+        _phoneNumber = State(initialValue: contact.phone)
+        _email = State(initialValue: contact.email)
+        _linkedCourseName = State(initialValue: contact.linkedCourseName)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            HStack {
+                Label(
+                    isNew ? "Nuovo Contatto Fatturazione" : "Modifica Contatto Fatturazione",
+                    systemImage: "person.crop.rectangle.stack.fill"
+                )
+                .font(.title3.bold())
+                Spacer()
+                Button {
+                    dismiss()
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.title3)
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+            }
+
+            Divider()
+
+            Grid(alignment: .leading, horizontalSpacing: 14, verticalSpacing: 12) {
+                GridRow {
+                    Text(store.t("billingFullNameLabel")).font(.caption.bold())
+                    TextField(store.t("billingFullNamePlaceholder"), text: $fullName)
+                        .textFieldStyle(.roundedBorder)
+                }
+                GridRow {
+                    Text(store.t("billingIdTypeLabel")).font(.caption.bold())
+                    Picker("", selection: $idType) {
+                        Text(store.t("idTypeCedula")).tag("cedula")
+                        Text(store.t("idTypePassport")).tag("passaporto")
+                        Text(store.t("idTypeRuc")).tag("ruc")
+                    }
+                    .labelsHidden()
+                    .pickerStyle(.segmented)
+                }
+                GridRow {
+                    Text(store.t("billingIdNumberLabel")).font(.caption.bold())
+                    TextField("1234567890001", text: $idNumber)
+                        .textFieldStyle(.roundedBorder)
+                }
+                GridRow {
+                    Text(store.t("billingCityLabel")).font(.caption.bold())
+                    TextField("Quito / Milano", text: $city)
+                        .textFieldStyle(.roundedBorder)
+                }
+                GridRow {
+                    Text(store.t("billingAddressLabel")).font(.caption.bold())
+                    TextField("Via / Calle...", text: $address)
+                        .textFieldStyle(.roundedBorder)
+                }
+                GridRow {
+                    Text(store.t("billingPhoneLabel")).font(.caption.bold())
+                    TextField("+593 / +39...", text: $phoneNumber)
+                        .textFieldStyle(.roundedBorder)
+                }
+                GridRow {
+                    Text(store.t("billingEmailLabel")).font(.caption.bold())
+                    TextField("cliente@email.com", text: $email)
+                        .textFieldStyle(.roundedBorder)
+                }
+                GridRow {
+                    Text("Corso / Modulo associato").font(.caption.bold())
+                    TextField("Es. Inglese B2 • Modulo 1", text: $linkedCourseName)
+                        .textFieldStyle(.roundedBorder)
+                }
+            }
+
+            Divider()
+
+            HStack {
+                Button(store.t("cancelBtn"), role: .cancel) {
+                    onCancel?()
+                    dismiss()
+                }
+                Spacer()
+                Button {
+                    let updated = BillingContact(
+                        id: contact.id,
+                        idType: idType,
+                        idNumber: idNumber.trimmingCharacters(in: .whitespacesAndNewlines),
+                        fullName: fullName.trimmingCharacters(in: .whitespacesAndNewlines),
+                        city: city.trimmingCharacters(in: .whitespacesAndNewlines),
+                        address: address.trimmingCharacters(in: .whitespacesAndNewlines),
+                        phone: phoneNumber.trimmingCharacters(in: .whitespacesAndNewlines),
+                        email: email.trimmingCharacters(in: .whitespacesAndNewlines),
+                        linkedCourseName: linkedCourseName.trimmingCharacters(in: .whitespacesAndNewlines)
+                    )
+                    onSave(updated)
+                    dismiss()
+                } label: {
+                    Label(store.t("saveChangesBtn"), systemImage: "checkmark.circle.fill")
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(fullName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && idNumber.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            }
+        }
+        .padding(22)
+        .frame(width: 500)
+    }
+}
+
 // MARK: - Billing Calendar Poster View for PNG Export
 
 private struct BillingCalendarPosterView: View {
@@ -2185,8 +2623,7 @@ private struct BillingCalendarPosterView: View {
     var lang: String = "it"
 
     private var totalHours: Double {
-        let b = module.billing ?? ModuleBilling()
-        return Double(slots.count) * b.lessonDurationHours
+        store.moduleTotalHours(course: course, module: module)
     }
 
     private func computeDurationText(start: String, end: String, fallbackHours: Double) -> String {
@@ -2354,7 +2791,7 @@ private struct BillingCalendarPosterView: View {
 
     var body: some View {
         let b = module.billing ?? ModuleBilling()
-        let totalCost = b.totalGross(for: slots)
+        let totalCost = store.moduleTotalGross(course: course, module: module)
         let fInfo = course.billingConfig.billingInfo
 
         VStack(alignment: .leading, spacing: 18) {
@@ -2447,10 +2884,11 @@ private struct BillingCalendarPosterView: View {
                     let les = store.findLesson(in: course, sectionId: module.id, slotKey: slotKey)
                     let st = les?.time ?? module.startTime
                     let et = les?.endTime ?? module.endTime
-                    let net = b.lessonNetPrice(for: slotKey)
+                    let durH = store.lessonDurationHours(course: course, module: module, slotKey: slotKey)
+                    let net = b.lessonNetPrice(for: slotKey, durationHours: durH)
                     let vatPct = b.lessonVatPercent(for: slotKey)
-                    let disc = b.lessonDiscountAmount(for: slotKey)
-                    let gross = b.lessonGrossPrice(for: slotKey)
+                    let disc = b.lessonDiscountAmount(for: slotKey, durationHours: durH)
+                    let gross = b.lessonGrossPrice(for: slotKey, durationHours: durH)
 
                     HStack(spacing: 8) {
                         Text("\(idx + 1)")
@@ -2462,7 +2900,7 @@ private struct BillingCalendarPosterView: View {
                         Text("\(store.formatTimeDisplay(st)) - \(store.formatTimeDisplay(et))")
                             .font(.system(size: 11))
                             .frame(width: 100, alignment: .leading)
-                        Text(computeDurationText(start: st, end: et, fallbackHours: b.lessonDurationHours))
+                        Text(computeDurationText(start: st, end: et, fallbackHours: durH))
                             .font(.system(size: 11))
                             .frame(width: 70, alignment: .leading)
                         Text(store.formatMoney(net))
@@ -2616,16 +3054,6 @@ public struct SettingsView: View {
                                 TextField("10", value: Binding(
                                     get: { store.state.settings.defaultHourlyRate },
                                     set: { store.state.settings.defaultHourlyRate = $0; store.persist() }
-                                ), format: .number)
-                                .textFieldStyle(.roundedBorder)
-                                .frame(width: 110)
-                            }
-
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(store.t("defaultLessonDurationLabel")).font(.caption.bold())
-                                TextField("1.5", value: Binding(
-                                    get: { store.state.settings.defaultLessonDurationHours },
-                                    set: { store.state.settings.defaultLessonDurationHours = $0; store.persist() }
                                 ), format: .number)
                                 .textFieldStyle(.roundedBorder)
                                 .frame(width: 110)
@@ -3118,6 +3546,123 @@ public struct CreditsView: View {
                 .padding(20)
                 .appCardStyle(cornerRadius: 16)
 
+                // BETA LAB & SILENT UPDATER DIAGNOSTIC CONSOLE (Only visible in Beta builds)
+                if AuthorAttribution.isBeta {
+                    VStack(alignment: .leading, spacing: 14) {
+                        HStack {
+                            Label(store.t("betaLabHeader"), systemImage: "flask.fill")
+                                .font(.headline)
+                                .foregroundStyle(.orange)
+                            Text("BETA ONLY")
+                                .font(.system(size: 10, weight: .black))
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 3)
+                                .background(Capsule().fill(Color.orange.opacity(0.2)))
+                                .foregroundStyle(.orange)
+                            Spacer()
+                            if let stagedVer = updateManager.stagedUpdateVersion {
+                                HStack(spacing: 5) {
+                                    Image(systemName: "checkmark.seal.fill")
+                                        .foregroundStyle(.green)
+                                    Text("Staged per il prossimo avvio: v\(stagedVer)")
+                                        .font(.caption.bold())
+                                        .foregroundStyle(.green)
+                                }
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 4)
+                                .background(Capsule().fill(Color.green.opacity(0.14)))
+                            }
+                        }
+
+                        Text("In questa versione Beta gli aggiornamenti vengono scaricati silenziosamente in background (ad ogni avvio e ogni 24 ore) e installati automaticamente al successivo riavvio del programma. Puoi testare l'intero flusso reale da GitHub con il pulsante qui sotto.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+
+                        HStack(spacing: 12) {
+                            Button {
+                                updateManager.simulateBackgroundUpdate(store: store)
+                            } label: {
+                                if updateManager.isStagingSilentUpdate {
+                                    ProgressView()
+                                        .controlSize(.small)
+                                        .padding(.trailing, 4)
+                                }
+                                Label(
+                                    updateManager.isStagingSilentUpdate ? "Simulazione in corso..." : store.t("simulateUpdateBtn"),
+                                    systemImage: "play.tv.fill"
+                                )
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .tint(.orange)
+                            .disabled(updateManager.isStagingSilentUpdate)
+
+                            Button {
+                                updateManager.checkForUpdates(includeBeta: true, silent: true, autoStageInBackground: true)
+                            } label: {
+                                Label("Forza Check Silenzioso (24h/Startup)", systemImage: "arrow.clockwise.icloud")
+                            }
+                            .buttonStyle(.bordered)
+
+                            Spacer()
+
+                            Button {
+                                updateManager.clearLogs()
+                            } label: {
+                                Label("Pulisci Log", systemImage: "trash")
+                            }
+                            .buttonStyle(.bordered)
+                            .controlSize(.small)
+                        }
+
+                        VStack(alignment: .leading, spacing: 6) {
+                            HStack {
+                                Image(systemName: "terminal.fill")
+                                    .font(.caption)
+                                    .foregroundStyle(.green)
+                                Text("Log Comandi Aggiornamento Silenzioso in Background")
+                                    .font(.caption.bold())
+                                    .foregroundStyle(.secondary)
+                                Spacer()
+                                Text("\(updateManager.commandLogs.count) eventi")
+                                    .font(.caption2.monospacedDigit())
+                                    .foregroundStyle(.secondary)
+                            }
+
+                            ScrollView {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    if updateManager.commandLogs.isEmpty {
+                                        Text("Nessun comando registrato. Avvia una verifica o simula un aggiornamento.")
+                                            .font(.system(size: 11, design: .monospaced))
+                                            .foregroundStyle(.secondary)
+                                            .padding(8)
+                                    } else {
+                                        ForEach(Array(updateManager.commandLogs.enumerated()), id: \.offset) { _, line in
+                                            Text(line)
+                                                .font(.system(size: 11, design: .monospaced))
+                                                .foregroundStyle(line.contains("ERRORE") ? Color.red : Color.green)
+                                                .frame(maxWidth: .infinity, alignment: .leading)
+                                                .textSelection(.enabled)
+                                        }
+                                    }
+                                }
+                                .padding(10)
+                            }
+                            .frame(height: 170)
+                            .background(
+                                RoundedRectangle(cornerRadius: 10)
+                                    .fill(Color.black.opacity(0.85))
+                                    .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Color.green.opacity(0.28)))
+                            )
+                        }
+                    }
+                    .padding(20)
+                    .background(
+                        RoundedRectangle(cornerRadius: 16)
+                            .fill(Color.orange.opacity(0.06))
+                            .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.orange.opacity(0.32)))
+                    )
+                }
+
                 // ONLY Latest Version Changelog
                 if let latestChangelog = store.state.changelog.first {
                     VStack(alignment: .leading, spacing: 12) {
@@ -3156,7 +3701,7 @@ public struct CreditsView: View {
             }
             Button("Annulla", role: .cancel) {}
         } message: {
-            Text("Attivare questo canale consente di ricevere e testare le versioni Beta in anteprima. Queste versioni contengono nuove funzionalità sperimentali che potrebbero presentare instabilità o comportamenti imprevisti.\n\nViene eseguito un backup automatico ogni 5 minuti in Documenti/Class Manager/Backup. Desideri procedere?")
+            Text("Attivare questo canale consente di ricevere e testare le versioni Beta in anteprima. Queste versioni contengono nuove funzionalità sperimentali che potrebbero presentare instabilità o comportamenti imprevisti.\n\nViene eseguito un backup automatico ogni 5 minuti in Documenti/ClassDesk_Backups. Desideri procedere?")
         }
     }
 }
@@ -3431,7 +3976,7 @@ public struct OnboardingWizardView: View {
                                     .foregroundStyle(.orange)
                             }
 
-                            Text("Stai eseguendo una versione di test (Beta). Se disponi già di un backup precedente salvato (es. in Documenti/Class Manager/Backup), puoi ripristinare i tuoi corsi e studenti adesso:")
+                            Text("Stai eseguendo una versione di test (Beta). Se disponi già di un backup precedente salvato (es. in Documenti/ClassDesk_Backups), puoi ripristinare i tuoi corsi e studenti adesso:")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
 

@@ -1055,7 +1055,9 @@ public struct LessonPlanSheet: View {
                 store.persist()
 
                 Task {
-                    await AppleCalendarManager.shared.removeLessonEvent(course: courseCopy, module: modCopy, slotKey: slotKey, savedEventId: savedEvId)
+                    if self.store.state.settings.autoSyncAppleCalendar {
+                        await AppleCalendarManager.shared.removeLessonEvent(course: courseCopy, module: modCopy, slotKey: slotKey, savedEventId: savedEvId)
+                    }
                     if let gId = savedGoogleId, !gId.isEmpty {
                         await GoogleCalendarManager.shared.removeLessonFromGoogle(eventId: gId, store: self.store)
                     }
@@ -1078,6 +1080,7 @@ public struct RecurringLessonsSheet: View {
     @State private var startTime: String = "19:00"
     @State private var endTime: String = "20:30"
     @State private var selectedWeekdays: Set<Int> = [2, 4] // Calendar weekday: 1=Sun, 2=Mon, ..., 7=Sat
+    @State private var showGoogleCalendarPrompt: Bool = false
 
     private let weekdayOptions: [(calDay: Int, idxMon: Int)] = [
         (2, 0), (3, 1), (4, 2), (5, 3), (6, 4), (7, 5), (1, 6)
@@ -1143,9 +1146,15 @@ public struct RecurringLessonsSheet: View {
             HStack {
                 Spacer()
                 Button(store.t("cancelBtn")) { dismiss() }
-                Button(store.t("confirmBtn")) { generateLessons() }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(selectedWeekdays.isEmpty || lessonCount < 1)
+                Button(store.t("confirmBtn")) {
+                    if store.state.settings.googleCalendarConnected {
+                        showGoogleCalendarPrompt = true
+                    } else {
+                        generateLessons(syncWithGoogle: false)
+                    }
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(selectedWeekdays.isEmpty || lessonCount < 1)
             }
         }
         .padding(22)
@@ -1156,9 +1165,20 @@ public struct RecurringLessonsSheet: View {
                 endTime = mod.endTime
             }
         }
+        .alert("Sincronizzazione Google Calendar", isPresented: $showGoogleCalendarPrompt) {
+            Button("Sì, crea su Google Calendar") {
+                generateLessons(syncWithGoogle: true)
+            }
+            Button("No, solo su ClassDesk") {
+                generateLessons(syncWithGoogle: false)
+            }
+            Button(store.t("cancelBtn"), role: .cancel) {}
+        } message: {
+            Text("Vuoi creare un evento ugualmente ricorrente anche su Google Calendar per le \(lessonCount) lezioni generate?")
+        }
     }
 
-    private func generateLessons() {
+    private func generateLessons(syncWithGoogle: Bool) {
         guard let (cIdx, lIdx, mIdx) = store.activeIndices() else { return }
         store.recordUndoSnapshot()
         let secId = store.state.courses[cIdx].levels[lIdx].modules[mIdx].id
@@ -1196,11 +1216,11 @@ public struct RecurringLessonsSheet: View {
         if store.state.settings.autoSyncAppleCalendar {
             store.syncCourseToAppleCalendar(store.state.courses[cIdx], showNotification: false)
         }
-        if store.state.settings.googleCalendarConnected {
+        if syncWithGoogle && store.state.settings.googleCalendarConnected {
             store.syncModuleToGoogleCalendar(
                 course: store.state.courses[cIdx],
                 module: store.state.courses[cIdx].levels[lIdx].modules[mIdx],
-                showNotification: false
+                showNotification: true
             )
         }
         store.showToast("+\(added) \(store.t("lessonsLower"))")
@@ -2049,6 +2069,7 @@ public struct StudentDetailSheet: View {
     let studentId: String
 
     @State private var isEditing: Bool = false
+    @State private var showLessonNotesHistory: Bool = false
     @State private var firstName: String = ""
     @State private var lastName: String = ""
     @State private var phone: String = ""
@@ -2058,6 +2079,73 @@ public struct StudentDetailSheet: View {
     @State private var notes: String = ""
     @State private var showPrefixPicker: Bool = false
     @State private var showUnsavedAlert: Bool = false
+
+    private struct StudentLessonNoteEntry: Identifiable {
+        let id: String
+        let dateIso: String
+        let timeRange: String
+        let courseName: String
+        let courseColor: String
+        let badge: String
+        let lessonTitle: String
+        let noteText: String
+        let attendanceStatus: String
+    }
+
+    /// Collects all lesson notes from groups/modules where the student is CURRENTLY ACTIVE
+    /// (excluding courses/groups where the student was inactivated/archived in `formerStudentIds`).
+    private func collectActiveGroupLessonNotes() -> [StudentLessonNoteEntry] {
+        var entries: [StudentLessonNoteEntry] = []
+        for course in store.state.courses {
+            // Exclude courses where the student was inactivated
+            if course.formerStudentIds.contains(studentId) {
+                continue
+            }
+            for lvl in course.levels {
+                for mod in lvl.modules {
+                    // Only include modules where the student is currently active
+                    guard mod.studentIds.contains(studentId) else { continue }
+                    let badge = store.formatLevelModuleBadge(course: course, level: lvl, module: mod)
+                    let sortedSlots = store.sortedSlots(for: course, module: mod)
+                    let stAtt = mod.attendance[studentId] ?? [:]
+
+                    for (idx, slotKey) in sortedSlots.enumerated() {
+                        guard let les = store.findLesson(in: course, sectionId: mod.id, slotKey: slotKey) else { continue }
+                        let cleanNote = les.notes.trimmingCharacters(in: .whitespacesAndNewlines)
+                        let cleanTopics = les.topics.trimmingCharacters(in: .whitespacesAndNewlines)
+                        let combinedText = !cleanNote.isEmpty ? cleanNote : cleanTopics
+                        guard !combinedText.isEmpty else { continue }
+
+                        let attVal = stAtt[slotKey] ?? ""
+                        // Exclude lessons where the student was explicitly marked Absent ("A")
+                        if attVal == "A" { continue }
+
+                        let dateIso = store.extractDate(from: slotKey)
+                        let sTime = les.time.isEmpty ? mod.startTime : les.time
+                        let eTime = les.endTime.isEmpty ? mod.endTime : les.endTime
+                        let rawTitle = les.title.trimmingCharacters(in: .whitespacesAndNewlines)
+                        let title = rawTitle.isEmpty ? "\(store.t("lessonNumberTitle")) \(idx + 1)" : rawTitle
+
+                        entries.append(
+                            StudentLessonNoteEntry(
+                                id: "\(course.id)_\(mod.id)_\(slotKey)",
+                                dateIso: dateIso,
+                                timeRange: "\(sTime) - \(eTime)",
+                                courseName: course.name,
+                                courseColor: course.color,
+                                badge: badge,
+                                lessonTitle: title,
+                                noteText: combinedText,
+                                attendanceStatus: attVal
+                            )
+                        )
+                    }
+                }
+            }
+        }
+        entries.sort { $0.dateIso > $1.dateIso }
+        return entries
+    }
 
     private var studentIndex: Int? {
         store.state.studentsDirectory.firstIndex(where: { $0.id == studentId })
@@ -2071,9 +2159,10 @@ public struct StudentDetailSheet: View {
 
     public var body: some View {
         let stats = computeAttendanceStats()
+        let lessonNotesList = collectActiveGroupLessonNotes()
         VStack(alignment: .leading, spacing: 16) {
-            // Top bar with WhatsApp, Email, Modify (pencil), and X button
-            HStack(alignment: .center, spacing: 10) {
+            // Top bar with Lesson Notes History, WhatsApp, Email, Modify (pencil), and X button
+            HStack(alignment: .center, spacing: 8) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("\(firstName) \(lastName)".trimmingCharacters(in: .whitespaces))
                         .font(.title2.bold())
@@ -2084,6 +2173,18 @@ public struct StudentDetailSheet: View {
                     }
                 }
                 Spacer()
+
+                // Toggle Lesson Notes History Button (in same card)
+                Button {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        showLessonNotesHistory.toggle()
+                    }
+                } label: {
+                    Label("\(store.t("lessonNotesHistoryBtn")) (\(lessonNotesList.count))", systemImage: showLessonNotesHistory ? "person.text.rectangle" : "note.text")
+                        .font(.caption.bold())
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(showLessonNotesHistory ? .orange : .purple)
 
                 // WhatsApp Button
                 Button {
@@ -2110,6 +2211,7 @@ public struct StudentDetailSheet: View {
                     if isEditing {
                         saveStudent()
                     } else {
+                        showLessonNotesHistory = false
                         isEditing = true
                     }
                 } label: {
@@ -2142,6 +2244,76 @@ public struct StudentDetailSheet: View {
 
             if showPrefixPicker {
                 whatsAppPrefixPickerBox
+            } else if showLessonNotesHistory {
+                // Scrollable Lesson Notes History View inside the same Student Detail Card
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack {
+                        Label(store.t("lessonNotesHistoryBtn"), systemImage: "note.text")
+                            .font(.subheadline.bold())
+                            .foregroundStyle(.purple)
+                        Spacer()
+                        Text("Solo gruppi attivi (\(lessonNotesList.count))")
+                            .font(.caption2.bold())
+                            .foregroundStyle(.secondary)
+                    }
+
+                    if lessonNotesList.isEmpty {
+                        VStack(spacing: 8) {
+                            Image(systemName: "doc.text.magnifyingglass")
+                                .font(.title2)
+                                .foregroundStyle(.secondary)
+                            Text("Nessuna nota delle lezioni registrata nei gruppi attivi a cui partecipa lo studente.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .multilineTextAlignment(.center)
+                        }
+                        .frame(maxWidth: .infinity, minHeight: 160)
+                        .background(RoundedRectangle(cornerRadius: 10).fill(Color.secondary.opacity(0.05)))
+                    } else {
+                        ScrollView {
+                            VStack(alignment: .leading, spacing: 10) {
+                                ForEach(lessonNotesList) { item in
+                                    let pal = store.palette(for: item.courseColor)
+                                    VStack(alignment: .leading, spacing: 6) {
+                                        HStack(spacing: 8) {
+                                            Label(store.formatDateDisplay(item.dateIso), systemImage: "calendar")
+                                                .font(.caption.bold())
+                                                .foregroundStyle(pal.color)
+                                            Text(item.timeRange)
+                                                .font(.caption2.monospaced())
+                                                .foregroundStyle(.secondary)
+                                            Spacer()
+                                            Text("\(item.courseName) • \(item.badge)")
+                                                .font(.system(size: 10, weight: .bold))
+                                                .padding(.horizontal, 7)
+                                                .padding(.vertical, 2)
+                                                .background(Capsule().fill(pal.color.opacity(0.15)))
+                                                .foregroundStyle(pal.color)
+                                        }
+
+                                        Text(item.lessonTitle)
+                                            .font(.subheadline.bold())
+
+                                        Text(item.noteText)
+                                            .font(.caption)
+                                            .foregroundStyle(.primary)
+                                            .textSelection(.enabled)
+                                            .fixedSize(horizontal: false, vertical: true)
+                                    }
+                                    .padding(12)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 10)
+                                            .fill(Color.secondary.opacity(0.06))
+                                            .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(pal.color.opacity(0.28), lineWidth: 1))
+                                    )
+                                }
+                            }
+                            .padding(.vertical, 2)
+                        }
+                        .frame(height: 240)
+                    }
+                }
             } else if isEditing {
                 // Editable Form Mode
                 Grid(horizontalSpacing: 14, verticalSpacing: 10) {

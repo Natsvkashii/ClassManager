@@ -16,7 +16,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ClassDesk v26.10.4-027 (Windows Native Edition)</title>
+    <title>ClassDesk v26.10.5-001 (Windows Native Edition)</title>
     <link rel="icon" type="image/png" href="logo.png">
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -63,6 +63,13 @@ Removing, obfuscating, or altering these credits violates the author's attributi
             position: sticky;
             left: 0;
             z-index: 20;
+        }
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
         }
         /* Dynamic Left Sidebar (Expanded vs Mini Icon-Only) */
         #appSidebar {
@@ -167,7 +174,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                     <span class="sidebar-text" id="sidebarFeedbackBtnText">Invia Feedback</span>
                 </button>
                 <div class="sidebar-footer-card p-1.5 rounded-xl bg-slate-50 dark:bg-navy-950/40 text-[10px] text-center text-slate-400 dark:text-slate-500 font-semibold">
-                    <span id="sidebarVersionBadge">ClassDesk v26.10.4-027</span>
+                    <span id="sidebarVersionBadge">ClassDesk v26.10.5-001 (Beta)</span>
                 </div>
             </div>
         </aside>
@@ -175,23 +182,35 @@ Removing, obfuscating, or altering these credits violates the author's attributi
         <!-- Main Workspace Column -->
         <div class="flex-1 h-full flex flex-col min-w-0 overflow-hidden">
             <!-- Top Header with Unified Active Course Selector & Management Bar (Always Fixed at Top) -->
-            <header class="shrink-0 min-h-16 py-2 bg-white/90 dark:bg-navy-900/90 backdrop-blur-md border-b border-sky-100 dark:border-slate-800 z-30 px-4 sm:px-6 flex flex-wrap items-center justify-between gap-3">
-                <div class="flex items-center gap-2.5 min-w-0 flex-1">
+            <header class="shrink-0 min-h-16 py-2 bg-white/90 dark:bg-navy-900/90 backdrop-blur-md border-b border-sky-100 dark:border-slate-800 z-30 px-4 sm:px-6 flex items-center justify-between gap-2">
+                <div class="flex items-center gap-1.5 min-w-0 flex-1 overflow-hidden">
                     <button onclick="app.openMobileSidebar()" class="lg:hidden w-9 h-9 rounded-xl border border-sky-200 dark:border-slate-700 flex items-center justify-center text-slate-700 dark:text-slate-200 hover:bg-sky-50 dark:hover:bg-navy-800 shrink-0">
                         <i class="fa-solid fa-bars"></i>
                     </button>
-                    <!-- Unified Course Selector + Level & Module Bar -->
-                    <div id="headerCourseContextWrap" class="flex flex-wrap items-center gap-2 min-w-0 flex-1"></div>
+                    <button id="headerScrollLeftBtn" type="button" onclick="app.scrollHeaderBar(-180)" class="w-7 h-8 rounded-lg border border-sky-200 dark:border-slate-700 bg-sky-50/70 dark:bg-navy-800 hover:bg-sky-100 dark:hover:bg-slate-800 flex items-center justify-center text-slate-600 dark:text-slate-300 shrink-0 transition" title="Scorri a sinistra">
+                        <i class="fa-solid fa-chevron-left text-[10px]"></i>
+                    </button>
+                    <!-- Unified Course Selector + Level & Module Bar (Horizontally scrollable, never clipped) -->
+                    <div id="headerCourseContextWrap" class="flex flex-nowrap items-center gap-2 min-w-0 flex-1 overflow-x-auto no-scrollbar py-0.5"></div>
+                    <button id="headerScrollRightBtn" type="button" onclick="app.scrollHeaderBar(180)" class="w-7 h-8 rounded-lg border border-sky-200 dark:border-slate-700 bg-sky-50/70 dark:bg-navy-800 hover:bg-sky-100 dark:hover:bg-slate-800 flex items-center justify-center text-slate-600 dark:text-slate-300 shrink-0 transition" title="Scorri a destra">
+                        <i class="fa-solid fa-chevron-right text-[10px]"></i>
+                    </button>
                 </div>
 
                 <!-- Header Actions -->
-                <div class="flex items-center gap-2 shrink-0">
-                    <button onclick="app.openCourseModal()" class="px-3 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold flex items-center gap-1.5 shadow-xs transition">
+                <div class="flex items-center gap-1.5 shrink-0">
+                    <button id="headerUndoBtn" type="button" onclick="app.performUndo()" class="w-8 h-9 rounded-xl border border-sky-200 dark:border-slate-700 bg-sky-50/60 dark:bg-navy-800 hover:bg-sky-100 dark:hover:bg-slate-800 flex items-center justify-center text-slate-700 dark:text-slate-200 transition disabled:opacity-40" title="Annulla (Ctrl+Z / Cmd+Z)">
+                        <i class="fa-solid fa-rotate-left text-xs"></i>
+                    </button>
+                    <button id="headerRedoBtn" type="button" onclick="app.performRedo()" class="w-8 h-9 rounded-xl border border-sky-200 dark:border-slate-700 bg-sky-50/60 dark:bg-navy-800 hover:bg-sky-100 dark:hover:bg-slate-800 flex items-center justify-center text-slate-700 dark:text-slate-200 transition disabled:opacity-40" title="Avanti / Ripristina (Ctrl+Y / Cmd+Y)">
+                        <i class="fa-solid fa-rotate-right text-xs"></i>
+                    </button>
+                    <button onclick="app.openCourseModal()" class="px-3 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold flex items-center gap-1.5 shadow-xs transition shrink-0">
                         <i class="fa-solid fa-plus"></i>
                         <span id="headerNewCourseBtnText" class="hidden md:inline">Nuovo Corso</span>
                     </button>
 
-                    <button onclick="app.cycleThemeMode()" id="headerThemeBtn" class="w-9 h-9 rounded-xl border border-sky-200 dark:border-slate-700 bg-sky-50/60 dark:bg-navy-800 hover:bg-sky-100 dark:hover:bg-slate-800 flex items-center justify-center text-sky-700 dark:text-amber-300 transition" title="Tema">
+                    <button onclick="app.cycleThemeMode()" id="headerThemeBtn" class="w-9 h-9 rounded-xl border border-sky-200 dark:border-slate-700 bg-sky-50/60 dark:bg-navy-800 hover:bg-sky-100 dark:hover:bg-slate-800 flex items-center justify-center text-sky-700 dark:text-amber-300 transition shrink-0" title="Tema">
                         <i class="fa-solid fa-circle-half-stroke"></i>
                     </button>
                 </div>
@@ -205,7 +224,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 <div class="w-full px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-2">
                     <p class="flex items-center gap-2">
                         <span id="footerPlatformDesc" class="text-slate-400 dark:text-slate-500">Piattaforma Accademica Multi-Livello QCER</span>
-                        <span id="footerVersionBadge" class="px-2 py-0.5 rounded-md bg-sky-100 dark:bg-navy-800 text-sky-700 dark:text-sky-300 text-[10px] font-bold">v26.10.4 (Windows Edition)</span>
+                        <span id="footerVersionBadge" class="px-2 py-0.5 rounded-md bg-sky-100 dark:bg-navy-800 text-sky-700 dark:text-sky-300 text-[10px] font-bold">v26.10.5-001 (Beta)</span>
                     </p>
                     <p><span id="footerDevelopedBy">Concepito e Sviluppato da</span> <span class="font-semibold text-sky-700 dark:text-sky-400">Guaira Jaramillo Nitoglia</span> (<a href="mailto:guaira.jaramillo.nitoglia@gmail.com" class="underline hover:text-sky-600">guaira.jaramillo.nitoglia@gmail.com</a>)</p>
                 </div>
@@ -344,9 +363,9 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 confirmDeleteTitle: "Conferma Eliminazione",
                 archiveInsteadBtn: "Archivia",
                 addDateBtn: "+ Lezione",
-                editDatesModeBtn: "Date",
+                editDatesModeBtn: "Seleziona",
                 exitEditDatesModeBtn: "Fine",
-                recurringBtn: "Ricorrenza",
+                recurringBtn: "Nuova ricorrenza",
                 addStudentToModBtn: "Iscrivi studenti",
                 addLevelBtn: "+ Livello",
                 addModuleBtn: "+ Modulo",
@@ -533,7 +552,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 durationLabel: "Durata",
                 timeScheduleLabel: "Orario",
                 yourCoursesHeading: "I tuoi corsi attivi",
-                googleCalendarBetaBadge: "Integrazione Google Calendar (BETA)",
+                googleCalendarBetaBadge: "Integrazione Google Calendar",
                 googleCalendarBetaNotice: "Questa funzionalità è in fase sperimentale. In conformità con le policy di sicurezza di Google Cloud, l'accesso OAuth richiede la preventiva autorizzazione e abilitazione dell'account da parte dello sviluppatore (Guaira Jaramillo Nitoglia - guaira.jaramillo.nitoglia@gmail.com). Contatta lo sviluppatore per abilitare la tua email prima del primo accesso.",
                 months: ["Gennaio", "Febbraio", "Marzo", "Aprile", "Maggio", "Giugno", "Luglio", "Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre"],
                 daysFullMon: ["Lunedì", "Martedì", "Mercoledì", "Giovedì", "Venerdì", "Sabato", "Domenica"],
@@ -636,9 +655,9 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 confirmDeleteTitle: "Confirm Delete",
                 archiveInsteadBtn: "Archive",
                 addDateBtn: "+ Lesson",
-                editDatesModeBtn: "Dates",
+                editDatesModeBtn: "Select",
                 exitEditDatesModeBtn: "Done",
-                recurringBtn: "Recurring",
+                recurringBtn: "New recurrence",
                 addStudentToModBtn: "Enroll students",
                 addLevelBtn: "+ Level",
                 addModuleBtn: "+ Module",
@@ -825,7 +844,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 durationLabel: "Duration",
                 timeScheduleLabel: "Schedule",
                 yourCoursesHeading: "Your active courses",
-                googleCalendarBetaBadge: "Google Calendar Integration (BETA)",
+                googleCalendarBetaBadge: "Google Calendar Integration",
                 googleCalendarBetaNotice: "This feature is currently in BETA. In accordance with Google Cloud OAuth security policies, access requires prior authorization and whitelisting of your Google account by the developer (Guaira Jaramillo Nitoglia - guaira.jaramillo.nitoglia@gmail.com). Contact the developer to whitelist your email before signing in.",
                 months: ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"],
                 daysFullMon: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
@@ -928,9 +947,9 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 confirmDeleteTitle: "Confirmar Eliminación",
                 archiveInsteadBtn: "Archivar",
                 addDateBtn: "+ Clase",
-                editDatesModeBtn: "Fechas",
+                editDatesModeBtn: "Seleccionar",
                 exitEditDatesModeBtn: "Listo",
-                recurringBtn: "Recurrencia",
+                recurringBtn: "Nueva recurrencia",
                 addStudentToModBtn: "Inscribir alumnos",
                 addLevelBtn: "+ Nivel",
                 addModuleBtn: "+ Módulo",
@@ -1117,7 +1136,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 durationLabel: "Duración",
                 timeScheduleLabel: "Horario",
                 yourCoursesHeading: "Tus cursos activos",
-                googleCalendarBetaBadge: "Integración Google Calendar (BETA)",
+                googleCalendarBetaBadge: "Integración Google Calendar",
                 googleCalendarBetaNotice: "Esta función se encuentra en fase BETA. De acuerdo con las políticas de seguridad de Google Cloud, el acceso OAuth requiere la autorización previa y habilitación de la cuenta por parte del desarrollador (Guaira Jaramillo Nitoglia - guaira.jaramillo.nitoglia@gmail.com). Contacta al desarrollador para habilitar tu correo antes de iniciar sesión.",
                 months: ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"],
                 daysFullMon: ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"],
@@ -1164,12 +1183,28 @@ Removing, obfuscating, or altering these credits violates the author's attributi
         ];
 
         const INITIAL_DATA = {
-            version: "26.10.4-027",
-            channel: "stable",
+            version: "26.10.5-001",
+            channel: "unstable",
             deletedItems: [],
+            billingContacts: [],
             lastUpdated: new Date().toISOString(),
             activeCourseId: "",
             changelog: [
+                {
+                    version: "26.10.5-001",
+                    date: "2026-10-25",
+                    changes: [
+                        "Barra Moduli Scorrevole & Tasto Avanti (Redo Cmd/Ctrl+Y): la barra superiore di gestione corsi/livelli/moduli ora scorre orizzontalmente con frecce laterali senza tagliare alcun elemento quando la finestra viene ridotta al minimo; introdotto il pulsante Avanti (Redo) accanto ad Annulla con scorciatoia Command/Ctrl + Y.",
+                        "Contatore Prossima Lezione in Dashboard: aggiunto un timer live nella Dashboard che mostra in tempo reale giorni, ore, minuti e secondi mancanti alla prossima lezione.",
+                        "Registro Presenze Rinnovato: colonna con i nomi degli studenti fissata a sinistra durante lo scorrimento orizzontale; nuova barra di stato colorata della partecipazione (verde = presenze, giallo = giustificazioni, rosso = assenze, grigio = lezioni restanti); colonna del giorno odierno evidenziata con badge OGGI; tasto 'Seleziona' con icona spostato a fine barra; pulsante 'Nuova ricorrenza'; rimossi i pulsanti ridondanti di sincronizzazione calendario e iscrizione studenti.",
+                        "Valutazione Presenze per Ore Effettive: cliccando sull'intestazione 'PRESENZE' nella scheda Voti si apre una finestra per configurare punteggio massimo e percentuale di ponderazione, con calcolo automatico basato sul totale delle ore di presenza rispetto alle ore complessive del modulo.",
+                        "Eliminazione Sicura di Livelli e Moduli: nella sezione Struttura è ora possibile eliminare singoli moduli o livelli con finestra di conferma preventiva.",
+                        "Piano Lezioni ad Alto Contrasto & Sincronizzazione Intelligente: rimossi i selettori mensili inutilizzati e i vecchi badge svolta/non svolta; le lezioni svolte appaiono con colore attenuato, mentre le lezioni passate senza presenze registrate assumono un contrasto netto (nero con testo bianco nel tema chiaro, bianco con testo nero nel tema scuro); disattivato qualsiasi tentativo di accesso al Calendario macOS quando l'opzione è spenta e introdotta la conferma esplicita prima di creare serie ricorrenti su Google Calendar.",
+                        "Anagrafica Adattiva & Storico Note Lezioni: risolto il taglio del menù laterale al ridimensionamento della finestra e aggiunto nella scheda studente il pulsante 'Note delle Lezioni' per consultare in un pannello scorrevole tutte le note datate dei gruppi attivi a cui partecipa.",
+                        "Fatturazione con Calcolo Orario Automatico & Banca Dati Clienti: eliminato l'inserimento manuale della durata lezioni (ora calcolata automaticamente dagli orari di inizio e fine di ciascuna lezione nel piano lezioni) e introdotta la nuova 'Banca Dati Clienti' con barra di ricerca rapida per corso, livello, modulo o nominativo.",
+                        "Auto-Updater Silenzioso in Background & Laboratorio Beta: controllo automatico degli aggiornamenti all'avvio e ogni 24 ore con download silenzioso in background e installazione automatica al successivo riavvio (mantenendo anche l'aggiornamento manuale di emergenza); nuova sezione diagnostica nelle versioni Beta con simulatore completo di aggiornamento da GitHub e console dei log in tempo reale."
+                    ]
+                },
                 {
                     version: "26.10.4-027",
                     date: "2026-10-20",
@@ -1804,6 +1839,11 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 this.modalHasManualChanges = false;
                 this.googleEvents = [];
                 this.isSyncingGoogle = false;
+                this.undoStack = [];
+                this.redoStack = [];
+                this.billingViewTab = "course";
+                this.billingContactSearchQuery = "";
+                this.showStudentLessonNotesInModal = false;
             }
 
             toggleSensitiveGroupData() {
@@ -1935,13 +1975,21 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 // Setup beta 5-minute auto backup & diagnostic crash reporting
                 this.setupBetaDiagnosticsAndBackup();
 
+                // Live countdown tick for next lesson in Dashboard (1s interval)
+                if (this.dashboardCountdownInterval) clearInterval(this.dashboardCountdownInterval);
+                this.dashboardCountdownInterval = setInterval(() => this.updateDashboardCountdownTick(), 1000);
+
+                // Automatic 24-hour background update check
+                if (this.dailyUpdateInterval) clearInterval(this.dailyUpdateInterval);
+                this.dailyUpdateInterval = setInterval(() => this.checkForUpdates(false), 24 * 60 * 60 * 1000);
+
                 // Show onboarding wizard on first run, otherwise check updates on startup
                 if (this.state.settings && this.state.settings.onboardingCompleted === false) {
                     this.openOnboardingWizard();
                 } else {
                     const hasPending = await this.checkPendingUpdateOnStartup();
                     if (!hasPending) {
-                        setTimeout(() => this.checkUpdatesOnStartupIfNeeded(), 1500);
+                        setTimeout(() => this.checkForUpdates(false), 1500);
                     }
                 }
             }
@@ -2075,6 +2123,10 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                     this.state.courses = [];
                     migrated = true;
                 }
+                if (!Array.isArray(this.state.billingContacts)) {
+                    this.state.billingContacts = [];
+                    migrated = true;
+                }
                 if (!Array.isArray(this.state.deletedItems)) {
                     this.state.deletedItems = [];
                     migrated = true;
@@ -2154,6 +2206,10 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                         }
                         if (c.gradeConfig.attendanceWeight === undefined) {
                             c.gradeConfig.attendanceWeight = 5;
+                            migrated = true;
+                        }
+                        if (c.gradeConfig.attendanceMaxScore === undefined) {
+                            c.gradeConfig.attendanceMaxScore = 10;
                             migrated = true;
                         }
                         (c.gradeConfig.activities || []).forEach(act => {
@@ -2895,9 +2951,9 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 const badge = this.formatLevelModuleBadge(course, activeLevel, activeSection);
 
                 bar.innerHTML = `
-                    <div class="flex flex-wrap items-center gap-2 w-full">
+                    <div class="flex flex-nowrap items-center gap-2 w-max whitespace-nowrap">
                         <!-- Unified Course Title & Selector + Edit Group Icon -->
-                        <div class="flex items-center gap-1.5 bg-sky-50/70 dark:bg-navy-800/90 px-2.5 py-1 rounded-xl border transition" style="border-color:${pal.border}">
+                        <div class="flex items-center gap-1.5 bg-sky-50/70 dark:bg-navy-800/90 px-2.5 py-1 rounded-xl border transition shrink-0" style="border-color:${pal.border}">
                             <span class="px-2 py-0.5 rounded-lg text-white text-[11px] font-extrabold tracking-wide shadow-2xs flex items-center gap-1.5 shrink-0" style="background-color:${pal.hex}">
                                 <span class="w-1.5 h-1.5 rounded-full bg-white"></span>
                                 ${this.escapeHtml(badge)}
@@ -2918,47 +2974,54 @@ Removing, obfuscating, or altering these credits violates the author's attributi
 
                         ${activeLevel && activeSection ? `
                             <!-- Levels Pill Bar -->
-                            <div class="flex flex-wrap items-center gap-1 bg-sky-50/60 dark:bg-navy-800 p-1 rounded-xl border border-sky-200/70 dark:border-slate-700">
+                            <div class="flex flex-nowrap items-center gap-1 bg-sky-50/60 dark:bg-navy-800 p-1 rounded-xl border border-sky-200/70 dark:border-slate-700 shrink-0">
                                 <span class="text-[10px] font-extrabold uppercase text-slate-400 px-1.5 hidden sm:inline">${this.t("levelShort")}:</span>
                                 ${(course.levels || []).map(lvl => {
                                     const isLvlAct = lvl.id === activeLevel.id;
                                     const label = lvl.code === "Altro" ? (lvl.customName || this.t("otherLevelOpt")) : (lvl.code || "A1");
                                     return `
-                                        <button onclick="app.switchLevel('${lvl.id}')" class="px-2 py-0.5 rounded-lg text-xs font-extrabold transition ${isLvlAct ? 'bg-sky-600 text-white shadow-2xs' : 'text-slate-600 dark:text-slate-300 hover:text-slate-900'}">
+                                        <button onclick="app.switchLevel('${lvl.id}')" class="px-2 py-0.5 rounded-lg text-xs font-extrabold transition shrink-0 ${isLvlAct ? 'bg-sky-600 text-white shadow-2xs' : 'text-slate-600 dark:text-slate-300 hover:text-slate-900'}">
                                             ${this.escapeHtml(label)}${lvl.sublevel ? `<span class="opacity-80 font-normal ml-1">(${this.escapeHtml(lvl.sublevel)})</span>` : ''}
                                         </button>
                                     `;
                                 }).join("")}
-                                <button onclick="app.openEditLevelModal('${activeLevel.id}')" class="w-6 h-6 rounded-lg text-xs text-slate-500 hover:text-sky-600 hover:bg-white dark:hover:bg-navy-900 flex items-center justify-center" title="${this.t("editBtn")} ${this.t("levelShort")}">
+                                <button onclick="app.openEditLevelModal('${activeLevel.id}')" class="w-6 h-6 rounded-lg text-xs text-slate-500 hover:text-sky-600 hover:bg-white dark:hover:bg-navy-900 flex items-center justify-center shrink-0" title="${this.t("editBtn")} ${this.t("levelShort")}">
                                     <i class="fa-solid fa-pen text-[10px]"></i>
                                 </button>
-                                <button onclick="app.openAddLevelModal()" class="w-6 h-6 rounded-lg text-xs font-bold text-sky-700 dark:text-sky-400 hover:bg-sky-100 dark:hover:bg-navy-900 flex items-center justify-center" title="${this.t("addLevelBtn")}">
+                                <button onclick="app.openAddLevelModal()" class="w-6 h-6 rounded-lg text-xs font-bold text-sky-700 dark:text-sky-400 hover:bg-sky-100 dark:hover:bg-navy-900 flex items-center justify-center shrink-0" title="${this.t("addLevelBtn")}">
                                     <i class="fa-solid fa-plus"></i>
                                 </button>
                             </div>
 
                             <!-- Modules Pill Bar -->
-                            <div class="flex flex-wrap items-center gap-1 bg-slate-50 dark:bg-navy-950/60 p-1 rounded-xl border border-slate-200/80 dark:border-slate-800">
+                            <div class="flex flex-nowrap items-center gap-1 bg-slate-50 dark:bg-navy-950/60 p-1 rounded-xl border border-slate-200/80 dark:border-slate-800 shrink-0">
                                 <span class="text-[10px] font-extrabold uppercase text-slate-400 px-1.5 hidden sm:inline">${this.t("moduleShort")}:</span>
                                 ${(activeLevel.modules || []).map((mod, mIdx) => {
                                     const isModAct = mod.id === activeSection.id;
                                     const pillText = mod.name || `M${mIdx + 1}`;
                                     return `
-                                        <button onclick="app.switchSection('${mod.id}')" class="px-2 py-0.5 rounded-lg text-xs font-bold transition ${isModAct ? 'bg-white dark:bg-navy-800 text-sky-700 dark:text-sky-300 border border-sky-200 dark:border-sky-500/40 shadow-2xs' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'}" title="${this.escapeHtml(mod.description || mod.name)}">
+                                        <button onclick="app.switchSection('${mod.id}')" class="px-2 py-0.5 rounded-lg text-xs font-bold transition shrink-0 ${isModAct ? 'bg-white dark:bg-navy-800 text-sky-700 dark:text-sky-300 border border-sky-200 dark:border-sky-500/40 shadow-2xs' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'}" title="${this.escapeHtml(mod.description || mod.name)}">
                                             ${this.escapeHtml(pillText)}
                                         </button>
                                     `;
                                 }).join("")}
-                                <button onclick="app.openEditModuleModal('${activeLevel.id}', '${activeSection.id}')" class="w-6 h-6 rounded-lg text-xs text-slate-500 hover:text-sky-600 hover:bg-white dark:hover:bg-navy-900 flex items-center justify-center" title="${this.t("editBtn")} ${this.t("moduleShort")}">
+                                <button onclick="app.openEditModuleModal('${activeLevel.id}', '${activeSection.id}')" class="w-6 h-6 rounded-lg text-xs text-slate-500 hover:text-sky-600 hover:bg-white dark:hover:bg-navy-900 flex items-center justify-center shrink-0" title="${this.t("editBtn")} ${this.t("moduleShort")}">
                                     <i class="fa-solid fa-pen text-[10px]"></i>
                                 </button>
-                                <button onclick="app.openAddSectionModal()" class="w-6 h-6 rounded-lg text-xs font-bold text-sky-700 dark:text-sky-400 hover:bg-sky-100 dark:hover:bg-navy-900 flex items-center justify-center" title="${this.t("addModuleBtn")}">
+                                <button onclick="app.openAddSectionModal()" class="w-6 h-6 rounded-lg text-xs font-bold text-sky-700 dark:text-sky-400 hover:bg-sky-100 dark:hover:bg-navy-900 flex items-center justify-center shrink-0" title="${this.t("addModuleBtn")}">
                                     <i class="fa-solid fa-plus"></i>
                                 </button>
                             </div>
                         ` : ''}
                     </div>
                 `;
+            }
+
+            scrollHeaderBar(delta) {
+                const wrap = document.getElementById("headerCourseContextWrap");
+                if (wrap) {
+                    wrap.scrollBy({ left: delta, behavior: "smooth" });
+                }
             }
 
             switchTab(tabId) {
@@ -3084,6 +3147,30 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 });
             }
 
+            formatNextLessonCountdown(dateIso, sTime) {
+                if (!dateIso || !sTime) return "";
+                const target = new Date(`${dateIso}T${sTime}:00`);
+                const diffSec = Math.floor((target.getTime() - Date.now()) / 1000);
+                if (diffSec <= 0) return "Inizia ora";
+                const days = Math.floor(diffSec / 86400);
+                const hours = Math.floor((diffSec % 86400) / 3600);
+                const mins = Math.floor((diffSec % 3600) / 60);
+                const secs = diffSec % 60;
+                if (days > 0) return `${days}g ${hours}h ${mins}m`;
+                if (hours > 0) return `${hours}h ${mins}m ${String(secs).padStart(2, '0')}s`;
+                return `${mins}m ${String(secs).padStart(2, '0')}s`;
+            }
+
+            updateDashboardCountdownTick() {
+                const el = document.getElementById("dashboardNextLessonCountdown");
+                if (!el) return;
+                const d = el.getAttribute("data-date");
+                const t = el.getAttribute("data-time");
+                if (d && t) {
+                    el.textContent = this.formatNextLessonCountdown(d, t);
+                }
+            }
+
             renderHomeView(container) {
                 const activeCourses = (this.state.courses || []).filter(c => !c.archived);
                 const archivedCount = (this.state.courses || []).filter(c => c.archived).length;
@@ -3149,6 +3236,12 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                                     </div>
 
                                     <div class="flex items-center gap-2">
+                                        ${!featuredLesson.isLiveNow ? `
+                                            <span class="px-2.5 py-1 rounded-lg bg-amber-100 dark:bg-amber-950/70 text-amber-800 dark:text-amber-300 text-xs font-extrabold flex items-center gap-1.5 border border-amber-300/70 dark:border-amber-800/70">
+                                                <i class="fa-solid fa-hourglass-half text-amber-600"></i>
+                                                <span id="dashboardNextLessonCountdown" data-date="${featuredLesson.dateIso}" data-time="${featuredLesson.sTime}" class="font-mono">${this.formatNextLessonCountdown(featuredLesson.dateIso, featuredLesson.sTime)}</span>
+                                            </span>
+                                        ` : ''}
                                         <span class="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-navy-800 text-slate-600 dark:text-slate-300 text-xs font-semibold">
                                             <i class="fa-solid fa-users mr-1 opacity-70"></i> ${featuredLesson.studentCount} ${this.t("enrolledLower")}
                                         </span>
@@ -3398,6 +3491,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 const modStudents = this.getModuleStudents(course, activeSection);
                 const dates = [...this.sortModuleSlots(course, activeSection)];
                 const selectedDatesCount = Array.from(this.selectedDatesForDelete).filter(d => dates.includes(d)).length;
+                const todayIso = new Date().toISOString().substring(0, 10);
 
                 container.innerHTML = `
                     <div class="space-y-4">
@@ -3418,11 +3512,8 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                                     <i class="fa-solid fa-repeat text-sky-600"></i> ${this.t("recurringBtn")}
                                 </button>
                                 <button onclick="app.toggleAttendanceDateEditMode()" class="px-3 py-1.5 rounded-xl border ${this.attendanceDateEditMode ? 'bg-amber-500 text-white border-amber-500 shadow-xs' : 'border-sky-200 dark:border-slate-700 hover:bg-sky-50 dark:hover:bg-navy-800 text-slate-700 dark:text-slate-200'} text-xs font-bold flex items-center gap-1.5 transition">
-                                    <i class="fa-solid ${this.attendanceDateEditMode ? 'fa-check' : 'fa-pen-to-square text-sky-600'}"></i>
+                                    <i class="fa-solid ${this.attendanceDateEditMode ? 'fa-check' : 'fa-circle-check text-sky-600'}"></i>
                                     ${this.attendanceDateEditMode ? this.t("exitEditDatesModeBtn") : this.t("editDatesModeBtn")}
-                                </button>
-                                <button onclick="app.openManageModuleStudentsModal()" class="px-3 py-1.5 rounded-xl border border-sky-200 dark:border-slate-700 hover:bg-sky-50 dark:hover:bg-navy-800 text-xs font-bold flex items-center gap-1.5">
-                                    <i class="fa-solid fa-user-plus text-sky-600"></i> ${this.t("addStudentToModBtn")}
                                 </button>
                             </div>
                         </div>
@@ -3452,24 +3543,26 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                                 <table class="w-full text-left border-collapse text-xs">
                                     <thead>
                                         <tr class="bg-sky-50/80 dark:bg-navy-800/90 border-b border-sky-100 dark:border-slate-800 text-slate-600 dark:text-slate-300">
-                                            <th class="sticky-col align-top bg-sky-50 dark:bg-navy-800 px-4 py-3 font-extrabold min-w-[220px] min-h-[82px] border-r border-sky-100 dark:border-slate-800">
+                                            <th class="sticky-col align-top bg-sky-50 dark:bg-navy-800 px-4 py-3 font-extrabold min-w-[235px] min-h-[82px] border-r border-sky-100 dark:border-slate-800">
                                                 <div class="h-full flex items-center">
                                                     <span>${this.t("studentCol")} (${modStudents.length})</span>
                                                 </div>
                                             </th>
                                             ${dates.map((slotKey, idx) => {
                                                 const dOnly = this.extractDateFromSlotKey(slotKey);
+                                                const isTodayCol = dOnly === todayIso;
                                                 const lessonObj = this.findLessonForSlot(course, activeSection.id, slotKey);
                                                 const sTime = lessonObj?.time || activeSection.startTime || course.startTime || "19:00";
                                                 const eTime = lessonObj?.endTime || activeSection.endTime || course.endTime || "20:30";
                                                 const isDateSelected = this.selectedDatesForDelete.has(slotKey);
                                                 return `
-                                                    <th data-slotkey="${this.escapeHtml(slotKey)}" class="align-top px-2 py-2.5 text-center font-bold min-w-[122px] border-r border-sky-100/60 dark:border-slate-800 group ${isDateSelected ? 'bg-rose-50/80 dark:bg-rose-950/30' : ''}">
+                                                    <th data-slotkey="${this.escapeHtml(slotKey)}" class="align-top px-2 py-2.5 text-center font-bold min-w-[122px] border-r border-sky-100/60 dark:border-slate-800 group ${isDateSelected ? 'bg-rose-50/80 dark:bg-rose-950/30' : (isTodayCol ? 'bg-sky-100/90 dark:bg-sky-950/50 border-t-4 border-t-sky-500' : '')}">
                                                         <button onclick="app.openLessonPlanModal('${course.id}', '${activeSection.id}', '${slotKey}')" class="w-full min-h-[76px] rounded-lg p-1 hover:bg-sky-100/70 dark:hover:bg-navy-900 transition flex flex-col items-center justify-between" title="${this.t("lessonPlanTitle")}">
-                                                            <div class="flex items-center justify-center text-[10px] text-sky-700 dark:text-sky-400 font-extrabold">
-                                                                <span class="px-2 py-0.5 rounded bg-sky-100 dark:bg-navy-900">${idx + 1}</span>
+                                                            <div class="flex items-center justify-center gap-1 text-[10px] text-sky-700 dark:text-sky-400 font-extrabold">
+                                                                <span class="px-2 py-0.5 rounded ${isTodayCol ? 'bg-sky-600 text-white' : 'bg-sky-100 dark:bg-navy-900'}">${idx + 1}</span>
+                                                                ${isTodayCol ? `<span class="px-1.5 py-0.5 rounded bg-sky-600 text-white text-[8.5px] uppercase tracking-wider">OGGI</span>` : ''}
                                                             </div>
-                                                            <div class="text-[11px] text-slate-800 dark:text-slate-100 underline decoration-dotted underline-offset-2 mt-1">${this.escapeHtml(this.formatShortWeekdayDate(dOnly))}</div>
+                                                            <div class="text-[11px] ${isTodayCol ? 'text-sky-700 dark:text-sky-300 font-black' : 'text-slate-800 dark:text-slate-100'} underline decoration-dotted underline-offset-2 mt-1">${this.escapeHtml(this.formatShortWeekdayDate(dOnly))}</div>
                                                             <div class="text-[9px] font-bold text-slate-400 mt-0.5">${this.formatTimeDisplay(sTime)}-${this.formatTimeDisplay(eTime)}</div>
                                                             ${lessonObj?.title ? `<div class="text-[10px] font-bold text-emerald-700 dark:text-emerald-300 max-w-[130px] truncate mt-1">${this.escapeHtml(lessonObj.title)}</div>` : ''}
                                                         </button>
@@ -3498,21 +3591,39 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                                             </tr>
                                         ` : modStudents.map(st => {
                                             const stAtt = activeSection.attendance?.[st.id] || {};
+                                            const totalDates = Math.max(1, dates.length);
+                                            let pCount = 0, gCount = 0, aCount = 0;
+                                            dates.forEach(dk => {
+                                                const v = stAtt[dk];
+                                                if (v === "P") pCount++;
+                                                else if (v === "G") gCount++;
+                                                else if (v === "A") aCount++;
+                                            });
+                                            const pPct = (pCount / totalDates) * 100;
+                                            const gPct = (gCount / totalDates) * 100;
+                                            const aPct = (aCount / totalDates) * 100;
                                             return `
                                                 <tr class="hover:bg-sky-50/40 dark:hover:bg-navy-800/50 transition">
-                                                    <td class="sticky-col bg-white dark:bg-navy-900 px-4 py-3 font-bold text-slate-900 dark:text-white border-r border-sky-100 dark:border-slate-800">
+                                                    <td class="sticky-col bg-white dark:bg-navy-900 px-4 py-2.5 font-bold text-slate-900 dark:text-white border-r border-sky-100 dark:border-slate-800">
                                                         <button onclick="app.openStudentDetailModal('${st.id}')" class="hover:text-sky-600 dark:hover:text-sky-400 text-left truncate block w-full">
                                                             ${this.escapeHtml(st.name)}
                                                         </button>
+                                                        <div class="w-full h-1.5 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden flex mt-1.5" title="Presenti: ${pCount} • Giustificati: ${gCount} • Assenti: ${aCount}">
+                                                            <div class="h-full bg-emerald-500" style="width:${pPct}%"></div>
+                                                            <div class="h-full bg-amber-400" style="width:${gPct}%"></div>
+                                                            <div class="h-full bg-rose-500" style="width:${aPct}%"></div>
+                                                        </div>
                                                     </td>
                                                     ${dates.map(dStr => {
+                                                        const dOnly = this.extractDateFromSlotKey(dStr);
+                                                        const isTodayCol = dOnly === todayIso;
                                                         const val = stAtt[dStr] || "";
                                                         let btnClass = "bg-slate-100 dark:bg-navy-800 text-slate-400";
                                                         if (val === "P") btnClass = "bg-emerald-500 text-white font-extrabold shadow-2xs";
                                                         else if (val === "A") btnClass = "bg-rose-500 text-white font-extrabold shadow-2xs";
                                                         else if (val === "G") btnClass = "bg-amber-500 text-white font-extrabold shadow-2xs";
                                                         return `
-                                                            <td class="px-2 py-2 text-center border-r border-sky-100/50 dark:border-slate-800/70">
+                                                            <td class="px-2 py-2 text-center border-r border-sky-100/50 dark:border-slate-800/70 ${isTodayCol ? 'bg-sky-50/70 dark:bg-sky-950/25' : ''}">
                                                                 <button onclick="app.cycleAttendance('${st.id}', '${dStr}', this)" class="w-9 h-8 rounded-lg text-xs transition ${btnClass}">
                                                                     ${val || "·"}
                                                                 </button>
@@ -3748,29 +3859,52 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 }
             }
 
+            getAttendanceMaxScore(course, moduleObj = null) {
+                if (!course) return 10;
+                const mod = moduleObj || this.getActiveSection(course);
+                if (mod && mod.attendanceMaxScore !== undefined) {
+                    return Math.max(1, parseFloat(mod.attendanceMaxScore) || 10);
+                }
+                return Math.max(1, parseFloat(course.gradeConfig?.attendanceMaxScore) || 10);
+            }
+
+            getLessonDurationHoursForSlot(course, mod, slotKey) {
+                if (!mod) return 1.5;
+                const les = course ? this.findLessonForSlot(course, mod.id, slotKey) : null;
+                const sTime = les?.time || mod.startTime || course?.startTime || "19:00";
+                const eTime = les?.endTime || mod.endTime || course?.endTime || "20:30";
+                const mins = this.calculateLessonDurationMinutes(sTime, eTime);
+                return Math.max(0.25, mins / 60);
+            }
+
             getStudentAttendanceEvaluationInfo(course, studentId, moduleObj = null) {
-                if (!course) return { score: 0, recordedCount: 0, totalLessons: 0, isComplete: false };
+                if (!course) return { score: 0, recordedCount: 0, totalLessons: 0, presentHours: 0, totalHours: 0, maxScore: 10, isComplete: false };
                 const mod = moduleObj || this.getActiveSection(course);
                 const dates = Array.isArray(mod?.dates) ? mod.dates : [];
                 const totalLessons = dates.length;
+                const maxScore = this.getAttendanceMaxScore(course, mod);
                 if (totalLessons === 0) {
-                    return { score: 0, recordedCount: 0, totalLessons: 0, isComplete: false };
+                    return { score: 0, recordedCount: 0, totalLessons: 0, presentHours: 0, totalHours: 0, maxScore, isComplete: false };
                 }
                 const stAtt = (mod.attendance && mod.attendance[studentId]) || {};
                 let recordedCount = 0;
-                let creditCount = 0;
+                let presentHours = 0;
+                let totalHours = 0;
                 dates.forEach(dStr => {
+                    const durHours = this.getLessonDurationHoursForSlot(course, mod, dStr);
+                    totalHours += durHours;
                     const status = stAtt[dStr];
                     if (status === "P" || status === "G" || status === "A") {
                         recordedCount++;
                         if (status === "P" || status === "G") {
-                            creditCount++;
+                            presentHours += durHours;
                         }
                     }
                 });
-                const score = Number(((creditCount / totalLessons) * 10).toFixed(2));
+                const ratio = totalHours > 0 ? (presentHours / totalHours) : 0;
+                const score = Number((ratio * maxScore).toFixed(2));
                 const isComplete = totalLessons > 0 && recordedCount === totalLessons;
-                return { score, recordedCount, totalLessons, isComplete };
+                return { score, recordedCount, totalLessons, presentHours, totalHours, maxScore, isComplete };
             }
 
             calculateStudentAttendanceScore(course, studentId, moduleObj = null) {
@@ -3853,6 +3987,62 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 this.renderMainView();
             }
 
+            openAttendanceGradeConfigModal() {
+                const course = this.getActiveCourse();
+                const mod = this.getActiveSection(course);
+                if (!course) return;
+                const maxScore = this.getAttendanceMaxScore(course, mod);
+                const weight = this.getAttendanceWeight(course, mod);
+                this.openModal(`
+                    <form onsubmit="app.saveAttendanceGradeConfigModal(event)" class="p-6 space-y-4 text-xs max-w-md">
+                        <div class="flex items-center justify-between border-b border-sky-100 dark:border-slate-800 pb-3">
+                            <h3 class="text-sm font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
+                                <i class="fa-solid fa-sliders text-emerald-600"></i>
+                                <span>Configurazione Attività Presenze</span>
+                            </h3>
+                            <button type="button" onclick="app.closeModal()" class="w-8 h-8 rounded-lg hover:bg-slate-100 dark:hover:bg-navy-800 flex items-center justify-center"><i class="fa-solid fa-xmark"></i></button>
+                        </div>
+                        <p class="text-[11px] text-slate-500 dark:text-slate-400">
+                            Il punteggio delle presenze viene calcolato in automatico in base al numero di ore in cui lo studente è stato presente rispetto al totale delle ore del modulo.
+                        </p>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                                <label class="block font-bold mb-1">Punteggio Massimo</label>
+                                <input type="number" step="0.5" min="1" id="attMaxScoreModalInput" value="${maxScore}" required class="w-full h-9 rounded-xl border border-sky-200 dark:border-slate-700 bg-transparent px-3 font-extrabold">
+                            </div>
+                            <div>
+                                <label class="block font-bold mb-1">Ponderazione (%)</label>
+                                <input type="number" step="0.5" min="0" max="100" id="attWeightModalInput" value="${weight}" required class="w-full h-9 rounded-xl border border-sky-200 dark:border-slate-700 bg-transparent px-3 font-extrabold">
+                            </div>
+                        </div>
+                        <div class="flex justify-end gap-2 pt-2 border-t border-sky-100 dark:border-slate-800">
+                            <button type="button" onclick="app.closeModal()" class="px-4 py-2 rounded-xl border border-slate-300 dark:border-slate-700 font-bold">${this.t("cancelBtn")}</button>
+                            <button type="submit" class="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold">${this.t("saveBtn")}</button>
+                        </div>
+                    </form>
+                `, "max-w-md");
+            }
+
+            saveAttendanceGradeConfigModal(e) {
+                if (e) e.preventDefault();
+                const course = this.getActiveCourse();
+                const mod = this.getActiveSection(course);
+                if (!course) return;
+                const maxScore = Math.max(1, parseFloat(document.getElementById("attMaxScoreModalInput")?.value) || 10);
+                const weight = Math.min(100, Math.max(0, parseFloat(document.getElementById("attWeightModalInput")?.value) || 0));
+                if (!course.gradeConfig) course.gradeConfig = { calcMethod: "average", minPass: 6, activities: [] };
+                course.gradeConfig.attendanceMaxScore = maxScore;
+                course.gradeConfig.attendanceWeight = weight;
+                if (mod) {
+                    mod.attendanceMaxScore = maxScore;
+                    mod.attendanceWeight = weight;
+                }
+                this.persist();
+                this.closeModal(true);
+                this.renderMainView();
+                this.showToast(this.t("saveBtn"), "success");
+            }
+
             /**
              * Dedicated "Voti" View:
              * - Presenze header shows no icon and only the percentage below (no "Peso:" or "(Auto)")
@@ -3916,11 +4106,12 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                                                 </div>
                                             </th>
                                             ${evalAtt ? `
-                                                <th class="px-3 py-3 text-center font-extrabold min-w-[120px] bg-emerald-50/50 dark:bg-emerald-950/20 border-r border-sky-100/60 dark:border-slate-800">
-                                                    <div class="text-emerald-700 dark:text-emerald-300 flex items-center justify-center">
-                                                        <span>${this.t("navAttendance")}</span>
-                                                    </div>
-                                                    <span class="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold block mt-0.5">${attWeight}%</span>
+                                                <th class="px-3 py-3 text-center font-extrabold min-w-[125px] bg-emerald-50/50 dark:bg-emerald-950/20 border-r border-sky-100/60 dark:border-slate-800">
+                                                    <button type="button" onclick="app.openAttendanceGradeConfigModal()" class="text-emerald-700 dark:text-emerald-300 hover:text-emerald-600 underline decoration-dotted flex items-center justify-center gap-1 mx-auto">
+                                                        <span>${this.t("navAttendance").toUpperCase()}</span>
+                                                        <i class="fa-solid fa-sliders text-[10px]"></i>
+                                                    </button>
+                                                    <span class="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold block mt-0.5">${attWeight}% • Max ${this.getAttendanceMaxScore(course, activeSection)}</span>
                                                 </th>
                                             ` : ''}
                                             ${activities.map(act => {
@@ -4853,12 +5044,13 @@ Removing, obfuscating, or altering these credits violates the author's attributi
 
 
             // ==============================================================================
-            // UNDO & SNAPSHOT SYSTEM (Ctrl+Z)
+            // UNDO & REDO SNAPSHOT SYSTEM (Ctrl+Z / Ctrl+Y)
             // ==============================================================================
             recordUndoSnapshot() {
                 if (!this.state) return;
                 try {
                     if (!this.undoStack) this.undoStack = [];
+                    this.redoStack = [];
                     const snap = JSON.stringify(this.state);
                     this.undoStack.push(snap);
                     if (this.undoStack.length > 25) this.undoStack.shift();
@@ -4873,6 +5065,8 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                     return;
                 }
                 try {
+                    if (!this.redoStack) this.redoStack = [];
+                    this.redoStack.push(JSON.stringify(this.state));
                     const prev = this.undoStack.pop();
                     this.state = JSON.parse(prev);
                     this.persist();
@@ -4880,6 +5074,24 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                     this.showToast("↩️ Modifica annullata con successo", "success");
                 } catch (e) {
                     console.error("Undo error:", e);
+                }
+            }
+
+            performRedo() {
+                if (!this.redoStack || this.redoStack.length === 0) {
+                    this.showToast("Nessuna modifica da ripristinare", "info");
+                    return;
+                }
+                try {
+                    if (!this.undoStack) this.undoStack = [];
+                    this.undoStack.push(JSON.stringify(this.state));
+                    const next = this.redoStack.pop();
+                    this.state = JSON.parse(next);
+                    this.persist();
+                    this.renderAll();
+                    this.showToast("↪️ Modifica ripristinata con successo", "success");
+                } catch (e) {
+                    console.error("Redo error:", e);
                 }
             }
 
@@ -5272,6 +5484,11 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                                                 <button onclick="app.openEditLevelModal('${lvl.id}')" class="px-3 py-1.5 rounded-xl border border-sky-200 dark:border-slate-700 font-bold hover:bg-sky-50 dark:hover:bg-navy-800">
                                                     <i class="fa-solid fa-pen mr-1"></i>${this.t("editBtn")}
                                                 </button>
+                                                ${(course.levels || []).length > 1 ? `
+                                                    <button onclick="app.confirmDeleteLevelModal('${lvl.id}')" class="px-3 py-1.5 rounded-xl border border-rose-200 dark:border-rose-900 text-rose-600 dark:text-rose-400 font-bold hover:bg-rose-50 dark:hover:bg-rose-950/30">
+                                                        <i class="fa-solid fa-trash-can mr-1"></i>${this.t("deleteBtn")}
+                                                    </button>
+                                                ` : ''}
                                             </div>
                                         </div>
 
@@ -5284,9 +5501,16 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                                                         <div class="space-y-1">
                                                             <div class="flex items-center justify-between gap-2">
                                                                 <h4 class="font-extrabold text-sm text-slate-900 dark:text-white">${this.escapeHtml(mod.name)}</h4>
-                                                                <button type="button" onclick="event.stopPropagation(); app.openEditModuleModal('${lvl.id}', '${mod.id}')" class="px-2.5 py-1 rounded-lg border border-sky-200 dark:border-slate-700 font-bold text-[11px] hover:bg-sky-100 dark:hover:bg-navy-700 transition">
-                                                                    <i class="fa-solid fa-pen mr-1"></i>${this.t("editBtn")}
-                                                                </button>
+                                                                <div class="flex items-center gap-1.5">
+                                                                    <button type="button" onclick="event.stopPropagation(); app.openEditModuleModal('${lvl.id}', '${mod.id}')" class="px-2.5 py-1 rounded-lg border border-sky-200 dark:border-slate-700 font-bold text-[11px] hover:bg-sky-100 dark:hover:bg-navy-700 transition">
+                                                                        <i class="fa-solid fa-pen mr-1"></i>${this.t("editBtn")}
+                                                                    </button>
+                                                                    ${(lvl.modules || []).length > 1 ? `
+                                                                        <button type="button" onclick="event.stopPropagation(); app.confirmDeleteModuleModal('${lvl.id}', '${mod.id}')" class="px-2 py-1 rounded-lg border border-rose-200 dark:border-rose-900 text-rose-600 dark:text-rose-400 font-bold text-[11px] hover:bg-rose-50 dark:hover:bg-rose-950/40 transition" title="${this.t("deleteBtn")}">
+                                                                            <i class="fa-solid fa-trash-can"></i>
+                                                                        </button>
+                                                                    ` : ''}
+                                                                </div>
                                                             </div>
                                                             ${mod.description ? `<p class="text-slate-500">${this.escapeHtml(mod.description)}</p>` : ''}
                                                             <p class="text-[11px] text-slate-400 pt-1">
@@ -5303,6 +5527,72 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                         </div>
                     </div>
                 `;
+            }
+
+            confirmDeleteLevelModal(levelId) {
+                const course = this.getActiveCourse();
+                if (!course) return;
+                const lvl = (course.levels || []).find(l => l.id === levelId);
+                if (!lvl || (course.levels || []).length <= 1) return;
+                const label = lvl.code === "Altro" ? (lvl.customName || this.t("otherLevelOpt")) : lvl.code;
+                this.openModal(`
+                    <div class="p-6 space-y-4 text-xs max-w-md">
+                        <h3 class="text-base font-extrabold text-rose-600">${this.t("confirmDeleteTitle")}: ${this.escapeHtml(label)}</h3>
+                        <p class="text-slate-600 dark:text-slate-300">Sei sicuro di voler eliminare il livello <strong>${this.escapeHtml(label)}</strong> e tutti i suoi moduli?</p>
+                        <div class="flex justify-end gap-2 pt-2">
+                            <button type="button" onclick="app.closeModal()" class="px-4 py-2 rounded-xl border border-slate-300 dark:border-slate-700 font-bold">${this.t("cancelBtn")}</button>
+                            <button type="button" onclick="app.executeDeleteLevel('${lvl.id}')" class="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-extrabold">${this.t("deleteBtn")}</button>
+                        </div>
+                    </div>
+                `, "max-w-md");
+            }
+
+            executeDeleteLevel(levelId) {
+                const course = this.getActiveCourse();
+                if (!course || (course.levels || []).length <= 1) return;
+                this.recordUndoSnapshot();
+                course.levels = course.levels.filter(l => l.id !== levelId);
+                this.selectLatestLevelAndModule(course);
+                this.persist();
+                this.closeModal(true);
+                this.renderAll();
+                this.showToast("Livello eliminato", "info");
+            }
+
+            confirmDeleteModuleModal(levelId, modId) {
+                const course = this.getActiveCourse();
+                if (!course) return;
+                const lvl = (course.levels || []).find(l => l.id === levelId);
+                if (!lvl) return;
+                const mod = (lvl.modules || []).find(m => m.id === modId);
+                if (!mod || (lvl.modules || []).length <= 1) return;
+                this.openModal(`
+                    <div class="p-6 space-y-4 text-xs max-w-md">
+                        <h3 class="text-base font-extrabold text-rose-600">${this.t("confirmDeleteTitle")}: ${this.escapeHtml(mod.name)}</h3>
+                        <p class="text-slate-600 dark:text-slate-300">Sei sicuro di voler eliminare il modulo <strong>${this.escapeHtml(mod.name)}</strong>?</p>
+                        <div class="flex justify-end gap-2 pt-2">
+                            <button type="button" onclick="app.closeModal()" class="px-4 py-2 rounded-xl border border-slate-300 dark:border-slate-700 font-bold">${this.t("cancelBtn")}</button>
+                            <button type="button" onclick="app.executeDeleteModule('${lvl.id}', '${mod.id}')" class="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-extrabold">${this.t("deleteBtn")}</button>
+                        </div>
+                    </div>
+                `, "max-w-md");
+            }
+
+            executeDeleteModule(levelId, modId) {
+                const course = this.getActiveCourse();
+                if (!course) return;
+                const lvl = (course.levels || []).find(l => l.id === levelId);
+                if (!lvl || (lvl.modules || []).length <= 1) return;
+                const mod = lvl.modules.find(m => m.id === modId);
+                if (mod) {
+                    this.moveToTrash("module", mod.name, course.name, mod, course.id);
+                }
+                lvl.modules = lvl.modules.filter(m => m.id !== modId);
+                this.selectLatestLevelAndModule(course);
+                this.persist();
+                this.closeModal(true);
+                this.renderAll();
+                this.showToast("Modulo eliminato", "info");
             }
 
             /**
@@ -6212,24 +6502,22 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                                                                 ${day.sessions.map(sess => {
                                                                     const isPast = sess.iso < todayIso || (sess.iso === todayIso && (sess.endTime || "23:59") < nowTime);
                                                                     const hasAtt = this.hasAttendanceRecord(activeSection, sess.slotKey);
-                                                                    let statusBadge = "";
-                                                                    if (hasAtt) {
-                                                                        statusBadge = `<span class="w-3.5 h-3.5 rounded-full bg-slate-500/80 text-white inline-flex items-center justify-center text-[9px] font-black shrink-0" title="Lezione svolta (presenze registrate)">✓</span>`;
-                                                                    } else if (isPast) {
-                                                                        statusBadge = `<span class="w-3.5 h-3.5 rounded-full bg-white dark:bg-slate-900 border border-red-500 text-red-500 inline-flex items-center justify-center text-[9px] font-black shrink-0" title="Lezione non svolta (nessuna presenza)">✕</span>`;
-                                                                    }
+                                                                    const isOverdueUnrecorded = isPast && !hasAtt;
+                                                                    const cardClass = isOverdueUnrecorded
+                                                                        ? "cursor-grab active:cursor-grabbing p-1.5 rounded-lg bg-slate-950 text-white dark:bg-white dark:text-slate-950 border-2 border-red-500 shadow-2xs transition hover:brightness-110 select-none text-[10px]"
+                                                                        : `cursor-grab active:cursor-grabbing p-1.5 rounded-lg text-white shadow-2xs transition hover:brightness-110 select-none text-[10px] ${hasAtt ? 'opacity-55' : ''}`;
+                                                                    const cardStyle = isOverdueUnrecorded ? "" : `background-color: ${pal.hex || '#0284c7'}`;
                                                                     return `
                                                                         <div draggable="true"
                                                                              ondragstart="app.handleLessonDragStart(event, '${sess.slotKey}')"
                                                                              ondragend="app.handleLessonDragEnd(event)"
                                                                              onmousedown="app.startLessonMouseDrag(event, '${sess.slotKey}')"
                                                                              onclick="app.openLessonPlanModal('${course.id}', '${activeSection.id}', '${sess.slotKey}')"
-                                                                             class="cursor-grab active:cursor-grabbing p-1.5 rounded-lg text-white shadow-2xs transition hover:brightness-110 select-none text-[10px]"
-                                                                             style="background-color: ${pal.hex || '#0284c7'}">
+                                                                             class="${cardClass}"
+                                                                             style="${cardStyle}">
                                                                             <div class="flex items-center justify-between font-extrabold">
                                                                                 <div class="flex items-center gap-1">
-                                                                                    <span class="px-1 rounded bg-black/20">${sess.lessonNumber}</span>
-                                                                                    ${statusBadge}
+                                                                                    <span class="px-1 rounded ${isOverdueUnrecorded ? 'bg-red-500 text-white' : 'bg-black/20'}">${sess.lessonNumber}</span>
                                                                                 </div>
                                                                                 <span class="opacity-90">${this.formatTimeDisplay(sess.time)}</span>
                                                                             </div>
@@ -6930,6 +7218,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                         </div>
 
                         <div class="bg-white dark:bg-navy-900 rounded-2xl border border-sky-100 dark:border-slate-800 shadow-xs overflow-hidden">
+                            <div class="overflow-x-auto custom-scrollbar">
                             <table class="w-full text-left border-collapse text-xs">
                                 <thead>
                                     <tr class="bg-sky-50/80 dark:bg-navy-800 border-b border-sky-100 dark:border-slate-800">
@@ -6986,6 +7275,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                                     }).join("")}
                                 </tbody>
                             </table>
+                            </div>
                         </div>
                     </div>
                 `;
@@ -7099,6 +7389,43 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 }
             }
 
+            getStudentActiveLessonNotes(studentId) {
+                const notesList = [];
+                (this.state.courses || []).forEach(c => {
+                    if (c.archived) return;
+                    (c.levels || []).forEach(l => {
+                        (l.modules || []).forEach(m => {
+                            if (!(m.studentIds || []).includes(studentId)) return;
+                            const badge = this.formatLevelModuleBadge(c, l, m);
+                            (m.dates || []).forEach((slotKey, idx) => {
+                                const dOnly = this.extractDateFromSlotKey(slotKey);
+                                const les = this.findLessonForSlot(c, m.id, slotKey);
+                                const noteText = (les?.notes || les?.homework || les?.contents || les?.objectives || "").trim();
+                                const titleText = (les?.title || "").trim();
+                                if (noteText || titleText) {
+                                    notesList.push({
+                                        dateIso: dOnly,
+                                        courseName: c.name,
+                                        badge,
+                                        moduleName: m.name || `M${idx + 1}`,
+                                        lessonNum: idx + 1,
+                                        title: titleText || `${this.t("lessonNumberTitle")} ${idx + 1}`,
+                                        notes: noteText || titleText,
+                                        colorHex: this.getCourseColorObj(c.color).hex
+                                    });
+                                }
+                            });
+                        });
+                    });
+                });
+                return notesList.sort((a, b) => b.dateIso.localeCompare(a.dateIso));
+            }
+
+            toggleStudentLessonNotesSection(studentId) {
+                this.showStudentLessonNotesInModal = !this.showStudentLessonNotesInModal;
+                this.openStudentDetailModal(studentId);
+            }
+
             openStudentDetailModal(studentId) {
                 const st = (this.state.studentsDirectory || []).find(s => s.id === studentId);
                 if (!st) return;
@@ -7182,6 +7509,37 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                         <div>
                             <label class="block font-bold mb-1">${this.t("notesLabel")}</label>
                             <textarea id="editStNotes" rows="2" class="w-full rounded-xl border border-sky-200 dark:border-slate-700 bg-transparent p-2.5">${this.escapeHtml(st.notes || '')}</textarea>
+                        </div>
+
+                        <div class="pt-1">
+                            <button type="button" onclick="app.toggleStudentLessonNotesSection('${st.id}')" class="w-full px-3.5 py-2 rounded-xl border border-sky-200 dark:border-slate-700 bg-sky-50/70 dark:bg-navy-800 hover:bg-sky-100 dark:hover:bg-navy-700 font-extrabold text-sky-700 dark:text-sky-300 flex items-center justify-between transition">
+                                <span class="flex items-center gap-2">
+                                    <i class="fa-solid fa-book-open"></i>
+                                    <span>Note delle Lezioni (Gruppi Attivi)</span>
+                                </span>
+                                <i class="fa-solid ${this.showStudentLessonNotesInModal ? 'fa-chevron-up' : 'fa-chevron-down'}"></i>
+                            </button>
+                            ${this.showStudentLessonNotesInModal ? (() => {
+                                const activeNotes = this.getStudentActiveLessonNotes(st.id);
+                                return `
+                                    <div class="mt-2.5 max-h-56 overflow-y-auto custom-scrollbar rounded-xl border border-sky-100 dark:border-slate-800 bg-slate-50/70 dark:bg-navy-950/60 p-3 space-y-2">
+                                        ${activeNotes.length === 0 ? `
+                                            <p class="text-center text-slate-400 py-4">Nessuna nota di lezione registrata nei gruppi attivi dello studente.</p>
+                                        ` : activeNotes.map(n => `
+                                            <div class="p-2.5 rounded-xl bg-white dark:bg-navy-900 border border-sky-100 dark:border-slate-800 space-y-1">
+                                                <div class="flex items-center justify-between gap-2">
+                                                    <div class="flex items-center gap-1.5">
+                                                        <span class="px-1.5 py-0.5 rounded text-[10px] font-extrabold text-white" style="background-color:${n.colorHex}">${this.escapeHtml(n.badge)}</span>
+                                                        <span class="font-extrabold text-slate-800 dark:text-slate-100">${this.escapeHtml(n.courseName)} • ${this.escapeHtml(n.title)}</span>
+                                                    </div>
+                                                    <span class="text-[10px] font-bold text-slate-400 shrink-0">${this.formatDateDisplay(n.dateIso)}</span>
+                                                </div>
+                                                <p class="text-[11px] text-slate-600 dark:text-slate-300 whitespace-pre-line">${this.escapeHtml(n.notes)}</p>
+                                            </div>
+                                        `).join("")}
+                                    </div>
+                                `;
+                            })() : ''}
                         </div>
 
                         <div class="flex justify-end gap-2 pt-2 border-t border-sky-100 dark:border-slate-800">
@@ -7303,15 +7661,28 @@ Removing, obfuscating, or altering these credits violates the author's attributi
             /**
              * Billing ("Fatturazione") View & Pricing Helpers (v26.10.2b)
              */
-            getLessonPricing(mod, slotKey) {
-                if (!mod) return { net: 0, vatPct: 0, discType: 'percent', discVal: 0, discountAmount: 0, netAfterDiscount: 0, vatAmount: 0, gross: 0, hasOverride: false };
+            findCourseForModule(mod) {
+                if (!mod) return this.getActiveCourse();
+                return (this.state.courses || []).find(c =>
+                    (c.levels || []).some(l => (l.modules || []).some(m => m.id === mod.id))
+                ) || this.getActiveCourse();
+            }
+
+            getModuleTotalHours(course, mod) {
+                if (!mod || !Array.isArray(mod.dates)) return 0;
+                const c = course || this.findCourseForModule(mod);
+                return mod.dates.reduce((sum, sk) => sum + this.getLessonDurationHoursForSlot(c, mod, sk), 0);
+            }
+
+            getLessonPricing(mod, slotKey, courseObj = null) {
+                if (!mod) return { net: 0, vatPct: 0, discType: 'percent', discVal: 0, discountAmount: 0, netAfterDiscount: 0, vatAmount: 0, gross: 0, durationHours: 1.5, hasOverride: false };
+                const course = courseObj || this.findCourseForModule(mod);
                 const b = mod.billing || {};
                 const defaultHourly = parseFloat(this.state?.settings?.defaultHourlyRate) || 10.0;
-                const defaultDuration = parseFloat(this.state?.settings?.defaultLessonDurationHours) || 1.5;
                 const defaultVat = parseFloat(this.state?.settings?.defaultVatPercent) || 15.0;
 
                 const hourly = (b.hourlyRateNet !== undefined && b.hourlyRateNet !== null && b.hourlyRateNet !== "") ? parseFloat(b.hourlyRateNet) : defaultHourly;
-                const duration = (b.lessonDurationHours !== undefined && b.lessonDurationHours !== null && b.lessonDurationHours !== "") ? parseFloat(b.lessonDurationHours) : defaultDuration;
+                const duration = this.getLessonDurationHoursForSlot(course, mod, slotKey);
                 const baseNet = hourly * duration;
 
                 const ov = (b.lessonOverrides && b.lessonOverrides[slotKey]) ? b.lessonOverrides[slotKey] : null;
@@ -7338,33 +7709,321 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                     netAfterDiscount,
                     vatAmount,
                     gross,
+                    durationHours: duration,
                     hasOverride: !!ov
                 };
             }
 
-            getModuleTotalGross(mod) {
+            getModuleTotalGross(mod, courseObj = null) {
                 if (!mod || !Array.isArray(mod.dates)) return 0;
+                const course = courseObj || this.findCourseForModule(mod);
                 const b = mod.billing || {};
                 if ((!b.lessonOverrides || Object.keys(b.lessonOverrides).length === 0) && b.discountType === "fixed" && (parseFloat(b.discountValue) || 0) > 0) {
                     const defaultHourly = parseFloat(this.state?.settings?.defaultHourlyRate) || 10.0;
-                    const defaultDuration = parseFloat(this.state?.settings?.defaultLessonDurationHours) || 1.5;
                     const defaultVat = parseFloat(this.state?.settings?.defaultVatPercent) || 15.0;
                     const hourly = (b.hourlyRateNet !== undefined && b.hourlyRateNet !== null && b.hourlyRateNet !== "") ? parseFloat(b.hourlyRateNet) : defaultHourly;
-                    const duration = (b.lessonDurationHours !== undefined && b.lessonDurationHours !== null && b.lessonDurationHours !== "") ? parseFloat(b.lessonDurationHours) : defaultDuration;
                     const vatPct = (b.vatPercent !== undefined && b.vatPercent !== null && b.vatPercent !== "") ? parseFloat(b.vatPercent) : defaultVat;
-                    const totalNet = hourly * duration * mod.dates.length;
+                    const totalHours = this.getModuleTotalHours(course, mod);
+                    const totalNet = hourly * totalHours;
                     const netAfter = Math.max(0, totalNet - (parseFloat(b.discountValue) || 0));
                     return netAfter + (netAfter * (vatPct / 100));
                 }
-                return mod.dates.reduce((sum, sk) => sum + this.getLessonPricing(mod, sk).gross, 0);
+                return mod.dates.reduce((sum, sk) => sum + this.getLessonPricing(mod, sk, course).gross, 0);
+            }
+
+            syncBillingContactsFromCoursesAndStudents() {
+                if (!Array.isArray(this.state.billingContacts)) this.state.billingContacts = [];
+                const existingByKey = new Map();
+                this.state.billingContacts.forEach(ct => {
+                    existingByKey.set(`${ct.sourceType || 'custom'}_${ct.sourceId || ct.id}`, ct);
+                });
+
+                (this.state.courses || []).forEach(c => {
+                    const bi = c.billingConfig?.billingInfo;
+                    if (!bi) return;
+                    const key = `course_${c.id}`;
+                    const modSummary = (c.levels || []).map(l => {
+                        const lCode = l.code === "Altro" ? (l.customName || "Altro") : l.code;
+                        const mNames = (l.modules || []).map(m => m.name).join(", ");
+                        return `${lCode}${mNames ? ` (${mNames})` : ''}`;
+                    }).join(" • ");
+                    const summary = `${c.name}${modSummary ? ` — ${modSummary}` : ''}`;
+                    if (existingByKey.has(key)) {
+                        const item = existingByKey.get(key);
+                        item.fullName = bi.fullName || c.name || item.fullName;
+                        item.idType = bi.idType || item.idType || "cedula";
+                        item.idNumber = bi.idNumber || item.idNumber || "";
+                        item.city = bi.city || item.city || "";
+                        item.address = bi.address || item.address || "";
+                        item.phone = bi.phone || item.phone || "";
+                        item.email = bi.email || item.email || "";
+                        item.courseSummary = summary;
+                    } else if (bi.fullName || bi.idNumber || bi.email || bi.phone) {
+                        this.state.billingContacts.push({
+                            id: `bc-course-${c.id}`,
+                            sourceType: "course",
+                            sourceId: c.id,
+                            fullName: bi.fullName || c.name || "",
+                            idType: bi.idType || "cedula",
+                            idNumber: bi.idNumber || "",
+                            city: bi.city || "",
+                            address: bi.address || "",
+                            phone: bi.phone || "",
+                            email: bi.email || "",
+                            courseSummary: summary
+                        });
+                    }
+                });
+
+                (this.state.studentsDirectory || []).forEach(st => {
+                    const bi = st.billingInfo || {};
+                    const key = `student_${st.id}`;
+                    const fullStName = `${st.firstName || ''} ${st.lastName || ''}`.trim();
+                    const enrolledSummary = [];
+                    (this.state.courses || []).forEach(c => {
+                        (c.levels || []).forEach(l => {
+                            (l.modules || []).forEach(m => {
+                                if ((m.studentIds || []).includes(st.id)) {
+                                    enrolledSummary.push(`${c.name} (${this.formatLevelModuleBadge(c, l, m)})`);
+                                }
+                            });
+                        });
+                    });
+                    const summary = enrolledSummary.join(" • ") || st.lastFollowedLevel || st.currentLevel || "A1";
+                    if (existingByKey.has(key)) {
+                        const item = existingByKey.get(key);
+                        item.fullName = bi.fullName || fullStName || item.fullName;
+                        item.idType = bi.idType || item.idType || "cedula";
+                        item.idNumber = bi.idNumber || item.idNumber || "";
+                        item.city = bi.city || st.city || item.city || "";
+                        item.address = bi.address || item.address || "";
+                        item.phone = bi.phone || st.phone || item.phone || "";
+                        item.email = bi.email || st.email || item.email || "";
+                        item.courseSummary = summary;
+                    } else {
+                        this.state.billingContacts.push({
+                            id: `bc-student-${st.id}`,
+                            sourceType: "student",
+                            sourceId: st.id,
+                            fullName: bi.fullName || fullStName,
+                            idType: bi.idType || "cedula",
+                            idNumber: bi.idNumber || "",
+                            city: bi.city || st.city || "",
+                            address: bi.address || "",
+                            phone: bi.phone || st.phone || "",
+                            email: bi.email || st.email || "",
+                            courseSummary: summary
+                        });
+                    }
+                });
+            }
+
+            openBillingContactModal(contactId = null) {
+                this.syncBillingContactsFromCoursesAndStudents();
+                const ct = contactId ? (this.state.billingContacts || []).find(x => x.id === contactId) : null;
+                this.openModal(`
+                    <form onsubmit="app.saveBillingContactModal(event, '${ct ? ct.id : ''}')" class="p-6 space-y-4 text-xs max-w-lg">
+                        <div class="flex items-center justify-between border-b border-sky-100 dark:border-slate-800 pb-3">
+                            <h3 class="text-sm font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
+                                <i class="fa-solid fa-address-book text-sky-600"></i>
+                                <span>${ct ? 'Modifica Contatto di Fatturazione' : 'Nuovo Contatto di Fatturazione'}</span>
+                            </h3>
+                            <button type="button" onclick="app.closeModal()" class="w-8 h-8 rounded-lg hover:bg-slate-100 dark:hover:bg-navy-800 flex items-center justify-center"><i class="fa-solid fa-xmark"></i></button>
+                        </div>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div class="sm:col-span-2">
+                                <label class="block font-bold mb-1">${this.t("fullNameBillingLabel")} *</label>
+                                <input type="text" id="bcFullName" required value="${this.escapeHtml(ct?.fullName || '')}" class="w-full h-9 rounded-xl border border-sky-200 dark:border-slate-700 bg-transparent px-3 font-bold">
+                            </div>
+                            <div>
+                                <label class="block font-bold mb-1">${this.t("idTypeLabel")}</label>
+                                <select id="bcIdType" class="w-full h-9 rounded-xl border border-sky-200 dark:border-slate-700 bg-transparent px-3 font-bold">
+                                    <option value="cedula" ${ct?.idType === 'cedula' ? 'selected' : ''}>Cédula / CF</option>
+                                    <option value="ruc" ${ct?.idType === 'ruc' ? 'selected' : ''}>RUC / P.IVA</option>
+                                    <option value="passport" ${ct?.idType === 'passport' ? 'selected' : ''}>Pasaporte / Altro</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block font-bold mb-1">${this.t("idNumberLabel")}</label>
+                                <input type="text" id="bcIdNum" value="${this.escapeHtml(ct?.idNumber || '')}" class="w-full h-9 rounded-xl border border-sky-200 dark:border-slate-700 bg-transparent px-3 font-bold">
+                            </div>
+                            <div>
+                                <label class="block font-bold mb-1">${this.t("phoneBillingLabel")}</label>
+                                <input type="text" id="bcPhone" value="${this.escapeHtml(ct?.phone || '')}" class="w-full h-9 rounded-xl border border-sky-200 dark:border-slate-700 bg-transparent px-3">
+                            </div>
+                            <div>
+                                <label class="block font-bold mb-1">${this.t("emailBillingLabel")}</label>
+                                <input type="email" id="bcEmail" value="${this.escapeHtml(ct?.email || '')}" class="w-full h-9 rounded-xl border border-sky-200 dark:border-slate-700 bg-transparent px-3">
+                            </div>
+                            <div>
+                                <label class="block font-bold mb-1">${this.t("cityBillingLabel")}</label>
+                                <input type="text" id="bcCity" value="${this.escapeHtml(ct?.city || '')}" class="w-full h-9 rounded-xl border border-sky-200 dark:border-slate-700 bg-transparent px-3">
+                            </div>
+                            <div>
+                                <label class="block font-bold mb-1">${this.t("addressBillingLabel")}</label>
+                                <input type="text" id="bcAddress" value="${this.escapeHtml(ct?.address || '')}" class="w-full h-9 rounded-xl border border-sky-200 dark:border-slate-700 bg-transparent px-3">
+                            </div>
+                            <div class="sm:col-span-2">
+                                <label class="block font-bold mb-1">Corso / Modulo / Livello Associato</label>
+                                <input type="text" id="bcSummary" value="${this.escapeHtml(ct?.courseSummary || '')}" class="w-full h-9 rounded-xl border border-sky-200 dark:border-slate-700 bg-transparent px-3">
+                            </div>
+                        </div>
+                        <div class="flex justify-end gap-2 pt-3 border-t border-sky-100 dark:border-slate-800">
+                            <button type="button" onclick="app.closeModal()" class="px-4 py-2 rounded-xl border border-slate-300 dark:border-slate-700 font-bold">${this.t("cancelBtn")}</button>
+                            <button type="submit" class="px-5 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-extrabold">${this.t("saveBtn")}</button>
+                        </div>
+                    </form>
+                `, "max-w-lg");
+            }
+
+            saveBillingContactModal(e, contactId) {
+                if (e) e.preventDefault();
+                if (!Array.isArray(this.state.billingContacts)) this.state.billingContacts = [];
+                const payload = {
+                    fullName: document.getElementById("bcFullName")?.value.trim() || "",
+                    idType: document.getElementById("bcIdType")?.value || "cedula",
+                    idNumber: document.getElementById("bcIdNum")?.value.trim() || "",
+                    phone: document.getElementById("bcPhone")?.value.trim() || "",
+                    email: document.getElementById("bcEmail")?.value.trim() || "",
+                    city: document.getElementById("bcCity")?.value.trim() || "",
+                    address: document.getElementById("bcAddress")?.value.trim() || "",
+                    courseSummary: document.getElementById("bcSummary")?.value.trim() || ""
+                };
+                if (!payload.fullName) return;
+                const existing = contactId ? this.state.billingContacts.find(x => x.id === contactId) : null;
+                if (existing) {
+                    Object.assign(existing, payload);
+                    if (existing.sourceType === "course" && existing.sourceId) {
+                        const c = (this.state.courses || []).find(x => x.id === existing.sourceId);
+                        if (c) {
+                            if (!c.billingConfig) c.billingConfig = {};
+                            c.billingConfig.billingInfo = { ...payload };
+                        }
+                    } else if (existing.sourceType === "student" && existing.sourceId) {
+                        const st = (this.state.studentsDirectory || []).find(x => x.id === existing.sourceId);
+                        if (st) {
+                            st.billingInfo = { ...payload };
+                        }
+                    }
+                } else {
+                    this.state.billingContacts.unshift({
+                        id: "bc-" + Math.random().toString(36).substr(2, 7),
+                        sourceType: "custom",
+                        sourceId: "",
+                        ...payload
+                    });
+                }
+                this.persist();
+                this.closeModal(true);
+                this.renderMainView();
+                this.showToast(this.t("saveBtn"), "success");
+            }
+
+            deleteBillingContact(contactId) {
+                this.state.billingContacts = (this.state.billingContacts || []).filter(x => x.id !== contactId);
+                this.persist();
+                this.renderMainView();
+                this.showToast("Contatto rimosso", "info");
             }
 
             renderBillingView(container) {
+                this.syncBillingContactsFromCoursesAndStudents();
                 const activeCourses = (this.state.courses || []).filter(c => !c.archived);
                 const course = activeCourses.find(c => c.id === this.selectedBillingCourseId) || this.getActiveCourse() || activeCourses[0];
+                const isContactsTab = this.billingViewTab === "contacts";
+
+                const topTabBarHtml = `
+                    <div class="bg-white dark:bg-navy-900 rounded-2xl border border-sky-100 dark:border-slate-800 p-2.5 shadow-xs flex flex-wrap items-center justify-between gap-2 text-xs">
+                        <div class="flex items-center gap-1.5">
+                            <button type="button" onclick="app.billingViewTab = 'course'; app.renderMainView();" class="px-3.5 py-2 rounded-xl font-extrabold flex items-center gap-2 transition ${!isContactsTab ? 'bg-sky-600 text-white shadow-2xs' : 'text-slate-600 dark:text-slate-300 hover:bg-sky-50 dark:hover:bg-navy-800'}">
+                                <i class="fa-solid fa-file-invoice-dollar"></i>
+                                <span>Fatturazione Corso & Moduli</span>
+                            </button>
+                            <button type="button" onclick="app.billingViewTab = 'contacts'; app.renderMainView();" class="px-3.5 py-2 rounded-xl font-extrabold flex items-center gap-2 transition ${isContactsTab ? 'bg-sky-600 text-white shadow-2xs' : 'text-slate-600 dark:text-slate-300 hover:bg-sky-50 dark:hover:bg-navy-800'}">
+                                <i class="fa-solid fa-address-book"></i>
+                                <span>Banca Dati Clienti (${(this.state.billingContacts || []).length})</span>
+                            </button>
+                        </div>
+                        ${isContactsTab ? `
+                            <button type="button" onclick="app.openBillingContactModal()" class="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold flex items-center gap-1.5 shadow-2xs">
+                                <i class="fa-solid fa-user-plus"></i>
+                                <span>Nuovo Cliente</span>
+                            </button>
+                        ` : ''}
+                    </div>
+                `;
+
+                if (isContactsTab) {
+                    const q = (this.billingContactSearchQuery || "").trim().toLowerCase();
+                    const contacts = (this.state.billingContacts || []).filter(ct => {
+                        if (!q) return true;
+                        const hay = `${ct.fullName || ''} ${ct.idNumber || ''} ${ct.city || ''} ${ct.email || ''} ${ct.phone || ''} ${ct.courseSummary || ''}`.toLowerCase();
+                        return hay.includes(q);
+                    });
+
+                    container.innerHTML = `
+                        <div class="space-y-4 text-xs">
+                            ${topTabBarHtml}
+                            <div class="bg-white dark:bg-navy-900 rounded-2xl border border-sky-100 dark:border-slate-800 p-4 shadow-xs space-y-4">
+                                <div class="flex flex-wrap items-center justify-between gap-3">
+                                    <div class="relative flex-1 min-w-[240px]">
+                                        <i class="fa-solid fa-magnifying-glass text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2"></i>
+                                        <input type="text" value="${this.escapeHtml(this.billingContactSearchQuery || '')}" oninput="app.billingContactSearchQuery = this.value; app.renderMainView();" placeholder="Cerca cliente per nome, RUC/Cédula/CF, email, città, corso, livello o modulo..." class="w-full rounded-xl border border-sky-200 dark:border-slate-700 bg-sky-50/40 dark:bg-navy-800 pl-9 pr-3 py-2 font-semibold">
+                                    </div>
+                                </div>
+                                <div class="overflow-x-auto custom-scrollbar">
+                                    <table class="w-full text-left border-collapse text-xs">
+                                        <thead>
+                                            <tr class="bg-sky-50/80 dark:bg-navy-800 border-b border-sky-100 dark:border-slate-800">
+                                                <th class="px-4 py-3 font-extrabold min-w-[200px]">Cliente / Ragione Sociale</th>
+                                                <th class="px-4 py-3 font-extrabold min-w-[140px]">Documento Fiscale</th>
+                                                <th class="px-4 py-3 font-extrabold min-w-[200px]">Corso / Modulo / Livello</th>
+                                                <th class="px-4 py-3 font-extrabold min-w-[160px]">Contatti</th>
+                                                <th class="px-4 py-3 font-extrabold min-w-[130px]">Città & Indirizzo</th>
+                                                <th class="px-4 py-3 font-extrabold text-right min-w-[100px]">Azioni</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody class="divide-y divide-sky-100/60 dark:divide-slate-800">
+                                            ${contacts.length === 0 ? `
+                                                <tr><td colspan="6" class="px-6 py-10 text-center text-slate-400">Nessun contatto di fatturazione trovato.</td></tr>
+                                            ` : contacts.map(ct => `
+                                                <tr class="hover:bg-sky-50/40 dark:hover:bg-navy-800/50">
+                                                    <td class="px-4 py-3 font-extrabold text-slate-900 dark:text-white">
+                                                        <div>${this.escapeHtml(ct.fullName || '—')}</div>
+                                                        <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-100 dark:bg-navy-800 text-slate-500 uppercase">${this.escapeHtml(ct.sourceType || 'cliente')}</span>
+                                                    </td>
+                                                    <td class="px-4 py-3 font-bold text-slate-700 dark:text-slate-300">
+                                                        <span class="uppercase text-[10px] text-sky-600 dark:text-sky-400 block">${this.escapeHtml(ct.idType || 'ID')}</span>
+                                                        <span>${this.escapeHtml(ct.idNumber || '—')}</span>
+                                                    </td>
+                                                    <td class="px-4 py-3 font-semibold text-slate-600 dark:text-slate-300">${this.escapeHtml(ct.courseSummary || '—')}</td>
+                                                    <td class="px-4 py-3">
+                                                        <div class="font-semibold">${this.escapeHtml(ct.email || '—')}</div>
+                                                        <div class="text-[11px] text-slate-400">${this.escapeHtml(ct.phone || '')}</div>
+                                                    </td>
+                                                    <td class="px-4 py-3">
+                                                        <div class="font-semibold">${this.escapeHtml(ct.city || '—')}</div>
+                                                        <div class="text-[11px] text-slate-400">${this.escapeHtml(ct.address || '')}</div>
+                                                    </td>
+                                                    <td class="px-4 py-3 text-right">
+                                                        <div class="inline-flex items-center gap-1.5">
+                                                            <button type="button" onclick="app.openBillingContactModal('${ct.id}')" class="px-2.5 py-1 rounded-lg border border-sky-200 dark:border-slate-700 font-bold hover:bg-sky-50 dark:hover:bg-navy-800"><i class="fa-solid fa-pen"></i></button>
+                                                            <button type="button" onclick="app.deleteBillingContact('${ct.id}')" class="px-2.5 py-1 rounded-lg border border-rose-200 text-rose-600 font-bold hover:bg-rose-50"><i class="fa-solid fa-trash-can"></i></button>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            `).join("")}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    return;
+                }
 
                 if (!course) {
-                    container.innerHTML = `<div class="p-10 text-center text-xs text-slate-400">${this.t("noActiveCoursesTitle")}</div>`;
+                    container.innerHTML = `<div class="space-y-4">${topTabBarHtml}<div class="p-10 text-center text-xs text-slate-400">${this.t("noActiveCoursesTitle")}</div></div>`;
                     return;
                 }
 
@@ -7418,28 +8077,27 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 (course.levels || []).forEach(lvl => {
                     (lvl.modules || []).forEach(mod => {
                         totalModulesCount++;
-                        const b = mod.billing || {};
-                        const dur = parseFloat(b.lessonDurationHours) || curSettingDuration;
-                        totalScheduledHours += (mod.dates || []).length * dur;
                         (mod.dates || []).forEach(d => {
+                            const dur = this.getLessonDurationHoursForSlot(course, mod, d);
+                            totalScheduledHours += dur;
                             const dOnly = this.extractDateFromSlotKey(d);
                             const hasAtt = mod.attendance && Object.values(mod.attendance).some(stObj => stObj && stObj[d]);
                             if (dOnly <= todayIso || hasAtt) {
                                 totalCompletedHours += dur;
                             }
                         });
-                        totalCourseGross += this.getModuleTotalGross(mod);
+                        totalCourseGross += this.getModuleTotalGross(mod, course);
                     });
                 });
 
                 const curBilling = currentModule?.billing || {};
                 const curHourlyRate = (curBilling.hourlyRateNet !== undefined && curBilling.hourlyRateNet !== null && curBilling.hourlyRateNet !== "") ? parseFloat(curBilling.hourlyRateNet) : curSettingHourly;
-                const curDuration = (curBilling.lessonDurationHours !== undefined && curBilling.lessonDurationHours !== null && curBilling.lessonDurationHours !== "") ? parseFloat(curBilling.lessonDurationHours) : curSettingDuration;
                 const curVat = (curBilling.vatPercent !== undefined && curBilling.vatPercent !== null && curBilling.vatPercent !== "") ? parseFloat(curBilling.vatPercent) : curSettingVat;
                 const curDiscType = curBilling.discountType || "percent";
                 const curDiscVal = parseFloat(curBilling.discountValue) || 0;
 
-                const curModuleCost = currentModule ? this.getModuleTotalGross(currentModule) : 0;
+                const curModuleCost = currentModule ? this.getModuleTotalGross(currentModule, course) : 0;
+                const curModuleTotalHours = currentModule ? this.getModuleTotalHours(course, currentModule) : 0;
                 const curSortedSlots = currentModule ? this.sortModuleSlots(course, currentModule) : [];
 
                 // Build Calendar Data for Opened Module
@@ -7533,6 +8191,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
 
                 container.innerHTML = `
                     <div class="space-y-5 text-xs">
+                        ${topTabBarHtml}
                         <!-- 1. GENERAL OVERVIEW SPACE -->
                         <div class="bg-white dark:bg-navy-900 rounded-2xl border border-sky-100 dark:border-slate-800 p-5 shadow-xs space-y-4">
                             <div class="flex flex-wrap items-center justify-between gap-3 border-b border-sky-100 dark:border-slate-800 pb-3">
@@ -7594,9 +8253,8 @@ Removing, obfuscating, or altering these credits violates the author's attributi
 
                                         <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
                                             ${(lvl.modules || []).map(mod => {
-                                                const mCost = this.getModuleTotalGross(mod);
-                                                const mDur = parseFloat(mod.billing?.lessonDurationHours) || curSettingDuration;
-                                                const mHours = ((mod.dates || []).length * mDur).toFixed(1);
+                                                const mCost = this.getModuleTotalGross(mod, course);
+                                                const mHours = this.getModuleTotalHours(course, mod).toFixed(1);
                                                 const isOpened = currentModule && currentModule.id === mod.id;
                                                 return `
                                                     <button type="button" onclick="app.selectedBillingModuleId = '${mod.id}'; app.renderMainView();"
@@ -7630,7 +8288,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                                                 ${this.escapeHtml(this.formatLevelModuleBadge(course, currentLevel, currentModule))}
                                             </span>
                                         </div>
-                                        <p class="text-[11px] text-slate-400 mt-1">${curSortedSlots.length} ${this.t("lessonsLower")} • ${(curSortedSlots.length * curDuration).toFixed(1)} h</p>
+                                        <p class="text-[11px] text-slate-400 mt-1">${curSortedSlots.length} ${this.t("lessonsLower")} • ${curModuleTotalHours.toFixed(1)} h (calcolate dagli orari lezione)</p>
                                     </div>
 
                                     <div class="flex items-center gap-3">
@@ -7653,18 +8311,13 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                                             <i class="fa-solid fa-sliders" style="color: ${pal.hex};"></i>
                                             <span>${this.t("globalPricingTool")}</span>
                                         </div>
-                                        <span class="text-[11px] text-slate-400">Modifica contemporaneamente tariffe, IVA e sconti su tutte le lezioni</span>
+                                        <span class="text-[11px] text-slate-400">La durata di ogni lezione viene calcolata automaticamente dall'orario di inizio e fine nel Piano Lezioni</span>
                                     </div>
 
-                                    <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3 items-end">
+                                    <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 items-end">
                                         <div>
                                             <label class="block font-bold text-[11px] text-slate-500 mb-1">Tariffa Oraria (${this.getCurrency()})</label>
                                             <input type="number" step="0.01" id="batchHourlyRateNet" value="${curHourlyRate}"
-                                                class="w-full h-9 rounded-xl border border-sky-200 dark:border-slate-700 bg-white dark:bg-navy-900 px-3 font-bold text-slate-800 dark:text-slate-100">
-                                        </div>
-                                        <div>
-                                            <label class="block font-bold text-[11px] text-slate-500 mb-1">Durata (h)</label>
-                                            <input type="number" step="0.25" id="batchLessonDurationHours" value="${curDuration}"
                                                 class="w-full h-9 rounded-xl border border-sky-200 dark:border-slate-700 bg-white dark:bg-navy-900 px-3 font-bold text-slate-800 dark:text-slate-100">
                                         </div>
                                         <div>
@@ -7974,7 +8627,6 @@ Removing, obfuscating, or altering these credits violates the author's attributi
 
                 mod.billing = {
                     hourlyRateNet: parseFloat(document.getElementById("batchHourlyRateNet")?.value) || 0,
-                    lessonDurationHours: parseFloat(document.getElementById("batchLessonDurationHours")?.value) || 1.5,
                     vatPercent: parseFloat(document.getElementById("batchVatPercent")?.value) || 0,
                     discountType: document.getElementById("batchDiscountType")?.value || "percent",
                     discountTarget: "total",
@@ -8014,10 +8666,8 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 }
 
                 const pal = this.getCourseColorObj(course.color);
-                const curSettingDuration = parseFloat(this.state?.settings?.defaultLessonDurationHours) || 1.5;
-                const dur = parseFloat(mod.billing?.lessonDurationHours) || curSettingDuration;
-                const totalHours = (slots.length * dur).toFixed(1);
-                const totalCost = this.getModuleTotalGross(mod);
+                const totalHours = this.getModuleTotalHours(course, mod).toFixed(1);
+                const totalCost = this.getModuleTotalGross(mod, course);
                 const fInfo = course.billingConfig?.billingInfo || {};
 
                 // Dimensions
@@ -9140,6 +9790,10 @@ Dettagli di Sistema:
                         }
 
                         if (!manual) {
+                            // Automatic silent background download & staging for next startup
+                            if (window.electronAPI && typeof window.electronAPI.stageSilentUpdate === "function" && primaryUrl && primaryUrl.toLowerCase().endsWith(".exe")) {
+                                window.electronAPI.stageSilentUpdate(primaryUrl, highestCandidate.parsed.raw);
+                            }
                             return;
                         }
 
@@ -9306,14 +9960,10 @@ Dettagli di Sistema:
                                     </h4>
                                     <p class="text-[11px] text-slate-400 mt-0.5">Valori predefiniti applicati automaticamente nei nuovi moduli e nel sistema di fatturazione.</p>
                                 </div>
-                                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                     <div>
                                         <label class="block font-bold mb-1">${this.t("defaultHourlyRateLabel")} (${this.getCurrency()})</label>
                                         <input type="number" step="0.5" value="${s.defaultHourlyRate ?? 10}" onchange="app.updateSetting('defaultHourlyRate', parseFloat(this.value)||10)" class="w-full rounded-xl border border-sky-200 dark:border-slate-700 bg-transparent px-3 py-2 font-bold">
-                                    </div>
-                                    <div>
-                                        <label class="block font-bold mb-1">${this.t("defaultLessonDurationLabel")}</label>
-                                        <input type="number" step="0.25" value="${s.defaultLessonDurationHours ?? 1.5}" onchange="app.updateSetting('defaultLessonDurationHours', parseFloat(this.value)||1.5)" class="w-full rounded-xl border border-sky-200 dark:border-slate-700 bg-transparent px-3 py-2 font-bold">
                                     </div>
                                     <div>
                                         <label class="block font-bold mb-1">${this.t("defaultVatPercentLabel")}</label>
@@ -9484,14 +10134,83 @@ Dettagli di Sistema:
              * Credits are moved into a dedicated 'i' (info) button popover/modal.
              * Only the latest version changelog is shown in this view.
              */
+            isBetaVersion() {
+                const curVer = String(this.state?.version || INITIAL_DATA.version || "");
+                const parsed = this.parseAppVersion(curVer);
+                return parsed.isBeta || this.state?.channel === "unstable" || INITIAL_DATA.channel === "unstable";
+            }
+
+            async refreshBetaUpdaterLogs() {
+                const el = document.getElementById("betaUpdaterLogsConsole");
+                if (!el) return;
+                if (window.electronAPI && typeof window.electronAPI.getUpdaterLogs === "function") {
+                    const res = await window.electronAPI.getUpdaterLogs();
+                    const logs = (res && typeof res === "object") ? (res.logs || "") : (res || "");
+                    el.textContent = logs || "[INFO] Nessun comando registrato nel log di aggiornamento.";
+                    el.scrollTop = el.scrollHeight;
+                } else {
+                    el.textContent = "[INFO] Ambiente web: log nativo disponibile nell'eseguibile Windows.";
+                }
+            }
+
+            async clearBetaUpdaterLogs() {
+                if (window.electronAPI && typeof window.electronAPI.clearUpdaterLogs === "function") {
+                    await window.electronAPI.clearUpdaterLogs();
+                }
+                await this.refreshBetaUpdaterLogs();
+            }
+
+            async simulateSilentBackgroundUpdate() {
+                try {
+                    if (window.electronAPI && typeof window.electronAPI.appendUpdaterLog === "function") {
+                        await window.electronAPI.appendUpdaterLog("[BETA-SIM] Avvio simulazione aggiornamento automatico da GitHub...");
+                    }
+                    await this.refreshBetaUpdaterLogs();
+                    const res = await fetch("https://api.github.com/repos/Natsvkashii/ClassManager/releases?per_page=10", {
+                        headers: { "Accept": "application/vnd.github+json" },
+                        cache: "no-store"
+                    });
+                    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                    const releases = await res.json();
+                    let chosenAsset = null;
+                    let chosenTag = "26.10.5-001";
+                    for (const r of (releases || [])) {
+                        const exe = (r.assets || []).find(a => (a.name || "").toLowerCase().endsWith(".exe"));
+                        if (exe) {
+                            chosenAsset = exe;
+                            chosenTag = (r.tag_name || "26.10.5-001").replace(/^v/i, "");
+                            break;
+                        }
+                    }
+                    if (!chosenAsset) {
+                        throw new Error("Nessun pacchetto .exe trovato nelle release GitHub.");
+                    }
+                    if (window.electronAPI && typeof window.electronAPI.stageSilentUpdate === "function") {
+                        await window.electronAPI.stageSilentUpdate(chosenAsset.browser_download_url, chosenTag, true);
+                        this.showToast("Simulazione avviata: download silenzioso in corso. Verrà installato al prossimo riavvio.", "info");
+                        setTimeout(() => this.refreshBetaUpdaterLogs(), 1500);
+                        setTimeout(() => this.refreshBetaUpdaterLogs(), 4500);
+                    } else {
+                        this.showToast("Simulazione disponibile nell'applicazione nativa.", "warning");
+                    }
+                } catch (e) {
+                    if (window.electronAPI && typeof window.electronAPI.appendUpdaterLog === "function") {
+                        await window.electronAPI.appendUpdaterLog(`[ERROR] Simulazione fallita: ${e.message}`);
+                    }
+                    await this.refreshBetaUpdaterLogs();
+                    this.showToast(`Errore simulazione: ${e.message}`, "error");
+                }
+            }
+
             renderCreditsView(container) {
                 const s = this.state.settings || {};
-                const currentVer = this.state.version || INITIAL_DATA.version || "26.10.4-012";
+                const currentVer = this.state.version || INITIAL_DATA.version || "26.10.5-001";
+                const isBeta = this.isBetaVersion();
                 const latestChangelog = (this.state.changelog && this.state.changelog.length > 0) ? this.state.changelog[0] : null;
                 const update = this.availableUpdate;
                 const isDownloading = this.updateState?.isDownloading;
                 const downloadPercent = this.updateState?.downloadPercent || 0;
-                const statusMsg = this.updateState?.statusText || (this.updateCheckInProgress ? "Verifica aggiornamenti in corso..." : (update ? `È disponibile una nuova versione: ${update.release.tag_name}` : "ClassDesk è aggiornato all'ultima versione."));
+                const statusMsg = this.updateState?.statusText || (this.updateCheckInProgress ? "Verifica aggiornamenti in corso..." : (update ? `È disponibile una nuova versione: ${update.release.tag_name}` : "ClassDesk è aggiornato all'ultima versione (aggiornamento silenzioso attivo)."));
 
                 container.innerHTML = `
                     <div class="max-w-3xl mx-auto space-y-5 text-xs">
@@ -9501,7 +10220,7 @@ Dettagli di Sistema:
                                 <h2 class="text-xl font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
                                     <span>${this.t("navCredits")}</span>
                                 </h2>
-                                <p class="text-slate-500 mt-0.5">Gestione aggiornamenti, frequenza di verifica e dettagli applicazione</p>
+                                <p class="text-slate-500 mt-0.5">Gestione aggiornamenti automatici silenziosi, verifica manuale di emergenza e dettagli versione</p>
                             </div>
                             <button type="button" onclick="app.openInfoAndCreditsModal()" class="w-9 h-9 rounded-full bg-sky-100 dark:bg-navy-800 text-sky-600 dark:text-sky-300 border border-sky-200 dark:border-slate-700 hover:bg-sky-200 dark:hover:bg-navy-700 flex items-center justify-center font-bold text-sm shadow-2xs transition" title="Informazioni sull'applicazione e crediti">
                                 <i class="fa-solid fa-info"></i>
@@ -9519,7 +10238,7 @@ Dettagli di Sistema:
                                         <div class="flex items-center gap-2">
                                             <h3 class="text-base font-extrabold text-slate-900 dark:text-white">${this.t("appTitle")}</h3>
                                             <span class="px-2.5 py-0.5 rounded-full bg-sky-100 dark:bg-navy-800 text-sky-700 dark:text-sky-300 font-extrabold text-[11px]">v${this.escapeHtml(currentVer)}</span>
-                                            <span class="px-2 py-0.5 rounded-md bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-300 font-extrabold text-[10px]">UNSTABLE</span>
+                                            <span class="px-2 py-0.5 rounded-md ${isBeta ? 'bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-300' : 'bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300'} font-extrabold text-[10px]">${isBeta ? 'BETA / UNSTABLE' : 'STABLE'}</span>
                                             <span class="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Windows Edition</span>
                                         </div>
                                         <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5" id="updateStatusText">${this.escapeHtml(statusMsg)}</p>
@@ -9527,7 +10246,7 @@ Dettagli di Sistema:
                                 </div>
                                 <button type="button" onclick="app.checkForUpdates(true)" ${this.updateCheckInProgress ? 'disabled' : ''} class="px-4 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 disabled:opacity-50 text-white font-extrabold flex items-center gap-2 shadow-2xs transition shrink-0 self-start sm:self-auto">
                                     <i class="fa-solid fa-arrows-rotate ${this.updateCheckInProgress ? 'fa-spin' : ''}"></i>
-                                    <span>${this.updateCheckInProgress ? 'Verifica in corso...' : 'Verifica aggiornamenti'}</span>
+                                    <span>${this.updateCheckInProgress ? 'Verifica in corso...' : 'Verifica manuale'}</span>
                                 </button>
                             </div>
 
@@ -9619,8 +10338,49 @@ Dettagli di Sistema:
                                 </ul>
                             </div>
                         ` : ''}
+
+                        ${isBeta ? `
+                            <div class="bg-white dark:bg-navy-900 rounded-2xl border-2 border-amber-300/80 dark:border-amber-700/70 p-6 shadow-xs space-y-4">
+                                <div class="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-amber-200/70 dark:border-amber-800/60">
+                                    <div class="flex items-center gap-2.5">
+                                        <div class="w-9 h-9 rounded-xl bg-amber-100 dark:bg-amber-950 text-amber-600 flex items-center justify-center text-base">
+                                            <i class="fa-solid fa-flask"></i>
+                                        </div>
+                                        <div>
+                                            <div class="flex items-center gap-2">
+                                                <h3 class="text-sm font-extrabold text-slate-900 dark:text-white">Laboratorio Beta & Diagnostica Aggiornamenti</h3>
+                                                <span class="px-2 py-0.5 rounded bg-amber-200 dark:bg-amber-800 text-amber-900 dark:text-amber-100 text-[9.5px] font-black uppercase">Solo Beta</span>
+                                            </div>
+                                            <p class="text-[11px] text-slate-500">Testa la procedura di aggiornamento silenzioso da GitHub e ispeziona il log dei comandi</p>
+                                        </div>
+                                    </div>
+                                    <div class="flex items-center gap-2">
+                                        <button type="button" onclick="app.simulateSilentBackgroundUpdate()" class="px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-white font-extrabold flex items-center gap-1.5 shadow-2xs transition">
+                                            <i class="fa-solid fa-vial-circle-check"></i>
+                                            <span>Simula Aggiornamento Automatico (GitHub)</span>
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="space-y-2">
+                                    <div class="flex items-center justify-between">
+                                        <span class="font-extrabold text-[11px] text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
+                                            <i class="fa-solid fa-terminal text-amber-600"></i>
+                                            <span>Log Comandi Background Updater</span>
+                                        </span>
+                                        <div class="flex items-center gap-2">
+                                            <button type="button" onclick="app.refreshBetaUpdaterLogs()" class="px-2.5 py-1 rounded-lg border border-sky-200 dark:border-slate-700 font-bold text-[10.5px] hover:bg-sky-50 dark:hover:bg-navy-800">Aggiorna Log</button>
+                                            <button type="button" onclick="app.clearBetaUpdaterLogs()" class="px-2.5 py-1 rounded-lg border border-rose-200 text-rose-600 font-bold text-[10.5px] hover:bg-rose-50">Pulisci</button>
+                                        </div>
+                                    </div>
+                                    <pre id="betaUpdaterLogsConsole" class="w-full h-44 overflow-y-auto custom-scrollbar rounded-xl bg-slate-950 text-emerald-400 p-3.5 font-mono text-[10.5px] leading-relaxed select-text">Caricamento log comandi...</pre>
+                                </div>
+                            </div>
+                        ` : ''}
                     </div>
                 `;
+                if (isBeta) {
+                    setTimeout(() => this.refreshBetaUpdaterLogs(), 50);
+                }
             }
 
             openInfoAndCreditsModal() {
@@ -10580,7 +11340,26 @@ Dettagli di Sistema:
                 this.renderAll();
                 this.showToast(`+${added} ${this.t("lessonsLower")}`, "success");
                 if (this.state.settings?.googleCalendarConnected) {
-                    this.syncModuleToGoogleCalendar(course, sec, false);
+                    this.openModal(`
+                        <div class="p-6 space-y-4 text-xs max-w-md">
+                            <div class="flex items-center gap-3">
+                                <div class="w-10 h-10 rounded-xl bg-blue-100 dark:bg-blue-950 text-blue-600 flex items-center justify-center text-lg shrink-0">
+                                    <i class="fa-brands fa-google"></i>
+                                </div>
+                                <div>
+                                    <h4 class="text-sm font-extrabold text-slate-900 dark:text-white">Sincronizza Ricorrenza su Google Calendar?</h4>
+                                    <p class="text-slate-500 mt-0.5">Hai generato ${added} lezioni ricorrenti nel modulo.</p>
+                                </div>
+                            </div>
+                            <p class="text-slate-600 dark:text-slate-300 leading-relaxed text-[11px]">
+                                Vuoi creare questo evento ricorrente anche su <strong>Google Calendar</strong>?
+                            </p>
+                            <div class="flex justify-end gap-2 pt-2">
+                                <button type="button" onclick="app.closeModal()" class="px-4 py-2 rounded-xl border border-slate-300 dark:border-slate-700 font-bold">No, solo in ClassDesk</button>
+                                <button type="button" onclick="app.closeModal(); app.syncModuleToGoogleCalendar(app.getActiveCourse(), app.getActiveSection(app.getActiveCourse()), true);" class="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-extrabold shadow-xs">Sì, sincronizza con Google</button>
+                            </div>
+                        </div>
+                    `, "max-w-md");
                 }
             }
 
@@ -11555,14 +12334,19 @@ Dettagli di Sistema:
         const app = new ClassRegisterApp();
         window.app = app;
         
-        // Global Keyboard Shortcut: Ctrl+Z / Cmd+Z for Undo
+        // Global Keyboard Shortcut: Ctrl+Z / Cmd+Z for Undo, Ctrl+Y / Cmd+Y (or Ctrl+Shift+Z) for Redo
         window.addEventListener("keydown", (e) => {
+            const activeTag = document.activeElement ? document.activeElement.tagName.toLowerCase() : "";
+            if (activeTag === "input" || activeTag === "textarea") return;
             if ((e.ctrlKey || e.metaKey) && (e.key === "z" || e.key === "Z") && !e.shiftKey) {
-                const activeTag = document.activeElement ? document.activeElement.tagName.toLowerCase() : "";
-                if (activeTag === "input" || activeTag === "textarea") return;
                 e.preventDefault();
                 if (window.app && typeof window.app.performUndo === "function") {
                     window.app.performUndo();
+                }
+            } else if ((e.ctrlKey || e.metaKey) && (e.key === "y" || e.key === "Y" || ((e.key === "z" || e.key === "Z") && e.shiftKey))) {
+                e.preventDefault();
+                if (window.app && typeof window.app.performRedo === "function") {
+                    window.app.performRedo();
                 }
             }
         });
