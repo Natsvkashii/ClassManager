@@ -777,9 +777,11 @@ public struct StudentsDirectoryView: View {
             .padding(12)
             .appCardStyle(cornerRadius: 12)
 
-            // Aligned Directory Table Card wrapped in horizontal ScrollView so resizing window never clips left sidebar
-            ScrollView(.horizontal, showsIndicators: true) {
-                VStack(spacing: 0) {
+            // Aligned Directory Table Card wrapped in GeometryReader for responsive full width
+            GeometryReader { geo in
+                let contentWidth = max(geo.size.width, 1080)
+                ScrollView(.horizontal, showsIndicators: contentWidth > geo.size.width) {
+                    VStack(spacing: 0) {
                     // Table Header Row
                     HStack(spacing: 12) {
                         Text("\(store.t("studentCol")) (\(filtered.count))")
@@ -962,10 +964,11 @@ public struct StudentsDirectoryView: View {
                         }
                     }
                 }
-                .frame(minWidth: 960)
+                .frame(width: contentWidth)
             }
             .clipShape(RoundedRectangle(cornerRadius: 14))
             .appCardStyle(cornerRadius: 14)
+        }
         }
         .padding(20)
         .alert(
@@ -1900,20 +1903,10 @@ public struct BillingView: View {
                 .padding(22)
             }
             .sheet(isPresented: $showFiscalModal) {
-                FiscalInfoModalSheet(course: course, onSave: { updatedInfo in
-                    store.recordUndoSnapshot()
-                    store.state.courses[cIdx].billingConfig.billingInfo = updatedInfo
-                    AppState.syncBillingContactsFromCoursesAndStudents(
-                        contacts: &store.state.billingContacts,
-                        courses: store.state.courses,
-                        students: store.state.studentsDirectory
-                    )
-                    store.persist()
-                    store.showToast(store.t("saveBillingBtn"))
-                    showFiscalModal = false
-                }, onCancel: {
+                FiscalInfoModalSheet(course: course, module: currentModule, onDismiss: {
                     showFiscalModal = false
                 })
+                .environment(store)
             }
             .sheet(isPresented: Binding(
                 get: { editingSlotKey != nil },
@@ -2378,28 +2371,67 @@ private struct LessonPricingModalSheet: View {
 private struct FiscalInfoModalSheet: View {
     @Environment(AppStore.self) private var store
     let course: Course
-    @State private var info: BillingInfo
-    let onSave: (BillingInfo) -> Void
-    let onCancel: () -> Void
+    let module: CourseModule
+    let onDismiss: () -> Void
 
-    init(course: Course, onSave: @escaping (BillingInfo) -> Void, onCancel: @escaping () -> Void) {
-        self.course = course
-        self._info = State(initialValue: course.billingConfig.billingInfo)
-        self.onSave = onSave
-        self.onCancel = onCancel
+    @State private var clientIndex: Int = 0
+    @State private var showContactPicker: Bool = false
+    @State private var creatingContact: Bool = false
+
+    private var associatedIds: [String] {
+        guard let cIdx = store.state.courses.firstIndex(where: { $0.id == course.id }),
+              let lIdx = store.state.courses[cIdx].levels.firstIndex(where: { $0.modules.contains(where: { $0.id == module.id }) }),
+              let mIdx = store.state.courses[cIdx].levels[lIdx].modules.firstIndex(where: { $0.id == module.id }) else {
+            return module.billingContactIds
+        }
+        return store.state.courses[cIdx].levels[lIdx].modules[mIdx].billingContactIds
+    }
+
+    private func associate(contactId: String) {
+        guard let cIdx = store.state.courses.firstIndex(where: { $0.id == course.id }),
+              let lIdx = store.state.courses[cIdx].levels.firstIndex(where: { $0.modules.contains(where: { $0.id == module.id }) }),
+              let mIdx = store.state.courses[cIdx].levels[lIdx].modules.firstIndex(where: { $0.id == module.id }) else { return }
+        store.recordUndoSnapshot()
+        if !store.state.courses[cIdx].levels[lIdx].modules[mIdx].billingContactIds.contains(contactId) {
+            store.state.courses[cIdx].levels[lIdx].modules[mIdx].billingContactIds.append(contactId)
+        }
+        store.persist()
+        clientIndex = max(0, store.state.courses[cIdx].levels[lIdx].modules[mIdx].billingContactIds.count - 1)
+    }
+
+    private func dissociate(at index: Int) {
+        guard let cIdx = store.state.courses.firstIndex(where: { $0.id == course.id }),
+              let lIdx = store.state.courses[cIdx].levels.firstIndex(where: { $0.modules.contains(where: { $0.id == module.id }) }),
+              let mIdx = store.state.courses[cIdx].levels[lIdx].modules.firstIndex(where: { $0.id == module.id }) else { return }
+        store.recordUndoSnapshot()
+        if store.state.courses[cIdx].levels[lIdx].modules[mIdx].billingContactIds.indices.contains(index) {
+            store.state.courses[cIdx].levels[lIdx].modules[mIdx].billingContactIds.remove(at: index)
+        }
+        store.persist()
+        if clientIndex >= store.state.courses[cIdx].levels[lIdx].modules[mIdx].billingContactIds.count {
+            clientIndex = max(0, store.state.courses[cIdx].levels[lIdx].modules[mIdx].billingContactIds.count - 1)
+        }
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack {
-                HStack(spacing: 8) {
-                    Image(systemName: "building.columns.fill")
-                        .foregroundStyle(.blue)
-                    Text(store.t("ecuadorBillingHeader"))
+        let ids = associatedIds
+        let safeIndex = ids.isEmpty ? 0 : min(max(0, clientIndex), ids.count - 1)
+        let activeContact: BillingContact? = ids.isEmpty ? nil : store.state.billingContacts.first(where: { $0.id == ids[safeIndex] })
+
+        VStack(alignment: .leading, spacing: 18) {
+            // Header
+            HStack(spacing: 8) {
+                Image(systemName: "building.columns.fill")
+                    .foregroundStyle(.blue)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(store.t("billingFiscalDataBtn"))
                         .font(.headline.bold())
+                    Text("\(course.name) • \(module.name)")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
                 Spacer()
-                Button { onCancel() } label: {
+                Button { onDismiss() } label: {
                     Image(systemName: "xmark.circle.fill")
                         .font(.title3)
                         .foregroundStyle(.secondary)
@@ -2409,67 +2441,299 @@ private struct FiscalInfoModalSheet: View {
 
             Divider()
 
-            VStack(alignment: .leading, spacing: 12) {
-                HStack(spacing: 12) {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(store.t("idTypeLabel")).font(.caption.bold())
-                        Picker("", selection: $info.idType) {
-                            Text("Cédula").tag("cedula")
-                            Text("RUC").tag("ruc")
-                            Text("Pasaporte / Altro").tag("passport")
+            // Main Content: White Card with Static Info OR Empty State
+            if ids.isEmpty || activeContact == nil {
+                VStack(spacing: 16) {
+                    Image(systemName: "doc.text.magnifyingglass")
+                        .font(.system(size: 48))
+                        .foregroundStyle(.secondary.opacity(0.6))
+
+                    Text(store.t("noBillingAssociatedMsg"))
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+
+                    Button {
+                        showContactPicker = true
+                    } label: {
+                        Label(store.t("associateBillingDataBtn"), systemImage: "link.badge.plus")
+                            .font(.caption.bold())
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                    }
+                    .buttonStyle(.borderedProminent)
+                }
+                .frame(maxWidth: .infinity, minHeight: 220)
+                .padding(20)
+                .appCardStyle(cornerRadius: 14)
+            } else if let contact = activeContact {
+                VStack(alignment: .leading, spacing: 16) {
+                    // Contact Identity Banner
+                    HStack(alignment: .top) {
+                        VStack(alignment: .leading, spacing: 4) {
+                            HStack(spacing: 6) {
+                                Text(contact.idType.uppercased())
+                                    .font(.system(size: 10, weight: .black))
+                                    .padding(.horizontal, 6)
+                                    .padding(.vertical, 2)
+                                    .background(Capsule().fill(Color.blue.opacity(0.15)))
+                                    .foregroundStyle(.blue)
+                                Text(contact.idNumber.isEmpty ? "—" : contact.idNumber)
+                                    .font(.subheadline.bold())
+                                    .foregroundStyle(.secondary)
+                            }
+
+                            Text(contact.fullName.isEmpty ? "—" : contact.fullName)
+                                .font(.title3.bold())
+                                .foregroundStyle(.primary)
                         }
-                        .labelsHidden()
+                        Spacer()
                     }
-                    .frame(width: 140)
 
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(store.t("idNumberLabel")).font(.caption.bold())
-                        TextField("", text: $info.idNumber).textFieldStyle(.roundedBorder)
+                    Divider()
+
+                    // Static Details directly on white card
+                    Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 10) {
+                        GridRow {
+                            Text(store.t("cityBillingLabel"))
+                                .font(.caption.bold())
+                                .foregroundStyle(.secondary)
+                                .frame(width: 130, alignment: .leading)
+                            Text(contact.city.isEmpty ? "—" : contact.city)
+                                .font(.body)
+                        }
+                        GridRow {
+                            Text(store.t("addressBillingLabel"))
+                                .font(.caption.bold())
+                                .foregroundStyle(.secondary)
+                                .frame(width: 130, alignment: .leading)
+                            Text(contact.address.isEmpty ? "—" : contact.address)
+                                .font(.body)
+                        }
+                        GridRow {
+                            Text(store.t("phoneBillingLabel"))
+                                .font(.caption.bold())
+                                .foregroundStyle(.secondary)
+                                .frame(width: 130, alignment: .leading)
+                            Text(contact.phone.isEmpty ? "—" : contact.phone)
+                                .font(.body)
+                        }
+                        GridRow {
+                            Text(store.t("emailBillingLabel"))
+                                .font(.caption.bold())
+                                .foregroundStyle(.secondary)
+                                .frame(width: 130, alignment: .leading)
+                            Text(contact.email.isEmpty ? "—" : contact.email)
+                                .font(.body)
+                        }
+                    }
+
+                    Divider()
+
+                    // Bottom navigation and actions
+                    HStack {
+                        // Arrow paging controls: ‹ Cliente X di N ›
+                        HStack(spacing: 8) {
+                            Button {
+                                if clientIndex > 0 { clientIndex -= 1 }
+                            } label: {
+                                Image(systemName: "chevron.left")
+                                    .font(.caption.bold())
+                                    .frame(width: 28, height: 28)
+                                    .background(Circle().fill(Color.secondary.opacity(0.12)))
+                            }
+                            .buttonStyle(.plain)
+                            .disabled(clientIndex <= 0)
+
+                            Text(String(format: store.t("clientIndexPaging"), safeIndex + 1, ids.count))
+                                .font(.caption.bold())
+                                .foregroundStyle(.secondary)
+
+                            Button {
+                                if clientIndex < ids.count - 1 { clientIndex += 1 }
+                            } label: {
+                                Image(systemName: "chevron.right")
+                                    .font(.caption.bold())
+                                    .frame(width: 28, height: 28)
+                                    .background(Circle().fill(Color.secondary.opacity(0.12)))
+                            }
+                            .buttonStyle(.plain)
+                            .disabled(clientIndex >= ids.count - 1)
+                        }
+
+                        Spacer()
+
+                        Button(role: .destructive) {
+                            dissociate(at: safeIndex)
+                        } label: {
+                            Label(store.t("dissociateBillingBtn"), systemImage: "link.badge.minus")
+                                .font(.caption)
+                        }
+                        .buttonStyle(.bordered)
+                        .tint(.red)
+
+                        Button {
+                            showContactPicker = true
+                        } label: {
+                            Label(store.t("addBillingDataBtn"), systemImage: "plus")
+                                .font(.caption.bold())
+                        }
+                        .buttonStyle(.borderedProminent)
                     }
                 }
-
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(store.t("fullNameBillingLabel")).font(.caption.bold())
-                    TextField("", text: $info.fullName).textFieldStyle(.roundedBorder)
-                }
-
-                HStack(spacing: 12) {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(store.t("cityBillingLabel")).font(.caption.bold())
-                        TextField("", text: $info.city).textFieldStyle(.roundedBorder)
-                    }
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(store.t("addressBillingLabel")).font(.caption.bold())
-                        TextField("", text: $info.address).textFieldStyle(.roundedBorder)
-                    }
-                }
-
-                HStack(spacing: 12) {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(store.t("phoneBillingLabel")).font(.caption.bold())
-                        TextField("", text: $info.phone).textFieldStyle(.roundedBorder)
-                    }
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(store.t("emailBillingLabel")).font(.caption.bold())
-                        TextField("", text: $info.email).textFieldStyle(.roundedBorder)
-                    }
-                }
+                .padding(20)
+                .appCardStyle(cornerRadius: 14)
             }
-
-            Divider()
 
             HStack {
                 Spacer()
-                Button("Annulla") { onCancel() }
-                    .buttonStyle(.plain)
-                Button(store.t("saveBillingBtn")) {
-                    onSave(info)
+                Button("Chiudi") {
+                    onDismiss()
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(.bordered)
             }
         }
         .padding(22)
-        .frame(width: 480)
+        .frame(width: 520)
+        .sheet(isPresented: $showContactPicker) {
+            BillingContactPickerSheet(
+                alreadyAssociatedIds: associatedIds,
+                onSelect: { selectedContact in
+                    associate(contactId: selectedContact.id)
+                    showContactPicker = false
+                },
+                onAddNew: {
+                    showContactPicker = false
+                    creatingContact = true
+                },
+                onCancel: {
+                    showContactPicker = false
+                }
+            )
+            .environment(store)
+        }
+        .sheet(isPresented: $creatingContact) {
+            BillingContactEditorSheet(
+                contact: BillingContact(),
+                isNew: true,
+                onSave: { newCt in
+                    store.recordUndoSnapshot()
+                    store.state.billingContacts.append(newCt)
+                    store.persist()
+                    associate(contactId: newCt.id)
+                    creatingContact = false
+                },
+                onCancel: {
+                    creatingContact = false
+                }
+            )
+            .environment(store)
+        }
+    }
+}
+
+// MARK: - Billing Contact Picker Sheet
+
+private struct BillingContactPickerSheet: View {
+    @Environment(AppStore.self) private var store
+    let alreadyAssociatedIds: [String]
+    let onSelect: (BillingContact) -> Void
+    let onAddNew: () -> Void
+    let onCancel: () -> Void
+    @State private var query: String = ""
+
+    var body: some View {
+        let q = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let available = store.state.billingContacts.filter { ct in
+            guard !q.isEmpty else { return true }
+            return "\(ct.fullName) \(ct.idNumber) \(ct.email) \(ct.city)".lowercased().contains(q)
+        }
+
+        VStack(alignment: .leading, spacing: 14) {
+            HStack {
+                Text(store.t("selectBillingProfilePrompt"))
+                    .font(.headline.bold())
+                Spacer()
+                Button { onCancel() } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.title3)
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+            }
+
+            HStack {
+                Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
+                TextField("Cerca...", text: $query)
+                    .textFieldStyle(.roundedBorder)
+                Button {
+                    onAddNew()
+                } label: {
+                    Label("Nuovo Profilo", systemImage: "plus")
+                        .font(.caption.bold())
+                }
+                .buttonStyle(.borderedProminent)
+            }
+
+            if available.isEmpty {
+                VStack(spacing: 8) {
+                    Text("Nessun profilo cliente trovato.")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                    Button("Crea nuovo cliente") {
+                        onAddNew()
+                    }
+                    .buttonStyle(.bordered)
+                }
+                .frame(maxWidth: .infinity, minHeight: 160)
+            } else {
+                ScrollView {
+                    LazyVStack(spacing: 8) {
+                        ForEach(available) { ct in
+                            let isLinked = alreadyAssociatedIds.contains(ct.id)
+                            HStack {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    HStack(spacing: 6) {
+                                        Text(ct.fullName)
+                                            .font(.subheadline.bold())
+                                        Text("• \(ct.idType.uppercased()): \(ct.idNumber)")
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                    }
+                                    HStack(spacing: 8) {
+                                        if !ct.city.isEmpty { Text(ct.city).font(.caption2).foregroundStyle(.secondary) }
+                                        if !ct.email.isEmpty { Text(ct.email).font(.caption2).foregroundStyle(.secondary) }
+                                        if !ct.phone.isEmpty { Text(ct.phone).font(.caption2).foregroundStyle(.secondary) }
+                                    }
+                                }
+                                Spacer()
+                                if isLinked {
+                                    Label("Associato", systemImage: "checkmark.circle.fill")
+                                        .font(.caption.bold())
+                                        .foregroundStyle(.green)
+                                } else {
+                                    Button("Associa") {
+                                        onSelect(ct)
+                                    }
+                                    .buttonStyle(.borderedProminent)
+                                    .controlSize(.small)
+                                }
+                            }
+                            .padding(10)
+                            .appCardStyle(cornerRadius: 10)
+                        }
+                    }
+                }
+                .frame(maxHeight: 320)
+            }
+
+            HStack {
+                Spacer()
+                Button(store.t("cancelBtn")) { onCancel() }
+            }
+        }
+        .padding(20)
+        .frame(width: 500)
     }
 }
 
@@ -2531,12 +2795,16 @@ private struct BillingContactEditorSheet: View {
 
             Grid(alignment: .leading, horizontalSpacing: 14, verticalSpacing: 12) {
                 GridRow {
-                    Text(store.t("billingFullNameLabel")).font(.caption.bold())
+                    Text(store.t("billingFullNameLabel"))
+                        .font(.caption.bold())
+                        .frame(width: 170, alignment: .leading)
                     TextField(store.t("billingFullNamePlaceholder"), text: $fullName)
                         .textFieldStyle(.roundedBorder)
                 }
                 GridRow {
-                    Text(store.t("billingIdTypeLabel")).font(.caption.bold())
+                    Text(store.t("billingIdTypeLabel"))
+                        .font(.caption.bold())
+                        .frame(width: 170, alignment: .leading)
                     Picker("", selection: $idType) {
                         Text(store.t("idTypeCedula")).tag("cedula")
                         Text(store.t("idTypePassport")).tag("passaporto")
@@ -2546,32 +2814,44 @@ private struct BillingContactEditorSheet: View {
                     .pickerStyle(.segmented)
                 }
                 GridRow {
-                    Text(store.t("billingIdNumberLabel")).font(.caption.bold())
+                    Text(store.t("billingIdNumberLabel"))
+                        .font(.caption.bold())
+                        .frame(width: 170, alignment: .leading)
                     TextField("1234567890001", text: $idNumber)
                         .textFieldStyle(.roundedBorder)
                 }
                 GridRow {
-                    Text(store.t("billingCityLabel")).font(.caption.bold())
+                    Text(store.t("billingCityLabel"))
+                        .font(.caption.bold())
+                        .frame(width: 170, alignment: .leading)
                     TextField("Quito / Milano", text: $city)
                         .textFieldStyle(.roundedBorder)
                 }
                 GridRow {
-                    Text(store.t("billingAddressLabel")).font(.caption.bold())
+                    Text(store.t("billingAddressLabel"))
+                        .font(.caption.bold())
+                        .frame(width: 170, alignment: .leading)
                     TextField("Via / Calle...", text: $address)
                         .textFieldStyle(.roundedBorder)
                 }
                 GridRow {
-                    Text(store.t("billingPhoneLabel")).font(.caption.bold())
+                    Text(store.t("billingPhoneLabel"))
+                        .font(.caption.bold())
+                        .frame(width: 170, alignment: .leading)
                     TextField("+593 / +39...", text: $phoneNumber)
                         .textFieldStyle(.roundedBorder)
                 }
                 GridRow {
-                    Text(store.t("billingEmailLabel")).font(.caption.bold())
+                    Text(store.t("billingEmailLabel"))
+                        .font(.caption.bold())
+                        .frame(width: 170, alignment: .leading)
                     TextField("cliente@email.com", text: $email)
                         .textFieldStyle(.roundedBorder)
                 }
                 GridRow {
-                    Text("Corso / Modulo associato").font(.caption.bold())
+                    Text("Corso / Modulo associato")
+                        .font(.caption.bold())
+                        .frame(width: 170, alignment: .leading)
                     TextField("Es. Inglese B2 • Modulo 1", text: $linkedCourseName)
                         .textFieldStyle(.roundedBorder)
                 }
@@ -2607,7 +2887,7 @@ private struct BillingContactEditorSheet: View {
             }
         }
         .padding(22)
-        .frame(width: 500)
+        .frame(width: 560)
     }
 }
 

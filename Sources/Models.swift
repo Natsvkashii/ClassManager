@@ -18,23 +18,28 @@ public enum AuthorAttribution {
     public static let authorName = "Guaira Jaramillo Nitoglia"
     public static let authorEmail = "guaira.jaramillo.nitoglia@gmail.com"
     public static let appName = "ClassDesk"
-    public static let appVersion = "26.10.5-001"
-    public static let appChannel = "unstable"
-    public static let licenseName = "GNU General Public License v3.0 (GPL-3.0)"
+    public static let appVersion = "26.10.5-002"
+
+    /// Centralized channel indicator: 0 = Stable, 1 = Unstable / Beta
+    public static let isUnstableBuild: Int = 1
 
     public static var isBeta: Bool {
-        if appChannel.lowercased() == "unstable" || appChannel.lowercased() == "beta" {
-            return true
-        }
-        let v = appVersion.lowercased()
-        if v.contains("(unstable)") || v.contains("unstable") || v.contains("beta") {
-            return true
-        }
-        if v.contains("(stable)") || v.contains("stable") {
-            return false
-        }
-        return v.range(of: #"[0-9]+b\b|[0-9]+b$"#, options: .regularExpression) != nil
+        return isUnstableBuild == 1
     }
+
+    public static var appChannel: String {
+        return isUnstableBuild == 1 ? "unstable" : "stable"
+    }
+
+    public static var channelDisplayName: String {
+        return isUnstableBuild == 1 ? "BETA" : "STABLE"
+    }
+
+    public static var channelBadgeColor: Color {
+        return isUnstableBuild == 1 ? Color.orange : Color.green
+    }
+
+    public static let licenseName = "GNU General Public License v3.0 (GPL-3.0)"
 }
 
 // MARK: - Thread-Safe Cached Date & Time Formatters (High-Performance Optimization)
@@ -1004,9 +1009,10 @@ public struct CourseModule: Codable, Identifiable, Equatable {
     public var billing: ModuleBilling? = ModuleBilling()
     public var googleMeetUrl: String? = nil
     public var weekdays: [Int] = []
+    public var billingContactIds: [String] = []
 
     enum CodingKeys: String, CodingKey {
-        case id, name, description, startTime, endTime, scheduleNote, studentIds, dates, attendance, evaluateAttendance, attendanceWeight, attendanceMaxScore, billing, googleMeetUrl, weekdays
+        case id, name, description, startTime, endTime, scheduleNote, studentIds, dates, attendance, evaluateAttendance, attendanceWeight, attendanceMaxScore, billing, googleMeetUrl, weekdays, billingContactIds
     }
 
     public init(id: String = "sec-" + UUID().uuidString.prefix(6).lowercased(),
@@ -1023,7 +1029,8 @@ public struct CourseModule: Codable, Identifiable, Equatable {
                 attendanceMaxScore: Double? = 10.0,
                 billing: ModuleBilling? = ModuleBilling(),
                 googleMeetUrl: String? = nil,
-                weekdays: [Int] = []) {
+                weekdays: [Int] = [],
+                billingContactIds: [String] = []) {
         self.id = id
         self.name = name
         self.description = description
@@ -1039,6 +1046,7 @@ public struct CourseModule: Codable, Identifiable, Equatable {
         self.billing = billing
         self.googleMeetUrl = googleMeetUrl
         self.weekdays = weekdays
+        self.billingContactIds = billingContactIds
     }
 
     public init(from decoder: Decoder) throws {
@@ -1070,6 +1078,7 @@ public struct CourseModule: Codable, Identifiable, Equatable {
         billing = (try? c.decodeIfPresent(ModuleBilling.self, forKey: .billing)) ?? ModuleBilling()
         googleMeetUrl = c.flexOptString(.googleMeetUrl)
         weekdays = (try? c.decodeIfPresent([Int].self, forKey: .weekdays)) ?? []
+        billingContactIds = (try? c.decodeIfPresent([String].self, forKey: .billingContactIds)) ?? []
     }
 
     public init(dict: [String: Any], fallbackIndex: Int = 1) {
@@ -1113,6 +1122,7 @@ public struct CourseModule: Codable, Identifiable, Equatable {
         } else {
             weekdays = []
         }
+        billingContactIds = JSONDictHelper.strArray(dict["billingContactIds"])
     }
 }
 
@@ -1428,19 +1438,22 @@ public struct CourseBillingConfig: Codable, Equatable {
     public var lessonDurationHours: Double = 1.5
     public var vatPercent: Double = 15.0
     public var billingInfo: BillingInfo = BillingInfo()
+    public var billingContactIds: [String] = []
 
     enum CodingKeys: String, CodingKey {
-        case hourlyRateNet, lessonDurationHours, vatPercent, billingInfo
+        case hourlyRateNet, lessonDurationHours, vatPercent, billingInfo, billingContactIds
     }
 
     public init(hourlyRateNet: Double = 10.0,
                 lessonDurationHours: Double = 1.5,
                 vatPercent: Double = 15.0,
-                billingInfo: BillingInfo = BillingInfo()) {
+                billingInfo: BillingInfo = BillingInfo(),
+                billingContactIds: [String] = []) {
         self.hourlyRateNet = hourlyRateNet
         self.lessonDurationHours = lessonDurationHours
         self.vatPercent = vatPercent
         self.billingInfo = billingInfo
+        self.billingContactIds = billingContactIds
     }
 
     public init(from decoder: Decoder) throws {
@@ -1449,6 +1462,7 @@ public struct CourseBillingConfig: Codable, Equatable {
         lessonDurationHours = c.flexDouble(.lessonDurationHours, default: 1.5)
         vatPercent = c.flexDouble(.vatPercent, default: 15.0)
         billingInfo = (try? c.decodeIfPresent(BillingInfo.self, forKey: .billingInfo)) ?? BillingInfo()
+        billingContactIds = (try? c.decodeIfPresent([String].self, forKey: .billingContactIds)) ?? []
     }
 
     public init(dict: [String: Any], fallbackCourseName: String = "") {
@@ -1460,6 +1474,7 @@ public struct CourseBillingConfig: Codable, Equatable {
         } else {
             billingInfo = BillingInfo(fullName: fallbackCourseName)
         }
+        billingContactIds = JSONDictHelper.strArray(dict["billingContactIds"])
     }
 }
 
@@ -1710,7 +1725,6 @@ public struct AppState: Codable, Equatable {
         var decodedContacts = (try? c.decodeIfPresent([BillingContact].self, forKey: .billingContacts)) ?? []
         courses = (try? c.decodeIfPresent([Course].self, forKey: .courses)) ?? []
         deletedItems = (try? c.decodeIfPresent([DeletedBinItem].self, forKey: .deletedItems)) ?? []
-        AppState.syncBillingContactsFromCoursesAndStudents(contacts: &decodedContacts, courses: courses, students: studentsDirectory)
         billingContacts = decodedContacts
     }
 
@@ -1817,7 +1831,6 @@ public struct AppState: Codable, Equatable {
         }
 
         studentsDirectory = parsedStudents
-        AppState.syncBillingContactsFromCoursesAndStudents(contacts: &parsedContacts, courses: courses, students: parsedStudents)
         billingContacts = parsedContacts
         changelog = AppState.defaultChangelog
     }
@@ -1871,6 +1884,17 @@ public struct AppState: Codable, Equatable {
     ]
 
     public static let defaultChangelog: [ChangelogEntry] = [
+        ChangelogEntry(version: "26.10.5-002", date: "2026-10-26", changes: [
+            "Barra di Scorrimento Orizzontale Fissata in Fondo: in Presenze e Voti la barra di scorrimento laterale rimane sempre ancorata alla parte inferiore della schermata, garantendo la navigazione orizzontale immediata a qualsiasi altezza della pagina.",
+            "Colonna Nomi Studenti Fissa (Sticky) in Voti: la colonna dei nomi studente con esito e media rimane bloccata a sinistra durante lo scorrimento delle attività e delle presenze.",
+            "Rifinitura Intestazione Presenze in Voti: rimossa l'icona della rotellina e la dicitura del punteggio massimo nella colonna Presenze, lasciando la percentuale di ponderazione e il calcolo automatico orario.",
+            "Registro Presenze: rimosso il badge testuale 'OGGI' dal giorno attuale, mantenendo l'evidenziazione colorata della colonna e del bordo.",
+            "Scheda Iscritti Responsive: risolto l'adattamento visivo a finestra ridotta con contenitore a scorrimento orizzontale e protezione contro il troncamento dei pulsanti superiori e delle colonne dati.",
+            "Anagrafica a Tutta Larghezza: i dati e la tabella dell'Anagrafica si espandono ora elegantemente su tutto lo spazio disponibile della finestra senza lasciare spazi vuoti a destra.",
+            "Fatturazione & Profili Clienti Multipli per Gruppo: i dati fiscali non vengono più pre-popolati automaticamente dal nome del corso; la scheda 'Dati di fatturazione' mostra le informazioni statiche direttamente sul fondo bianco con navigazione a frecce tra profili multipli (< Cliente 1 di N >), pulsante '+ Aggiungi' per associare più paganti individuali a un gruppo e tasto 'Associa dati di fatturazione' per collegare profili esistenti o crearne di nuovi.",
+            "Correzione Modale Nuovo/Modifica Cliente: inserite tutte le traduzioni corrette per le etichette fiscali (Nome/Ragione Sociale, Tipo Documento, Cédula/CF/RUC/Passaporto, Indirizzo, Città, Telefono, Email).",
+            "Gestione Canale Automatizzata con Flag Booleano: introdotta la variabile centralizzata 'isUnstableBuild' (0 = Stabile, 1 = Beta/Unstable) per commutare autonomamente badge, colori e funzionalità al cambio di ramo."
+        ]),
         ChangelogEntry(version: "26.10.5-001", date: "2026-10-25", changes: [
             "Nuovo Sistema di Aggiornamento Silenzioso in Background: verifica automatica ad ogni avvio e ogni 24 ore, download autonomo silenzioso in background e installazione automatica trasparente al successivo riavvio del programma (con mantenimento dell'aggiornamento manuale di emergenza e nuova sezione Laboratorio Beta con log comandi e simulatore di aggiornamento).",
             "Barra Superiore Adattiva & Ripristina Azione (⌘Y / Ctrl+Y): frecce di scorrimento laterale per moduli e livelli su finestre ridotte al minimo senza elementi tagliati, più nuovo pulsante 'Avanti / Ripristina' con scorciatoia da tastiera Command+Y.",

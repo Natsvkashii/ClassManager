@@ -957,6 +957,7 @@ public struct AttendanceView: View {
                                         )
                                     }
                                 }
+                                Spacer(minLength: 0)
                             }
 
                             // RIGHT HORIZONTALLY SCROLLABLE DATE COLUMNS
@@ -982,15 +983,6 @@ public struct AttendanceView: View {
                                                                 .padding(.vertical, 2)
                                                                 .background(Capsule().fill(isTodaySlot ? pal.color : pal.color.opacity(0.18)))
                                                                 .foregroundStyle(isTodaySlot ? Color.white : pal.color)
-
-                                                            if isTodaySlot {
-                                                                Text("OGGI")
-                                                                    .font(.system(size: 8.5, weight: .black))
-                                                                    .padding(.horizontal, 5)
-                                                                    .padding(.vertical, 1.5)
-                                                                    .background(Capsule().fill(Color.orange))
-                                                                    .foregroundStyle(.white)
-                                                            }
                                                         }
 
                                                         Text(store.formatShortWeekdayDate(slotKey))
@@ -1077,10 +1069,12 @@ public struct AttendanceView: View {
                                         }
                                     }
                                 }
+                                Spacer(minLength: 0)
                             }
                         }
                     }
                 }
+                .frame(minHeight: 450, maxHeight: .infinity, alignment: .top)
                 .clipShape(RoundedRectangle(cornerRadius: 14))
                 .appCardStyle(cornerRadius: 14)
 
@@ -1229,10 +1223,11 @@ public struct GradesView: View {
                 .padding(12)
                 .appCardStyle(cornerRadius: 12)
 
-                // Grades Table
-                ScrollView([.horizontal, .vertical]) {
-                    Grid(alignment: .leading, horizontalSpacing: 2, verticalSpacing: 2) {
-                        GridRow {
+                // Grades Table with Fixed Left Student Column & Horizontally Scrollable Activity Columns
+                ScrollView(.vertical) {
+                    HStack(alignment: .top, spacing: 2) {
+                        // FIXED LEFT STUDENT COLUMN (Sticky on left when scrolling right)
+                        VStack(alignment: .leading, spacing: 2) {
                             HStack {
                                 Text("\(store.t("statusCol")) & \(store.t("studentCol"))")
                                 Spacer()
@@ -1240,243 +1235,241 @@ public struct GradesView: View {
                             }
                             .font(.caption.bold())
                             .padding(.horizontal, 12)
-                            .frame(width: 260)
-                            .frame(minHeight: 56, maxHeight: .infinity)
+                            .frame(width: 260, height: 56)
                             .background(
                                 RoundedRectangle(cornerRadius: 8)
                                     .fill(tableHeaderCellFill(colorScheme))
                                     .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(tableHeaderCellStroke(colorScheme)))
                             )
 
-                            if evalAtt {
-                                Button {
-                                    showAttendanceConfigPopover = true
-                                } label: {
-                                    VStack(spacing: 3) {
-                                        HStack(spacing: 3) {
-                                            Text(store.t("navAttendance").uppercased())
-                                                .font(.caption.bold())
-                                                .underline(pattern: .dot)
-                                            Image(systemName: "gearshape.fill")
-                                                .font(.system(size: 9))
-                                        }
-                                        .foregroundStyle(.green)
-                                        Text("Max \(String(format: "%.0f", attMaxScore)) • \(String(format: "%.0f", attWeight))%")
-                                            .font(.caption2.bold())
-                                            .foregroundStyle(.green)
-                                    }
-                                    .padding(.horizontal, 8)
-                                    .frame(width: 128)
-                                    .frame(minHeight: 56, maxHeight: .infinity)
-                                    .contentShape(Rectangle())
-                                }
-                                .buttonStyle(.plain)
-                                .help("Clicca per configurare Punteggio Massimo e Ponderazione delle Presenze")
-                                .popover(isPresented: $showAttendanceConfigPopover) {
-                                    VStack(alignment: .leading, spacing: 14) {
-                                        HStack {
-                                            Image(systemName: "checklist.checked")
-                                                .foregroundStyle(.green)
-                                            Text("Configurazione Attività Presenze")
-                                                .font(.headline.bold())
+                            if students.isEmpty {
+                                Text(store.t("noStudentsInModulePrompt"))
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                    .padding(.horizontal, 12)
+                                    .frame(width: 260, height: 48, alignment: .leading)
+                            } else {
+                                ForEach(Array(students.enumerated()), id: \.element.id) { sIdx, st in
+                                    let isAlt = sIdx % 2 == 1
+                                    let avg = store.calculateStudentCourseAverage(course: course, studentId: st.id, module: mod)
+                                    let allPresent = store.areAllStudentGradesPresent(course: course, studentId: st.id, module: mod)
+                                    let passed = allPresent && (avg ?? 0) >= course.gradeConfig.minPass
+
+                                    HStack(spacing: 8) {
+                                        if allPresent && avg != nil {
+                                            Image(systemName: passed ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
+                                                .foregroundStyle(passed ? .green : .red)
+                                                .help(passed ? store.t("passedBadge") : store.t("recoverBadge"))
+                                        } else {
+                                            Image(systemName: "minus.circle")
+                                                .foregroundStyle(.secondary)
+                                                .help("\(store.t("pendingBadge")) (\(store.t("pendingEvalSub")))")
                                         }
 
-                                        Text("Il punteggio viene calcolato automaticamente in base al numero di ore in cui lo studente è stato presente rispetto al totale delle ore del modulo.")
-                                            .font(.caption)
-                                            .foregroundStyle(.secondary)
-                                            .fixedSize(horizontal: false, vertical: true)
-
-                                        Divider()
-
-                                        HStack {
-                                            Text("Punteggio Massimo:")
-                                                .font(.subheadline.bold())
-                                            Spacer()
-                                            TextField("10", value: Binding(
-                                                get: { store.getAttendanceMaxScore(course: store.state.courses[cIdx], module: store.state.courses[cIdx].levels[lIdx].modules[mIdx]) },
-                                                set: { val in
-                                                    let clamped = min(1000, max(1, val))
-                                                    store.recordUndoSnapshot()
-                                                    store.state.courses[cIdx].gradeConfig.attendanceMaxScore = clamped
-                                                    store.state.courses[cIdx].levels[lIdx].modules[mIdx].attendanceMaxScore = clamped
-                                                    store.persist()
-                                                }
-                                            ), format: .number)
-                                            .textFieldStyle(.roundedBorder)
-                                            .frame(width: 75)
+                                        Button {
+                                            activeSheet = .studentDetail(st.id)
+                                        } label: {
+                                            Text(st.fullName).font(.caption.bold()).lineLimit(1)
                                         }
+                                        .buttonStyle(.plain)
 
-                                        HStack {
-                                            Text("Ponderazione (%):")
-                                                .font(.subheadline.bold())
-                                            Spacer()
-                                            TextField("5", value: Binding(
-                                                get: { store.getAttendanceWeight(course: store.state.courses[cIdx], module: store.state.courses[cIdx].levels[lIdx].modules[mIdx]) },
-                                                set: { val in
-                                                    let clamped = min(100, max(0, val))
-                                                    store.recordUndoSnapshot()
-                                                    store.state.courses[cIdx].gradeConfig.attendanceWeight = clamped
-                                                    store.state.courses[cIdx].levels[lIdx].modules[mIdx].attendanceWeight = clamped
-                                                    store.persist()
-                                                }
-                                            ), format: .number)
-                                            .textFieldStyle(.roundedBorder)
-                                            .frame(width: 75)
-                                            Text("%")
-                                                .font(.subheadline.bold())
-                                        }
+                                        Spacer()
 
-                                        HStack {
-                                            Spacer()
-                                            Button("Chiudi") {
-                                                showAttendanceConfigPopover = false
-                                            }
-                                            .buttonStyle(.borderedProminent)
-                                            .tint(.green)
-                                        }
-                                    }
-                                    .padding(18)
-                                    .frame(width: 340)
-                                }
-                                .background(
-                                    RoundedRectangle(cornerRadius: 8)
-                                        .fill(Color.green.opacity(0.12))
-                                        .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color.green.opacity(0.35)))
-                                )
-                            }
-
-                            ForEach(activities) { act in
-                                VStack(spacing: 3) {
-                                    Button {
-                                        activeSheet = .activityForm(act)
-                                    } label: {
-                                        Text(act.name)
+                                        Text(avg != nil ? String(format: "%.2f", avg!) : "—")
                                             .font(.caption.bold())
-                                            .underline(pattern: .dot)
-                                            .lineLimit(1)
+                                            .padding(.horizontal, 8)
+                                            .padding(.vertical, 3)
+                                            .background(
+                                                RoundedRectangle(cornerRadius: 6)
+                                                    .fill(avg == nil ? Color.secondary.opacity(0.1) : (!allPresent ? Color.secondary.opacity(0.15) : (passed ? Color.green.opacity(0.18) : Color.red.opacity(0.18))))
+                                            )
                                     }
-                                    .buttonStyle(.plain)
-
-                                    HStack(spacing: 4) {
-                                        if course.gradeConfig.calcMethod == "weighted" {
-                                            Text("\(String(format: "%.0f", act.weight))%")
-                                                .font(.caption2.bold())
-                                                .foregroundStyle(store.activeCoursePalette.color)
-                                        }
-                                        if act.useRubric {
-                                            Text(store.t("rubricBadgeShort"))
-                                                .font(.system(size: 9, weight: .bold))
-                                                .padding(.horizontal, 4)
-                                                .padding(.vertical, 1)
-                                                .background(Capsule().fill(Color.green.opacity(0.2)))
-                                                .foregroundStyle(.green)
-                                        }
-                                    }
+                                    .padding(.horizontal, 10)
+                                    .frame(width: 260, height: 48)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 6)
+                                            .fill(tableRowCellFill(colorScheme, isAlt: isAlt))
+                                            .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(tableRowCellStroke(colorScheme)))
+                                    )
                                 }
-                                .padding(.horizontal, 8)
-                                .frame(width: 150)
-                                .frame(minHeight: 56, maxHeight: .infinity)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 8)
-                                        .fill(tableHeaderCellFill(colorScheme))
-                                        .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(tableHeaderCellStroke(colorScheme)))
-                                )
                             }
+                            Spacer(minLength: 0)
                         }
 
-                        ForEach(Array(students.enumerated()), id: \.element.id) { sIdx, st in
-                            let isAlt = sIdx % 2 == 1
-                            let avg = store.calculateStudentCourseAverage(course: course, studentId: st.id, module: mod)
-                            let allPresent = store.areAllStudentGradesPresent(course: course, studentId: st.id, module: mod)
-                            let passed = allPresent && (avg ?? 0) >= course.gradeConfig.minPass
-                            let attInfo = evalAtt ? store.getStudentAttendanceEvalInfo(course: course, studentId: st.id, module: mod) : nil
+                        // RIGHT HORIZONTALLY SCROLLABLE ACTIVITY COLUMNS
+                        ScrollView(.horizontal, showsIndicators: true) {
+                            VStack(alignment: .leading, spacing: 2) {
+                                // Activities Header Row
+                                HStack(spacing: 2) {
+                                    if evalAtt {
+                                        Button {
+                                            showAttendanceConfigPopover = true
+                                        } label: {
+                                            VStack(spacing: 2) {
+                                                Text(store.t("navAttendance").uppercased())
+                                                    .font(.caption.bold())
+                                                    .underline(pattern: .dot)
+                                                    .foregroundStyle(.green)
+                                                Text("\(String(format: "%.0f", attWeight))%")
+                                                    .font(.caption2.bold())
+                                                    .foregroundStyle(.green)
+                                            }
+                                            .padding(.horizontal, 8)
+                                            .frame(width: 128, height: 56)
+                                            .contentShape(Rectangle())
+                                        }
+                                        .buttonStyle(.plain)
+                                        .help("Clicca per configurare la ponderazione delle presenze")
+                                        .popover(isPresented: $showAttendanceConfigPopover) {
+                                            VStack(alignment: .leading, spacing: 14) {
+                                                HStack {
+                                                    Image(systemName: "checklist.checked")
+                                                        .foregroundStyle(.green)
+                                                    Text("Configurazione Attività Presenze")
+                                                        .font(.headline.bold())
+                                                }
 
-                            GridRow {
-                                HStack(spacing: 8) {
-                                    if allPresent && avg != nil {
-                                        Image(systemName: passed ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
-                                            .foregroundStyle(passed ? .green : .red)
-                                            .help(passed ? store.t("passedBadge") : store.t("recoverBadge"))
-                                    } else {
-                                        Image(systemName: "minus.circle")
-                                            .foregroundStyle(.secondary)
-                                            .help("\(store.t("pendingBadge")) (\(store.t("pendingEvalSub")))")
-                                    }
+                                                Text("Il punteggio viene calcolato automaticamente in base al numero di ore in cui lo studente è stato presente rispetto al totale delle ore del modulo.")
+                                                    .font(.caption)
+                                                    .foregroundStyle(.secondary)
+                                                    .fixedSize(horizontal: false, vertical: true)
 
-                                    Button {
-                                        activeSheet = .studentDetail(st.id)
-                                    } label: {
-                                        Text(st.fullName).font(.caption.bold()).lineLimit(1)
-                                    }
-                                    .buttonStyle(.plain)
+                                                Divider()
 
-                                    Spacer()
+                                                HStack {
+                                                    Text("Ponderazione (%):")
+                                                        .font(.subheadline.bold())
+                                                    Spacer()
+                                                    TextField("5", value: Binding(
+                                                        get: { store.getAttendanceWeight(course: store.state.courses[cIdx], module: store.state.courses[cIdx].levels[lIdx].modules[mIdx]) },
+                                                        set: { val in
+                                                            let clamped = min(100, max(0, val))
+                                                            store.recordUndoSnapshot()
+                                                            store.state.courses[cIdx].gradeConfig.attendanceWeight = clamped
+                                                            store.state.courses[cIdx].levels[lIdx].modules[mIdx].attendanceWeight = clamped
+                                                            store.persist()
+                                                        }
+                                                    ), format: .number)
+                                                    .textFieldStyle(.roundedBorder)
+                                                    .frame(width: 75)
+                                                    Text("%")
+                                                        .font(.subheadline.bold())
+                                                }
 
-                                    Text(avg != nil ? String(format: "%.2f", avg!) : "—")
-                                        .font(.caption.bold())
-                                        .padding(.horizontal, 8)
-                                        .padding(.vertical, 3)
+                                                HStack {
+                                                    Spacer()
+                                                    Button("Chiudi") {
+                                                        showAttendanceConfigPopover = false
+                                                    }
+                                                    .buttonStyle(.borderedProminent)
+                                                    .tint(.green)
+                                                }
+                                            }
+                                            .padding(18)
+                                            .frame(width: 320)
+                                        }
                                         .background(
-                                            RoundedRectangle(cornerRadius: 6)
-                                                .fill(avg == nil ? Color.secondary.opacity(0.1) : (!allPresent ? Color.secondary.opacity(0.15) : (passed ? Color.green.opacity(0.18) : Color.red.opacity(0.18))))
+                                            RoundedRectangle(cornerRadius: 8)
+                                                .fill(Color.green.opacity(0.12))
+                                                .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color.green.opacity(0.35)))
                                         )
+                                    }
+
+                                    ForEach(activities) { act in
+                                        VStack(spacing: 3) {
+                                            Button {
+                                                activeSheet = .activityForm(act)
+                                            } label: {
+                                                Text(act.name)
+                                                    .font(.caption.bold())
+                                                    .underline(pattern: .dot)
+                                                    .lineLimit(1)
+                                            }
+                                            .buttonStyle(.plain)
+
+                                            HStack(spacing: 4) {
+                                                if course.gradeConfig.calcMethod == "weighted" {
+                                                    Text("\(String(format: "%.0f", act.weight))%")
+                                                        .font(.caption2.bold())
+                                                        .foregroundStyle(store.activeCoursePalette.color)
+                                                }
+                                                if act.useRubric {
+                                                    Text(store.t("rubricBadgeShort"))
+                                                        .font(.system(size: 9, weight: .bold))
+                                                        .padding(.horizontal, 4)
+                                                        .padding(.vertical, 1)
+                                                        .background(Capsule().fill(Color.green.opacity(0.2)))
+                                                        .foregroundStyle(.green)
+                                                }
+                                            }
+                                        }
+                                        .padding(.horizontal, 8)
+                                        .frame(width: 150, height: 56)
+                                        .background(
+                                            RoundedRectangle(cornerRadius: 8)
+                                                .fill(tableHeaderCellFill(colorScheme))
+                                                .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(tableHeaderCellStroke(colorScheme)))
+                                        )
+                                    }
                                 }
-                                .padding(.horizontal, 10)
-                                .frame(width: 260, height: 48)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 6)
-                                        .fill(tableRowCellFill(colorScheme, isAlt: isAlt))
-                                        .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(tableRowCellStroke(colorScheme)))
-                                )
 
-                                if evalAtt {
-                                    VStack(spacing: 2) {
-                                        if let info = attInfo, info.totalLessons > 0 {
-                                            Text("\(String(format: "%.2f", info.score)) / \(String(format: "%.0f", info.maxScore))")
-                                                .font(.caption.bold())
-                                                .padding(.horizontal, 6)
-                                                .padding(.vertical, 2)
-                                                .background(
-                                                    RoundedRectangle(cornerRadius: 6)
-                                                        .fill(info.isComplete ? Color.green.opacity(0.2) : Color.secondary.opacity(0.12))
-                                                )
-                                                .foregroundStyle(info.isComplete ? .green : .secondary)
-                                                .help(info.isComplete ? store.t("attendanceCompletedHint") : store.t("attendanceInProgressHint"))
+                                // Student Evaluation Rows
+                                ForEach(Array(students.enumerated()), id: \.element.id) { sIdx, st in
+                                    let isAlt = sIdx % 2 == 1
+                                    let attInfo = evalAtt ? store.getStudentAttendanceEvalInfo(course: course, studentId: st.id, module: mod) : nil
 
-                                            Text("\(String(format: "%.1f", info.presentHours))/\(String(format: "%.1f", info.totalHours))h")
-                                                .font(.system(size: 9, weight: .semibold))
-                                                .foregroundStyle(.secondary)
-                                        } else {
-                                            Text("—").foregroundStyle(.secondary)
+                                    HStack(spacing: 2) {
+                                        if evalAtt {
+                                            VStack(spacing: 2) {
+                                                if let info = attInfo, info.totalLessons > 0 {
+                                                    Text(String(format: "%.2f", info.score))
+                                                        .font(.caption.bold())
+                                                        .padding(.horizontal, 6)
+                                                        .padding(.vertical, 2)
+                                                        .background(
+                                                            RoundedRectangle(cornerRadius: 6)
+                                                                .fill(info.isComplete ? Color.green.opacity(0.2) : Color.secondary.opacity(0.12))
+                                                        )
+                                                        .foregroundStyle(info.isComplete ? .green : .secondary)
+                                                        .help(info.isComplete ? store.t("attendanceCompletedHint") : store.t("attendanceInProgressHint"))
+
+                                                    Text("\(String(format: "%.1f", info.presentHours))/\(String(format: "%.1f", info.totalHours))h")
+                                                        .font(.system(size: 9, weight: .semibold))
+                                                        .foregroundStyle(.secondary)
+                                                } else {
+                                                    Text("—").foregroundStyle(.secondary)
+                                                }
+                                            }
+                                            .frame(width: 128, height: 48)
+                                            .background(
+                                                RoundedRectangle(cornerRadius: 6)
+                                                    .fill(tableRowCellFill(colorScheme, isAlt: isAlt))
+                                                    .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(tableRowCellStroke(colorScheme)))
+                                            )
+                                        }
+
+                                        ForEach(activities) { act in
+                                            GradeCellView(
+                                                courseIndex: cIdx,
+                                                studentId: st.id,
+                                                activity: act,
+                                                activeSheet: $activeSheet
+                                            )
+                                            .frame(width: 150, height: 48)
+                                            .background(
+                                                RoundedRectangle(cornerRadius: 6)
+                                                    .fill(tableRowCellFill(colorScheme, isAlt: isAlt))
+                                                    .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(tableRowCellStroke(colorScheme)))
+                                            )
                                         }
                                     }
-                                    .frame(width: 128, height: 48)
-                                    .background(
-                                        RoundedRectangle(cornerRadius: 6)
-                                            .fill(tableRowCellFill(colorScheme, isAlt: isAlt))
-                                            .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(tableRowCellStroke(colorScheme)))
-                                    )
                                 }
-
-                                ForEach(activities) { act in
-                                    GradeCellView(
-                                        courseIndex: cIdx,
-                                        studentId: st.id,
-                                        activity: act,
-                                        activeSheet: $activeSheet
-                                    )
-                                    .frame(width: 150, height: 48)
-                                    .background(
-                                        RoundedRectangle(cornerRadius: 6)
-                                            .fill(tableRowCellFill(colorScheme, isAlt: isAlt))
-                                            .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(tableRowCellStroke(colorScheme)))
-                                    )
-                                }
+                                Spacer(minLength: 0)
                             }
                         }
                     }
-                    .background(Color.clear)
                 }
+                .frame(minHeight: 450, maxHeight: .infinity, alignment: .top)
                 .clipShape(RoundedRectangle(cornerRadius: 14))
                 .appCardStyle(cornerRadius: 14)
 
@@ -3519,154 +3512,165 @@ public struct RosterView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .padding(32)
                 } else {
-                    // Aligned Table Container
-                    VStack(spacing: 0) {
-                        // Table Header Row
-                        HStack(spacing: 12) {
-                            Text(store.t("studentCol"))
-                                .frame(width: 280, alignment: .leading)
-                            Text(store.t("studentPhoneLabel"))
-                                .frame(width: 155, alignment: .leading)
-                            Text(store.t("emailBillingLabel"))
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                            Text(store.t("cityBillingLabel"))
-                                .frame(width: 130, alignment: .leading)
-                            Text(store.t("actionsCol"))
-                                .frame(width: 165, alignment: .trailing)
-                        }
-                        .font(.caption.bold())
-                        .foregroundStyle(.secondary)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 10)
-                        .background(Color.secondary.opacity(0.10))
-
-                        Divider()
-
-                        ScrollView {
+                    // Aligned Table Container wrapped in GeometryReader for responsive full width without column squishing
+                    GeometryReader { geo in
+                        let contentWidth = max(geo.size.width, 880)
+                        ScrollView(.horizontal, showsIndicators: contentWidth > geo.size.width) {
                             VStack(spacing: 0) {
-                                ForEach(Array(listIds.enumerated()), id: \.element) { idx, stId in
-                                    let st = store.state.studentsDirectory.first(where: { $0.id == stId }) ?? Student(id: stId, firstName: "Studente")
-                                    HStack(spacing: 12) {
-                                        // Column 1: Student Name
-                                        Button {
-                                            activeSheet = .studentDetail(st.id)
-                                        } label: {
-                                            HStack(spacing: 8) {
-                                                Image(systemName: "person.crop.circle.fill")
-                                                    .foregroundStyle(store.activeCoursePalette.color)
-                                                Text(st.fullName)
-                                                    .font(.body.weight(.semibold))
-                                                    .lineLimit(2)
-                                                    .multilineTextAlignment(.leading)
-                                            }
-                                        }
-                                        .buttonStyle(.plain)
-                                        .frame(width: 280, alignment: .leading)
-
-                                        // Column 2: Phone
-                                        HStack(spacing: 5) {
-                                            if !st.phone.isEmpty {
-                                                Image(systemName: "phone.fill").font(.caption2).foregroundStyle(.secondary)
-                                                Text(st.phone).lineLimit(1)
-                                            } else {
-                                                Text("—").foregroundStyle(.tertiary)
-                                            }
-                                        }
-                                        .font(.caption)
-                                        .blur(radius: store.showSensitiveGroupData ? 0 : 5)
-                                        .frame(width: 155, alignment: .leading)
-
-                                        // Column 3: Email
-                                        HStack(spacing: 5) {
-                                            if !st.email.isEmpty {
-                                                Image(systemName: "envelope.fill").font(.caption2).foregroundStyle(.secondary)
-                                                Text(st.email).lineLimit(1)
-                                            } else {
-                                                Text("—").foregroundStyle(.tertiary)
-                                            }
-                                        }
-                                        .font(.caption)
-                                        .blur(radius: store.showSensitiveGroupData ? 0 : 5)
-                                        .frame(maxWidth: .infinity, alignment: .leading)
-
-                                        // Column 4: City
-                                        HStack(spacing: 5) {
-                                            if !st.city.isEmpty {
-                                                Image(systemName: "location.fill").font(.caption2).foregroundStyle(.secondary)
-                                                Text(st.city).lineLimit(1)
-                                            } else {
-                                                Text("—").foregroundStyle(.tertiary)
-                                            }
-                                        }
-                                        .font(.caption)
-                                        .blur(radius: store.showSensitiveGroupData ? 0 : 5)
-                                        .frame(width: 130, alignment: .leading)
-
-                                        // Column 5: Actions (Profile Card + Yellow Archive Icon + Red X Icon)
-                                        HStack(spacing: 8) {
-                                            Button(store.t("profileCardBtn")) {
-                                                activeSheet = .studentDetail(st.id)
-                                            }
-                                            .controlSize(.small)
-
-                                            if store.showFormerGroupStudents {
-                                                Button(store.t("reinsertBtn")) {
-                                                    store.recordUndoSnapshot()
-                                                    if !store.state.courses[cIdx].levels[lIdx].modules[mIdx].studentIds.contains(st.id) {
-                                                        store.state.courses[cIdx].levels[lIdx].modules[mIdx].studentIds.append(st.id)
-                                                    }
-                                                    store.state.courses[cIdx].formerStudentIds.removeAll { $0 == st.id }
-                                                    store.persist()
-                                                }
-                                                .buttonStyle(.borderedProminent)
-                                                .tint(.green)
-                                                .controlSize(.small)
-                                            } else {
-                                                // 1. Yellow Archive Icon Button (Moves student to Ex Studenti)
-                                                Button {
-                                                    store.archiveStudentInGroup(cIdx: cIdx, lIdx: lIdx, mIdx: mIdx, studentId: st.id)
-                                                } label: {
-                                                    Image(systemName: "archivebox.fill")
-                                                        .font(.system(size: 12, weight: .bold))
-                                                        .foregroundStyle(Color(red: 0.55, green: 0.35, blue: 0.0))
-                                                        .frame(width: 28, height: 26)
-                                                        .background(
-                                                            RoundedRectangle(cornerRadius: 7)
-                                                                .fill(Color.yellow.opacity(0.32))
-                                                                .overlay(RoundedRectangle(cornerRadius: 7).strokeBorder(Color.orange.opacity(0.65), lineWidth: 1))
-                                                        )
-                                                }
-                                                .buttonStyle(.plain)
-                                                .help(store.t("archiveStudentTooltip"))
-
-                                                // 2. Red X Icon Button (Shows pop-up proposing to archive instead of removing)
-                                                Button {
-                                                    studentForRemovePrompt = st
-                                                } label: {
-                                                    Image(systemName: "xmark")
-                                                        .font(.system(size: 12, weight: .heavy))
-                                                        .foregroundStyle(.white)
-                                                        .frame(width: 28, height: 26)
-                                                        .background(
-                                                            RoundedRectangle(cornerRadius: 7)
-                                                                .fill(Color.red)
-                                                        )
-                                                }
-                                                .buttonStyle(.plain)
-                                                .help(store.t("removeFromGroupBtn"))
-                                            }
-                                        }
+                                // Table Header Row
+                                HStack(spacing: 12) {
+                                    Text(store.t("studentCol"))
+                                        .lineLimit(1)
+                                        .frame(width: 240, alignment: .leading)
+                                    Text(store.t("studentPhoneLabel"))
+                                        .lineLimit(1)
+                                        .frame(width: 140, alignment: .leading)
+                                    Text(store.t("emailBillingLabel"))
+                                        .lineLimit(1)
+                                        .frame(minWidth: 180, maxWidth: .infinity, alignment: .leading)
+                                    Text(store.t("cityBillingLabel"))
+                                        .lineLimit(1)
+                                        .frame(width: 120, alignment: .leading)
+                                    Text(store.t("actionsCol"))
+                                        .lineLimit(1)
                                         .frame(width: 165, alignment: .trailing)
-                                    }
-                                    .padding(.horizontal, 16)
-                                    .padding(.vertical, 10)
-                                    .background(idx % 2 == 1 ? Color.secondary.opacity(0.03) : Color.clear)
+                                }
+                                .font(.caption.bold())
+                                .foregroundStyle(.secondary)
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 10)
+                                .background(Color.secondary.opacity(0.10))
 
-                                    if idx < listIds.count - 1 {
-                                        Divider()
+                                Divider()
+
+                                ScrollView(.vertical) {
+                                    VStack(spacing: 0) {
+                                        ForEach(Array(listIds.enumerated()), id: \.element) { idx, stId in
+                                            let st = store.state.studentsDirectory.first(where: { $0.id == stId }) ?? Student(id: stId, firstName: "Studente")
+                                            HStack(spacing: 12) {
+                                                // Column 1: Student Name
+                                                Button {
+                                                    activeSheet = .studentDetail(st.id)
+                                                } label: {
+                                                    HStack(spacing: 8) {
+                                                        Image(systemName: "person.crop.circle.fill")
+                                                            .foregroundStyle(store.activeCoursePalette.color)
+                                                        Text(st.fullName)
+                                                            .font(.body.weight(.semibold))
+                                                            .lineLimit(2)
+                                                            .multilineTextAlignment(.leading)
+                                                    }
+                                                }
+                                                .buttonStyle(.plain)
+                                                .frame(width: 240, alignment: .leading)
+
+                                                // Column 2: Phone
+                                                HStack(spacing: 5) {
+                                                    if !st.phone.isEmpty {
+                                                        Image(systemName: "phone.fill").font(.caption2).foregroundStyle(.secondary)
+                                                        Text(st.phone).lineLimit(1)
+                                                    } else {
+                                                        Text("—").foregroundStyle(.tertiary)
+                                                    }
+                                                }
+                                                .font(.caption)
+                                                .blur(radius: store.showSensitiveGroupData ? 0 : 5)
+                                                .frame(width: 140, alignment: .leading)
+
+                                                // Column 3: Email
+                                                HStack(spacing: 5) {
+                                                    if !st.email.isEmpty {
+                                                        Image(systemName: "envelope.fill").font(.caption2).foregroundStyle(.secondary)
+                                                        Text(st.email).lineLimit(1)
+                                                    } else {
+                                                        Text("—").foregroundStyle(.tertiary)
+                                                    }
+                                                }
+                                                .font(.caption)
+                                                .blur(radius: store.showSensitiveGroupData ? 0 : 5)
+                                                .frame(minWidth: 180, maxWidth: .infinity, alignment: .leading)
+
+                                                // Column 4: City
+                                                HStack(spacing: 5) {
+                                                    if !st.city.isEmpty {
+                                                        Image(systemName: "location.fill").font(.caption2).foregroundStyle(.secondary)
+                                                        Text(st.city).lineLimit(1)
+                                                    } else {
+                                                        Text("—").foregroundStyle(.tertiary)
+                                                    }
+                                                }
+                                                .font(.caption)
+                                                .blur(radius: store.showSensitiveGroupData ? 0 : 5)
+                                                .frame(width: 120, alignment: .leading)
+
+                                                // Column 5: Actions (Profile Card + Yellow Archive Icon + Red X Icon)
+                                                HStack(spacing: 8) {
+                                                    Button(store.t("profileCardBtn")) {
+                                                        activeSheet = .studentDetail(st.id)
+                                                    }
+                                                    .controlSize(.small)
+
+                                                    if store.showFormerGroupStudents {
+                                                        Button(store.t("reinsertBtn")) {
+                                                            store.recordUndoSnapshot()
+                                                            if !store.state.courses[cIdx].levels[lIdx].modules[mIdx].studentIds.contains(st.id) {
+                                                                store.state.courses[cIdx].levels[lIdx].modules[mIdx].studentIds.append(st.id)
+                                                            }
+                                                            store.state.courses[cIdx].formerStudentIds.removeAll { $0 == st.id }
+                                                            store.persist()
+                                                        }
+                                                        .buttonStyle(.borderedProminent)
+                                                        .tint(.green)
+                                                        .controlSize(.small)
+                                                    } else {
+                                                        // 1. Yellow Archive Icon Button (Moves student to Ex Studenti)
+                                                        Button {
+                                                            store.archiveStudentInGroup(cIdx: cIdx, lIdx: lIdx, mIdx: mIdx, studentId: st.id)
+                                                        } label: {
+                                                            Image(systemName: "archivebox.fill")
+                                                                .font(.system(size: 12, weight: .bold))
+                                                                .foregroundStyle(Color(red: 0.55, green: 0.35, blue: 0.0))
+                                                                .frame(width: 28, height: 26)
+                                                                .background(
+                                                                    RoundedRectangle(cornerRadius: 7)
+                                                                        .fill(Color.yellow.opacity(0.32))
+                                                                        .overlay(RoundedRectangle(cornerRadius: 7).strokeBorder(Color.orange.opacity(0.65), lineWidth: 1))
+                                                                )
+                                                        }
+                                                        .buttonStyle(.plain)
+                                                        .help(store.t("archiveStudentTooltip"))
+
+                                                        // 2. Red X Icon Button (Shows pop-up proposing to archive instead of removing)
+                                                        Button {
+                                                            studentForRemovePrompt = st
+                                                        } label: {
+                                                            Image(systemName: "xmark")
+                                                                .font(.system(size: 12, weight: .heavy))
+                                                                .foregroundStyle(.white)
+                                                                .frame(width: 28, height: 26)
+                                                                .background(
+                                                                    RoundedRectangle(cornerRadius: 7)
+                                                                        .fill(Color.red)
+                                                                )
+                                                        }
+                                                        .buttonStyle(.plain)
+                                                        .help(store.t("removeFromGroupBtn"))
+                                                    }
+                                                }
+                                                .frame(width: 165, alignment: .trailing)
+                                            }
+                                            .padding(.horizontal, 16)
+                                            .padding(.vertical, 10)
+                                            .background(idx % 2 == 1 ? Color.secondary.opacity(0.03) : Color.clear)
+
+                                            if idx < listIds.count - 1 {
+                                                Divider()
+                                            }
+                                        }
                                     }
                                 }
                             }
+                            .frame(width: contentWidth)
                         }
                     }
                     .clipShape(RoundedRectangle(cornerRadius: 14))

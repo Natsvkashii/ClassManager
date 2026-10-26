@@ -16,7 +16,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ClassDesk v26.10.5-001 (Windows Native Edition)</title>
+    <title>ClassDesk v26.10.5-002</title>
     <link rel="icon" type="image/png" href="logo.png">
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -501,6 +501,12 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 phoneBillingLabel: "Telefono",
                 emailBillingLabel: "E-mail",
                 saveBillingBtn: "Salva Dati",
+                associateBillingDataBtn: "Associa dati di fatturazione",
+                addBillingDataBtn: "Aggiungi",
+                clientIndexPaging: "Cliente %d di %d",
+                noBillingAssociatedMsg: "Nessun dato di fatturazione associato a questo gruppo.",
+                selectBillingProfilePrompt: "Seleziona un profilo cliente da associare a questo gruppo:",
+                dissociateBillingBtn: "Rimuovi dal gruppo",
                 currencyLabel: "Valuta",
                 rubricsLabel: "Schede Valutazione",
                 newRubricBtn: "+ Scheda",
@@ -793,6 +799,12 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 phoneBillingLabel: "Phone",
                 emailBillingLabel: "Email",
                 saveBillingBtn: "Save Data",
+                associateBillingDataBtn: "Link Billing Profile",
+                addBillingDataBtn: "Add",
+                clientIndexPaging: "Client %d of %d",
+                noBillingAssociatedMsg: "No billing information linked to this group.",
+                selectBillingProfilePrompt: "Select a client profile to link to this group:",
+                dissociateBillingBtn: "Unlink from group",
                 currencyLabel: "Currency",
                 rubricsLabel: "Rubrics",
                 newRubricBtn: "+ Rubric",
@@ -1085,6 +1097,12 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 phoneBillingLabel: "Teléfono",
                 emailBillingLabel: "Correo",
                 saveBillingBtn: "Guardar Datos",
+                associateBillingDataBtn: "Asociar datos de facturación",
+                addBillingDataBtn: "Añadir",
+                clientIndexPaging: "Cliente %d de %d",
+                noBillingAssociatedMsg: "No hay información de facturación asociada a este grupo.",
+                selectBillingProfilePrompt: "Selecciona un perfil de cliente para asociar a este grupo:",
+                dissociateBillingBtn: "Desvincular del grupo",
                 currencyLabel: "Moneda",
                 rubricsLabel: "Rúbricas",
                 newRubricBtn: "+ Rúbrica",
@@ -1182,14 +1200,30 @@ Removing, obfuscating, or altering these credits violates the author's attributi
             { code: "506", flag: "🇨🇷", name: "Costa Rica" }
         ];
 
+        // Build Channel Configuration: 0 = stable, 1 = unstable
+        const IS_UNSTABLE_BUILD = 1;
+
         const INITIAL_DATA = {
-            version: "26.10.5-001",
-            channel: "unstable",
+            version: "26.10.5-002",
+            channel: IS_UNSTABLE_BUILD === 1 ? "unstable" : "stable",
             deletedItems: [],
             billingContacts: [],
             lastUpdated: new Date().toISOString(),
             activeCourseId: "",
             changelog: [
+                {
+                    version: "26.10.5-002",
+                    date: "2026-10-26",
+                    changes: [
+                        "Fatturazione Multi-Profilo e Scheda Dati Statica: la finestra dei 'Dati di fatturazione' ora mostra le informazioni statiche direttamente sul fondo della scheda (non in caselle di testo modificabili) con frecce di navigazione tra clienti e pulsante 'Aggiungi (+)' per gestire pagamenti individuali all'interno dei gruppi.",
+                        "Associazione Flessibile Profili Fatturazione: rimossa la generazione forzata automatica dei clienti, consentendo di associare liberamente i contatti della banca dati ai gruppi o crearne di nuovi con layout rivisto e campi pienamente visibili.",
+                        "Colonna Nomi Fissa e Pulizia Intestazione Voti: la colonna dei nomi degli studenti rimane bloccata a sinistra durante lo scorrimento orizzontale anche nella sezione Voti; rimossa l'icona della rotellina e l'indicazione del punteggio massimo dalla colonna delle presenze.",
+                        "Scrollbar Inferiore Sempre Raggiungibile: la barra di scorrimento orizzontale in Voti e Presenze è ora ancorata stabilmente alla parte inferiore della pagina.",
+                        "Rimozione Etichetta OGGI nelle Presenze: rimosso il badge testuale 'OGGI' dall'intestazione delle date correnti, identificandole esclusivamente tramite il colore coordinato della barra.",
+                        "Anagrafica e Scheda Iscritti Full-Width & Responsive: eliminati i vuoti bianchi laterali su schermi ampi nell'anagrafica e risolti i problemi di compressione del testo e wrapping anomalo nella scheda iscritti su finestre ridotte.",
+                        "Canale di Build Centralizzato: gestione autonoma di testi, badge (Beta vs Stabile) e stili tramite flag booleano globale sincronizzato."
+                    ]
+                },
                 {
                     version: "26.10.5-001",
                     date: "2026-10-25",
@@ -3560,7 +3594,6 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                                                         <button onclick="app.openLessonPlanModal('${course.id}', '${activeSection.id}', '${slotKey}')" class="w-full min-h-[76px] rounded-lg p-1 hover:bg-sky-100/70 dark:hover:bg-navy-900 transition flex flex-col items-center justify-between" title="${this.t("lessonPlanTitle")}">
                                                             <div class="flex items-center justify-center gap-1 text-[10px] text-sky-700 dark:text-sky-400 font-extrabold">
                                                                 <span class="px-2 py-0.5 rounded ${isTodayCol ? 'bg-sky-600 text-white' : 'bg-sky-100 dark:bg-navy-900'}">${idx + 1}</span>
-                                                                ${isTodayCol ? `<span class="px-1.5 py-0.5 rounded bg-sky-600 text-white text-[8.5px] uppercase tracking-wider">OGGI</span>` : ''}
                                                             </div>
                                                             <div class="text-[11px] ${isTodayCol ? 'text-sky-700 dark:text-sky-300 font-black' : 'text-slate-800 dark:text-slate-100'} underline decoration-dotted underline-offset-2 mt-1">${this.escapeHtml(this.formatShortWeekdayDate(dOnly))}</div>
                                                             <div class="text-[9px] font-bold text-slate-400 mt-0.5">${this.formatTimeDisplay(sTime)}-${this.formatTimeDisplay(eTime)}</div>
@@ -4107,11 +4140,10 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                                             </th>
                                             ${evalAtt ? `
                                                 <th class="px-3 py-3 text-center font-extrabold min-w-[125px] bg-emerald-50/50 dark:bg-emerald-950/20 border-r border-sky-100/60 dark:border-slate-800">
-                                                    <button type="button" onclick="app.openAttendanceGradeConfigModal()" class="text-emerald-700 dark:text-emerald-300 hover:text-emerald-600 underline decoration-dotted flex items-center justify-center gap-1 mx-auto">
+                                                    <button type="button" onclick="app.openAttendanceGradeConfigModal()" class="text-emerald-700 dark:text-emerald-300 hover:text-emerald-600 underline decoration-dotted flex items-center justify-center gap-1 mx-auto" title="Configura ponderazione presenze">
                                                         <span>${this.t("navAttendance").toUpperCase()}</span>
-                                                        <i class="fa-solid fa-sliders text-[10px]"></i>
                                                     </button>
-                                                    <span class="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold block mt-0.5">${attWeight}% • Max ${this.getAttendanceMaxScore(course, activeSection)}</span>
+                                                    <span class="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold block mt-0.5">${attWeight}%</span>
                                                 </th>
                                             ` : ''}
                                             ${activities.map(act => {
@@ -7217,23 +7249,23 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                             </div>
                         </div>
 
-                        <div class="bg-white dark:bg-navy-900 rounded-2xl border border-sky-100 dark:border-slate-800 shadow-xs overflow-hidden">
-                            <div class="overflow-x-auto custom-scrollbar">
-                            <table class="w-full text-left border-collapse text-xs">
+                        <div class="bg-white dark:bg-navy-900 rounded-2xl border border-sky-100 dark:border-slate-800 shadow-xs overflow-hidden w-full">
+                            <div class="overflow-x-auto custom-scrollbar w-full">
+                            <table class="w-full min-w-full text-left border-collapse text-xs">
                                 <thead>
                                     <tr class="bg-sky-50/80 dark:bg-navy-800 border-b border-sky-100 dark:border-slate-800">
-                                        <th class="px-4 py-3 font-extrabold min-w-[240px]">${this.t("studentCol")}</th>
-                                        <th class="px-4 py-3 font-extrabold min-w-[180px]">${this.t("attendedCoursesCol")}</th>
-                                        <th class="px-4 py-3 font-extrabold text-center min-w-[70px]">${this.t("studentLatestLevelCol")}</th>
-                                        <th class="px-4 py-3 font-extrabold min-w-[140px]">${this.t("studentPhoneLabel")}</th>
-                                        <th class="px-4 py-3 font-extrabold min-w-[180px]">${this.t("emailBillingLabel")}</th>
-                                        <th class="px-4 py-3 font-extrabold min-w-[120px]">${this.t("cityCol")}</th>
-                                        <th class="px-4 py-3 font-extrabold text-right min-w-[110px]">${this.t("actionsCol")}</th>
+                                        <th class="px-4 py-3 font-extrabold w-[22%] min-w-[200px]">${this.t("studentCol")}</th>
+                                        <th class="px-4 py-3 font-extrabold w-[25%] min-w-[200px]">${this.t("attendedCoursesCol")}</th>
+                                        <th class="px-4 py-3 font-extrabold text-center w-[8%] min-w-[70px]">${this.t("studentLatestLevelCol")}</th>
+                                        <th class="px-4 py-3 font-extrabold w-[13%] min-w-[120px]">${this.t("studentPhoneLabel")}</th>
+                                        <th class="px-4 py-3 font-extrabold w-[18%] min-w-[150px]">${this.t("emailBillingLabel")}</th>
+                                        <th class="px-4 py-3 font-extrabold w-[14%] min-w-[100px]">${this.t("cityCol")}</th>
+                                        <th class="px-4 py-3 font-extrabold text-right w-[100px] min-w-[100px]">${this.t("actionsCol")}</th>
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-sky-100/60 dark:divide-slate-800">
                                     ${filtered.length === 0 ? `
-                                        <tr><td colspan="5" class="px-6 py-10 text-center text-slate-400">${this.t("noStudentsFoundMsg")}</td></tr>
+                                        <tr><td colspan="7" class="px-6 py-10 text-center text-slate-400">${this.t("noStudentsFoundMsg")}</td></tr>
                                     ` : filtered.map(st => {
                                         const attendedCourses = (this.state.courses || []).filter(c =>
                                             (c.levels || []).some(l => (l.modules || []).some(m => (m.studentIds || []).includes(st.id))) ||
@@ -7732,155 +7764,104 @@ Removing, obfuscating, or altering these credits violates the author's attributi
             }
 
             syncBillingContactsFromCoursesAndStudents() {
-                if (!Array.isArray(this.state.billingContacts)) this.state.billingContacts = [];
-                const existingByKey = new Map();
-                this.state.billingContacts.forEach(ct => {
-                    existingByKey.set(`${ct.sourceType || 'custom'}_${ct.sourceId || ct.id}`, ct);
-                });
-
-                (this.state.courses || []).forEach(c => {
-                    const bi = c.billingConfig?.billingInfo;
-                    if (!bi) return;
-                    const key = `course_${c.id}`;
-                    const modSummary = (c.levels || []).map(l => {
-                        const lCode = l.code === "Altro" ? (l.customName || "Altro") : l.code;
-                        const mNames = (l.modules || []).map(m => m.name).join(", ");
-                        return `${lCode}${mNames ? ` (${mNames})` : ''}`;
-                    }).join(" • ");
-                    const summary = `${c.name}${modSummary ? ` — ${modSummary}` : ''}`;
-                    if (existingByKey.has(key)) {
-                        const item = existingByKey.get(key);
-                        item.fullName = bi.fullName || c.name || item.fullName;
-                        item.idType = bi.idType || item.idType || "cedula";
-                        item.idNumber = bi.idNumber || item.idNumber || "";
-                        item.city = bi.city || item.city || "";
-                        item.address = bi.address || item.address || "";
-                        item.phone = bi.phone || item.phone || "";
-                        item.email = bi.email || item.email || "";
-                        item.courseSummary = summary;
-                    } else if (bi.fullName || bi.idNumber || bi.email || bi.phone) {
-                        this.state.billingContacts.push({
-                            id: `bc-course-${c.id}`,
-                            sourceType: "course",
-                            sourceId: c.id,
-                            fullName: bi.fullName || c.name || "",
-                            idType: bi.idType || "cedula",
-                            idNumber: bi.idNumber || "",
-                            city: bi.city || "",
-                            address: bi.address || "",
-                            phone: bi.phone || "",
-                            email: bi.email || "",
-                            courseSummary: summary
-                        });
-                    }
-                });
-
-                (this.state.studentsDirectory || []).forEach(st => {
-                    const bi = st.billingInfo || {};
-                    const key = `student_${st.id}`;
-                    const fullStName = `${st.firstName || ''} ${st.lastName || ''}`.trim();
-                    const enrolledSummary = [];
-                    (this.state.courses || []).forEach(c => {
-                        (c.levels || []).forEach(l => {
-                            (l.modules || []).forEach(m => {
-                                if ((m.studentIds || []).includes(st.id)) {
-                                    enrolledSummary.push(`${c.name} (${this.formatLevelModuleBadge(c, l, m)})`);
-                                }
-                            });
-                        });
-                    });
-                    const summary = enrolledSummary.join(" • ") || st.lastFollowedLevel || st.currentLevel || "A1";
-                    if (existingByKey.has(key)) {
-                        const item = existingByKey.get(key);
-                        item.fullName = bi.fullName || fullStName || item.fullName;
-                        item.idType = bi.idType || item.idType || "cedula";
-                        item.idNumber = bi.idNumber || item.idNumber || "";
-                        item.city = bi.city || st.city || item.city || "";
-                        item.address = bi.address || item.address || "";
-                        item.phone = bi.phone || st.phone || item.phone || "";
-                        item.email = bi.email || st.email || item.email || "";
-                        item.courseSummary = summary;
-                    } else {
-                        this.state.billingContacts.push({
-                            id: `bc-student-${st.id}`,
-                            sourceType: "student",
-                            sourceId: st.id,
-                            fullName: bi.fullName || fullStName,
-                            idType: bi.idType || "cedula",
-                            idNumber: bi.idNumber || "",
-                            city: bi.city || st.city || "",
-                            address: bi.address || "",
-                            phone: bi.phone || st.phone || "",
-                            email: bi.email || st.email || "",
-                            courseSummary: summary
-                        });
-                    }
-                });
+                // Preserved empty by default per user request in v26.10.5-002:
+                // billing contacts are managed explicitly and associated to groups.
             }
 
-            openBillingContactModal(contactId = null) {
-                this.syncBillingContactsFromCoursesAndStudents();
+            openBillingContactModal(contactId = null, courseId = null, moduleId = null) {
                 const ct = contactId ? (this.state.billingContacts || []).find(x => x.id === contactId) : null;
+                const isEdit = !!ct;
                 this.openModal(`
-                    <form onsubmit="app.saveBillingContactModal(event, '${ct ? ct.id : ''}')" class="p-6 space-y-4 text-xs max-w-lg">
+                    <form onsubmit="app.saveBillingContactModal(event, '${ct ? ct.id : ''}', '${courseId || ''}', '${moduleId || ''}')" class="p-6 space-y-4 text-xs">
                         <div class="flex items-center justify-between border-b border-sky-100 dark:border-slate-800 pb-3">
                             <h3 class="text-sm font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
                                 <i class="fa-solid fa-address-book text-sky-600"></i>
-                                <span>${ct ? 'Modifica Contatto di Fatturazione' : 'Nuovo Contatto di Fatturazione'}</span>
+                                <span>${isEdit ? (this.t("editClientBtn") || 'Modifica Contatto di Fatturazione') : (this.t("newClientBtn") || 'Nuovo Contatto di Fatturazione')}</span>
                             </h3>
-                            <button type="button" onclick="app.closeModal()" class="w-8 h-8 rounded-lg hover:bg-slate-100 dark:hover:bg-navy-800 flex items-center justify-center"><i class="fa-solid fa-xmark"></i></button>
+                            <button type="button" onclick="app.closeModal()" class="w-8 h-8 rounded-lg hover:bg-slate-100 dark:hover:bg-navy-800 flex items-center justify-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
+                                <i class="fa-solid fa-xmark"></i>
+                            </button>
                         </div>
-                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                            <div class="sm:col-span-2">
-                                <label class="block font-bold mb-1">${this.t("fullNameBillingLabel")} *</label>
-                                <input type="text" id="bcFullName" required value="${this.escapeHtml(ct?.fullName || '')}" class="w-full h-9 rounded-xl border border-sky-200 dark:border-slate-700 bg-transparent px-3 font-bold">
+
+                        <!-- Sezione 1: Dati Anagrafici & Identità -->
+                        <div class="space-y-3">
+                            <div class="text-[11px] font-black uppercase tracking-wider text-sky-700 dark:text-sky-400 flex items-center gap-1.5">
+                                <i class="fa-solid fa-id-card"></i>
+                                <span>Dati Identificativi</span>
                             </div>
-                            <div>
-                                <label class="block font-bold mb-1">${this.t("idTypeLabel")}</label>
-                                <select id="bcIdType" class="w-full h-9 rounded-xl border border-sky-200 dark:border-slate-700 bg-transparent px-3 font-bold">
-                                    <option value="cedula" ${ct?.idType === 'cedula' ? 'selected' : ''}>Cédula / CF</option>
-                                    <option value="ruc" ${ct?.idType === 'ruc' ? 'selected' : ''}>RUC / P.IVA</option>
-                                    <option value="passport" ${ct?.idType === 'passport' ? 'selected' : ''}>Pasaporte / Altro</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label class="block font-bold mb-1">${this.t("idNumberLabel")}</label>
-                                <input type="text" id="bcIdNum" value="${this.escapeHtml(ct?.idNumber || '')}" class="w-full h-9 rounded-xl border border-sky-200 dark:border-slate-700 bg-transparent px-3 font-bold">
-                            </div>
-                            <div>
-                                <label class="block font-bold mb-1">${this.t("phoneBillingLabel")}</label>
-                                <input type="text" id="bcPhone" value="${this.escapeHtml(ct?.phone || '')}" class="w-full h-9 rounded-xl border border-sky-200 dark:border-slate-700 bg-transparent px-3">
-                            </div>
-                            <div>
-                                <label class="block font-bold mb-1">${this.t("emailBillingLabel")}</label>
-                                <input type="email" id="bcEmail" value="${this.escapeHtml(ct?.email || '')}" class="w-full h-9 rounded-xl border border-sky-200 dark:border-slate-700 bg-transparent px-3">
-                            </div>
-                            <div>
-                                <label class="block font-bold mb-1">${this.t("cityBillingLabel")}</label>
-                                <input type="text" id="bcCity" value="${this.escapeHtml(ct?.city || '')}" class="w-full h-9 rounded-xl border border-sky-200 dark:border-slate-700 bg-transparent px-3">
-                            </div>
-                            <div>
-                                <label class="block font-bold mb-1">${this.t("addressBillingLabel")}</label>
-                                <input type="text" id="bcAddress" value="${this.escapeHtml(ct?.address || '')}" class="w-full h-9 rounded-xl border border-sky-200 dark:border-slate-700 bg-transparent px-3">
-                            </div>
-                            <div class="sm:col-span-2">
-                                <label class="block font-bold mb-1">Corso / Modulo / Livello Associato</label>
-                                <input type="text" id="bcSummary" value="${this.escapeHtml(ct?.courseSummary || '')}" class="w-full h-9 rounded-xl border border-sky-200 dark:border-slate-700 bg-transparent px-3">
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <div class="sm:col-span-2">
+                                    <label class="block font-bold text-slate-700 dark:text-slate-200 mb-1">${this.t("billingFullNameLabel")} *</label>
+                                    <input type="text" id="bcFullName" required value="${this.escapeHtml(ct?.fullName || '')}" placeholder="${this.t("billingFullNamePlaceholder")}" class="w-full h-9 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-navy-800 text-slate-900 dark:text-white px-3 font-bold">
+                                </div>
+                                <div>
+                                    <label class="block font-bold text-slate-700 dark:text-slate-200 mb-1">${this.t("billingIdTypeLabel")}</label>
+                                    <select id="bcIdType" class="w-full h-9 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-navy-800 text-slate-900 dark:text-white px-3 font-bold">
+                                        <option value="cedula" ${ct?.idType === 'cedula' ? 'selected' : ''}>${this.t("idTypeCedula")}</option>
+                                        <option value="ruc" ${ct?.idType === 'ruc' ? 'selected' : ''}>${this.t("idTypeRuc")}</option>
+                                        <option value="passport" ${ct?.idType === 'passport' ? 'selected' : ''}>${this.t("idTypePassport")}</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block font-bold text-slate-700 dark:text-slate-200 mb-1">${this.t("billingIdNumberLabel")}</label>
+                                    <input type="text" id="bcIdNum" value="${this.escapeHtml(ct?.idNumber || '')}" class="w-full h-9 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-navy-800 text-slate-900 dark:text-white px-3 font-bold">
+                                </div>
                             </div>
                         </div>
+
+                        <!-- Sezione 2: Recapiti e Residenza -->
+                        <div class="space-y-3 pt-2 border-t border-sky-100 dark:border-slate-800">
+                            <div class="text-[11px] font-black uppercase tracking-wider text-sky-700 dark:text-sky-400 flex items-center gap-1.5">
+                                <i class="fa-solid fa-location-dot"></i>
+                                <span>Recapiti e Residenza</span>
+                            </div>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <div>
+                                    <label class="block font-bold text-slate-700 dark:text-slate-200 mb-1">${this.t("billingCityLabel")}</label>
+                                    <input type="text" id="bcCity" value="${this.escapeHtml(ct?.city || '')}" class="w-full h-9 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-navy-800 text-slate-900 dark:text-white px-3">
+                                </div>
+                                <div>
+                                    <label class="block font-bold text-slate-700 dark:text-slate-200 mb-1">${this.t("billingAddressLabel")}</label>
+                                    <input type="text" id="bcAddress" value="${this.escapeHtml(ct?.address || '')}" class="w-full h-9 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-navy-800 text-slate-900 dark:text-white px-3">
+                                </div>
+                                <div>
+                                    <label class="block font-bold text-slate-700 dark:text-slate-200 mb-1">${this.t("billingPhoneLabel")}</label>
+                                    <input type="text" id="bcPhone" value="${this.escapeHtml(ct?.phone || '')}" class="w-full h-9 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-navy-800 text-slate-900 dark:text-white px-3">
+                                </div>
+                                <div>
+                                    <label class="block font-bold text-slate-700 dark:text-slate-200 mb-1">${this.t("billingEmailLabel")}</label>
+                                    <input type="email" id="bcEmail" value="${this.escapeHtml(ct?.email || '')}" class="w-full h-9 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-navy-800 text-slate-900 dark:text-white px-3">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Sezione 3: Note / Corso Associato -->
+                        <div class="space-y-3 pt-2 border-t border-sky-100 dark:border-slate-800">
+                            <div class="text-[11px] font-black uppercase tracking-wider text-sky-700 dark:text-sky-400 flex items-center gap-1.5">
+                                <i class="fa-solid fa-graduation-cap"></i>
+                                <span>Note e Riferimento Corso</span>
+                            </div>
+                            <div>
+                                <input type="text" id="bcSummary" value="${this.escapeHtml(ct?.courseSummary || '')}" placeholder="Es. Corso Spagnolo A1 - Gruppo Serale" class="w-full h-9 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-navy-800 text-slate-900 dark:text-white px-3">
+                            </div>
+                        </div>
+
                         <div class="flex justify-end gap-2 pt-3 border-t border-sky-100 dark:border-slate-800">
-                            <button type="button" onclick="app.closeModal()" class="px-4 py-2 rounded-xl border border-slate-300 dark:border-slate-700 font-bold">${this.t("cancelBtn")}</button>
-                            <button type="submit" class="px-5 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-extrabold">${this.t("saveBtn")}</button>
+                            <button type="button" onclick="app.closeModal()" class="px-4 py-2 rounded-xl border border-slate-300 dark:border-slate-700 font-bold text-slate-700 dark:text-slate-300">${this.t("cancelBtn")}</button>
+                            <button type="submit" class="px-5 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-extrabold shadow-2xs">${this.t("saveChangesBtn")}</button>
                         </div>
                     </form>
                 `, "max-w-lg");
             }
 
-            saveBillingContactModal(e, contactId) {
+            saveBillingContactModal(e, contactId, courseId = null, moduleId = null) {
                 if (e) e.preventDefault();
                 if (!Array.isArray(this.state.billingContacts)) this.state.billingContacts = [];
+                const fullName = document.getElementById("bcFullName")?.value.trim() || "";
+                if (!fullName) return;
+
                 const payload = {
-                    fullName: document.getElementById("bcFullName")?.value.trim() || "",
+                    fullName: fullName,
                     idType: document.getElementById("bcIdType")?.value || "cedula",
                     idNumber: document.getElementById("bcIdNum")?.value.trim() || "",
                     phone: document.getElementById("bcPhone")?.value.trim() || "",
@@ -7889,34 +7870,31 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                     address: document.getElementById("bcAddress")?.value.trim() || "",
                     courseSummary: document.getElementById("bcSummary")?.value.trim() || ""
                 };
-                if (!payload.fullName) return;
-                const existing = contactId ? this.state.billingContacts.find(x => x.id === contactId) : null;
-                if (existing) {
-                    Object.assign(existing, payload);
-                    if (existing.sourceType === "course" && existing.sourceId) {
-                        const c = (this.state.courses || []).find(x => x.id === existing.sourceId);
-                        if (c) {
-                            if (!c.billingConfig) c.billingConfig = {};
-                            c.billingConfig.billingInfo = { ...payload };
-                        }
-                    } else if (existing.sourceType === "student" && existing.sourceId) {
-                        const st = (this.state.studentsDirectory || []).find(x => x.id === existing.sourceId);
-                        if (st) {
-                            st.billingInfo = { ...payload };
-                        }
+
+                let targetId = contactId;
+                if (targetId) {
+                    const idx = this.state.billingContacts.findIndex(x => x.id === targetId);
+                    if (idx >= 0) {
+                        this.state.billingContacts[idx] = { ...this.state.billingContacts[idx], ...payload };
                     }
                 } else {
+                    targetId = "bc-" + Date.now();
                     this.state.billingContacts.unshift({
-                        id: "bc-" + Math.random().toString(36).substr(2, 7),
+                        id: targetId,
                         sourceType: "custom",
                         sourceId: "",
                         ...payload
                     });
                 }
                 this.persist();
-                this.closeModal(true);
-                this.renderMainView();
-                this.showToast(this.t("saveBtn"), "success");
+
+                if (courseId) {
+                    this.linkBillingContact(courseId, moduleId, targetId);
+                } else {
+                    this.closeModal(true);
+                    this.renderMainView();
+                    this.showToast(this.t("saveChangesBtn") || "Dati salvati", "success");
+                }
             }
 
             deleteBillingContact(contactId) {
@@ -7927,7 +7905,6 @@ Removing, obfuscating, or altering these credits violates the author's attributi
             }
 
             renderBillingView(container) {
-                this.syncBillingContactsFromCoursesAndStudents();
                 const activeCourses = (this.state.courses || []).filter(c => !c.archived);
                 const course = activeCourses.find(c => c.id === this.selectedBillingCourseId) || this.getActiveCourse() || activeCourses[0];
                 const isContactsTab = this.billingViewTab === "contacts";
@@ -8425,86 +8402,261 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 `;
             }
 
-            openFiscalInfoModal(courseId) {
+            openFiscalInfoModal(courseId, moduleId = null, clientIndex = 0) {
                 const course = (this.state.courses || []).find(c => c.id === courseId) || this.getActiveCourse();
                 if (!course) return;
-                const fInfo = course.billingConfig?.billingInfo || {};
+
+                let mod = null;
+                const targetModId = moduleId || this.selectedBillingModuleId;
+                if (targetModId) {
+                    for (const lvl of (course.levels || [])) {
+                        const found = (lvl.modules || []).find(m => m.id === targetModId);
+                        if (found) { mod = found; break; }
+                    }
+                }
+                if (!mod && (course.levels || []).length > 0 && (course.levels[0].modules || []).length > 0) {
+                    mod = course.levels[0].modules[0];
+                }
+
+                if (mod && !Array.isArray(mod.billingContactIds)) {
+                    mod.billingContactIds = [];
+                }
+                if (!course.billingConfig) {
+                    course.billingConfig = {};
+                }
+                if (!Array.isArray(course.billingConfig.billingContactIds)) {
+                    course.billingConfig.billingContactIds = [];
+                }
+
+                const associatedIds = mod ? mod.billingContactIds : course.billingConfig.billingContactIds;
+                const safeIndex = associatedIds.length === 0 ? 0 : Math.min(Math.max(0, clientIndex), associatedIds.length - 1);
+                const activeContactId = associatedIds.length > 0 ? associatedIds[safeIndex] : null;
+                const activeContact = activeContactId ? (this.state.billingContacts || []).find(c => c.id === activeContactId) : null;
+                const modIdParam = mod ? mod.id : '';
 
                 this.openModal(`
-                    <div class="p-5 space-y-4">
+                    <div class="p-6 space-y-5 text-xs">
                         <div class="flex items-center justify-between border-b border-sky-100 dark:border-slate-800 pb-3">
                             <div class="flex items-center gap-2.5">
                                 <i class="fa-solid fa-address-card text-sky-600 text-lg"></i>
-                                <h3 class="text-sm font-extrabold text-slate-900 dark:text-white">${this.t("ecuadorBillingHeader")}</h3>
+                                <div>
+                                    <h3 class="text-sm font-extrabold text-slate-900 dark:text-white">${this.t("billingFiscalDataBtn")}</h3>
+                                    <p class="text-[11px] text-slate-400">${this.escapeHtml(course.name)}${mod ? ' • ' + this.escapeHtml(mod.name) : ''}</p>
+                                </div>
                             </div>
-                            <button type="button" onclick="app.closeModal()" class="w-8 h-8 rounded-lg hover:bg-slate-100 dark:hover:bg-navy-800 flex items-center justify-center">
+                            <button type="button" onclick="app.closeModal()" class="w-8 h-8 rounded-lg hover:bg-slate-100 dark:hover:bg-navy-800 flex items-center justify-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
                                 <i class="fa-solid fa-xmark"></i>
                             </button>
                         </div>
 
-                        <form onsubmit="app.saveCourseFiscalInfoFromModal('${course.id}', event)" class="space-y-4 text-xs">
-                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                <div>
-                                    <label class="block font-bold mb-1">${this.t("idTypeLabel")}</label>
-                                    <select id="modalFiscIdType" class="w-full h-9 rounded-xl border border-sky-200 dark:border-slate-700 bg-transparent px-3 font-bold">
-                                        <option value="cedula" ${fInfo.idType === 'cedula' ? 'selected' : ''}>Cédula</option>
-                                        <option value="ruc" ${fInfo.idType === 'ruc' ? 'selected' : ''}>RUC</option>
-                                        <option value="passport" ${fInfo.idType === 'passport' ? 'selected' : ''}>Pasaporte / Altro</option>
-                                    </select>
+                        ${(!activeContact || associatedIds.length === 0) ? `
+                            <div class="bg-white dark:bg-navy-900 rounded-2xl border border-sky-100 dark:border-slate-800 p-8 text-center space-y-4">
+                                <div class="w-16 h-16 mx-auto rounded-full bg-sky-50 dark:bg-navy-800 flex items-center justify-center text-sky-500 text-2xl">
+                                    <i class="fa-solid fa-file-invoice"></i>
                                 </div>
-                                <div>
-                                    <label class="block font-bold mb-1">${this.t("idNumberLabel")}</label>
-                                    <input type="text" id="modalFiscIdNum" value="${this.escapeHtml(fInfo.idNumber || '')}" class="w-full h-9 rounded-xl border border-sky-200 dark:border-slate-700 bg-transparent px-3 font-bold">
+                                <div class="space-y-1">
+                                    <h4 class="font-extrabold text-slate-800 dark:text-slate-100">${this.t("noBillingAssociatedMsg")}</h4>
+                                    <p class="text-[11px] text-slate-400">Associa profili di fatturazione a questo gruppo per gestire pagamenti e ricevute individuali.</p>
                                 </div>
-                                <div class="sm:col-span-2">
-                                    <label class="block font-bold mb-1">${this.t("fullNameBillingLabel")}</label>
-                                    <input type="text" id="modalFiscFullName" value="${this.escapeHtml(fInfo.fullName || course.name || '')}" class="w-full h-9 rounded-xl border border-sky-200 dark:border-slate-700 bg-transparent px-3 font-bold">
-                                </div>
-                                <div>
-                                    <label class="block font-bold mb-1">${this.t("cityBillingLabel")}</label>
-                                    <input type="text" id="modalFiscCity" value="${this.escapeHtml(fInfo.city || '')}" class="w-full h-9 rounded-xl border border-sky-200 dark:border-slate-700 bg-transparent px-3">
-                                </div>
-                                <div>
-                                    <label class="block font-bold mb-1">${this.t("addressBillingLabel")}</label>
-                                    <input type="text" id="modalFiscAddress" value="${this.escapeHtml(fInfo.address || '')}" class="w-full h-9 rounded-xl border border-sky-200 dark:border-slate-700 bg-transparent px-3">
-                                </div>
-                                <div>
-                                    <label class="block font-bold mb-1">${this.t("phoneBillingLabel")}</label>
-                                    <input type="text" id="modalFiscPhone" value="${this.escapeHtml(fInfo.phone || '')}" class="w-full h-9 rounded-xl border border-sky-200 dark:border-slate-700 bg-transparent px-3">
-                                </div>
-                                <div>
-                                    <label class="block font-bold mb-1">${this.t("emailBillingLabel")}</label>
-                                    <input type="email" id="modalFiscEmail" value="${this.escapeHtml(fInfo.email || '')}" class="w-full h-9 rounded-xl border border-sky-200 dark:border-slate-700 bg-transparent px-3">
-                                </div>
+                                <button type="button" onclick="app.openAssociateBillingModal('${course.id}', '${modIdParam}')"
+                                    class="px-4 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-extrabold inline-flex items-center gap-2 shadow-2xs transition">
+                                    <i class="fa-solid fa-link"></i>
+                                    <span>${this.t("associateBillingDataBtn")}</span>
+                                </button>
                             </div>
+                        ` : `
+                            <div class="bg-white dark:bg-navy-900 rounded-2xl border border-sky-100 dark:border-slate-800 p-5 space-y-4 shadow-xs">
+                                <div class="flex items-start justify-between gap-3">
+                                    <div>
+                                        <div class="flex items-center gap-2 mb-1">
+                                            <span class="px-2 py-0.5 rounded-md bg-sky-100 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300 font-black text-[10px] uppercase">
+                                                ${this.escapeHtml(activeContact.idType || 'CEDULA')}
+                                            </span>
+                                            <span class="text-xs font-bold text-slate-500 dark:text-slate-400">
+                                                ${this.escapeHtml(activeContact.idNumber || '—')}
+                                            </span>
+                                        </div>
+                                        <h3 class="text-base font-black text-slate-900 dark:text-white">
+                                            ${this.escapeHtml(activeContact.fullName || '—')}
+                                        </h3>
+                                    </div>
+                                    <button type="button" onclick="app.dissociateBillingContact('${course.id}', '${modIdParam}', ${safeIndex})"
+                                        class="px-3 py-1.5 rounded-xl border border-rose-200 dark:border-rose-900/60 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 text-xs font-bold flex items-center gap-1.5 transition">
+                                        <i class="fa-solid fa-unlink text-[11px]"></i>
+                                        <span>${this.t("dissociateBillingBtn")}</span>
+                                    </button>
+                                </div>
 
-                            <div class="flex justify-end gap-2 pt-3 border-t border-sky-100 dark:border-slate-800">
-                                <button type="button" onclick="app.closeModal()" class="px-4 py-2 rounded-xl border border-slate-300 dark:border-slate-700 font-bold">${this.t("cancelBtn")}</button>
-                                <button type="submit" class="px-4 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-extrabold shadow-2xs">${this.t("saveBillingBtn")}</button>
+                                <div class="border-t border-sky-100 dark:border-slate-800 pt-3 grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                                    <div>
+                                        <span class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">${this.t("cityBillingLabel")}</span>
+                                        <span class="font-bold text-slate-800 dark:text-slate-100">${this.escapeHtml(activeContact.city || '—')}</span>
+                                    </div>
+                                    <div>
+                                        <span class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">${this.t("addressBillingLabel")}</span>
+                                        <span class="font-bold text-slate-800 dark:text-slate-100">${this.escapeHtml(activeContact.address || '—')}</span>
+                                    </div>
+                                    <div>
+                                        <span class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">${this.t("phoneBillingLabel")}</span>
+                                        <span class="font-bold text-slate-800 dark:text-slate-100">${this.escapeHtml(activeContact.phone || '—')}</span>
+                                    </div>
+                                    <div>
+                                        <span class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">${this.t("emailBillingLabel")}</span>
+                                        <span class="font-bold text-slate-800 dark:text-slate-100">${this.escapeHtml(activeContact.email || '—')}</span>
+                                    </div>
+                                </div>
+
+                                <div class="border-t border-sky-100 dark:border-slate-800 pt-3 flex items-center justify-between">
+                                    <div class="flex items-center gap-2">
+                                        <button type="button" ${safeIndex <= 0 ? 'disabled class="w-8 h-8 rounded-full bg-slate-100 dark:bg-navy-800 text-slate-300 dark:text-slate-600 cursor-not-allowed flex items-center justify-center font-bold text-sm"' : `onclick="app.openFiscalInfoModal('${course.id}', '${modIdParam}', ${safeIndex - 1})" class="w-8 h-8 rounded-full bg-slate-100 dark:bg-navy-800 text-slate-700 dark:text-slate-200 hover:bg-sky-100 dark:hover:bg-slate-700 flex items-center justify-center font-bold text-sm transition"`}>‹</button>
+                                        <span class="text-xs font-bold text-slate-500 dark:text-slate-400">
+                                            ${this.t("clientIndexPaging").replace("%d", safeIndex + 1).replace("%d", associatedIds.length)}
+                                        </span>
+                                        <button type="button" ${safeIndex >= associatedIds.length - 1 ? 'disabled class="w-8 h-8 rounded-full bg-slate-100 dark:bg-navy-800 text-slate-300 dark:text-slate-600 cursor-not-allowed flex items-center justify-center font-bold text-sm"' : `onclick="app.openFiscalInfoModal('${course.id}', '${modIdParam}', ${safeIndex + 1})" class="w-8 h-8 rounded-full bg-slate-100 dark:bg-navy-800 text-slate-700 dark:text-slate-200 hover:bg-sky-100 dark:hover:bg-slate-700 flex items-center justify-center font-bold text-sm transition"`}>›</button>
+                                    </div>
+                                    <button type="button" onclick="app.openAssociateBillingModal('${course.id}', '${modIdParam}')"
+                                        class="px-3.5 py-1.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-extrabold flex items-center gap-1.5 text-xs shadow-2xs transition">
+                                        <i class="fa-solid fa-plus"></i>
+                                        <span>${this.t("addBillingDataBtn")}</span>
+                                    </button>
+                                </div>
                             </div>
-                        </form>
+                        `}
+
+                        <div class="flex justify-end pt-2 border-t border-sky-100 dark:border-slate-800">
+                            <button type="button" onclick="app.closeModal()" class="px-4 py-2 rounded-xl border border-slate-300 dark:border-slate-700 font-bold">${this.t("closeBtn") || "Chiudi"}</button>
+                        </div>
                     </div>
                 `, "max-w-xl");
             }
 
-            saveCourseFiscalInfoFromModal(courseId, e) {
-                if (e) e.preventDefault();
+            openAssociateBillingModal(courseId, moduleId = null) {
+                const course = (this.state.courses || []).find(c => c.id === courseId) || this.getActiveCourse();
+                if (!course) return;
+                let mod = null;
+                const targetModId = moduleId || this.selectedBillingModuleId;
+                if (targetModId) {
+                    for (const lvl of (course.levels || [])) {
+                        const found = (lvl.modules || []).find(m => m.id === targetModId);
+                        if (found) { mod = found; break; }
+                    }
+                }
+                const associatedIds = mod ? (mod.billingContactIds || []) : (course.billingConfig?.billingContactIds || []);
+                const contacts = this.state.billingContacts || [];
+                const modIdParam = mod ? mod.id : '';
+
+                this.openModal(`
+                    <div class="p-6 space-y-4 text-xs">
+                        <div class="flex items-center justify-between border-b border-sky-100 dark:border-slate-800 pb-3">
+                            <div class="flex items-center gap-2">
+                                <i class="fa-solid fa-link text-sky-600 text-base"></i>
+                                <h3 class="text-sm font-extrabold text-slate-900 dark:text-white">${this.t("associateBillingDataBtn")}</h3>
+                            </div>
+                            <button type="button" onclick="app.openFiscalInfoModal('${course.id}', '${modIdParam}')" class="w-8 h-8 rounded-lg hover:bg-slate-100 dark:hover:bg-navy-800 flex items-center justify-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
+                                <i class="fa-solid fa-xmark"></i>
+                            </button>
+                        </div>
+
+                        <div class="flex items-center justify-between gap-2">
+                            <p class="text-slate-500 dark:text-slate-400 text-xs">${this.t("selectBillingProfilePrompt")}</p>
+                            <button type="button" onclick="app.openBillingContactModal(null, '${course.id}', '${modIdParam}')" class="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold flex items-center gap-1.5 text-xs shadow-2xs">
+                                <i class="fa-solid fa-plus"></i>
+                                <span>${this.t("newClientBtn") || "Nuovo Cliente"}</span>
+                            </button>
+                        </div>
+
+                        <div class="max-h-80 overflow-y-auto space-y-2 custom-scrollbar">
+                            ${contacts.length === 0 ? `
+                                <div class="p-8 text-center text-slate-400 space-y-2">
+                                    <i class="fa-solid fa-address-book text-3xl opacity-40"></i>
+                                    <p class="font-bold">Nessun contatto registrato nella banca dati.</p>
+                                    <p class="text-[11px]">Crea un nuovo profilo per associarlo a questo gruppo.</p>
+                                </div>
+                            ` : contacts.map(ct => {
+                                const isLinked = associatedIds.includes(ct.id);
+                                return `
+                                    <div class="p-3 rounded-xl border border-sky-100 dark:border-slate-800 flex items-center justify-between gap-3 bg-slate-50/50 dark:bg-navy-800/40 hover:bg-sky-50/50 dark:hover:bg-navy-800 transition">
+                                        <div class="space-y-0.5">
+                                            <div class="flex items-center gap-2">
+                                                <span class="font-extrabold text-slate-900 dark:text-white text-xs">${this.escapeHtml(ct.fullName)}</span>
+                                                <span class="text-[10px] px-1.5 py-0.5 rounded bg-sky-100 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300 font-black uppercase">${this.escapeHtml(ct.idType || 'CEDULA')} ${this.escapeHtml(ct.idNumber || '')}</span>
+                                            </div>
+                                            <div class="text-[11px] text-slate-400">
+                                                ${[ct.city, ct.phone, ct.email].filter(Boolean).map(x => this.escapeHtml(x)).join(' • ') || 'Nessun dettaglio'}
+                                            </div>
+                                        </div>
+                                        <div>
+                                            ${isLinked ? `
+                                                <span class="px-2.5 py-1 rounded-lg bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 font-extrabold text-[11px] flex items-center gap-1">
+                                                    <i class="fa-solid fa-check"></i> Associato
+                                                </span>
+                                            ` : `
+                                                <button type="button" onclick="app.linkBillingContact('${course.id}', '${modIdParam}', '${ct.id}')"
+                                                    class="px-3 py-1.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-extrabold text-xs shadow-2xs">
+                                                    Associa
+                                                </button>
+                                            `}
+                                        </div>
+                                    </div>
+                                `;
+                            }).join("")}
+                        </div>
+
+                        <div class="flex justify-end pt-3 border-t border-sky-100 dark:border-slate-800">
+                            <button type="button" onclick="app.openFiscalInfoModal('${course.id}', '${modIdParam}')" class="px-4 py-2 rounded-xl border border-slate-300 dark:border-slate-700 font-bold">
+                                Torna Indietro
+                            </button>
+                        </div>
+                    </div>
+                `, "max-w-xl");
+            }
+
+            linkBillingContact(courseId, moduleId, contactId) {
                 const course = (this.state.courses || []).find(c => c.id === courseId);
                 if (!course) return;
-                if (!course.billingConfig) course.billingConfig = {};
-                course.billingConfig.billingInfo = {
-                    idType: document.getElementById("modalFiscIdType")?.value || "cedula",
-                    idNumber: document.getElementById("modalFiscIdNum")?.value.trim() || "",
-                    fullName: document.getElementById("modalFiscFullName")?.value.trim() || "",
-                    city: document.getElementById("modalFiscCity")?.value.trim() || "",
-                    address: document.getElementById("modalFiscAddress")?.value.trim() || "",
-                    phone: document.getElementById("modalFiscPhone")?.value.trim() || "",
-                    email: document.getElementById("modalFiscEmail")?.value.trim() || ""
-                };
+                let mod = null;
+                if (moduleId) {
+                    for (const lvl of (course.levels || [])) {
+                        const found = (lvl.modules || []).find(m => m.id === moduleId);
+                        if (found) { mod = found; break; }
+                    }
+                }
+                if (mod) {
+                    if (!Array.isArray(mod.billingContactIds)) mod.billingContactIds = [];
+                    if (!mod.billingContactIds.includes(contactId)) {
+                        mod.billingContactIds.push(contactId);
+                    }
+                } else {
+                    if (!course.billingConfig) course.billingConfig = {};
+                    if (!Array.isArray(course.billingConfig.billingContactIds)) course.billingConfig.billingContactIds = [];
+                    if (!course.billingConfig.billingContactIds.includes(contactId)) {
+                        course.billingConfig.billingContactIds.push(contactId);
+                    }
+                }
                 this.persist();
-                this.closeModal(true);
-                this.renderMainView();
-                this.showToast(this.t("saveBillingBtn"), "success");
+                const count = mod ? mod.billingContactIds.length : course.billingConfig.billingContactIds.length;
+                this.openFiscalInfoModal(courseId, moduleId, count - 1);
+                this.showToast("Contatto associato al gruppo", "success");
+            }
+
+            dissociateBillingContact(courseId, moduleId, index) {
+                const course = (this.state.courses || []).find(c => c.id === courseId);
+                if (!course) return;
+                let mod = null;
+                if (moduleId) {
+                    for (const lvl of (course.levels || [])) {
+                        const found = (lvl.modules || []).find(m => m.id === moduleId);
+                        if (found) { mod = found; break; }
+                    }
+                }
+                const targetArr = mod ? (mod.billingContactIds || []) : (course.billingConfig?.billingContactIds || []);
+                if (index >= 0 && index < targetArr.length) {
+                    targetArr.splice(index, 1);
+                }
+                this.persist();
+                const newIdx = Math.max(0, Math.min(index, targetArr.length - 1));
+                this.openFiscalInfoModal(courseId, moduleId, newIdx);
+                this.showToast("Contatto rimosso dal gruppo", "info");
             }
 
             openEditLessonPriceModal(courseId, moduleId, slotKey) {

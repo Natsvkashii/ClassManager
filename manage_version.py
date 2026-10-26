@@ -32,9 +32,45 @@ MODELS_SWIFT = os.path.join(PROJECT_ROOT, "Sources", "Models.swift")
 INFO_PLIST = os.path.join(PROJECT_ROOT, "ClassDesk.app", "Contents", "Info.plist")
 APP_BUNDLE = os.path.join(PROJECT_ROOT, "ClassDesk.app")
 VERSIONS_DIR = os.path.join(PROJECT_ROOT, "Versions")
+INDEX_HTML = os.path.join(PROJECT_ROOT, "Windows-Version", "src", "index.html")
 
 REPO_OWNER = "Natsvkashii"
 REPO_NAME = "ClassManager"
+
+
+def sync_channel_flags(is_unstable: int):
+    """
+    Centralized Boolean channel controller:
+    0 = Stable, 1 = Unstable / Beta.
+    Synchronizes the boolean variable across Models.swift and Windows-Version/src/index.html
+    so all interface texts, badges, updater behavior, and colors update autonomously.
+    """
+    flag_val = 1 if is_unstable else 0
+    # 1. Update Sources/Models.swift
+    if os.path.exists(MODELS_SWIFT):
+        with open(MODELS_SWIFT, "r", encoding="utf-8") as f:
+            content = f.read()
+        new_content = re.sub(
+            r'(public\s+static\s+let\s+isUnstableBuild\s*:\s*Int\s*=\s*)\d+',
+            f'\\g<1>{flag_val}',
+            content
+        )
+        with open(MODELS_SWIFT, "w", encoding="utf-8") as f:
+            f.write(new_content)
+        print(f"✓ Updated Sources/Models.swift -> isUnstableBuild = {flag_val} ({'unstable/beta' if flag_val == 1 else 'stable'})")
+
+    # 2. Update Windows-Version/src/index.html
+    if os.path.exists(INDEX_HTML):
+        with open(INDEX_HTML, "r", encoding="utf-8") as f:
+            content = f.read()
+        new_content = re.sub(
+            r'(const\s+IS_UNSTABLE_BUILD\s*=\s*)\d+;',
+            f'\\g<1>{flag_val};',
+            content
+        )
+        with open(INDEX_HTML, "w", encoding="utf-8") as f:
+            f.write(new_content)
+        print(f"✓ Updated Windows-Version/src/index.html -> IS_UNSTABLE_BUILD = {flag_val}")
 
 
 def get_git_branch():
@@ -52,6 +88,13 @@ def git_switch_branch(branch_name: str, create: bool = False):
         else:
             subprocess.run(["git", "checkout", branch_name], cwd=PROJECT_ROOT, check=True)
         print(f"✓ Switched to git branch '{branch_name}'")
+
+        # Automatically update the centralized boolean flag (0 = stable, 1 = unstable)
+        b = branch_name.lower().strip()
+        if "unstable" in b or "beta" in b or "dev" in b:
+            sync_channel_flags(1)
+        elif "stable" in b or "main" in b or "master" in b:
+            sync_channel_flags(0)
     except Exception as e:
         print(f"[!] Error switching branch: {e}")
 
@@ -70,6 +113,9 @@ def get_swift_channel():
         return "stable"
     with open(MODELS_SWIFT, "r", encoding="utf-8") as f:
         content = f.read()
+    m_flag = re.search(r'public\s+static\s+let\s+isUnstableBuild\s*:\s*Int\s*=\s*(\d+)', content)
+    if m_flag:
+        return "unstable" if int(m_flag.group(1)) == 1 else "stable"
     match = re.search(r'public\s+static\s+let\s+appChannel\s*=\s*"([^"]+)"', content)
     return match.group(1).lower() if match else "stable"
 
@@ -100,6 +146,16 @@ def update_swift_version(version: str):
         f.write(new_content)
     print(f"✓ Updated Sources/Models.swift -> {version}")
 
+    # Also synchronize version in Windows-Version/src/index.html
+    if os.path.exists(INDEX_HTML):
+        with open(INDEX_HTML, "r", encoding="utf-8") as f:
+            h_content = f.read()
+        h_content = re.sub(r'<title>ClassDesk\s+v[^<]+</title>', f'<title>ClassDesk v{version}</title>', h_content)
+        h_content = re.sub(r'(version:\s*)"[^"]+"', f'\\1"{version}"', h_content, count=1)
+        with open(INDEX_HTML, "w", encoding="utf-8") as f:
+            f.write(h_content)
+        print(f"✓ Updated Windows-Version/src/index.html -> v{version}")
+
 
 def update_plist_version(version: str):
     if not os.path.exists(INFO_PLIST):
@@ -116,7 +172,9 @@ def update_plist_version(version: str):
 def set_version(version: str):
     update_swift_version(version)
     update_plist_version(version)
-    print(f"\n[OK] Version synchronized to {version}")
+    is_unstable = 1 if is_version_unstable(version) else 0
+    sync_channel_flags(is_unstable)
+    print(f"\n[OK] Version synchronized to {version} (isUnstableBuild = {is_unstable})")
 
 
 def is_version_unstable(cur_ver: str) -> bool:
@@ -482,6 +540,7 @@ Usage: ./manage_version.py <command> [args]
 Commands:
   status                   Show active branch, version, and archived releases
   set-version <version>    Set exact version string across Swift and Info.plist
+  set-channel <0|1>        Set centralized channel flag (0 = stable, 1 = unstable)
   bump-beta                Increment beta build number (e.g. 2.1.1-001b -> 2.1.1-002b)
   switch-branch <name>     Switch to branch (e.g. stable, unstable)
   archive-version <ver>    Move build files matching <ver> to Versions/v<ver>/
@@ -504,6 +563,13 @@ if __name__ == "__main__":
             print("Error: specify version, e.g. ./manage_version.py set-version 2.1.0")
             sys.exit(1)
         set_version(sys.argv[2])
+    elif cmd == "set-channel":
+        if len(sys.argv) < 3:
+            print("Error: specify channel, e.g. ./manage_version.py set-channel 0 (stable) or 1 (unstable)")
+            sys.exit(1)
+        val = sys.argv[2].lower()
+        flag = 1 if val in ("1", "unstable", "beta", "true") else 0
+        sync_channel_flags(flag)
     elif cmd == "bump-beta":
         bump_beta()
     elif cmd == "switch-branch":
