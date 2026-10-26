@@ -132,6 +132,48 @@ public struct ContentView: View {
                     UpdateNotificationBanner(release: rel)
                 }
 
+                if store.isInspectingArchivedCourse, let archCourse = store.activeCourse {
+                    HStack(spacing: 12) {
+                        Image(systemName: "lock.shield.fill")
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundStyle(.orange)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Corso Archiviato in Sola Lettura: \(archCourse.name)")
+                                .font(.subheadline.bold())
+                                .foregroundStyle(.primary)
+                            Text("Le informazioni dentro i corsi archiviati non sono modificabili finché non si ripristina il corso.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Button {
+                            store.inspectingArchivedCourseId = nil
+                            store.currentTab = .archived
+                        } label: {
+                            Label("Torna all'Archivio", systemImage: "arrow.left")
+                                .font(.caption.bold())
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+
+                        Button {
+                            store.restoreArchivedCourse(archCourse.id)
+                        } label: {
+                            Label(store.t("restoreCourseBtn"), systemImage: "arrow.uturn.backward.circle.fill")
+                                .font(.caption.bold())
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(.orange)
+                        .controlSize(.small)
+                    }
+                    .padding(.horizontal, 18)
+                    .padding(.vertical, 10)
+                    .background(Color.orange.opacity(0.14))
+                    .overlay(alignment: .bottom) {
+                        Divider()
+                    }
+                }
+
                 // Main Content Workspace with high-contrast Light/Dark canvas background
                 ZStack(alignment: .bottomTrailing) {
                     mainWorkspaceView
@@ -284,6 +326,10 @@ public struct ContentView: View {
             StudentDetailSheet(studentId: studentId)
         case .newGlobalStudent:
             NewGlobalStudentSheet()
+        case .exportCoursePDF(let course):
+            CoursePDFExportSheet(course: course) {
+                activeSheet = nil
+            }
         case .updatePrompt(let release):
             StartupUpdatePromptSheet(release: release)
         case .onboarding:
@@ -460,7 +506,11 @@ private struct SidebarView: View {
 
     private func sidebarButton(tab: NavigationTab, icon: String, title: String) -> some View {
         let isSelected = store.currentTab == tab
+        let courseTabSet: Set<NavigationTab> = [.attendance, .grades, .activities, .rubrics, .moduleStudentCalendar, .courseConfig, .formerStudents]
         return Button {
+            if !courseTabSet.contains(tab) {
+                store.inspectingArchivedCourseId = nil
+            }
             store.currentTab = tab
         } label: {
             HStack(spacing: 10) {
@@ -524,7 +574,7 @@ private struct TopUnifiedHeaderBar: View {
         let activeCourses = store.activeCourses
 
         HStack(spacing: 8) {
-            if activeCourses.isEmpty {
+            if activeCourses.isEmpty && store.activeCourse == nil {
                 Label(store.t("noActiveCoursesTitle"), systemImage: "exclamationmark.triangle.fill")
                     .font(.caption.bold())
                     .foregroundStyle(.secondary)
@@ -572,30 +622,42 @@ private struct TopUnifiedHeaderBar: View {
                                     .padding(.vertical, 3)
                                     .background(RoundedRectangle(cornerRadius: 7).fill(palette.color))
 
-                                    Picker("", selection: Binding(
-                                        get: { course.id },
-                                        set: { store.switchCourse($0) }
-                                    )) {
-                                        ForEach(activeCourses) { c in
-                                            let cBadge = store.formatLevelModuleBadge(course: c)
-                                            Text("\(c.name) (\(cBadge))").tag(c.id)
+                                    if course.archived {
+                                        HStack(spacing: 4) {
+                                            Image(systemName: "archivebox.fill")
+                                                .font(.caption2)
+                                                .foregroundStyle(.orange)
+                                            Text("\(course.name) (Archiviato)")
+                                                .font(.caption.bold())
+                                                .lineLimit(1)
                                         }
-                                    }
-                                    .labelsHidden()
-                                    .frame(minWidth: 95, idealWidth: 145, maxWidth: 200)
-                                    .lineLimit(1)
+                                        .padding(.horizontal, 6)
+                                    } else {
+                                        Picker("", selection: Binding(
+                                            get: { course.id },
+                                            set: { store.switchCourse($0) }
+                                        )) {
+                                            ForEach(activeCourses) { c in
+                                                let cBadge = store.formatLevelModuleBadge(course: c)
+                                                Text("\(c.name) (\(cBadge))").tag(c.id)
+                                            }
+                                        }
+                                        .labelsHidden()
+                                        .frame(minWidth: 95, idealWidth: 145, maxWidth: 200)
+                                        .lineLimit(1)
 
-                                    Button {
-                                        onEditActiveCourse()
-                                    } label: {
-                                        Image(systemName: "pencil")
-                                            .font(.caption.bold())
-                                            .padding(5)
-                                            .background(RoundedRectangle(cornerRadius: 6).fill(palette.color.opacity(0.15)))
-                                            .foregroundStyle(palette.color)
+                                        Button {
+                                            onEditActiveCourse()
+                                        } label: {
+                                            Image(systemName: "pencil")
+                                                .font(.caption.bold())
+                                                .padding(5)
+                                                .background(RoundedRectangle(cornerRadius: 6).fill(palette.color.opacity(0.15)))
+                                                .foregroundStyle(palette.color)
+                                        }
+                                        .buttonStyle(.plain)
+                                        .help(store.t("editBtn"))
                                     }
-                                    .buttonStyle(.plain)
-                                    .help(store.t("editBtn"))
                                 }
                                 .padding(.horizontal, 10)
                                 .frame(height: 36)
@@ -640,31 +702,33 @@ private struct TopUnifiedHeaderBar: View {
                                         .buttonStyle(.plain)
                                     }
 
-                                    if let activeLevel = activeLevel {
+                                    if !course.archived {
+                                        if let activeLevel = activeLevel {
+                                            Button {
+                                                onEditActiveLevel(activeLevel)
+                                            } label: {
+                                                Image(systemName: "pencil")
+                                                    .font(.system(size: 10, weight: .bold))
+                                                    .padding(5)
+                                                    .background(RoundedRectangle(cornerRadius: 6).fill(palette.color.opacity(0.15)))
+                                                    .foregroundStyle(palette.color)
+                                            }
+                                            .buttonStyle(.plain)
+                                            .help("\(store.t("editBtn")) \(store.t("levelShort"))")
+                                        }
+
                                         Button {
-                                            onEditActiveLevel(activeLevel)
+                                            onAddLevel()
                                         } label: {
-                                            Image(systemName: "pencil")
-                                                .font(.system(size: 10, weight: .bold))
+                                            Image(systemName: "plus")
+                                                .font(.caption.bold())
                                                 .padding(5)
                                                 .background(RoundedRectangle(cornerRadius: 6).fill(palette.color.opacity(0.15)))
                                                 .foregroundStyle(palette.color)
                                         }
                                         .buttonStyle(.plain)
-                                        .help("\(store.t("editBtn")) \(store.t("levelShort"))")
+                                        .help(store.t("addLevelBtn"))
                                     }
-
-                                    Button {
-                                        onAddLevel()
-                                    } label: {
-                                        Image(systemName: "plus")
-                                            .font(.caption.bold())
-                                            .padding(5)
-                                            .background(RoundedRectangle(cornerRadius: 6).fill(palette.color.opacity(0.15)))
-                                            .foregroundStyle(palette.color)
-                                    }
-                                    .buttonStyle(.plain)
-                                    .help(store.t("addLevelBtn"))
                                 }
                                 .padding(.horizontal, 6)
                                 .frame(height: 36)
@@ -709,31 +773,33 @@ private struct TopUnifiedHeaderBar: View {
                                             .help(mod.description.isEmpty ? mod.name : mod.description)
                                         }
 
-                                        if let activeMod = activeMod {
+                                        if !course.archived {
+                                            if let activeMod = activeMod {
+                                                Button {
+                                                    onEditActiveModule(lvl.id, activeMod)
+                                                } label: {
+                                                    Image(systemName: "pencil")
+                                                        .font(.system(size: 10, weight: .bold))
+                                                        .padding(5)
+                                                        .background(RoundedRectangle(cornerRadius: 6).fill(palette.color.opacity(0.15)))
+                                                        .foregroundStyle(palette.color)
+                                                }
+                                                .buttonStyle(.plain)
+                                                .help("\(store.t("editBtn")) \(store.t("moduleShort"))")
+                                            }
+
                                             Button {
-                                                onEditActiveModule(lvl.id, activeMod)
+                                                onAddModule()
                                             } label: {
-                                                Image(systemName: "pencil")
-                                                    .font(.system(size: 10, weight: .bold))
+                                                Image(systemName: "plus")
+                                                    .font(.caption.bold())
                                                     .padding(5)
                                                     .background(RoundedRectangle(cornerRadius: 6).fill(palette.color.opacity(0.15)))
                                                     .foregroundStyle(palette.color)
                                             }
                                             .buttonStyle(.plain)
-                                            .help("\(store.t("editBtn")) \(store.t("moduleShort"))")
+                                            .help(store.t("addModuleBtn"))
                                         }
-
-                                        Button {
-                                            onAddModule()
-                                        } label: {
-                                            Image(systemName: "plus")
-                                                .font(.caption.bold())
-                                                .padding(5)
-                                                .background(RoundedRectangle(cornerRadius: 6).fill(palette.color.opacity(0.15)))
-                                                .foregroundStyle(palette.color)
-                                        }
-                                        .buttonStyle(.plain)
-                                        .help(store.t("addModuleBtn"))
                                     }
                                     .padding(.horizontal, 6)
                                     .frame(height: 36)

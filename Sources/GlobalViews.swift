@@ -741,7 +741,7 @@ public struct StudentsDirectoryView: View {
                     set: { store.studentSearchQuery = $0 }
                 ))
                 .textFieldStyle(.roundedBorder)
-                .frame(minWidth: 140, idealWidth: 240, maxWidth: 320)
+                .frame(minWidth: 110, idealWidth: 220, maxWidth: 300)
 
                 Picker("", selection: Binding(
                     get: { store.studentLevelFilter },
@@ -752,7 +752,8 @@ public struct StudentsDirectoryView: View {
                         Text(l == "Altro" ? store.t("otherLevelOpt") : l).tag(l)
                     }
                 }
-                .frame(minWidth: 100, idealWidth: 135, maxWidth: 150)
+                .labelsHidden()
+                .frame(minWidth: 90, idealWidth: 125, maxWidth: 145)
 
                 Spacer(minLength: 4)
 
@@ -779,8 +780,8 @@ public struct StudentsDirectoryView: View {
 
             // Aligned Directory Table Card wrapped in GeometryReader for responsive full width
             GeometryReader { geo in
-                let contentWidth = max(geo.size.width, 1080)
-                ScrollView(.horizontal, showsIndicators: contentWidth > geo.size.width) {
+                let contentWidth = max(geo.size.width, 1130)
+                ScrollView(.horizontal, showsIndicators: true) {
                     VStack(spacing: 0) {
                     // Table Header Row
                     HStack(spacing: 12) {
@@ -963,12 +964,14 @@ public struct StudentsDirectoryView: View {
                             }
                         }
                     }
+                    }
+                    .frame(width: contentWidth, alignment: .leading)
+                    .frame(minHeight: geo.size.height, alignment: .top)
                 }
-                .frame(width: contentWidth)
+                .frame(width: geo.size.width, height: geo.size.height)
             }
             .clipShape(RoundedRectangle(cornerRadius: 14))
             .appCardStyle(cornerRadius: 14)
-        }
         }
         .padding(20)
         .alert(
@@ -1037,18 +1040,25 @@ public struct ArchiveView: View {
                                         .background(RoundedRectangle(cornerRadius: 6).fill(pal.color))
                                     Text(course.name).font(.headline)
                                     Divider()
-                                    HStack {
+                                    HStack(spacing: 8) {
+                                        Button {
+                                            store.openArchivedCourseReadOnly(course.id)
+                                        } label: {
+                                            Label(store.t("openBtn"), systemImage: "eye.fill")
+                                                .font(.caption.bold())
+                                        }
+                                        .buttonStyle(.borderedProminent)
+                                        .tint(pal.color)
+                                        .help("Apri corso archiviato in sola lettura senza riattivarlo")
+
                                         Button(store.t("restoreCourseBtn")) {
-                                            if let idx = store.state.courses.firstIndex(where: { $0.id == course.id }) {
-                                                store.recordUndoSnapshot()
-                                                store.state.courses[idx].archived = false
-                                                store.state.activeCourseId = course.id
-                                                store.persist()
-                                            }
+                                            store.restoreArchivedCourse(course.id)
                                         }
                                         .buttonStyle(.borderedProminent)
                                         .tint(.green)
+
                                         Spacer()
+
                                         Button(store.t("deleteBtn"), role: .destructive) {
                                             store.moveCourseToTrash(course.id)
                                         }
@@ -1289,14 +1299,15 @@ public struct BillingView: View {
         let pal = store.activeCoursePalette
 
         return VStack(alignment: .leading, spacing: 0) {
-            // Top Mode Switcher Bar: Course Billing vs Client Billing Database ("Banca Dati Clienti")
+            // Top Mode Switcher Bar: Course Billing vs Client Billing Database ("Banca Dati Clienti") vs Annual/Monthly Analytics ("Report Guadagni")
             HStack(spacing: 14) {
                 Picker("", selection: $billingTabMode) {
                     Text(store.t("billingTitle")).tag("course")
                     Text("\(store.t("billingDatabaseTab")) (\(store.state.billingContacts.count))").tag("database")
+                    Text("Report Guadagni").tag("analytics")
                 }
                 .pickerStyle(.segmented)
-                .frame(maxWidth: 420)
+                .frame(maxWidth: 560)
 
                 Spacer()
 
@@ -1325,7 +1336,15 @@ public struct BillingView: View {
                     }
                     .buttonStyle(.borderedProminent)
                     .tint(pal.color)
-                } else {
+                } else if billingTabMode == "course" {
+                    Button {
+                        billingTabMode = "analytics"
+                    } label: {
+                        Label("Report Guadagni", systemImage: "chart.bar.xaxis")
+                            .font(.caption.bold())
+                    }
+                    .buttonStyle(.bordered)
+
                     Button {
                         billingTabMode = "database"
                     } label: {
@@ -1341,6 +1360,8 @@ public struct BillingView: View {
 
             if billingTabMode == "database" {
                 billingContactsDatabaseView(pal: pal)
+            } else if billingTabMode == "analytics" {
+                BillingEarningsAnalyticsView()
             } else {
                 courseBillingMainView
             }

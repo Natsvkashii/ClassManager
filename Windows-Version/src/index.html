@@ -136,6 +136,54 @@ Removing, obfuscating, or altering these credits violates the author's attributi
         #headerCourseContextWrap .border-sky-200 {
             border-color: var(--course-accent-border) !important;
         }
+        @page {
+            size: A4;
+            margin: 12mm;
+        }
+        @media print {
+            html, body {
+                height: auto !important;
+                min-height: 0 !important;
+                width: 100% !important;
+                overflow: visible !important;
+                background: #ffffff !important;
+                color: #0f172a !important;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
+            body.a4-print-mode > *:not(#a4PdfPrintOverlay) {
+                display: none !important;
+            }
+            body.a4-print-mode #a4PdfPrintOverlay {
+                position: static !important;
+                inset: auto !important;
+                height: auto !important;
+                width: 100% !important;
+                overflow: visible !important;
+                background: #ffffff !important;
+                padding: 0 !important;
+                display: block !important;
+            }
+            body.a4-print-mode #a4PdfPrintToolbar {
+                display: none !important;
+            }
+            body.a4-print-mode .a4-sheet-container {
+                box-shadow: none !important;
+                border: none !important;
+                margin: 0 !important;
+                max-width: 100% !important;
+                width: 100% !important;
+                padding: 0 !important;
+            }
+            .a4-page-break {
+                page-break-before: always;
+                break-before: page;
+            }
+            .a4-avoid-break {
+                page-break-inside: avoid;
+                break-inside: avoid;
+            }
+        }
     </style>
     <style id="dynamicCourseThemeStyle"></style>
 </head>
@@ -251,6 +299,32 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 <button id="unsavedSaveBtn" type="button" onclick="app.saveAndCloseCurrentModal()" class="px-4 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-extrabold shadow-xs">Salva e chiudi</button>
             </div>
         </div>
+    </div>
+
+    <!-- A4 PDF Export & Print Preview Overlay -->
+    <div id="a4PdfPrintOverlay" class="fixed inset-0 bg-slate-950/85 backdrop-blur-sm z-[70] hidden flex-col items-center overflow-y-auto custom-scrollbar">
+        <div id="a4PdfPrintToolbar" class="sticky top-0 z-30 w-full bg-slate-900/95 border-b border-slate-700 px-4 sm:px-8 py-3 flex flex-wrap items-center justify-between gap-3 text-white shadow-lg">
+            <div class="flex items-center gap-3">
+                <div class="w-9 h-9 rounded-xl bg-sky-600 text-white flex items-center justify-center text-sm shadow-xs">
+                    <i class="fa-solid fa-file-pdf"></i>
+                </div>
+                <div>
+                    <h3 id="a4PdfOverlayTitle" class="text-sm font-extrabold">Anteprima Documento A4 PDF</h3>
+                    <p id="a4PdfOverlaySubtitle" class="text-[11px] text-slate-400">Formato A4 • Pronto per il salvataggio o la stampa in PDF</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                <button type="button" onclick="app.triggerA4PrintDialog()" class="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-extrabold flex items-center gap-2 shadow-sm transition">
+                    <i class="fa-solid fa-print"></i>
+                    <span>Stampa / Salva come PDF (A4)</span>
+                </button>
+                <button type="button" onclick="app.closeA4PrintableDocument()" class="px-3.5 py-2 rounded-xl border border-slate-600 hover:bg-slate-800 text-slate-200 text-xs font-bold flex items-center gap-1.5 transition">
+                    <i class="fa-solid fa-xmark"></i>
+                    <span>Chiudi</span>
+                </button>
+            </div>
+        </div>
+        <div id="a4PdfSheetBody" class="a4-sheet-container w-full max-w-[210mm] bg-white text-slate-900 shadow-2xl rounded-2xl my-6 p-8 sm:p-10 space-y-6 select-text"></div>
     </div>
 
     <!-- Toast Notification Container -->
@@ -1878,6 +1952,10 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 this.billingViewTab = "course";
                 this.billingContactSearchQuery = "";
                 this.showStudentLessonNotesInModal = false;
+                this.inspectingArchivedCourseId = null;
+                this.billingAnalyticsYear = new Date().getFullYear();
+                this.billingAnalyticsSelectedMonth = null;
+                this.coursePdfExportState = null;
             }
 
             toggleSensitiveGroupData() {
@@ -1917,7 +1995,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
 
             applyActiveCourseColorTheme() {
                 const course = this.getActiveCourse();
-                const pal = (course && !course.archived) ? this.getCourseColorObj(course.color) : COURSE_COLOR_PALETTE[0];
+                const pal = (course && (!course.archived || this.inspectingArchivedCourseId)) ? this.getCourseColorObj(course.color) : COURSE_COLOR_PALETTE[0];
                 const root = document.documentElement;
                 root.style.setProperty("--course-accent", pal.hex);
                 root.style.setProperty("--course-accent-hover", pal.hover);
@@ -2681,7 +2759,47 @@ Removing, obfuscating, or altering these credits violates the author's attributi
             }
 
             getActiveCourse() {
+                if (this.inspectingArchivedCourseId) {
+                    const archivedCourse = (this.state.courses || []).find(c => c.id === this.inspectingArchivedCourseId);
+                    if (archivedCourse) return archivedCourse;
+                    this.inspectingArchivedCourseId = null;
+                }
                 return (this.state.courses || []).find(c => c.id === this.state.activeCourseId) || null;
+            }
+
+            isActiveCourseReadOnly(course = null) {
+                const c = course || this.getActiveCourse();
+                return !!(c && c.archived);
+            }
+
+            renderArchivedReadOnlyBanner(course) {
+                if (!course || !course.archived) return "";
+                return `
+                    <div class="mb-4 rounded-2xl border-2 border-amber-400 dark:border-amber-600 bg-amber-50/95 dark:bg-amber-950/50 p-4 shadow-xs flex flex-wrap items-center justify-between gap-3 text-xs">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center text-base shrink-0 shadow-2xs">
+                                <i class="fa-solid fa-box-archive"></i>
+                            </div>
+                            <div>
+                                <div class="flex items-center gap-2 flex-wrap">
+                                    <h3 class="text-sm font-black text-amber-950 dark:text-amber-200">Corso Archiviato — Modalità Sola Lettura</h3>
+                                    <span class="px-2 py-0.5 rounded-full bg-amber-200/80 dark:bg-amber-900 text-amber-900 dark:text-amber-200 text-[10px] font-extrabold uppercase">Sola Lettura</span>
+                                </div>
+                                <p class="text-amber-800 dark:text-amber-300/90 mt-0.5">
+                                    Stai consultando il corso <strong>${this.escapeHtml(course.name)}</strong> dall'archivio senza riattivarlo. Le modifiche sono disabilitate finché il corso non viene ripristinato.
+                                </p>
+                            </div>
+                        </div>
+                        <div class="flex flex-wrap items-center gap-2 shrink-0">
+                            <button type="button" onclick="app.switchTab('archived')" class="px-3.5 py-2 rounded-xl border border-amber-400 dark:border-amber-700 bg-white dark:bg-navy-900 hover:bg-amber-100 dark:hover:bg-navy-800 text-amber-900 dark:text-amber-200 font-extrabold flex items-center gap-1.5 transition">
+                                <i class="fa-solid fa-arrow-left"></i> Torna all'Archivio
+                            </button>
+                            <button type="button" onclick="app.restoreArchivedCourse('${course.id}')" class="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold flex items-center gap-1.5 shadow-2xs transition">
+                                <i class="fa-solid fa-rotate-left"></i> Ripristina Corso
+                            </button>
+                        </div>
+                    </div>
+                `;
             }
 
             getActiveLevel(course) {
@@ -2905,7 +3023,8 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 const navContainer = document.getElementById("sidebarNavContainer");
                 if (!navContainer) return;
 
-                const hasActiveCourse = !!this.getActiveCourse() && !this.getActiveCourse().archived;
+                const curCourse = this.getActiveCourse();
+                const hasActiveCourse = !!curCourse && (!curCourse.archived || !!this.inspectingArchivedCourseId);
                 const isHomeActive = this.currentTab === "home";
                 const homeHtml = `
                     <div class="space-y-1 mb-2">
@@ -2920,7 +3039,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
 
                 const groups = [
                     ...(hasActiveCourse ? [{
-                        label: this.t("navCourseSection"),
+                        label: curCourse?.archived ? `${this.t("navCourseSection")} (Archiviato)` : this.t("navCourseSection"),
                         items: [
                             { id: "attendance", icon: "fa-solid fa-clipboard-user", label: this.t("navAttendance") },
                             { id: "grades", icon: "fa-solid fa-award", label: this.t("navGrades") },
@@ -2973,8 +3092,9 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 if (!bar) return;
                 const activeCourses = (this.state.courses || []).filter(c => !c.archived);
                 const course = this.getActiveCourse();
+                const isInspectingArchived = !!(course && course.archived && this.inspectingArchivedCourseId);
 
-                if (activeCourses.length === 0 || !course || course.archived) {
+                if ((activeCourses.length === 0 && !isInspectingArchived) || !course || (course.archived && !isInspectingArchived)) {
                     bar.innerHTML = `<span class="text-xs font-bold text-slate-400 dark:text-slate-500">${this.escapeHtml(this.t("noActiveCoursesTitle"))}</span>`;
                     return;
                 }
@@ -2992,18 +3112,23 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                                 <span class="w-1.5 h-1.5 rounded-full bg-white"></span>
                                 ${this.escapeHtml(badge)}
                             </span>
-                            <div class="relative flex items-center">
-                                <select onchange="app.switchCourse(this.value)" aria-label="${this.t("navCourseSection")}" class="appearance-none bg-transparent text-slate-900 dark:text-white text-xs sm:text-sm font-extrabold pr-5 pl-1 py-0.5 rounded-lg cursor-pointer focus:outline-none">
-                                    ${activeCourses.map(c => {
-                                        const cBadge = this.formatLevelModuleBadge(c);
-                                        return `<option value="${c.id}" ${c.id === course.id ? "selected" : ""} class="bg-white dark:bg-navy-900 text-slate-900 dark:text-white text-xs font-bold">${this.escapeHtml(c.name)} (${this.escapeHtml(cBadge)})</option>`;
-                                    }).join("")}
-                                </select>
-                                <i class="fa-solid fa-chevron-down text-[10px] pointer-events-none absolute right-1.5 text-slate-400"></i>
-                            </div>
-                            <button onclick="app.openCourseModal('${course.id}')" class="w-7 h-7 rounded-lg hover:bg-white dark:hover:bg-navy-900 flex items-center justify-center text-xs transition shrink-0" style="color:${pal.hex}" title="${this.t("editBtn")}">
-                                <i class="fa-solid fa-pen"></i>
-                            </button>
+                            ${isInspectingArchived ? `
+                                <span class="text-slate-900 dark:text-white text-xs sm:text-sm font-extrabold px-1.5 py-0.5">${this.escapeHtml(course.name)}</span>
+                                <span class="px-2 py-0.5 rounded-md bg-amber-500 text-white text-[10px] font-black uppercase tracking-wider">Archiviato • Sola Lettura</span>
+                            ` : `
+                                <div class="relative flex items-center">
+                                    <select onchange="app.switchCourse(this.value)" aria-label="${this.t("navCourseSection")}" class="appearance-none bg-transparent text-slate-900 dark:text-white text-xs sm:text-sm font-extrabold pr-5 pl-1 py-0.5 rounded-lg cursor-pointer focus:outline-none">
+                                        ${activeCourses.map(c => {
+                                            const cBadge = this.formatLevelModuleBadge(c);
+                                            return `<option value="${c.id}" ${c.id === course.id ? "selected" : ""} class="bg-white dark:bg-navy-900 text-slate-900 dark:text-white text-xs font-bold">${this.escapeHtml(c.name)} (${this.escapeHtml(cBadge)})</option>`;
+                                        }).join("")}
+                                    </select>
+                                    <i class="fa-solid fa-chevron-down text-[10px] pointer-events-none absolute right-1.5 text-slate-400"></i>
+                                </div>
+                                <button onclick="app.openCourseModal('${course.id}')" class="w-7 h-7 rounded-lg hover:bg-white dark:hover:bg-navy-900 flex items-center justify-center text-xs transition shrink-0" style="color:${pal.hex}" title="${this.t("editBtn")}">
+                                    <i class="fa-solid fa-pen"></i>
+                                </button>
+                            `}
                         </div>
 
                         ${activeLevel && activeSection ? `
@@ -3019,12 +3144,14 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                                         </button>
                                     `;
                                 }).join("")}
-                                <button onclick="app.openEditLevelModal('${activeLevel.id}')" class="w-6 h-6 rounded-lg text-xs text-slate-500 hover:text-sky-600 hover:bg-white dark:hover:bg-navy-900 flex items-center justify-center shrink-0" title="${this.t("editBtn")} ${this.t("levelShort")}">
-                                    <i class="fa-solid fa-pen text-[10px]"></i>
-                                </button>
-                                <button onclick="app.openAddLevelModal()" class="w-6 h-6 rounded-lg text-xs font-bold text-sky-700 dark:text-sky-400 hover:bg-sky-100 dark:hover:bg-navy-900 flex items-center justify-center shrink-0" title="${this.t("addLevelBtn")}">
-                                    <i class="fa-solid fa-plus"></i>
-                                </button>
+                                ${!isInspectingArchived ? `
+                                    <button onclick="app.openEditLevelModal('${activeLevel.id}')" class="w-6 h-6 rounded-lg text-xs text-slate-500 hover:text-sky-600 hover:bg-white dark:hover:bg-navy-900 flex items-center justify-center shrink-0" title="${this.t("editBtn")} ${this.t("levelShort")}">
+                                        <i class="fa-solid fa-pen text-[10px]"></i>
+                                    </button>
+                                    <button onclick="app.openAddLevelModal()" class="w-6 h-6 rounded-lg text-xs font-bold text-sky-700 dark:text-sky-400 hover:bg-sky-100 dark:hover:bg-navy-900 flex items-center justify-center shrink-0" title="${this.t("addLevelBtn")}">
+                                        <i class="fa-solid fa-plus"></i>
+                                    </button>
+                                ` : ''}
                             </div>
 
                             <!-- Modules Pill Bar -->
@@ -3039,12 +3166,14 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                                         </button>
                                     `;
                                 }).join("")}
-                                <button onclick="app.openEditModuleModal('${activeLevel.id}', '${activeSection.id}')" class="w-6 h-6 rounded-lg text-xs text-slate-500 hover:text-sky-600 hover:bg-white dark:hover:bg-navy-900 flex items-center justify-center shrink-0" title="${this.t("editBtn")} ${this.t("moduleShort")}">
-                                    <i class="fa-solid fa-pen text-[10px]"></i>
-                                </button>
-                                <button onclick="app.openAddSectionModal()" class="w-6 h-6 rounded-lg text-xs font-bold text-sky-700 dark:text-sky-400 hover:bg-sky-100 dark:hover:bg-navy-900 flex items-center justify-center shrink-0" title="${this.t("addModuleBtn")}">
-                                    <i class="fa-solid fa-plus"></i>
-                                </button>
+                                ${!isInspectingArchived ? `
+                                    <button onclick="app.openEditModuleModal('${activeLevel.id}', '${activeSection.id}')" class="w-6 h-6 rounded-lg text-xs text-slate-500 hover:text-sky-600 hover:bg-white dark:hover:bg-navy-900 flex items-center justify-center shrink-0" title="${this.t("editBtn")} ${this.t("moduleShort")}">
+                                        <i class="fa-solid fa-pen text-[10px]"></i>
+                                    </button>
+                                    <button onclick="app.openAddSectionModal()" class="w-6 h-6 rounded-lg text-xs font-bold text-sky-700 dark:text-sky-400 hover:bg-sky-100 dark:hover:bg-navy-900 flex items-center justify-center shrink-0" title="${this.t("addModuleBtn")}">
+                                        <i class="fa-solid fa-plus"></i>
+                                    </button>
+                                ` : ''}
                             </div>
                         ` : ''}
                     </div>
@@ -3059,6 +3188,10 @@ Removing, obfuscating, or altering these credits violates the author's attributi
             }
 
             switchTab(tabId) {
+                const courseTabs = ["attendance", "grades", "activities", "rubrics", "moduleStudentCalendar", "courseConfig", "formerStudents"];
+                if (!courseTabs.includes(tabId)) {
+                    this.inspectingArchivedCourseId = null;
+                }
                 if (tabId === "billing" && this.currentTab !== "billing") {
                     this.selectedBillingCourseId = null;
                     this.showGroupBillingData = false;
@@ -3071,11 +3204,25 @@ Removing, obfuscating, or altering these credits violates the author's attributi
             switchCourse(courseId, targetTab = null) {
                 const course = (this.state.courses || []).find(c => c.id === courseId);
                 if (!course) return;
-                this.state.activeCourseId = course.id;
+                if (course.archived) {
+                    this.inspectingArchivedCourseId = course.id;
+                } else {
+                    this.inspectingArchivedCourseId = null;
+                    this.state.activeCourseId = course.id;
+                }
                 this.selectLatestLevelAndModule(course);
                 if (targetTab) this.currentTab = targetTab;
                 else if (this.currentTab === "home") this.currentTab = "attendance";
                 this.persist();
+                this.renderAll();
+            }
+
+            openArchivedCourseReadOnly(courseId) {
+                const course = (this.state.courses || []).find(c => c.id === courseId);
+                if (!course) return;
+                this.inspectingArchivedCourseId = course.id;
+                this.selectLatestLevelAndModule(course);
+                this.currentTab = "attendance";
                 this.renderAll();
             }
 
@@ -3165,6 +3312,13 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                         break;
                     default:
                         this.renderHomeView(container);
+                }
+
+                // Prepend archived read-only banner when inspecting an archived course in any course tab
+                const courseTabs = ["attendance", "grades", "activities", "rubrics", "courseConfig", "moduleStudentCalendar", "formerStudents"];
+                const activeCourse = this.getActiveCourse();
+                if (courseTabs.includes(this.currentTab) && activeCourse && activeCourse.archived) {
+                    container.insertAdjacentHTML("afterbegin", this.renderArchivedReadOnlyBanner(activeCourse));
                 }
 
                 // Restore scroll positions after re-rendering
@@ -3492,6 +3646,9 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                                                 <button onclick="app.switchCourse('${c.id}', 'attendance')" class="flex-1 py-2 px-3 rounded-xl text-white text-xs font-bold flex items-center justify-center gap-1.5 transition" style="background-color:${pal.hex}">
                                                     <i class="fa-solid fa-clipboard-user"></i> ${this.t("openCourseBtn")}
                                                 </button>
+                                                <button onclick="app.openCoursePdfExportModal('${c.id}')" class="py-2 px-3 rounded-xl border border-sky-200 dark:border-slate-700 text-sky-700 dark:text-sky-300 hover:bg-sky-50 dark:hover:bg-navy-800 text-xs font-bold transition" title="Esporta Corso in PDF">
+                                                    <i class="fa-solid fa-arrow-up-from-bracket"></i>
+                                                </button>
                                                 <button onclick="app.confirmDeleteOrArchiveCourse('${c.id}')" class="py-2 px-3 rounded-xl border border-rose-200 dark:border-rose-900/50 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 text-xs font-bold" title="${this.t("deleteBtn")}">
                                                     <i class="fa-solid fa-trash-can"></i>
                                                 </button>
@@ -3514,10 +3671,11 @@ Removing, obfuscating, or altering these credits violates the author's attributi
              */
             renderAttendanceView(container) {
                 const course = this.getActiveCourse();
-                if (!course || course.archived) {
+                if (!course || (course.archived && !this.inspectingArchivedCourseId)) {
                     this.renderHomeView(container);
                     return;
                 }
+                const isReadOnly = !!course.archived;
                 const activeLevel = this.getActiveLevel(course);
                 const activeSection = this.getActiveSection(course);
                 if (!activeLevel || !activeSection) return;
@@ -3538,21 +3696,27 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                                 ${activeSection.description ? `<span class="hidden sm:inline">• ${this.escapeHtml(activeSection.description)}</span>` : ''}
                             </div>
 
-                            <div class="flex flex-wrap items-center gap-2">
-                                <button onclick="app.openAddDateModal()" class="px-3 py-1.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold flex items-center gap-1.5">
-                                    <i class="fa-solid fa-calendar-plus"></i> ${this.t("addDateBtn")}
-                                </button>
-                                <button onclick="app.openRecurringGeneratorModal()" class="px-3 py-1.5 rounded-xl border border-sky-200 dark:border-slate-700 hover:bg-sky-50 dark:hover:bg-navy-800 text-xs font-bold flex items-center gap-1.5">
-                                    <i class="fa-solid fa-repeat text-sky-600"></i> ${this.t("recurringBtn")}
-                                </button>
-                                <button onclick="app.toggleAttendanceDateEditMode()" class="px-3 py-1.5 rounded-xl border ${this.attendanceDateEditMode ? 'bg-amber-500 text-white border-amber-500 shadow-xs' : 'border-sky-200 dark:border-slate-700 hover:bg-sky-50 dark:hover:bg-navy-800 text-slate-700 dark:text-slate-200'} text-xs font-bold flex items-center gap-1.5 transition">
-                                    <i class="fa-solid ${this.attendanceDateEditMode ? 'fa-check' : 'fa-circle-check text-sky-600'}"></i>
-                                    ${this.attendanceDateEditMode ? this.t("exitEditDatesModeBtn") : this.t("editDatesModeBtn")}
-                                </button>
-                            </div>
+                            ${!isReadOnly ? `
+                                <div class="flex flex-wrap items-center gap-2">
+                                    <button onclick="app.openAddDateModal()" class="px-3 py-1.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold flex items-center gap-1.5">
+                                        <i class="fa-solid fa-calendar-plus"></i> ${this.t("addDateBtn")}
+                                    </button>
+                                    <button onclick="app.openRecurringGeneratorModal()" class="px-3 py-1.5 rounded-xl border border-sky-200 dark:border-slate-700 hover:bg-sky-50 dark:hover:bg-navy-800 text-xs font-bold flex items-center gap-1.5">
+                                        <i class="fa-solid fa-repeat text-sky-600"></i> ${this.t("recurringBtn")}
+                                    </button>
+                                    <button onclick="app.toggleAttendanceDateEditMode()" class="px-3 py-1.5 rounded-xl border ${this.attendanceDateEditMode ? 'bg-amber-500 text-white border-amber-500 shadow-xs' : 'border-sky-200 dark:border-slate-700 hover:bg-sky-50 dark:hover:bg-navy-800 text-slate-700 dark:text-slate-200'} text-xs font-bold flex items-center gap-1.5 transition">
+                                        <i class="fa-solid ${this.attendanceDateEditMode ? 'fa-check' : 'fa-circle-check text-sky-600'}"></i>
+                                        ${this.attendanceDateEditMode ? this.t("exitEditDatesModeBtn") : this.t("editDatesModeBtn")}
+                                    </button>
+                                </div>
+                            ` : `
+                                <span class="px-2.5 py-1 rounded-lg bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 text-[11px] font-bold flex items-center gap-1.5">
+                                    <i class="fa-solid fa-lock"></i> Sola lettura
+                                </span>
+                            `}
                         </div>
 
-                        ${this.attendanceDateEditMode && dates.length > 0 ? `
+                        ${!isReadOnly && this.attendanceDateEditMode && dates.length > 0 ? `
                             <div id="attendanceBatchToolbarContainer" class="bg-amber-50/90 dark:bg-amber-950/30 border border-amber-300 dark:border-amber-800 rounded-2xl px-4 py-2.5 flex flex-wrap items-center justify-between gap-3 text-xs">
                                 <div class="flex flex-wrap items-center gap-3">
                                     <label class="flex items-center gap-2 font-extrabold text-amber-900 dark:text-amber-200 cursor-pointer">
@@ -3573,7 +3737,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
 
                         <!-- Attendance Table -->
                         <div class="bg-white dark:bg-navy-900 rounded-2xl border border-sky-100 dark:border-slate-800 shadow-xs overflow-hidden">
-                            <div id="attendanceScrollContainer" class="overflow-x-auto custom-scrollbar">
+                            <div id="attendanceScrollContainer" class="overflow-x-auto custom-scrollbar min-h-[calc(100vh-270px)] flex flex-col justify-between">
                                 <table class="w-full text-left border-collapse text-xs">
                                     <thead>
                                         <tr class="bg-sky-50/80 dark:bg-navy-800/90 border-b border-sky-100 dark:border-slate-800 text-slate-600 dark:text-slate-300">
@@ -3591,7 +3755,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                                                 const isDateSelected = this.selectedDatesForDelete.has(slotKey);
                                                 return `
                                                     <th data-slotkey="${this.escapeHtml(slotKey)}" class="align-top px-2 py-2.5 text-center font-bold min-w-[122px] border-r border-sky-100/60 dark:border-slate-800 group ${isDateSelected ? 'bg-rose-50/80 dark:bg-rose-950/30' : (isTodayCol ? 'bg-sky-100/90 dark:bg-sky-950/50 border-t-4 border-t-sky-500' : '')}">
-                                                        <button onclick="app.openLessonPlanModal('${course.id}', '${activeSection.id}', '${slotKey}')" class="w-full min-h-[76px] rounded-lg p-1 hover:bg-sky-100/70 dark:hover:bg-navy-900 transition flex flex-col items-center justify-between" title="${this.t("lessonPlanTitle")}">
+                                                        <button onclick="app.openQuickLessonActionModal('${course.id}', '${activeSection.id}', '${slotKey}')" class="w-full min-h-[76px] rounded-lg p-1 hover:bg-sky-100/70 dark:hover:bg-navy-900 transition flex flex-col items-center justify-between" title="Modifica Data/Orario o Pianificazione della Lezione">
                                                             <div class="flex items-center justify-center gap-1 text-[10px] text-sky-700 dark:text-sky-400 font-extrabold">
                                                                 <span class="px-2 py-0.5 rounded ${isTodayCol ? 'bg-sky-600 text-white' : 'bg-sky-100 dark:bg-navy-900'}">${idx + 1}</span>
                                                             </div>
@@ -3599,10 +3763,10 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                                                             <div class="text-[9px] font-bold text-slate-400 mt-0.5">${this.formatTimeDisplay(sTime)}-${this.formatTimeDisplay(eTime)}</div>
                                                             ${lessonObj?.title ? `<div class="text-[10px] font-bold text-emerald-700 dark:text-emerald-300 max-w-[130px] truncate mt-1">${this.escapeHtml(lessonObj.title)}</div>` : ''}
                                                         </button>
-                                                        ${this.attendanceDateEditMode ? `
+                                                        ${!isReadOnly && this.attendanceDateEditMode ? `
                                                             <div class="flex items-center justify-center gap-1.5 mt-1.5 pt-1 border-t border-sky-200/60 dark:border-slate-700">
                                                                 <input type="checkbox" onchange="app.toggleDateSelectionForDelete('${slotKey}', this.checked)" ${isDateSelected ? 'checked' : ''} class="w-3.5 h-3.5 accent-rose-600 rounded cursor-pointer">
-                                                                <button onclick="app.openEditSingleDateModal('${slotKey}')" class="w-6 h-6 rounded-md bg-amber-100 dark:bg-amber-950/70 text-amber-700 dark:text-amber-300 hover:bg-amber-200 flex items-center justify-center text-[10px]" title="${this.t("editBtn")}">
+                                                                <button onclick="app.openQuickLessonActionModal('${course.id}', '${activeSection.id}', '${slotKey}')" class="w-6 h-6 rounded-md bg-amber-100 dark:bg-amber-950/70 text-amber-700 dark:text-amber-300 hover:bg-amber-200 flex items-center justify-center text-[10px]" title="${this.t("editBtn")}">
                                                                     <i class="fa-solid fa-calendar-day"></i>
                                                                 </button>
                                                                 <button onclick="app.confirmRemoveDateFromModule('${slotKey}')" class="w-6 h-6 rounded-md bg-rose-100 dark:bg-rose-950/70 text-rose-600 dark:text-rose-300 hover:bg-rose-200 flex items-center justify-center text-[10px]" title="${this.t("deleteBtn")}">
@@ -3657,7 +3821,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                                                         else if (val === "G") btnClass = "bg-amber-500 text-white font-extrabold shadow-2xs";
                                                         return `
                                                             <td class="px-2 py-2 text-center border-r border-sky-100/50 dark:border-slate-800/70 ${isTodayCol ? 'bg-sky-50/70 dark:bg-sky-950/25' : ''}">
-                                                                <button onclick="app.cycleAttendance('${st.id}', '${dStr}', this)" class="w-9 h-8 rounded-lg text-xs transition ${btnClass}">
+                                                                <button ${isReadOnly ? 'disabled' : `onclick="app.cycleAttendance('${st.id}', '${dStr}', this)"`} class="w-9 h-8 rounded-lg text-xs transition ${btnClass} ${isReadOnly ? 'cursor-not-allowed opacity-85' : ''}">
                                                                     ${val || "·"}
                                                                 </button>
                                                             </td>
@@ -3870,6 +4034,10 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 const course = this.getActiveCourse();
                 const sec = this.getActiveSection(course);
                 if (!course || !sec) return;
+                if (course.archived) {
+                    this.showToast("Corso archiviato in sola lettura", "warning");
+                    return;
+                }
                 if (!sec.attendance[studentId]) sec.attendance[studentId] = {};
                 const order = ["", "P", "A", "G"];
                 const curr = sec.attendance[studentId][dateStr] || "";
@@ -3996,7 +4164,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
             toggleCourseAttendanceEvaluation(isChecked) {
                 const course = this.getActiveCourse();
                 const mod = this.getActiveSection(course);
-                if (!course) return;
+                if (!course || course.archived) return;
                 if (!course.gradeConfig) course.gradeConfig = { calcMethod: "average", minPass: 6, activities: [] };
                 course.gradeConfig.evaluateAttendance = !!isChecked;
                 if (course.gradeConfig.attendanceWeight === undefined) course.gradeConfig.attendanceWeight = 5;
@@ -4011,7 +4179,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
             updateCourseAttendanceWeight(val) {
                 const course = this.getActiveCourse();
                 const mod = this.getActiveSection(course);
-                if (!course) return;
+                if (!course || course.archived) return;
                 const num = Math.min(100, Math.max(0, parseFloat(val) || 0));
                 if (!course.gradeConfig) course.gradeConfig = { calcMethod: "average", minPass: 6, activities: [] };
                 course.gradeConfig.attendanceWeight = num;
@@ -4023,7 +4191,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
             openAttendanceGradeConfigModal() {
                 const course = this.getActiveCourse();
                 const mod = this.getActiveSection(course);
-                if (!course) return;
+                if (!course || course.archived) return;
                 const maxScore = this.getAttendanceMaxScore(course, mod);
                 const weight = this.getAttendanceWeight(course, mod);
                 this.openModal(`
@@ -4060,7 +4228,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 if (e) e.preventDefault();
                 const course = this.getActiveCourse();
                 const mod = this.getActiveSection(course);
-                if (!course) return;
+                if (!course || course.archived) return;
                 const maxScore = Math.max(1, parseFloat(document.getElementById("attMaxScoreModalInput")?.value) || 10);
                 const weight = Math.min(100, Math.max(0, parseFloat(document.getElementById("attWeightModalInput")?.value) || 0));
                 if (!course.gradeConfig) course.gradeConfig = { calcMethod: "average", minPass: 6, activities: [] };
@@ -4088,6 +4256,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                     this.renderHomeView(container);
                     return;
                 }
+                const isReadOnly = !!course.archived;
                 const activeSection = this.getActiveSection(course);
                 const modStudents = this.getModuleStudents(course, activeSection);
                 if (!course.gradeConfig) {
@@ -4103,23 +4272,23 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                     <div class="space-y-5">
                         <!-- Grades Toolbar -->
                         <div class="bg-white dark:bg-navy-900 rounded-2xl border border-sky-100 dark:border-slate-800 p-3.5 shadow-xs flex flex-wrap items-center justify-end gap-2 text-xs">
-                            <select onchange="app.updateGradeConfigMethod(this.value)" class="rounded-xl border border-sky-200 dark:border-slate-700 bg-sky-50/50 dark:bg-navy-800 px-3 py-1.5 font-bold">
+                            <select ${isReadOnly ? 'disabled' : ''} onchange="app.updateGradeConfigMethod(this.value)" class="rounded-xl border border-sky-200 dark:border-slate-700 bg-sky-50/50 dark:bg-navy-800 px-3 py-1.5 font-bold ${isReadOnly ? 'opacity-70 cursor-not-allowed' : ''}">
                                 <option value="average" ${cfg.calcMethod === 'average' ? 'selected' : ''}>${this.t("calcMethodAverage")}</option>
                                 <option value="weighted" ${cfg.calcMethod === 'weighted' ? 'selected' : ''}>${this.t("calcMethodWeighted")}</option>
                             </select>
                             <div class="flex items-center gap-1.5 bg-sky-50/60 dark:bg-navy-800 px-3 py-1.5 rounded-xl border border-sky-200 dark:border-slate-700">
                                 <span class="font-semibold">Min:</span>
-                                <input type="text" inputmode="decimal" value="${cfg.minPass ?? 6}" onchange="app.updateGradeMinPass(this.value)" class="w-12 bg-transparent font-extrabold text-center focus:outline-none">
+                                <input type="text" ${isReadOnly ? 'disabled' : ''} inputmode="decimal" value="${cfg.minPass ?? 6}" onchange="app.updateGradeMinPass(this.value)" class="w-12 bg-transparent font-extrabold text-center focus:outline-none">
                             </div>
                             <!-- Attendance Evaluation Quick Control (Base 5%) -->
                             <div class="flex items-center gap-2 bg-emerald-50/70 dark:bg-emerald-950/30 px-3 py-1.5 rounded-xl border border-emerald-200 dark:border-emerald-800/70">
-                                <label class="flex items-center gap-1.5 font-bold text-emerald-800 dark:text-emerald-300 cursor-pointer">
-                                    <input type="checkbox" onchange="app.toggleCourseAttendanceEvaluation(this.checked)" ${evalAtt ? 'checked' : ''} class="w-3.5 h-3.5 accent-emerald-600 rounded">
+                                <label class="flex items-center gap-1.5 font-bold text-emerald-800 dark:text-emerald-300 ${isReadOnly ? 'cursor-not-allowed opacity-75' : 'cursor-pointer'}">
+                                    <input type="checkbox" ${isReadOnly ? 'disabled' : ''} onchange="app.toggleCourseAttendanceEvaluation(this.checked)" ${evalAtt ? 'checked' : ''} class="w-3.5 h-3.5 accent-emerald-600 rounded">
                                     <span>${this.t("evalAttendanceLabel")}</span>
                                 </label>
                                 ${evalAtt ? `
                                     <div class="flex items-center gap-1 pl-1 border-l border-emerald-300 dark:border-emerald-700">
-                                        <input type="text" inputmode="decimal" value="${attWeight}" onchange="app.updateCourseAttendanceWeight(this.value)" class="w-11 text-center font-extrabold bg-white dark:bg-navy-900 rounded border border-emerald-300 dark:border-emerald-700 py-0.5">
+                                        <input type="text" ${isReadOnly ? 'disabled' : ''} inputmode="decimal" value="${attWeight}" onchange="app.updateCourseAttendanceWeight(this.value)" class="w-11 text-center font-extrabold bg-white dark:bg-navy-900 rounded border border-emerald-300 dark:border-emerald-700 py-0.5">
                                         <span class="font-bold text-emerald-700 dark:text-emerald-300">%</span>
                                     </div>
                                 ` : ''}
@@ -4128,7 +4297,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
 
                         <!-- Grades Table -->
                         <div class="bg-white dark:bg-navy-900 rounded-2xl border border-sky-100 dark:border-slate-800 shadow-xs overflow-hidden">
-                            <div class="overflow-x-auto custom-scrollbar">
+                            <div class="overflow-x-auto custom-scrollbar min-h-[calc(100vh-270px)] flex flex-col justify-between">
                                 <table class="w-full text-left border-collapse text-xs">
                                     <thead>
                                         <tr class="bg-sky-50/80 dark:bg-navy-800 border-b border-sky-100 dark:border-slate-800">
@@ -4140,7 +4309,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                                             </th>
                                             ${evalAtt ? `
                                                 <th class="px-3 py-3 text-center font-extrabold min-w-[125px] bg-emerald-50/50 dark:bg-emerald-950/20 border-r border-sky-100/60 dark:border-slate-800">
-                                                    <button type="button" onclick="app.openAttendanceGradeConfigModal()" class="text-emerald-700 dark:text-emerald-300 hover:text-emerald-600 underline decoration-dotted flex items-center justify-center gap-1 mx-auto" title="Configura ponderazione presenze">
+                                                    <button type="button" ${isReadOnly ? 'disabled' : 'onclick="app.openAttendanceGradeConfigModal()"'} class="text-emerald-700 dark:text-emerald-300 hover:text-emerald-600 underline decoration-dotted flex items-center justify-center gap-1 mx-auto" title="Configura ponderazione presenze">
                                                         <span>${this.t("navAttendance").toUpperCase()}</span>
                                                     </button>
                                                     <span class="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold block mt-0.5">${attWeight}%</span>
@@ -4231,11 +4400,11 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                                                         return `
                                                             <td class="px-3 py-2 text-center border-r border-sky-100/50 dark:border-slate-800/70">
                                                                 <div class="inline-flex items-center gap-1.5">
-                                                                    <input type="text" inputmode="decimal" value="${val}" placeholder="0-10"
+                                                                    <input type="text" ${isReadOnly ? 'disabled' : ''} inputmode="decimal" value="${val}" placeholder="0-10"
                                                                         onchange="app.updateStudentGrade('${st.id}', '${act.id}', this.value)"
-                                                                        class="w-16 h-8 text-center rounded-xl border ${hasVal ? 'border-sky-300 dark:border-sky-600/70 bg-white dark:bg-navy-800 text-slate-900 dark:text-white shadow-2xs' : 'border-slate-200/80 dark:border-slate-700/80 bg-slate-50/60 dark:bg-navy-950/50 text-slate-700 dark:text-slate-200'} px-2 text-xs font-extrabold placeholder:text-slate-300 dark:placeholder:text-slate-600 placeholder:font-normal placeholder:text-[10px] hover:border-sky-300 dark:hover:border-slate-600 focus:bg-white dark:focus:bg-navy-900 focus:outline-none focus:ring-2 focus:ring-sky-500/30 focus:border-sky-500 transition">
+                                                                        class="w-16 h-8 text-center rounded-xl border ${hasVal ? 'border-sky-300 dark:border-sky-600/70 bg-white dark:bg-navy-800 text-slate-900 dark:text-white shadow-2xs' : 'border-slate-200/80 dark:border-slate-700/80 bg-slate-50/60 dark:bg-navy-950/50 text-slate-700 dark:text-slate-200'} px-2 text-xs font-extrabold placeholder:text-slate-300 dark:placeholder:text-slate-600 placeholder:font-normal placeholder:text-[10px] hover:border-sky-300 dark:hover:border-slate-600 focus:bg-white dark:focus:bg-navy-900 focus:outline-none focus:ring-2 focus:ring-sky-500/30 focus:border-sky-500 transition ${isReadOnly ? 'cursor-not-allowed opacity-80' : ''}">
                                                                     ${rubricEnabledForAct ? `
-                                                                        <button onclick="app.openStudentRubricEvaluationModal('${st.id}', '${act.id}')" class="w-8 h-8 rounded-xl border ${evalRecord ? 'bg-emerald-600 text-white border-emerald-600 shadow-2xs' : 'border-sky-200 dark:border-slate-700 bg-sky-50/70 dark:bg-navy-800 text-sky-700 dark:text-sky-300 hover:bg-sky-100'} flex items-center justify-center transition" title="${this.t("evalWithRubricTitle")}">
+                                                                        <button ${isReadOnly ? 'disabled' : `onclick="app.openStudentRubricEvaluationModal('${st.id}', '${act.id}')"`} class="w-8 h-8 rounded-xl border ${evalRecord ? 'bg-emerald-600 text-white border-emerald-600 shadow-2xs' : 'border-sky-200 dark:border-slate-700 bg-sky-50/70 dark:bg-navy-800 text-sky-700 dark:text-sky-300 hover:bg-sky-100'} flex items-center justify-center transition ${isReadOnly ? 'cursor-not-allowed opacity-75' : ''}" title="${this.t("evalWithRubricTitle")}">
                                                                             <i class="fa-solid fa-table-cells-large text-xs"></i>
                                                                         </button>
                                                                     ` : ''}
@@ -4285,6 +4454,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                     this.renderHomeView(container);
                     return;
                 }
+                const isReadOnly = !!course.archived;
                 if (!course.gradeConfig) {
                     course.gradeConfig = { calcMethod: "average", minPass: 6, evaluateAttendance: false, attendanceWeight: 5, activities: [] };
                 }
@@ -4295,14 +4465,16 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 container.innerHTML = `
                     <div class="space-y-5">
                         <div class="bg-white dark:bg-navy-900 rounded-2xl border border-sky-100 dark:border-slate-800 p-5 shadow-xs space-y-4">
-                            <div class="flex flex-wrap items-center justify-end gap-2 text-xs">
-                                <button onclick="app.openRubricsManagerModal()" class="px-3 py-1.5 rounded-xl border border-sky-200 dark:border-slate-700 hover:bg-sky-50 dark:hover:bg-navy-800 font-bold flex items-center gap-1.5 text-sky-700 dark:text-sky-300">
-                                    <i class="fa-solid fa-table-cells-large"></i> ${this.t("rubricsLabel")}
-                                </button>
-                                <button onclick="app.openActivityModal()" class="px-3.5 py-1.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-bold flex items-center gap-1.5 shadow-2xs">
-                                    <i class="fa-solid fa-plus"></i> ${this.t("newActivityBtn")}
-                                </button>
-                            </div>
+                            ${!isReadOnly ? `
+                                <div class="flex flex-wrap items-center justify-end gap-2 text-xs">
+                                    <button onclick="app.openRubricsManagerModal()" class="px-3 py-1.5 rounded-xl border border-sky-200 dark:border-slate-700 hover:bg-sky-50 dark:hover:bg-navy-800 font-bold flex items-center gap-1.5 text-sky-700 dark:text-sky-300">
+                                        <i class="fa-solid fa-table-cells-large"></i> ${this.t("rubricsLabel")}
+                                    </button>
+                                    <button onclick="app.openActivityModal()" class="px-3.5 py-1.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-bold flex items-center gap-1.5 shadow-2xs">
+                                        <i class="fa-solid fa-plus"></i> ${this.t("newActivityBtn")}
+                                    </button>
+                                </div>
+                            ` : ''}
 
                             ${activities.length === 0 ? `
                                 <div class="p-10 rounded-2xl border border-dashed border-sky-200 dark:border-slate-700 text-center space-y-3 bg-sky-50/30 dark:bg-navy-950/40">
@@ -4332,9 +4504,11 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                                                 </div>
                                                 <div class="flex items-center justify-between gap-2 pt-2 border-t border-sky-100/70 dark:border-slate-700/60" onclick="event.stopPropagation()">
                                                     <span class="text-[10px] text-slate-400">${act.createdAt ? this.formatCreatedAtDisplay(act.createdAt) : ''}</span>
-                                                    <div class="flex items-center gap-2">
-                                                        <button onclick="app.deleteActivity('${act.id}')" class="text-rose-500 hover:underline text-[11px] font-semibold">${this.t("deleteBtn")}</button>
-                                                    </div>
+                                                    ${!isReadOnly ? `
+                                                        <div class="flex items-center gap-2">
+                                                            <button onclick="app.deleteActivity('${act.id}')" class="text-rose-500 hover:underline text-[11px] font-semibold">${this.t("deleteBtn")}</button>
+                                                        </div>
+                                                    ` : ''}
                                                 </div>
                                             </div>
                                         `;
@@ -6544,7 +6718,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                                                                              ondragstart="app.handleLessonDragStart(event, '${sess.slotKey}')"
                                                                              ondragend="app.handleLessonDragEnd(event)"
                                                                              onmousedown="app.startLessonMouseDrag(event, '${sess.slotKey}')"
-                                                                             onclick="app.openLessonPlanModal('${course.id}', '${activeSection.id}', '${sess.slotKey}')"
+                                                                             onclick="app.openQuickLessonActionModal('${course.id}', '${activeSection.id}', '${sess.slotKey}')"
                                                                              class="${cardClass}"
                                                                              style="${cardStyle}">
                                                                             <div class="flex items-center justify-between font-extrabold">
@@ -6658,7 +6832,8 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                             </div>
                         ` : `
                             <div class="bg-white dark:bg-navy-900 rounded-2xl border border-sky-100 dark:border-slate-800 shadow-xs overflow-hidden">
-                                <table class="w-full text-left border-collapse text-xs">
+                                <div class="overflow-x-auto custom-scrollbar w-full">
+                                    <table class="w-full min-w-[700px] text-left border-collapse text-xs">
                                     <thead>
                                         <tr class="bg-sky-50/80 dark:bg-navy-800 border-b border-sky-100 dark:border-slate-800">
                                             <th class="px-4 py-3 font-extrabold">${this.t("studentCol")}</th>
@@ -6696,7 +6871,8 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                                             `;
                                         }).join("")}
                                     </tbody>
-                                </table>
+                                    </table>
+                                </div>
                             </div>
                         `}
                     </div>
@@ -7251,16 +7427,16 @@ Removing, obfuscating, or altering these credits violates the author's attributi
 
                         <div class="bg-white dark:bg-navy-900 rounded-2xl border border-sky-100 dark:border-slate-800 shadow-xs overflow-hidden w-full">
                             <div class="overflow-x-auto custom-scrollbar w-full">
-                            <table class="w-full min-w-full text-left border-collapse text-xs">
+                            <table class="w-full min-w-[940px] text-left border-collapse text-xs">
                                 <thead>
                                     <tr class="bg-sky-50/80 dark:bg-navy-800 border-b border-sky-100 dark:border-slate-800">
-                                        <th class="px-4 py-3 font-extrabold w-[22%] min-w-[200px]">${this.t("studentCol")}</th>
-                                        <th class="px-4 py-3 font-extrabold w-[25%] min-w-[200px]">${this.t("attendedCoursesCol")}</th>
-                                        <th class="px-4 py-3 font-extrabold text-center w-[8%] min-w-[70px]">${this.t("studentLatestLevelCol")}</th>
-                                        <th class="px-4 py-3 font-extrabold w-[13%] min-w-[120px]">${this.t("studentPhoneLabel")}</th>
-                                        <th class="px-4 py-3 font-extrabold w-[18%] min-w-[150px]">${this.t("emailBillingLabel")}</th>
-                                        <th class="px-4 py-3 font-extrabold w-[14%] min-w-[100px]">${this.t("cityCol")}</th>
-                                        <th class="px-4 py-3 font-extrabold text-right w-[100px] min-w-[100px]">${this.t("actionsCol")}</th>
+                                        <th class="px-4 py-3 font-extrabold min-w-[200px]">${this.t("studentCol")}</th>
+                                        <th class="px-4 py-3 font-extrabold min-w-[200px]">${this.t("attendedCoursesCol")}</th>
+                                        <th class="px-4 py-3 font-extrabold text-center min-w-[70px]">${this.t("studentLatestLevelCol")}</th>
+                                        <th class="px-4 py-3 font-extrabold min-w-[120px]">${this.t("studentPhoneLabel")}</th>
+                                        <th class="px-4 py-3 font-extrabold min-w-[150px]">${this.t("emailBillingLabel")}</th>
+                                        <th class="px-4 py-3 font-extrabold min-w-[100px]">${this.t("cityCol")}</th>
+                                        <th class="px-4 py-3 font-extrabold text-right min-w-[100px]">${this.t("actionsCol")}</th>
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-sky-100/60 dark:divide-slate-800">
@@ -7626,6 +7802,9 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                                                 <h3 class="text-sm font-extrabold text-slate-900 dark:text-white mt-2">${this.escapeHtml(c.name)}</h3>
                                             </div>
                                             <div class="flex items-center justify-between gap-2 pt-3 border-t border-sky-100 dark:border-slate-800">
+                                                <button onclick="app.openArchivedCourseReadOnly('${c.id}')" class="flex-1 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-bold flex items-center justify-center gap-1.5 transition text-xs shadow-2xs">
+                                                    <i class="fa-solid fa-arrow-up-right-from-square text-xs"></i> <span>Apri Corso</span>
+                                                </button>
                                                 <button onclick="app.restoreArchivedCourse('${c.id}')" class="flex-1 py-2 rounded-xl bg-emerald-600 text-white font-bold">${this.t("restoreCourseBtn")}</button>
                                                 <button onclick="app.deleteCoursePermanently('${c.id}')" class="px-3 py-2 rounded-xl border border-rose-200 text-rose-600 font-bold">${this.t("deleteBtn")}</button>
                                             </div>
@@ -7908,11 +8087,12 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 const activeCourses = (this.state.courses || []).filter(c => !c.archived);
                 const course = activeCourses.find(c => c.id === this.selectedBillingCourseId) || this.getActiveCourse() || activeCourses[0];
                 const isContactsTab = this.billingViewTab === "contacts";
+                const isAnalyticsTab = this.billingViewTab === "analytics";
 
                 const topTabBarHtml = `
                     <div class="bg-white dark:bg-navy-900 rounded-2xl border border-sky-100 dark:border-slate-800 p-2.5 shadow-xs flex flex-wrap items-center justify-between gap-2 text-xs">
-                        <div class="flex items-center gap-1.5">
-                            <button type="button" onclick="app.billingViewTab = 'course'; app.renderMainView();" class="px-3.5 py-2 rounded-xl font-extrabold flex items-center gap-2 transition ${!isContactsTab ? 'bg-sky-600 text-white shadow-2xs' : 'text-slate-600 dark:text-slate-300 hover:bg-sky-50 dark:hover:bg-navy-800'}">
+                        <div class="flex flex-wrap items-center gap-1.5">
+                            <button type="button" onclick="app.billingViewTab = 'course'; app.renderMainView();" class="px-3.5 py-2 rounded-xl font-extrabold flex items-center gap-2 transition ${(!isContactsTab && !isAnalyticsTab) ? 'bg-sky-600 text-white shadow-2xs' : 'text-slate-600 dark:text-slate-300 hover:bg-sky-50 dark:hover:bg-navy-800'}">
                                 <i class="fa-solid fa-file-invoice-dollar"></i>
                                 <span>Fatturazione Corso & Moduli</span>
                             </button>
@@ -7920,15 +8100,41 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                                 <i class="fa-solid fa-address-book"></i>
                                 <span>Banca Dati Clienti (${(this.state.billingContacts || []).length})</span>
                             </button>
+                            <button type="button" onclick="app.billingViewTab = 'analytics'; app.renderMainView();" class="px-3.5 py-2 rounded-xl font-extrabold flex items-center gap-2 transition ${isAnalyticsTab ? 'bg-sky-600 text-white shadow-2xs' : 'text-slate-600 dark:text-slate-300 hover:bg-sky-50 dark:hover:bg-navy-800'}">
+                                <i class="fa-solid fa-chart-column"></i>
+                                <span>Report Guadagni</span>
+                            </button>
                         </div>
                         ${isContactsTab ? `
                             <button type="button" onclick="app.openBillingContactModal()" class="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold flex items-center gap-1.5 shadow-2xs">
                                 <i class="fa-solid fa-user-plus"></i>
                                 <span>Nuovo Cliente</span>
                             </button>
-                        ` : ''}
+                        ` : (isAnalyticsTab ? `
+                            <div class="flex items-center gap-2">
+                                ${this.billingAnalyticsSelectedMonth !== null ? `
+                                    <button type="button" onclick="app.exportBillingMonthlyPdf(app.billingAnalyticsSelectedMonth)" class="px-3.5 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-extrabold flex items-center gap-1.5 shadow-2xs">
+                                        <i class="fa-solid fa-file-pdf"></i>
+                                        <span>Esporta PDF Mensile</span>
+                                    </button>
+                                ` : `
+                                    <button type="button" onclick="app.exportBillingAnnualPdf(false)" class="px-3 py-2 rounded-xl border border-sky-200 dark:border-slate-700 hover:bg-sky-50 dark:hover:bg-navy-800 font-extrabold flex items-center gap-1.5">
+                                        <i class="fa-solid fa-file-pdf text-sky-600"></i>
+                                        <span>PDF Annuale</span>
+                                    </button>
+                                    <button type="button" onclick="app.exportBillingAnnualPdf(true)" class="px-3.5 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-extrabold flex items-center gap-1.5 shadow-2xs">
+                                        <i class="fa-solid fa-file-lines"></i>
+                                        <span>PDF Annuale Dettagliato</span>
+                                    </button>
+                                `}
+                            </div>
+                        ` : '')}
                     </div>
                 `;
+
+                if (isAnalyticsTab) {
+                    return this.renderBillingAnalyticsView(container, topTabBarHtml);
+                }
 
                 if (isContactsTab) {
                     const q = (this.billingContactSearchQuery || "").trim().toLowerCase();
@@ -12481,6 +12687,1583 @@ Dettagli di Sistema:
                     console.warn("Delete Google event error:", e);
                 }
             }
+
+            /* =====================================================================================
+             * A4 PDF Print & Preview System
+             * ===================================================================================== */
+            openA4PrintableDocument(title, subtitle, bodyHtml) {
+                const titleEl = document.getElementById("a4PdfOverlayTitle");
+                const subtitleEl = document.getElementById("a4PdfOverlaySubtitle");
+                const sheetEl = document.getElementById("a4PdfSheetBody");
+                const overlayEl = document.getElementById("a4PdfPrintOverlay");
+                if (titleEl) titleEl.textContent = title || "Anteprima Documento A4 PDF";
+                if (subtitleEl) subtitleEl.textContent = subtitle || "Formato A4 • Pronto per il salvataggio o la stampa in PDF";
+                if (sheetEl) sheetEl.innerHTML = bodyHtml || "";
+                if (overlayEl) {
+                    overlayEl.classList.remove("hidden");
+                    overlayEl.classList.add("flex");
+                    overlayEl.scrollTop = 0;
+                }
+            }
+
+            closeA4PrintableDocument() {
+                const overlayEl = document.getElementById("a4PdfPrintOverlay");
+                if (overlayEl) {
+                    overlayEl.classList.add("hidden");
+                    overlayEl.classList.remove("flex");
+                }
+            }
+
+            triggerA4PrintDialog() {
+                document.body.classList.add("a4-print-mode");
+                window.print();
+                setTimeout(() => {
+                    document.body.classList.remove("a4-print-mode");
+                }, 800);
+            }
+
+            /* =====================================================================================
+             * Quick Lesson Action Modal (Data, Orari & Tasto Apple Pencil Pianificazione)
+             * ===================================================================================== */
+            openQuickLessonActionModal(courseId, moduleId, slotKey) {
+                if (this.isDraggingLesson || this.hasJustDragged) return;
+                const course = (this.state.courses || []).find(c => c.id === courseId) || this.getActiveCourse();
+                if (!course) return;
+                let targetSec = null;
+                (course.levels || []).forEach(l => {
+                    const m = (l.modules || []).find(x => x.id === moduleId);
+                    if (m) targetSec = m;
+                });
+                if (!targetSec) targetSec = this.getActiveSection(course);
+                if (!targetSec) return;
+
+                const isReadOnly = !!course.archived;
+                const dOnly = this.extractDateFromSlotKey(slotKey);
+                const les = this.findLessonForSlot(course, targetSec.id, slotKey);
+                const sTime = les?.time || targetSec.startTime || course.startTime || "19:00";
+                const eTime = les?.endTime || targetSec.endTime || course.endTime || "20:30";
+
+                this.openModal(`
+                    <div class="p-6 space-y-4 text-xs max-w-md w-full">
+                        <div class="flex items-center justify-between border-b border-sky-100 dark:border-slate-800 pb-3">
+                            <div class="flex items-center gap-2.5">
+                                <div class="w-8 h-8 rounded-xl bg-sky-100 dark:bg-navy-800 text-sky-600 dark:text-sky-300 flex items-center justify-center text-sm shadow-2xs">
+                                    <i class="fa-solid fa-clock"></i>
+                                </div>
+                                <div>
+                                    <h3 class="text-sm font-extrabold text-slate-900 dark:text-white">Azioni Rapide Lezione</h3>
+                                    <p class="text-[11px] text-slate-400">${this.escapeHtml(targetSec.name || 'Modulo')} • ${this.formatShortWeekdayDate(dOnly)}</p>
+                                </div>
+                            </div>
+                            <button type="button" onclick="app.closeModal()" class="w-8 h-8 rounded-lg hover:bg-slate-100 dark:hover:bg-navy-800 flex items-center justify-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
+                                <i class="fa-solid fa-xmark"></i>
+                            </button>
+                        </div>
+
+                        ${isReadOnly ? `
+                            <div class="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-700 text-amber-800 dark:text-amber-200 font-bold flex items-center gap-2">
+                                <i class="fa-solid fa-lock"></i>
+                                <span>Corso archiviato: modifiche disabilitate in sola lettura.</span>
+                            </div>
+                            <div class="pt-2 flex justify-end">
+                                <button type="button" onclick="app.closeModal()" class="px-4 py-2 rounded-xl border border-sky-200 dark:border-slate-700 font-bold hover:bg-sky-50 dark:hover:bg-navy-800">Chiudi</button>
+                            </div>
+                        ` : `
+                            <form onsubmit="app.saveQuickLessonAction(event, '${course.id}', '${targetSec.id}', '${slotKey}')" class="space-y-4">
+                                <div class="space-y-3">
+                                    <div>
+                                        <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">Data della Lezione *</label>
+                                        <input type="date" id="quickLessonDateInput" required value="${dOnly}" class="w-full rounded-xl border border-sky-200 dark:border-slate-700 bg-sky-50/40 dark:bg-navy-800 px-3 py-2 font-bold text-slate-900 dark:text-white">
+                                    </div>
+                                    <div class="grid grid-cols-2 gap-3">
+                                        <div>
+                                            <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">${this.t("startLabel")} *</label>
+                                            <input type="time" id="quickLessonStartTimeInput" required value="${sTime}" class="w-full rounded-xl border border-sky-200 dark:border-slate-700 bg-sky-50/40 dark:bg-navy-800 px-3 py-2 font-bold text-slate-900 dark:text-white">
+                                        </div>
+                                        <div>
+                                            <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">${this.t("endLabel")} *</label>
+                                            <input type="time" id="quickLessonEndTimeInput" required value="${eTime}" class="w-full rounded-xl border border-sky-200 dark:border-slate-700 bg-sky-50/40 dark:bg-navy-800 px-3 py-2 font-bold text-slate-900 dark:text-white">
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="pt-2 border-t border-sky-100 dark:border-slate-800 flex flex-col gap-2.5">
+                                    <button type="button" onclick="app.closeModal(true); app.openLessonPlanModal('${course.id}', '${targetSec.id}', '${slotKey}');" class="w-full py-2.5 px-3 rounded-xl border-2 border-sky-400 dark:border-sky-600 bg-sky-50/70 dark:bg-navy-800 hover:bg-sky-100 dark:hover:bg-navy-700 text-sky-700 dark:text-sky-200 font-extrabold flex items-center justify-center gap-2 transition shadow-2xs">
+                                        <i class="fa-solid fa-pencil text-sm"></i>
+                                        <span>Pianificazione della Lezione</span>
+                                    </button>
+                                    <div class="flex items-center justify-end gap-2 pt-1">
+                                        <button type="button" onclick="app.closeModal()" class="px-4 py-2 rounded-xl border border-sky-200 dark:border-slate-700 font-bold hover:bg-sky-50 dark:hover:bg-navy-800">Annulla</button>
+                                        <button type="submit" class="px-5 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-extrabold shadow-2xs transition">Salva Modifiche</button>
+                                    </div>
+                                </div>
+                            </form>
+                        `}
+                    </div>
+                `);
+            }
+
+            saveQuickLessonAction(event, courseId, moduleId, oldSlotKey) {
+                if (event) event.preventDefault();
+                const course = (this.state.courses || []).find(c => c.id === courseId) || this.getActiveCourse();
+                if (!course || course.archived) return;
+                let targetSec = null;
+                (course.levels || []).forEach(l => {
+                    const m = (l.modules || []).find(x => x.id === moduleId);
+                    if (m) targetSec = m;
+                });
+                if (!targetSec) targetSec = this.getActiveSection(course);
+                if (!targetSec) return;
+
+                const newDate = (document.getElementById("quickLessonDateInput")?.value || "").trim();
+                const newStartTime = (document.getElementById("quickLessonStartTimeInput")?.value || "").trim();
+                const newEndTime = (document.getElementById("quickLessonEndTimeInput")?.value || "").trim();
+                if (!newDate || !newStartTime || !newEndTime) return;
+
+                const newSlotKey = `${newDate}__${newStartTime}_${newEndTime}`;
+                if (!Array.isArray(targetSec.dates)) targetSec.dates = [];
+
+                const slotIdx = targetSec.dates.indexOf(oldSlotKey);
+                if (slotIdx >= 0) {
+                    targetSec.dates[slotIdx] = newSlotKey;
+                } else {
+                    targetSec.dates.push(newSlotKey);
+                }
+                targetSec.dates = Array.from(new Set(targetSec.dates));
+
+                if (oldSlotKey !== newSlotKey && targetSec.attendance) {
+                    Object.keys(targetSec.attendance).forEach(stId => {
+                        if (targetSec.attendance[stId]?.[oldSlotKey] !== undefined) {
+                            targetSec.attendance[stId][newSlotKey] = targetSec.attendance[stId][oldSlotKey];
+                            delete targetSec.attendance[stId][oldSlotKey];
+                        }
+                    });
+                }
+
+                if (oldSlotKey !== newSlotKey && targetSec.billing?.lessonOverrides?.[oldSlotKey]) {
+                    targetSec.billing.lessonOverrides[newSlotKey] = targetSec.billing.lessonOverrides[oldSlotKey];
+                    delete targetSec.billing.lessonOverrides[oldSlotKey];
+                }
+
+                if (!Array.isArray(course.lessons)) course.lessons = [];
+                const lesIdx = course.lessons.findIndex(l => (l.moduleId === targetSec.id || l.sectionId === targetSec.id) && l.slotKey === oldSlotKey);
+                if (lesIdx >= 0) {
+                    course.lessons[lesIdx].date = newDate;
+                    course.lessons[lesIdx].time = newStartTime;
+                    course.lessons[lesIdx].endTime = newEndTime;
+                    course.lessons[lesIdx].slotKey = newSlotKey;
+                } else {
+                    course.lessons.push({
+                        id: 'les_' + Date.now(),
+                        moduleId: targetSec.id,
+                        sectionId: targetSec.id,
+                        slotKey: newSlotKey,
+                        date: newDate,
+                        time: newStartTime,
+                        endTime: newEndTime,
+                        title: ""
+                    });
+                }
+
+                this.persist();
+                this.closeModal(true);
+                this.renderMainView();
+                this.showToast("Lezione aggiornata con successo", "success");
+            }
+
+            /* =====================================================================================
+             * Course PDF Export Wizard (3 Steps: Moduli, Elementi, Raggruppamento)
+             * ===================================================================================== */
+            openCoursePdfExportModal(courseId) {
+                const course = (this.state.courses || []).find(c => c.id === courseId) || this.getActiveCourse();
+                if (!course) return;
+
+                const allModIds = [];
+                (course.levels || []).forEach(l => {
+                    (l.modules || []).forEach(m => allModIds.push(m.id));
+                });
+
+                this.coursePdfExportState = {
+                    courseId: course.id,
+                    step: 1,
+                    selectedModuleIds: new Set(allModIds),
+                    selectedElements: {
+                        attendance: true,
+                        grades: true,
+                        activities: true,
+                        rubrics: true,
+                        lessons: true,
+                        structure: true,
+                        students: true
+                    },
+                    groupingMode: 'byModule' // 'byModule' or 'byType'
+                };
+
+                this.renderCoursePdfExportModal();
+            }
+
+            renderCoursePdfExportModal() {
+                const state = this.coursePdfExportState;
+                if (!state) return;
+                const course = (this.state.courses || []).find(c => c.id === state.courseId);
+                if (!course) return;
+
+                const allModIds = [];
+                (course.levels || []).forEach(l => (l.modules || []).forEach(m => allModIds.push(m.id)));
+                const allModsSelected = allModIds.length > 0 && allModIds.every(id => state.selectedModuleIds.has(id));
+
+                const elementKeys = [
+                    { key: "attendance", label: "Presenze", desc: "Registro presenze, assenze, giustificazioni e riepilogo ore", icon: "fa-clipboard-user" },
+                    { key: "grades", label: "Voti", desc: "Valutazioni, ponderazione presenze, medie ed esiti finali", icon: "fa-graduation-cap" },
+                    { key: "activities", label: "Attività", desc: "Elenco attività didattiche, pesi percentuali e scadenze", icon: "fa-list-check" },
+                    { key: "rubrics", label: "Criteri di valutazione", desc: "Griglie di valutazione e descrittori di livello", icon: "fa-table-cells-large" },
+                    { key: "lessons", label: "Piano lezioni", desc: "Dettaglio didattico lezioni, argomenti, compiti e note", icon: "fa-calendar-days" },
+                    { key: "structure", label: "Struttura dei livelli e moduli", desc: "Organizzazione livelli QCER, moduli e tariffe", icon: "fa-sitemap" },
+                    { key: "students", label: "Iscritti", desc: "Elenco studenti iscritti con contatti e dettagli", icon: "fa-users" }
+                ];
+                const allElemsSelected = elementKeys.every(k => state.selectedElements[k.key]);
+
+                const canProceed = state.step === 1
+                    ? state.selectedModuleIds.size > 0
+                    : (state.step === 2 ? Object.values(state.selectedElements).some(Boolean) : true);
+
+                this.openModal(`
+                    <div class="p-6 space-y-5 text-xs max-w-xl w-full">
+                        <!-- Header Wizard -->
+                        <div class="flex items-start justify-between border-b border-sky-100 dark:border-slate-800 pb-3">
+                            <div class="flex items-center gap-3">
+                                <div class="w-10 h-10 rounded-xl bg-sky-600 text-white flex items-center justify-center text-lg shadow-2xs">
+                                    <i class="fa-solid fa-arrow-up-from-bracket"></i>
+                                </div>
+                                <div>
+                                    <h3 class="text-base font-black text-slate-900 dark:text-white">Esporta Corso in PDF (Formato A4)</h3>
+                                    <p class="text-[11px] text-slate-400">Esporta l'intero contenuto del corso in un documento A4 ordinato con indice cliccabile</p>
+                                </div>
+                            </div>
+                            <button type="button" onclick="app.closeModal()" class="w-8 h-8 rounded-lg hover:bg-slate-100 dark:hover:bg-navy-800 flex items-center justify-center text-slate-400">
+                                <i class="fa-solid fa-xmark"></i>
+                            </button>
+                        </div>
+
+                        <!-- Wizard Steps Indicator -->
+                        <div class="grid grid-cols-3 gap-2">
+                            <div class="p-2.5 rounded-xl border text-center transition ${state.step === 1 ? 'border-sky-500 bg-sky-50 dark:bg-navy-800 text-sky-700 dark:text-sky-300 font-extrabold shadow-2xs' : (state.step > 1 ? 'border-emerald-300 bg-emerald-50/50 text-emerald-700 font-bold' : 'border-slate-200 dark:border-slate-800 text-slate-400')}">
+                                <div class="text-[10px] uppercase font-black">Passo 1</div>
+                                <div class="text-xs truncate">Livelli & Moduli</div>
+                            </div>
+                            <div class="p-2.5 rounded-xl border text-center transition ${state.step === 2 ? 'border-sky-500 bg-sky-50 dark:bg-navy-800 text-sky-700 dark:text-sky-300 font-extrabold shadow-2xs' : (state.step > 2 ? 'border-emerald-300 bg-emerald-50/50 text-emerald-700 font-bold' : 'border-slate-200 dark:border-slate-800 text-slate-400')}">
+                                <div class="text-[10px] uppercase font-black">Passo 2</div>
+                                <div class="text-xs truncate">Elementi da Includere</div>
+                            </div>
+                            <div class="p-2.5 rounded-xl border text-center transition ${state.step === 3 ? 'border-sky-500 bg-sky-50 dark:bg-navy-800 text-sky-700 dark:text-sky-300 font-extrabold shadow-2xs' : 'border-slate-200 dark:border-slate-800 text-slate-400'}">
+                                <div class="text-[10px] uppercase font-black">Passo 3</div>
+                                <div class="text-xs truncate">Ordinamento & PDF</div>
+                            </div>
+                        </div>
+
+                        <!-- Step 1: Moduli e Livelli -->
+                        ${state.step === 1 ? `
+                            <div class="space-y-3">
+                                <div class="flex items-center justify-between bg-sky-50/70 dark:bg-navy-800/80 p-3 rounded-xl border border-sky-200 dark:border-slate-700">
+                                    <label class="flex items-center gap-2 font-extrabold text-slate-900 dark:text-white cursor-pointer select-none">
+                                        <input type="checkbox" onchange="app.toggleAllCoursePdfModules(this.checked)" ${allModsSelected ? 'checked' : ''} class="w-4 h-4 accent-sky-600 rounded">
+                                        <span>Esporta tutti i moduli e livelli (${allModIds.length})</span>
+                                    </label>
+                                    <span class="text-[11px] text-sky-700 dark:text-sky-300 font-bold">${state.selectedModuleIds.size} selezionati</span>
+                                </div>
+
+                                <div class="max-h-[46vh] overflow-y-auto custom-scrollbar space-y-3 pr-1">
+                                    ${(course.levels || []).map(lvl => `
+                                        <div class="bg-white dark:bg-navy-900 border border-sky-100 dark:border-slate-800 rounded-xl p-3 space-y-2">
+                                            <div class="flex items-center justify-between border-b border-sky-100 dark:border-slate-800 pb-1.5 font-bold text-slate-700 dark:text-slate-200">
+                                                <span>Livello ${this.escapeHtml(lvl.code || 'Base')} ${lvl.sublevel ? `(${this.escapeHtml(lvl.sublevel)})` : ''}</span>
+                                                <span class="text-[10px] text-slate-400">${(lvl.modules || []).length} moduli</span>
+                                            </div>
+                                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 pl-2">
+                                                ${(lvl.modules || []).map(m => `
+                                                    <label class="flex items-center gap-2 p-2 rounded-lg border border-slate-100 dark:border-slate-800 hover:bg-sky-50/50 dark:hover:bg-navy-800 cursor-pointer select-none">
+                                                        <input type="checkbox" onchange="app.toggleCoursePdfModule('${m.id}', this.checked)" ${state.selectedModuleIds.has(m.id) ? 'checked' : ''} class="w-3.5 h-3.5 accent-sky-600 rounded">
+                                                        <span class="font-extrabold truncate text-slate-800 dark:text-slate-100">${this.escapeHtml(m.name)}</span>
+                                                    </label>
+                                                `).join("")}
+                                            </div>
+                                        </div>
+                                    `).join("")}
+                                </div>
+                            </div>
+                        ` : ''}
+
+                        <!-- Step 2: Elementi da Esportare -->
+                        ${state.step === 2 ? `
+                            <div class="space-y-3">
+                                <div class="flex items-center justify-between bg-sky-50/70 dark:bg-navy-800/80 p-3 rounded-xl border border-sky-200 dark:border-slate-700">
+                                    <label class="flex items-center gap-2 font-extrabold text-slate-900 dark:text-white cursor-pointer select-none">
+                                        <input type="checkbox" onchange="app.toggleAllCoursePdfElements(this.checked)" ${allElemsSelected ? 'checked' : ''} class="w-4 h-4 accent-sky-600 rounded">
+                                        <span>Seleziona tutti gli elementi</span>
+                                    </label>
+                                </div>
+
+                                <div class="grid grid-cols-1 gap-2 max-h-[46vh] overflow-y-auto custom-scrollbar pr-1">
+                                    ${elementKeys.map(ek => `
+                                        <label class="flex items-center gap-3 p-3 rounded-xl border ${state.selectedElements[ek.key] ? 'border-sky-300 dark:border-sky-700 bg-sky-50/40 dark:bg-navy-800/60' : 'border-slate-200 dark:border-slate-800'} hover:bg-sky-50 dark:hover:bg-navy-800 cursor-pointer select-none transition">
+                                            <input type="checkbox" onchange="app.toggleCoursePdfElement('${ek.key}', this.checked)" ${state.selectedElements[ek.key] ? 'checked' : ''} class="w-4 h-4 accent-sky-600 rounded shrink-0">
+                                            <div class="w-8 h-8 rounded-lg bg-sky-100 dark:bg-navy-700 text-sky-600 dark:text-sky-300 flex items-center justify-center shrink-0 text-sm">
+                                                <i class="fa-solid ${ek.icon}"></i>
+                                            </div>
+                                            <div class="flex-1 min-w-0">
+                                                <div class="font-extrabold text-slate-900 dark:text-white">${ek.label}</div>
+                                                <div class="text-[11px] text-slate-400 truncate">${ek.desc}</div>
+                                            </div>
+                                        </label>
+                                    `).join("")}
+                                </div>
+                            </div>
+                        ` : ''}
+
+                        <!-- Step 3: Raggruppamento e Generazione -->
+                        ${state.step === 3 ? `
+                            <div class="space-y-4">
+                                <div class="space-y-2">
+                                    <label class="block font-extrabold text-slate-900 dark:text-white">Modalità di Raggruppamento del Report PDF:</label>
+                                    
+                                    <label class="flex items-start gap-3 p-3.5 rounded-xl border ${state.groupingMode === 'byModule' ? 'border-sky-500 bg-sky-50/70 dark:bg-navy-800 ring-2 ring-sky-500/20' : 'border-slate-200 dark:border-slate-800'} cursor-pointer select-none transition">
+                                        <input type="radio" name="pdfGroupingMode" value="byModule" ${state.groupingMode === 'byModule' ? 'checked' : ''} onchange="app.setCoursePdfGroupingMode('byModule')" class="mt-1 accent-sky-600">
+                                        <div>
+                                            <div class="font-extrabold text-slate-900 dark:text-white">Raggruppa per livello e modulo (Consigliato)</div>
+                                            <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                                                Organizza il documento dividendo prima per livello e poi per modulo: Presenze, Voti, Attività, Criteri, Piano lezioni e Iscritti del primo modulo, poi quelli del secondo, del terzo e così via.
+                                            </p>
+                                        </div>
+                                    </label>
+
+                                    <label class="flex items-start gap-3 p-3.5 rounded-xl border ${state.groupingMode === 'byType' ? 'border-sky-500 bg-sky-50/70 dark:bg-navy-800 ring-2 ring-sky-500/20' : 'border-slate-200 dark:border-slate-800'} cursor-pointer select-none transition">
+                                        <input type="radio" name="pdfGroupingMode" value="byType" ${state.groupingMode === 'byType' ? 'checked' : ''} onchange="app.setCoursePdfGroupingMode('byType')" class="mt-1 accent-sky-600">
+                                        <div>
+                                            <div class="font-extrabold text-slate-900 dark:text-white">Raggruppa per tipo di elemento</div>
+                                            <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                                                Raggruppa tutti gli elementi dello stesso tipo: ad esempio tutte le presenze di tutti i moduli, poi tutti i voti, tutte le attività, ecc.
+                                            </p>
+                                        </div>
+                                    </label>
+                                </div>
+
+                                <div class="bg-slate-50 dark:bg-navy-950 p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 space-y-1.5 text-[11px]">
+                                    <div class="font-extrabold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                                        <i class="fa-solid fa-circle-info text-sky-600"></i>
+                                        <span>Riepilogo Esportazione</span>
+                                    </div>
+                                    <div class="text-slate-500 dark:text-slate-400">
+                                        Corso: <strong>${this.escapeHtml(course.name)}</strong> • Moduli: <strong>${state.selectedModuleIds.size}</strong> • Elementi: <strong>${Object.values(state.selectedElements).filter(Boolean).length}</strong> • Formato: <strong>A4 con Indice Cliccabile</strong>
+                                    </div>
+                                </div>
+                            </div>
+                        ` : ''}
+
+                        <!-- Footer Navigation -->
+                        <div class="flex items-center justify-between border-t border-sky-100 dark:border-slate-800 pt-3">
+                            <button type="button" onclick="app.closeModal()" class="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 font-bold hover:bg-slate-50 dark:hover:bg-navy-800">Annulla</button>
+                            <div class="flex items-center gap-2">
+                                ${state.step > 1 ? `
+                                    <button type="button" onclick="app.setCoursePdfWizardStep(${state.step - 1})" class="px-4 py-2 rounded-xl border border-sky-200 dark:border-slate-700 font-extrabold hover:bg-sky-50 dark:hover:bg-navy-800">
+                                        <i class="fa-solid fa-arrow-left mr-1"></i> Indietro
+                                    </button>
+                                ` : ''}
+                                ${state.step < 3 ? `
+                                    <button type="button" ${!canProceed ? 'disabled' : ''} onclick="app.setCoursePdfWizardStep(${state.step + 1})" class="px-5 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-extrabold shadow-2xs transition disabled:opacity-50 disabled:cursor-not-allowed">
+                                        Avanti <i class="fa-solid fa-arrow-right ml-1"></i>
+                                    </button>
+                                ` : `
+                                    <button type="button" onclick="app.executeCoursePdfExport('${course.id}')" class="px-6 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black shadow-2xs transition flex items-center gap-2">
+                                        <i class="fa-solid fa-file-pdf"></i>
+                                        <span>Genera ed Esporta PDF (A4)</span>
+                                    </button>
+                                `}
+                            </div>
+                        </div>
+                    </div>
+                `);
+            }
+
+            setCoursePdfWizardStep(step) {
+                if (this.coursePdfExportState) {
+                    this.coursePdfExportState.step = step;
+                    this.renderCoursePdfExportModal();
+                }
+            }
+
+            toggleAllCoursePdfModules(isChecked) {
+                if (!this.coursePdfExportState) return;
+                const course = (this.state.courses || []).find(c => c.id === this.coursePdfExportState.courseId);
+                if (!course) return;
+                if (isChecked) {
+                    (course.levels || []).forEach(l => (l.modules || []).forEach(m => this.coursePdfExportState.selectedModuleIds.add(m.id)));
+                } else {
+                    this.coursePdfExportState.selectedModuleIds.clear();
+                }
+                this.renderCoursePdfExportModal();
+            }
+
+            toggleCoursePdfModule(moduleId, isChecked) {
+                if (!this.coursePdfExportState) return;
+                if (isChecked) this.coursePdfExportState.selectedModuleIds.add(moduleId);
+                else this.coursePdfExportState.selectedModuleIds.delete(moduleId);
+                this.renderCoursePdfExportModal();
+            }
+
+            toggleAllCoursePdfElements(isChecked) {
+                if (!this.coursePdfExportState) return;
+                Object.keys(this.coursePdfExportState.selectedElements).forEach(k => {
+                    this.coursePdfExportState.selectedElements[k] = !!isChecked;
+                });
+                this.renderCoursePdfExportModal();
+            }
+
+            toggleCoursePdfElement(elemKey, isChecked) {
+                if (!this.coursePdfExportState) return;
+                this.coursePdfExportState.selectedElements[elemKey] = !!isChecked;
+                this.renderCoursePdfExportModal();
+            }
+
+            setCoursePdfGroupingMode(mode) {
+                if (!this.coursePdfExportState) return;
+                this.coursePdfExportState.groupingMode = mode;
+                this.renderCoursePdfExportModal();
+            }
+
+            executeCoursePdfExport(courseId) {
+                const state = this.coursePdfExportState;
+                const course = (this.state.courses || []).find(c => c.id === courseId) || this.getActiveCourse();
+                if (!course || !state) return;
+
+                const pal = this.getCourseColorObj(course.color);
+                const selMods = [];
+                (course.levels || []).forEach(l => {
+                    (l.modules || []).forEach(m => {
+                        if (state.selectedModuleIds.has(m.id)) {
+                            selMods.push({ level: l, module: m });
+                        }
+                    });
+                });
+
+                if (selMods.length === 0) {
+                    this.showToast("Seleziona almeno un modulo da esportare", "warning");
+                    return;
+                }
+
+                this.closeModal(true);
+
+                // Build Table of Contents and Section bodies
+                const tocItems = [];
+                const sectionsHtml = [];
+                let secCounter = 1;
+
+                const elemDefs = [
+                    { key: "attendance", label: "Registro Presenze" },
+                    { key: "grades", label: "Tabella Voti" },
+                    { key: "activities", label: "Attività Didattiche" },
+                    { key: "rubrics", label: "Criteri di Valutazione" },
+                    { key: "lessons", label: "Piano delle Lezioni" },
+                    { key: "structure", label: "Struttura Modulo & Orari" },
+                    { key: "students", label: "Elenco Iscritti" }
+                ];
+
+                const renderSectionHeader = (secId, title, lvlName, modName) => `
+                    <div class="flex items-center justify-between border-b-2 border-slate-900 pb-2 mb-4">
+                        <div>
+                            <span class="text-[10px] font-black uppercase tracking-wider text-slate-500">${this.escapeHtml(course.name)}</span>
+                            <h2 class="text-base font-black text-slate-900">${this.escapeHtml(title)}</h2>
+                        </div>
+                        <div class="px-3 py-1 rounded-lg bg-sky-100 text-sky-900 text-xs font-black uppercase tracking-wider border border-sky-300">
+                            ${this.escapeHtml(lvlName)} • ${this.escapeHtml(modName)}
+                        </div>
+                    </div>
+                `;
+
+                const renderAttendanceTable = (mod) => {
+                    const dates = [...this.sortModuleSlots(course, mod)];
+                    const students = this.getModuleStudents(course, mod);
+                    if (students.length === 0 || dates.length === 0) {
+                        return `<p class="text-xs text-slate-400 italic py-4">Nessuna presenza o data registrata per questo modulo.</p>`;
+                    }
+                    return `
+                        <div class="overflow-x-auto text-[11px]">
+                            <table class="w-full border-collapse border border-slate-300 text-left">
+                                <thead>
+                                    <tr class="bg-slate-100 text-slate-700 border-b border-slate-300">
+                                        <th class="p-2 border-r border-slate-300 font-extrabold min-w-[140px]">Studente</th>
+                                        ${dates.map((d, i) => `<th class="p-1 border-r border-slate-300 text-center font-bold min-w-[32px]">${i + 1}</th>`).join("")}
+                                        <th class="p-2 text-center font-extrabold min-w-[50px]">% Pres.</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${students.map(st => {
+                                        const att = mod.attendance?.[st.id] || {};
+                                        let p = 0;
+                                        dates.forEach(dk => { if (att[dk] === "P") p++; });
+                                        const pct = dates.length ? Math.round((p / dates.length) * 100) : 0;
+                                        return `
+                                            <tr class="border-b border-slate-200">
+                                                <td class="p-2 font-bold border-r border-slate-200">${this.escapeHtml(st.firstName)} ${this.escapeHtml(st.lastName)}</td>
+                                                ${dates.map(dk => {
+                                                    const v = att[dk] || "·";
+                                                    const colorCls = v === "P" ? "text-emerald-700 font-extrabold" : (v === "A" ? "text-rose-600 font-extrabold" : (v === "G" ? "text-amber-600 font-extrabold" : "text-slate-300"));
+                                                    return `<td class="p-1 text-center border-r border-slate-200 ${colorCls}">${v}</td>`;
+                                                }).join("")}
+                                                <td class="p-2 text-center font-extrabold">${pct}%</td>
+                                            </tr>
+                                        `;
+                                    }).join("")}
+                                </tbody>
+                            </table>
+                        </div>
+                    `;
+                };
+
+                const renderGradesTable = (mod) => {
+                    const students = this.getModuleStudents(course, mod);
+                    const activities = course.gradeConfig?.activities || [];
+                    if (students.length === 0) return `<p class="text-xs text-slate-400 italic py-4">Nessuno studente iscritto.</p>`;
+                    return `
+                        <div class="overflow-x-auto text-[11px]">
+                            <table class="w-full border-collapse border border-slate-300 text-left">
+                                <thead>
+                                    <tr class="bg-slate-100 text-slate-700 border-b border-slate-300">
+                                        <th class="p-2 border-r border-slate-300 font-extrabold min-w-[140px]">Studente</th>
+                                        ${activities.map(a => `<th class="p-1.5 border-r border-slate-300 text-center font-bold">${this.escapeHtml(a.title)}</th>`).join("")}
+                                        <th class="p-2 text-center font-extrabold min-w-[60px]">Media</th>
+                                        <th class="p-2 text-center font-extrabold min-w-[60px]">Esito</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${students.map(st => {
+                                        const grades = mod.grades?.[st.id] || {};
+                                        const avg = this.computeStudentAverage(course, mod, st.id);
+                                        const passed = avg >= (course.gradeConfig?.minPass ?? 6);
+                                        return `
+                                            <tr class="border-b border-slate-200">
+                                                <td class="p-2 font-bold border-r border-slate-200">${this.escapeHtml(st.firstName)} ${this.escapeHtml(st.lastName)}</td>
+                                                ${activities.map(a => `<td class="p-1.5 text-center border-r border-slate-200 font-bold">${grades[a.id] ?? '—'}</td>`).join("")}
+                                                <td class="p-2 text-center font-black">${avg.toFixed(1)}</td>
+                                                <td class="p-2 text-center font-black ${passed ? 'text-emerald-700' : 'text-rose-600'}">${passed ? 'PROMOSSO' : 'NON SUFF.'}</td>
+                                            </tr>
+                                        `;
+                                    }).join("")}
+                                </tbody>
+                            </table>
+                        </div>
+                    `;
+                };
+
+                const renderActivitiesTable = () => {
+                    const activities = course.gradeConfig?.activities || [];
+                    if (activities.length === 0) return `<p class="text-xs text-slate-400 italic py-4">Nessuna attività configurata.</p>`;
+                    return `
+                        <div class="space-y-2 text-xs">
+                            ${activities.map((act, i) => `
+                                <div class="p-3 border border-slate-200 rounded-xl bg-slate-50 space-y-1">
+                                    <div class="flex items-center justify-between font-extrabold text-slate-900">
+                                        <span>${i + 1}. ${this.escapeHtml(act.title)}</span>
+                                        <span class="px-2 py-0.5 rounded bg-sky-100 text-sky-800 text-[10px]">${act.weight ?? 0}% peso</span>
+                                    </div>
+                                    ${act.description ? `<p class="text-slate-600 text-[11px]">${this.escapeHtml(act.description)}</p>` : ''}
+                                </div>
+                            `).join("")}
+                        </div>
+                    `;
+                };
+
+                const renderRubricsTable = () => {
+                    const rubrics = course.rubrics || [];
+                    if (rubrics.length === 0) return `<p class="text-xs text-slate-400 italic py-4">Nessuna rubrica di valutazione configurata.</p>`;
+                    return `
+                        <div class="space-y-3 text-xs">
+                            ${rubrics.map(r => `
+                                <div class="p-3 border border-slate-200 rounded-xl space-y-2">
+                                    <h4 class="font-extrabold text-slate-900 text-sm">${this.escapeHtml(r.title)}</h4>
+                                    ${(r.criteria || []).map(crit => `
+                                        <div class="p-2 rounded bg-slate-50 border border-slate-100 space-y-1">
+                                            <div class="flex items-center justify-between font-bold text-slate-800">
+                                                <span>${this.escapeHtml(crit.name)}</span>
+                                                <span class="text-[10px] text-slate-500">Max: ${crit.maxScore ?? 10} pt</span>
+                                            </div>
+                                            ${crit.description ? `<p class="text-[11px] text-slate-500">${this.escapeHtml(crit.description)}</p>` : ''}
+                                        </div>
+                                    `).join("")}
+                                </div>
+                            `).join("")}
+                        </div>
+                    `;
+                };
+
+                const renderLessonsTable = (mod) => {
+                    const slots = [...this.sortModuleSlots(course, mod)];
+                    if (slots.length === 0) return `<p class="text-xs text-slate-400 italic py-4">Nessuna lezione programmata.</p>`;
+                    return `
+                        <div class="space-y-2 text-xs">
+                            ${slots.map((sk, idx) => {
+                                const dStr = this.extractDateFromSlotKey(sk);
+                                const les = this.findLessonForSlot(course, mod.id, sk);
+                                const sTime = les?.time || mod.startTime || course.startTime || "19:00";
+                                const eTime = les?.endTime || mod.endTime || course.endTime || "20:30";
+                                return `
+                                    <div class="p-2.5 rounded-xl border border-slate-200 bg-slate-50 flex items-start justify-between gap-3">
+                                        <div class="space-y-0.5">
+                                            <div class="flex items-center gap-2 font-black text-slate-900">
+                                                <span class="px-1.5 py-0.5 rounded bg-sky-600 text-white text-[10px]">${idx + 1}</span>
+                                                <span>${this.formatShortWeekdayDate(dStr)}</span>
+                                                <span class="text-slate-400 text-[11px] font-bold">(${this.formatTimeDisplay(sTime)} - ${this.formatTimeDisplay(eTime)})</span>
+                                            </div>
+                                            ${les?.title ? `<div class="font-extrabold text-sky-800 text-xs">${this.escapeHtml(les.title)}</div>` : ''}
+                                            ${les?.topic ? `<div class="text-[11px] text-slate-600">${this.escapeHtml(les.topic)}</div>` : ''}
+                                            ${les?.homework ? `<div class="text-[10px] text-amber-700 font-semibold">Compiti: ${this.escapeHtml(les.homework)}</div>` : ''}
+                                        </div>
+                                    </div>
+                                `;
+                            }).join("")}
+                        </div>
+                    `;
+                };
+
+                const renderStructureTable = (lvl, mod) => `
+                    <div class="p-4 rounded-xl border border-slate-200 bg-slate-50 space-y-2 text-xs">
+                        <div class="grid grid-cols-2 gap-3">
+                            <div><strong>Livello QCER:</strong> ${this.escapeHtml(lvl.code)} ${lvl.sublevel ? `(${this.escapeHtml(lvl.sublevel)})` : ''}</div>
+                            <div><strong>Modulo:</strong> ${this.escapeHtml(mod.name)}</div>
+                            <div><strong>Orario Standard:</strong> ${this.formatTimeDisplay(mod.startTime || course.startTime || "19:00")} - ${this.formatTimeDisplay(mod.endTime || course.endTime || "20:30")}</div>
+                            <div><strong>Totale Lezioni:</strong> ${(mod.dates || []).length} sessioni</div>
+                            <div><strong>Studenti Iscritti:</strong> ${(mod.studentIds || []).length}</div>
+                            <div><strong>Tariffa Oraria Netta:</strong> ${this.formatMoney(mod.billing?.hourlyRateNet ?? course.billingConfig?.hourlyRateNet ?? 10.0)}</div>
+                        </div>
+                    </div>
+                `;
+
+                const renderStudentsTable = (mod) => {
+                    const students = this.getModuleStudents(course, mod);
+                    if (students.length === 0) return `<p class="text-xs text-slate-400 italic py-4">Nessuno studente iscritto.</p>`;
+                    return `
+                        <div class="overflow-x-auto text-[11px]">
+                            <table class="w-full border-collapse border border-slate-300 text-left">
+                                <thead>
+                                    <tr class="bg-slate-100 text-slate-700 border-b border-slate-300">
+                                        <th class="p-2 border-r border-slate-300 font-extrabold">Studente</th>
+                                        <th class="p-2 border-r border-slate-300 font-extrabold">Livello</th>
+                                        <th class="p-2 border-r border-slate-300 font-extrabold">Telefono</th>
+                                        <th class="p-2 border-r border-slate-300 font-extrabold">Email</th>
+                                        <th class="p-2 font-extrabold">Città</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${students.map(st => `
+                                        <tr class="border-b border-slate-200">
+                                            <td class="p-2 font-bold border-r border-slate-200">${this.escapeHtml(st.firstName)} ${this.escapeHtml(st.lastName)}</td>
+                                            <td class="p-2 border-r border-slate-200">${this.escapeHtml(st.currentLevel || '—')}</td>
+                                            <td class="p-2 border-r border-slate-200">${this.escapeHtml(st.phone || '—')}</td>
+                                            <td class="p-2 border-r border-slate-200">${this.escapeHtml(st.email || '—')}</td>
+                                            <td class="p-2">${this.escapeHtml(st.city || '—')}</td>
+                                        </tr>
+                                    `).join("")}
+                                </tbody>
+                            </table>
+                        </div>
+                    `;
+                };
+
+                // Build sections by grouping mode
+                if (state.groupingMode === "byModule") {
+                    selMods.forEach(({ level, module }) => {
+                        elemDefs.forEach(ed => {
+                            if (!state.selectedElements[ed.key]) return;
+                            const secId = `sec-${secCounter++}`;
+                            const secTitle = `${ed.label} — ${module.name}`;
+                            tocItems.push({ id: secId, title: secTitle, badge: `${level.code} • ${module.name}` });
+
+                            let content = "";
+                            if (ed.key === "attendance") content = renderAttendanceTable(module);
+                            else if (ed.key === "grades") content = renderGradesTable(module);
+                            else if (ed.key === "activities") content = renderActivitiesTable();
+                            else if (ed.key === "rubrics") content = renderRubricsTable();
+                            else if (ed.key === "lessons") content = renderLessonsTable(module);
+                            else if (ed.key === "structure") content = renderStructureTable(level, module);
+                            else if (ed.key === "students") content = renderStudentsTable(module);
+
+                            sectionsHtml.push(`
+                                <section id="${secId}" class="a4-page-break pt-4 space-y-3">
+                                    ${renderSectionHeader(secId, ed.label, level.code, module.name)}
+                                    ${content}
+                                </section>
+                            `);
+                        });
+                    });
+                } else {
+                    // Grouping by Element Type
+                    elemDefs.forEach(ed => {
+                        if (!state.selectedElements[ed.key]) return;
+                        selMods.forEach(({ level, module }) => {
+                            const secId = `sec-${secCounter++}`;
+                            const secTitle = `${ed.label} — ${module.name}`;
+                            tocItems.push({ id: secId, title: secTitle, badge: `${level.code} • ${module.name}` });
+
+                            let content = "";
+                            if (ed.key === "attendance") content = renderAttendanceTable(module);
+                            else if (ed.key === "grades") content = renderGradesTable(module);
+                            else if (ed.key === "activities") content = renderActivitiesTable();
+                            else if (ed.key === "rubrics") content = renderRubricsTable();
+                            else if (ed.key === "lessons") content = renderLessonsTable(module);
+                            else if (ed.key === "structure") content = renderStructureTable(level, module);
+                            else if (ed.key === "students") content = renderStudentsTable(module);
+
+                            sectionsHtml.push(`
+                                <section id="${secId}" class="a4-page-break pt-4 space-y-3">
+                                    ${renderSectionHeader(secId, ed.label, level.code, module.name)}
+                                    ${content}
+                                </section>
+                            `);
+                        });
+                    });
+                }
+
+                const todayFormatted = new Date().toLocaleDateString("it-IT", { day: "2-digit", month: "long", year: "numeric" });
+
+                const fullDocumentHtml = `
+                    <div class="space-y-6">
+                        <!-- Cover Page / Header -->
+                        <div class="border-b-4 border-slate-900 pb-6 space-y-4">
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-12 h-12 rounded-2xl bg-sky-600 text-white flex items-center justify-center text-2xl font-black shadow-md">
+                                        <i class="fa-solid fa-graduation-cap"></i>
+                                    </div>
+                                    <div>
+                                        <h1 class="text-2xl font-black text-slate-900 tracking-tight">${this.escapeHtml(course.name)}</h1>
+                                        <p class="text-xs font-bold text-slate-500 uppercase tracking-wider">Report Completo del Corso • Formato A4 Ufficiale</p>
+                                    </div>
+                                </div>
+                                <div class="text-right">
+                                    <span class="px-3 py-1 rounded-full text-white text-xs font-black" style="background-color:${pal.hex}">
+                                        ${this.escapeHtml(this.formatLevelModuleBadge(course))}
+                                    </span>
+                                    <p class="text-[11px] text-slate-400 mt-1">${todayFormatted}</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Indice Cliccabile (Table of Contents) -->
+                        <div class="p-5 rounded-2xl bg-slate-50 border border-slate-200 space-y-3">
+                            <div class="flex items-center justify-between border-b border-slate-200 pb-2">
+                                <h3 class="text-sm font-black text-slate-900 uppercase tracking-wider flex items-center gap-2">
+                                    <i class="fa-solid fa-list-ol text-sky-600"></i>
+                                    <span>Indice Cliccabile del Documento</span>
+                                </h3>
+                                <span class="text-[11px] text-slate-400 font-bold">${tocItems.length} sezioni</span>
+                            </div>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                                ${tocItems.map((item, idx) => `
+                                    <a href="#${item.id}" class="p-2 rounded-lg hover:bg-sky-100/70 border border-transparent hover:border-sky-300 flex items-center justify-between gap-2 transition text-slate-800 hover:text-sky-900">
+                                        <span class="truncate font-bold"><strong>${idx + 1}.</strong> ${this.escapeHtml(item.title)}</span>
+                                        <span class="text-[10px] text-slate-400 shrink-0 font-semibold">${this.escapeHtml(item.badge)}</span>
+                                    </a>
+                                `).join("")}
+                            </div>
+                        </div>
+
+                        <!-- Content Sections -->
+                        <div class="space-y-8 pt-2">
+                            ${sectionsHtml.join("")}
+                        </div>
+
+                        <!-- Footer -->
+                        <div class="pt-8 border-t border-slate-300 text-center text-[10px] text-slate-400 space-y-1">
+                            <p>Generato da ClassDesk • Sistema Professionale di Gestione Didattica e Corsi</p>
+                            <p>Autore & Sviluppatore: Guaira Jaramillo Nitoglia (guaira.jaramillo.nitoglia@gmail.com)</p>
+                        </div>
+                    </div>
+                `;
+
+                this.openA4PrintableDocument(
+                    `Report PDF • ${course.name}`,
+                    `Formato A4 • ${tocItems.length} Sezioni con Indice Cliccabile`,
+                    fullDocumentHtml
+                );
+            }
+
+            /* =====================================================================================
+             * Billing Earnings Analytics & PDF Export System
+             * ===================================================================================== */
+            computeBillingAnnualData(targetYear) {
+                const year = targetYear || this.billingAnalyticsYear || new Date().getFullYear();
+                const monthNames = ["Gennaio", "Febbraio", "Marzo", "Aprile", "Maggio", "Giugno", "Luglio", "Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre"];
+                const monthShorts = ["Gen", "Feb", "Mar", "Apr", "Mag", "Giu", "Lug", "Ago", "Set", "Ott", "Nov", "Dic"];
+
+                const months = monthNames.map((name, i) => ({
+                    month: i + 1,
+                    monthIndex: i,
+                    monthName: name,
+                    shortName: monthShorts[i],
+                    lessonsCount: 0,
+                    hoursWorked: 0.0,
+                    totalEarnings: 0.0,
+                    dailyEarnings: {},
+                    dailyHours: {},
+                    dailyLessons: {},
+                    clientBreakdown: {}
+                }));
+
+                const annualClientsMap = {};
+
+                (this.state.courses || []).forEach(course => {
+                    (course.levels || []).forEach(lvl => {
+                        (lvl.modules || []).forEach(mod => {
+                            const billing = mod.billing || {
+                                hourlyRateNet: course.billingConfig?.hourlyRateNet ?? 10.0,
+                                lessonDurationHours: course.billingConfig?.lessonDurationHours ?? 1.5,
+                                vatPercent: course.billingConfig?.vatPercent ?? 15.0
+                            };
+
+                            // Resolve payers
+                            let payers = [];
+                            const cIds = (mod.billingContactIds && mod.billingContactIds.length) ? mod.billingContactIds : (course.billingConfig?.billingContactIds || []);
+                            cIds.forEach(cid => {
+                                const contact = (this.state.billingContacts || []).find(b => b.id === cid);
+                                if (contact) payers.push({ id: contact.id, name: contact.fullName || course.name, idNumber: contact.idNumber || "" });
+                            });
+                            if (payers.length === 0) {
+                                const bInfo = course.billingConfig?.billingInfo?.fullName;
+                                payers.push({ id: `c-${course.id}`, name: bInfo || course.name, idNumber: course.billingConfig?.billingInfo?.idNumber || "" });
+                            }
+                            const payerShare = 1.0 / Math.max(1, payers.length);
+
+                            (mod.dates || []).forEach(slotKey => {
+                                const dStr = this.extractDateFromSlotKey(slotKey);
+                                const parts = dStr.split("-").map(Number);
+                                if (parts.length < 3 || parts[0] !== year) return;
+                                const mIdx = parts[1] - 1;
+                                const dayNum = parts[2];
+                                if (mIdx < 0 || mIdx > 11) return;
+
+                                // Duration & price
+                                const les = this.findLessonForSlot(course, mod.id, slotKey);
+                                const sTime = les?.time || mod.startTime || course.startTime || "19:00";
+                                const eTime = les?.endTime || mod.endTime || course.endTime || "20:30";
+                                const durH = this.computeSlotDurationHours(sTime, eTime);
+
+                                let grossPrice = 0;
+                                if (billing.lessonOverrides && billing.lessonOverrides[slotKey]?.grossPrice !== undefined) {
+                                    grossPrice = parseFloat(billing.lessonOverrides[slotKey].grossPrice) || 0;
+                                } else {
+                                    const netRate = parseFloat(billing.hourlyRateNet) || 10.0;
+                                    const vat = parseFloat(billing.vatPercent) || 0.0;
+                                    const netTotal = netRate * durH;
+                                    grossPrice = netTotal * (1.0 + vat / 100.0);
+                                }
+
+                                const mObj = months[mIdx];
+                                mObj.lessonsCount++;
+                                mObj.hoursWorked += durH;
+                                mObj.totalEarnings += grossPrice;
+                                mObj.dailyEarnings[dayNum] = (mObj.dailyEarnings[dayNum] || 0) + grossPrice;
+                                mObj.dailyHours[dayNum] = (mObj.dailyHours[dayNum] || 0) + durH;
+                                mObj.dailyLessons[dayNum] = (mObj.dailyLessons[dayNum] || 0) + 1;
+
+                                payers.forEach(p => {
+                                    const cKey = (p.name || "Cliente").toLowerCase().trim();
+                                    const shareGross = grossPrice * payerShare;
+                                    const shareHours = durH * payerShare;
+
+                                    if (!annualClientsMap[cKey]) {
+                                        annualClientsMap[cKey] = { name: p.name, idNumber: p.idNumber, totalSpent: 0, hoursWorked: 0, lessonsCount: 0 };
+                                    }
+                                    annualClientsMap[cKey].totalSpent += shareGross;
+                                    annualClientsMap[cKey].hoursWorked += shareHours;
+                                    annualClientsMap[cKey].lessonsCount++;
+
+                                    if (!mObj.clientBreakdown[cKey]) {
+                                        mObj.clientBreakdown[cKey] = { name: p.name, idNumber: p.idNumber, totalSpent: 0, hoursWorked: 0, lessonsCount: 0 };
+                                    }
+                                    mObj.clientBreakdown[cKey].totalSpent += shareGross;
+                                    mObj.clientBreakdown[cKey].hoursWorked += shareHours;
+                                    mObj.clientBreakdown[cKey].lessonsCount++;
+                                });
+                            });
+                        });
+                    });
+                });
+
+                // Compute weekly candlesticks for each month
+                months.forEach(m => {
+                    const w = [0, 0, 0, 0];
+                    Object.keys(m.dailyEarnings).forEach(d => {
+                        const day = parseInt(d, 10);
+                        const idx = Math.min(3, Math.max(0, Math.floor((day - 1) / 7)));
+                        w[idx] += m.dailyEarnings[day];
+                    });
+                    m.weeklyTotals = w;
+                    m.candleOpen = w[0];
+                    m.candleClose = w[3];
+                    m.candleHigh = Math.max(...w, m.totalEarnings);
+                    const nonZero = w.filter(x => x > 0);
+                    m.candleLow = nonZero.length ? Math.min(...nonZero) : 0;
+                    m.clientLeaderboard = Object.values(m.clientBreakdown).sort((a, b) => b.totalSpent - a.totalSpent);
+                });
+
+                const annualClients = Object.values(annualClientsMap).sort((a, b) => b.totalSpent - a.totalSpent);
+                const totalAnnualEarnings = months.reduce((acc, m) => acc + m.totalEarnings, 0);
+                const totalAnnualHours = months.reduce((acc, m) => acc + m.hoursWorked, 0);
+                const totalAnnualLessons = months.reduce((acc, m) => acc + m.lessonsCount, 0);
+
+                return {
+                    year,
+                    months,
+                    annualClients,
+                    totalAnnualEarnings,
+                    totalAnnualHours,
+                    totalAnnualLessons
+                };
+            }
+
+            generateCandlestickSvg(months, maxVal, width = 640, height = 180) {
+                const padLeft = 20;
+                const padRight = 20;
+                const padTop = 25;
+                const padBottom = 25;
+                const chartW = width - padLeft - padRight;
+                const chartH = height - padTop - padBottom;
+                const safeMax = Math.max(1, maxVal);
+
+                const stepX = chartW / 12;
+                const candleW = Math.max(12, stepX * 0.55);
+
+                let svg = `<svg viewBox="0 0 ${width} ${height}" class="w-full h-auto select-none overflow-visible">`;
+
+                // Horizontal guide grid lines
+                [0.25, 0.5, 0.75, 1.0].forEach(ratio => {
+                    const y = padTop + chartH * (1 - ratio);
+                    svg += `<line x1="${padLeft}" y1="${y}" x2="${width - padRight}" y2="${y}" stroke="currentColor" stroke-opacity="0.1" stroke-dasharray="3 3"/>`;
+                });
+
+                months.forEach((m, i) => {
+                    const cx = padLeft + i * stepX + stepX / 2;
+                    const hasData = m.totalEarnings > 0;
+                    const high = m.candleHigh || m.totalEarnings;
+                    const low = m.candleLow || 0;
+                    const open = m.candleOpen || 0;
+                    const close = m.candleClose || m.totalEarnings;
+
+                    const yHigh = padTop + chartH * (1 - Math.min(1, high / safeMax));
+                    const yLow = padTop + chartH * (1 - Math.min(1, low / safeMax));
+                    const yOpen = padTop + chartH * (1 - Math.min(1, open / safeMax));
+                    const yClose = padTop + chartH * (1 - Math.min(1, close / safeMax));
+
+                    const bodyY = Math.min(yOpen, yClose);
+                    const bodyH = Math.max(6, Math.abs(yClose - yOpen));
+                    const isPositive = close >= open;
+
+                    svg += `<g class="cursor-pointer group" onclick="app.billingAnalyticsSelectedMonth = ${i}; app.renderMainView();">`;
+                    svg += `<title>${m.monthName}: ${this.formatMoney(m.totalEarnings)} (${m.hoursWorked.toFixed(1)}h)</title>`;
+
+                    // Background highlight bar on hover
+                    svg += `<rect x="${cx - stepX / 2 + 2}" y="${padTop}" width="${stepX - 4}" height="${chartH}" fill="currentColor" fill-opacity="0" class="hover:fill-sky-500/10 transition rx-2" rx="6"/>`;
+
+                    if (hasData) {
+                        // Wick line
+                        svg += `<line x1="${cx}" y1="${yHigh}" x2="${cx}" y2="${yLow}" stroke="${isPositive ? '#0284c7' : '#0d9488'}" stroke-width="2" stroke-linecap="round"/>`;
+                        // Candle body
+                        svg += `<rect x="${cx - candleW / 2}" y="${bodyY}" width="${candleW}" height="${bodyH}" rx="3" fill="${isPositive ? '#0284c7' : '#0d9488'}" class="shadow-sm transition hover:brightness-110"/>`;
+                        // Value label above candle
+                        svg += `<text x="${cx}" y="${Math.max(12, yHigh - 4)}" text-anchor="middle" font-size="9" font-weight="800" fill="currentColor" class="text-slate-700 dark:text-slate-300">${Math.round(m.totalEarnings)}</text>`;
+                    } else {
+                        // Empty indicator
+                        svg += `<circle cx="${cx}" cy="${padTop + chartH - 4}" r="2" fill="currentColor" opacity="0.3"/>`;
+                    }
+
+                    // Month label
+                    svg += `<text x="${cx}" y="${height - 8}" text-anchor="middle" font-size="10" font-weight="700" fill="currentColor" class="text-slate-500 dark:text-slate-400">${m.shortName}</text>`;
+                    svg += `</g>`;
+                });
+
+                svg += `</svg>`;
+                return svg;
+            }
+
+            renderBillingAnalyticsView(container, topTabBarHtml) {
+                const data = this.computeBillingAnnualData(this.billingAnalyticsYear);
+                const selectedMIdx = this.billingAnalyticsSelectedMonth;
+
+                // If monthly drilldown is active
+                if (selectedMIdx !== null && selectedMIdx >= 0 && selectedMIdx <= 11) {
+                    const mData = data.months[selectedMIdx];
+                    const workedDays = Object.keys(mData.dailyLessons).length;
+
+                    // Compute geometry for 1..31 days calendar squares
+                    const y = data.year;
+                    const m = selectedMIdx; // 0..11
+                    const firstDay = new Date(y, m, 1);
+                    const lastDay = new Date(y, m + 1, 0);
+                    const daysInMonth = lastDay.getDate();
+                    let fDow = firstDay.getDay(); // 0 = Sun
+                    const leadingEmpty = fDow === 0 ? 6 : fDow - 1; // Mon = 0
+                    const weekdayHeaders = ["Lun", "Mar", "Mer", "Gio", "Ven", "Sab", "Dom"];
+
+                    container.innerHTML = `
+                        <div class="space-y-4 text-xs">
+                            ${topTabBarHtml}
+
+                            <!-- Monthly Header & Navigation -->
+                            <div class="bg-white dark:bg-navy-900 rounded-2xl border border-sky-100 dark:border-slate-800 p-4 shadow-xs flex flex-wrap items-center justify-between gap-3">
+                                <div class="flex items-center gap-3">
+                                    <button type="button" onclick="app.billingAnalyticsSelectedMonth = null; app.renderMainView();" class="px-3.5 py-2 rounded-xl border border-sky-200 dark:border-slate-700 font-extrabold hover:bg-sky-50 dark:hover:bg-navy-800 text-sky-700 dark:text-sky-300 flex items-center gap-1.5 transition">
+                                        <i class="fa-solid fa-arrow-left"></i>
+                                        <span>Torna al Report Annuale</span>
+                                    </button>
+                                    <div>
+                                        <h3 class="text-base font-black text-slate-900 dark:text-white">${mData.monthName} ${data.year}</h3>
+                                        <p class="text-[11px] text-slate-400">Analisi dettagliata guadagni, lezioni e calendario giorni lavorati</p>
+                                    </div>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <button type="button" onclick="app.billingAnalyticsSelectedMonth = ${(selectedMIdx + 11) % 12}; app.renderMainView();" class="w-8 h-8 rounded-xl border border-sky-200 dark:border-slate-700 font-black hover:bg-sky-50 dark:hover:bg-navy-800 flex items-center justify-center">‹</button>
+                                    <span class="font-extrabold text-slate-700 dark:text-slate-300 px-2">${mData.shortName}</span>
+                                    <button type="button" onclick="app.billingAnalyticsSelectedMonth = ${(selectedMIdx + 1) % 12}; app.renderMainView();" class="w-8 h-8 rounded-xl border border-sky-200 dark:border-slate-700 font-black hover:bg-sky-50 dark:hover:bg-navy-800 flex items-center justify-center">›</button>
+                                </div>
+                            </div>
+
+                            <!-- Monthly KPI Cards -->
+                            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                <div class="bg-white dark:bg-navy-900 rounded-2xl border border-sky-100 dark:border-slate-800 p-4 shadow-xs">
+                                    <span class="text-[10px] font-extrabold uppercase text-slate-400 block">Guadagni Totali del Mese</span>
+                                    <div class="text-xl font-black text-emerald-600 dark:text-emerald-400 mt-1">${this.formatMoney(mData.totalEarnings)}</div>
+                                    <span class="text-[11px] text-slate-400 mt-0.5 block">${mData.lessonsCount} lezioni svolte</span>
+                                </div>
+                                <div class="bg-white dark:bg-navy-900 rounded-2xl border border-sky-100 dark:border-slate-800 p-4 shadow-xs">
+                                    <span class="text-[10px] font-extrabold uppercase text-slate-400 block">Ore Totali Lavorate</span>
+                                    <div class="text-xl font-black text-sky-600 dark:text-sky-400 mt-1">${mData.hoursWorked.toFixed(1)} ore</div>
+                                    <span class="text-[11px] text-slate-400 mt-0.5 block">Media ${(mData.hoursWorked / Math.max(1, workedDays)).toFixed(1)}h / giorno</span>
+                                </div>
+                                <div class="bg-white dark:bg-navy-900 rounded-2xl border border-sky-100 dark:border-slate-800 p-4 shadow-xs">
+                                    <span class="text-[10px] font-extrabold uppercase text-slate-400 block">Giorni con Lezioni</span>
+                                    <div class="text-xl font-black text-indigo-600 dark:text-indigo-400 mt-1">${workedDays} giorni</div>
+                                    <span class="text-[11px] text-slate-400 mt-0.5 block">Su ${daysInMonth} giorni totali</span>
+                                </div>
+                            </div>
+
+                            <!-- Calendar Squares & Leaderboard Grid -->
+                            <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                                <!-- Calendar Squares Card (2 cols) -->
+                                <div class="lg:col-span-2 bg-white dark:bg-navy-900 rounded-2xl border border-sky-100 dark:border-slate-800 p-5 shadow-xs space-y-4">
+                                    <div class="flex items-center justify-between border-b border-sky-100 dark:border-slate-800 pb-3">
+                                        <div>
+                                            <h4 class="text-sm font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
+                                                <i class="fa-solid fa-calendar-day text-sky-600"></i>
+                                                <span>Calendario Lezioni — Quadratini del Mese</span>
+                                            </h4>
+                                            <p class="text-[11px] text-slate-400">Quadratini colorati: giorni con lezioni ClassDesk • Quadratini grigi: giorni senza lezioni</p>
+                                        </div>
+                                    </div>
+
+                                    <!-- Weekday Headers -->
+                                    <div class="grid grid-cols-7 gap-2 text-center text-[10px] font-black uppercase text-slate-400">
+                                        ${weekdayHeaders.map(w => `<div>${w}</div>`).join("")}
+                                    </div>
+
+                                    <!-- Days Grid -->
+                                    <div class="grid grid-cols-7 gap-2">
+                                        ${Array(leadingEmpty).fill(0).map(() => `
+                                            <div class="h-16 rounded-xl bg-slate-50/40 dark:bg-navy-950/20 border border-transparent"></div>
+                                        `).join("")}
+
+                                        ${Array.from({ length: daysInMonth }, (_, idx) => {
+                                            const day = idx + 1;
+                                            const lessons = mData.dailyLessons[day] || 0;
+                                            const hours = mData.dailyHours[day] || 0;
+                                            const earnings = mData.dailyEarnings[day] || 0;
+                                            const hasWorked = lessons > 0;
+
+                                            return `
+                                                <div class="h-16 rounded-xl p-1.5 flex flex-col justify-between transition ${hasWorked ? 'bg-sky-600 dark:bg-sky-600 text-white font-black shadow-xs ring-2 ring-sky-400/30' : 'bg-slate-100 dark:bg-navy-950 text-slate-400 dark:text-slate-500'}">
+                                                    <div class="flex items-center justify-between">
+                                                        <span class="text-xs font-black">${day}</span>
+                                                        ${hasWorked ? `<span class="px-1 rounded bg-black/20 text-[9px] font-bold">${lessons}lez</span>` : ''}
+                                                    </div>
+                                                    ${hasWorked ? `
+                                                        <div class="text-[9px] leading-tight opacity-95">
+                                                            <div>${hours.toFixed(1)}h</div>
+                                                            <div class="font-extrabold">${Math.round(earnings)}€</div>
+                                                        </div>
+                                                    ` : '<div class="text-[10px] opacity-40 text-center">—</div>'}
+                                                </div>
+                                            `;
+                                        }).join("")}
+                                    </div>
+                                </div>
+
+                                <!-- Client Spending Leaderboard (1 col) -->
+                                <div class="bg-white dark:bg-navy-900 rounded-2xl border border-sky-100 dark:border-slate-800 p-5 shadow-xs space-y-4 flex flex-col justify-between">
+                                    <div>
+                                        <div class="flex items-center justify-between border-b border-sky-100 dark:border-slate-800 pb-3 mb-3">
+                                            <h4 class="text-sm font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
+                                                <i class="fa-solid fa-trophy text-amber-500"></i>
+                                                <span>Classifica Clienti del Mese</span>
+                                            </h4>
+                                        </div>
+                                        <div class="space-y-2 max-h-[50vh] overflow-y-auto custom-scrollbar pr-1">
+                                            ${mData.clientLeaderboard.length === 0 ? `
+                                                <p class="text-slate-400 text-center py-8">Nessun cliente attivo in questo mese.</p>
+                                            ` : mData.clientLeaderboard.map((cl, rank) => `
+                                                <div class="p-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-navy-950/40 flex items-center justify-between gap-2">
+                                                    <div class="flex items-center gap-2 min-w-0">
+                                                        <span class="w-6 h-6 rounded-lg ${rank === 0 ? 'bg-amber-400 text-amber-950' : (rank === 1 ? 'bg-slate-300 text-slate-800' : (rank === 2 ? 'bg-amber-700 text-white' : 'bg-slate-100 dark:bg-navy-800 text-slate-500'))} flex items-center justify-center text-[10px] font-black shrink-0">
+                                                            ${rank + 1}°
+                                                        </span>
+                                                        <div class="truncate">
+                                                            <div class="font-extrabold text-slate-900 dark:text-white truncate">${this.escapeHtml(cl.name)}</div>
+                                                            <div class="text-[10px] text-slate-400">${cl.hoursWorked.toFixed(1)}h • ${cl.lessonsCount} lezioni</div>
+                                                        </div>
+                                                    </div>
+                                                    <span class="font-black text-emerald-600 dark:text-emerald-400 text-xs shrink-0">${this.formatMoney(cl.totalSpent)}</span>
+                                                </div>
+                                            `).join("")}
+                                        </div>
+                                    </div>
+                                    <button type="button" onclick="app.exportBillingMonthlyPdf(${selectedMIdx})" class="w-full py-2.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-extrabold flex items-center justify-center gap-2 shadow-2xs transition mt-2">
+                                        <i class="fa-solid fa-file-pdf"></i>
+                                        <span>Esporta PDF di ${mData.monthName}</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    return;
+                }
+
+                // ANNUAL VIEW
+                const maxMonthlyEarnings = Math.max(1, ...data.months.map(m => m.totalEarnings));
+                const candlestickSvg = this.generateCandlestickSvg(data.months, maxMonthlyEarnings);
+
+                container.innerHTML = `
+                    <div class="space-y-4 text-xs">
+                        ${topTabBarHtml}
+
+                        <!-- Annual Controls & Year Selector -->
+                        <div class="bg-white dark:bg-navy-900 rounded-2xl border border-sky-100 dark:border-slate-800 p-4 shadow-xs flex flex-wrap items-center justify-between gap-3">
+                            <div class="flex items-center gap-3">
+                                <div class="flex items-center gap-1.5 bg-sky-50 dark:bg-navy-800 p-1 rounded-xl border border-sky-200 dark:border-slate-700">
+                                    <button type="button" onclick="app.billingAnalyticsYear--; app.billingAnalyticsSelectedMonth = null; app.renderMainView();" class="w-8 h-8 rounded-lg hover:bg-white dark:hover:bg-navy-900 font-black text-sky-700 dark:text-sky-300 flex items-center justify-center transition">‹</button>
+                                    <span class="text-sm font-black px-3 text-slate-900 dark:text-white">${data.year}</span>
+                                    <button type="button" onclick="app.billingAnalyticsYear++; app.billingAnalyticsSelectedMonth = null; app.renderMainView();" class="w-8 h-8 rounded-lg hover:bg-white dark:hover:bg-navy-900 font-black text-sky-700 dark:text-sky-300 flex items-center justify-center transition">›</button>
+                                </div>
+                                <div>
+                                    <h3 class="text-base font-black text-slate-900 dark:text-white">Report Andamento Guadagni Annuale</h3>
+                                    <p class="text-[11px] text-slate-400">Riepilogo ore, lezioni e guadagni complessivi per l'anno ${data.year}</p>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <button type="button" onclick="app.exportBillingAnnualPdf(false)" class="px-3.5 py-2 rounded-xl border border-sky-200 dark:border-slate-700 hover:bg-sky-50 dark:hover:bg-navy-800 font-bold flex items-center gap-1.5 transition">
+                                    <i class="fa-solid fa-file-pdf text-sky-600"></i>
+                                    <span>Esporta PDF Annuale</span>
+                                </button>
+                                <button type="button" onclick="app.exportBillingAnnualPdf(true)" class="px-4 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-extrabold flex items-center gap-1.5 shadow-2xs transition">
+                                    <i class="fa-solid fa-file-lines"></i>
+                                    <span>Esporta PDF Annuale Dettagliato</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Annual KPI Cards -->
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            <div class="bg-white dark:bg-navy-900 rounded-2xl border border-sky-100 dark:border-slate-800 p-4 shadow-xs">
+                                <span class="text-[10px] font-extrabold uppercase text-slate-400 block">Guadagni Totali dell'Anno</span>
+                                <div class="text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-1">${this.formatMoney(data.totalAnnualEarnings)}</div>
+                                <span class="text-[11px] text-slate-400 mt-0.5 block">Totale fatturato e programmato</span>
+                            </div>
+                            <div class="bg-white dark:bg-navy-900 rounded-2xl border border-sky-100 dark:border-slate-800 p-4 shadow-xs">
+                                <span class="text-[10px] font-extrabold uppercase text-slate-400 block">Ore Totali Lavorate</span>
+                                <div class="text-2xl font-black text-sky-600 dark:text-sky-400 mt-1">${data.totalAnnualHours.toFixed(1)} ore</div>
+                                <span class="text-[11px] text-slate-400 mt-0.5 block">Media ${(data.totalAnnualHours / 12).toFixed(1)}h / mese</span>
+                            </div>
+                            <div class="bg-white dark:bg-navy-900 rounded-2xl border border-sky-100 dark:border-slate-800 p-4 shadow-xs">
+                                <span class="text-[10px] font-extrabold uppercase text-slate-400 block">Lezioni Svolte nell'Anno</span>
+                                <div class="text-2xl font-black text-indigo-600 dark:text-indigo-400 mt-1">${data.totalAnnualLessons}</div>
+                                <span class="text-[11px] text-slate-400 mt-0.5 block">${data.annualClients.length} clienti attivi</span>
+                            </div>
+                        </div>
+
+                        <!-- Candlestick Chart Card -->
+                        <div class="bg-white dark:bg-navy-900 rounded-2xl border border-sky-100 dark:border-slate-800 p-5 shadow-xs space-y-3">
+                            <div class="flex items-center justify-between border-b border-sky-100 dark:border-slate-800 pb-2.5">
+                                <div>
+                                    <h4 class="text-sm font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
+                                        <i class="fa-solid fa-chart-column text-sky-600"></i>
+                                        <span>Grafico a Candele Mensile (${data.year})</span>
+                                    </h4>
+                                    <p class="text-[11px] text-slate-400">Clicca su una candela o su un mese in elenco per visualizzare il report mensile dettagliato con quadratini</p>
+                                </div>
+                            </div>
+                            <div class="py-2">
+                                ${candlestickSvg}
+                            </div>
+                        </div>
+
+                        <!-- Two Columns: 12 Months List & Client Leaderboard -->
+                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                            <!-- 12 Months List -->
+                            <div class="bg-white dark:bg-navy-900 rounded-2xl border border-sky-100 dark:border-slate-800 p-5 shadow-xs space-y-3">
+                                <div class="flex items-center justify-between border-b border-sky-100 dark:border-slate-800 pb-2.5">
+                                    <h4 class="text-sm font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
+                                        <i class="fa-solid fa-calendar-days text-sky-600"></i>
+                                        <span>Mesi dell'Anno (${data.year})</span>
+                                    </h4>
+                                    <span class="text-[10px] text-slate-400">Clicca per i dettagli del mese</span>
+                                </div>
+                                <div class="space-y-1.5 max-h-[50vh] overflow-y-auto custom-scrollbar pr-1">
+                                    ${data.months.map(m => `
+                                        <div onclick="app.billingAnalyticsSelectedMonth = ${m.monthIndex}; app.renderMainView();" class="p-2.5 rounded-xl border border-slate-100 dark:border-slate-800 hover:border-sky-300 dark:hover:border-sky-700 hover:bg-sky-50/50 dark:hover:bg-navy-800 cursor-pointer flex items-center justify-between gap-3 transition">
+                                            <div class="flex items-center gap-3">
+                                                <span class="w-8 h-8 rounded-lg ${m.lessonsCount > 0 ? 'bg-sky-100 dark:bg-navy-700 text-sky-700 dark:text-sky-300' : 'bg-slate-100 dark:bg-navy-800 text-slate-400'} flex items-center justify-center font-black text-xs">
+                                                    ${String(m.month).padStart(2, "0")}
+                                                </span>
+                                                <div>
+                                                    <div class="font-extrabold text-slate-900 dark:text-white">${m.monthName}</div>
+                                                    <div class="text-[10px] text-slate-400">${m.lessonsCount} lezioni • ${m.hoursWorked.toFixed(1)} ore</div>
+                                                </div>
+                                            </div>
+                                            <div class="text-right">
+                                                <div class="font-black ${m.totalEarnings > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400'} text-xs">
+                                                    ${m.totalEarnings > 0 ? this.formatMoney(m.totalEarnings) : '—'}
+                                                </div>
+                                                <span class="text-[10px] text-sky-600 font-bold hover:underline">Vedi dettagli ›</span>
+                                            </div>
+                                        </div>
+                                    `).join("")}
+                                </div>
+                            </div>
+
+                            <!-- Ranked Client Leaderboard -->
+                            <div class="bg-white dark:bg-navy-900 rounded-2xl border border-sky-100 dark:border-slate-800 p-5 shadow-xs space-y-3">
+                                <div class="flex items-center justify-between border-b border-sky-100 dark:border-slate-800 pb-2.5">
+                                    <h4 class="text-sm font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
+                                        <i class="fa-solid fa-trophy text-amber-500"></i>
+                                        <span>Classifica Clienti dell'Anno</span>
+                                    </h4>
+                                    <span class="text-[10px] text-slate-400">${data.annualClients.length} clienti attivi</span>
+                                </div>
+                                <div class="space-y-1.5 max-h-[50vh] overflow-y-auto custom-scrollbar pr-1">
+                                    ${data.annualClients.length === 0 ? `
+                                        <p class="text-slate-400 text-center py-8">Nessuna spesa registrata per questo anno.</p>
+                                    ` : data.annualClients.map((cl, rank) => `
+                                        <div class="p-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-navy-950/40 flex items-center justify-between gap-2">
+                                            <div class="flex items-center gap-2.5 min-w-0">
+                                                <span class="w-7 h-7 rounded-lg ${rank === 0 ? 'bg-amber-400 text-amber-950' : (rank === 1 ? 'bg-slate-300 text-slate-800' : (rank === 2 ? 'bg-amber-700 text-white' : 'bg-slate-100 dark:bg-navy-800 text-slate-500'))} flex items-center justify-center text-xs font-black shrink-0">
+                                                    ${rank + 1}°
+                                                </span>
+                                                <div class="truncate">
+                                                    <div class="font-extrabold text-slate-900 dark:text-white truncate">${this.escapeHtml(cl.name)}</div>
+                                                    <div class="text-[10px] text-slate-400">${cl.hoursWorked.toFixed(1)}h • ${cl.lessonsCount} lezioni</div>
+                                                </div>
+                                            </div>
+                                            <span class="font-black text-emerald-600 dark:text-emerald-400 text-xs shrink-0">${this.formatMoney(cl.totalSpent)}</span>
+                                        </div>
+                                    `).join("")}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            exportBillingAnnualPdf(detailed = false) {
+                const data = this.computeBillingAnnualData(this.billingAnalyticsYear);
+                const todayFormatted = new Date().toLocaleDateString("it-IT", { day: "2-digit", month: "long", year: "numeric" });
+                const weekdayHeaders = ["Lun", "Mar", "Mer", "Gio", "Ven", "Sab", "Dom"];
+
+                let monthlyDetailsHtml = "";
+                if (detailed) {
+                    monthlyDetailsHtml = `
+                        <div class="pt-6 space-y-6">
+                            <h3 class="text-base font-black text-slate-900 border-b-2 border-slate-900 pb-2">Dettaglio Mese per Mese (${data.year})</h3>
+                            ${data.months.map(m => {
+                                const y = data.year;
+                                const mIdx = m.monthIndex;
+                                const firstDay = new Date(y, mIdx, 1);
+                                const lastDay = new Date(y, mIdx + 1, 0);
+                                const daysInMonth = lastDay.getDate();
+                                const fDow = firstDay.getDay();
+                                const leadingEmpty = fDow === 0 ? 6 : fDow - 1;
+
+                                return `
+                                    <div class="a4-avoid-break p-4 rounded-xl border border-slate-200 bg-slate-50 space-y-3">
+                                        <div class="flex items-center justify-between border-b border-slate-200 pb-2">
+                                            <div>
+                                                <h4 class="font-black text-slate-900 text-sm">${m.monthName} ${data.year}</h4>
+                                                <span class="text-[11px] text-slate-500">${m.lessonsCount} lezioni • ${m.hoursWorked.toFixed(1)} ore lavorate</span>
+                                            </div>
+                                            <span class="text-sm font-black text-emerald-700">${this.formatMoney(m.totalEarnings)}</span>
+                                        </div>
+
+                                        <!-- Quadratini del Mese nel PDF -->
+                                        <div class="space-y-1">
+                                            <div class="grid grid-cols-7 gap-1 text-center text-[9px] font-bold text-slate-400 uppercase">
+                                                ${weekdayHeaders.map(w => `<div>${w}</div>`).join("")}
+                                            </div>
+                                            <div class="grid grid-cols-7 gap-1 text-[10px]">
+                                                ${Array(leadingEmpty).fill(0).map(() => `<div class="h-8 rounded bg-transparent"></div>`).join("")}
+                                                ${Array.from({ length: daysInMonth }, (_, i) => {
+                                                    const d = i + 1;
+                                                    const hasL = (m.dailyLessons[d] || 0) > 0;
+                                                    return `
+                                                        <div class="h-8 rounded p-1 flex items-center justify-between ${hasL ? 'bg-sky-600 text-white font-black' : 'bg-slate-200 text-slate-400'}">
+                                                            <span>${d}</span>
+                                                            ${hasL ? `<span class="text-[8px] opacity-80">${m.dailyLessons[d]}L</span>` : ''}
+                                                        </div>
+                                                    `;
+                                                }).join("")}
+                                            </div>
+                                        </div>
+
+                                        <!-- Client Leaderboard for Month -->
+                                        ${m.clientLeaderboard.length > 0 ? `
+                                            <div class="pt-2 border-t border-slate-200 space-y-1 text-[11px]">
+                                                <span class="font-bold text-slate-700">Clienti del mese:</span>
+                                                <div class="grid grid-cols-2 gap-2">
+                                                    ${m.clientLeaderboard.slice(0, 6).map((cl, rank) => `
+                                                        <div class="flex items-center justify-between p-1 rounded bg-white border border-slate-100">
+                                                            <span class="font-semibold truncate">${rank + 1}. ${this.escapeHtml(cl.name)}</span>
+                                                            <span class="font-bold text-emerald-700">${this.formatMoney(cl.totalSpent)}</span>
+                                                        </div>
+                                                    `).join("")}
+                                                </div>
+                                            </div>
+                                        ` : ''}
+                                    </div>
+                                `;
+                            }).join("")}
+                        </div>
+                    `;
+                }
+
+                const docHtml = `
+                    <div class="space-y-6">
+                        <!-- Header -->
+                        <div class="border-b-4 border-slate-900 pb-4 flex items-center justify-between">
+                            <div class="flex items-center gap-3">
+                                <div class="w-12 h-12 rounded-2xl bg-emerald-600 text-white flex items-center justify-center text-2xl font-black">
+                                    <i class="fa-solid fa-file-invoice-dollar"></i>
+                                </div>
+                                <div>
+                                    <h1 class="text-xl font-black text-slate-900">Report Guadagni & Analisi Annuale (${data.year})</h1>
+                                    <p class="text-xs font-bold text-slate-500 uppercase tracking-wider">${detailed ? 'Edizione Completa Dettagliata (Anno + Mese per Mese)' : 'Edizione Generale Annuale'}</p>
+                                </div>
+                            </div>
+                            <div class="text-right">
+                                <span class="px-3 py-1 rounded-full bg-slate-900 text-white text-xs font-black">${data.year}</span>
+                                <p class="text-[11px] text-slate-400 mt-1">${todayFormatted}</p>
+                            </div>
+                        </div>
+
+                        <!-- KPIs -->
+                        <div class="grid grid-cols-3 gap-3">
+                            <div class="p-4 rounded-xl border border-slate-200 bg-slate-50">
+                                <span class="text-[10px] font-bold uppercase text-slate-500 block">Guadagni Totali</span>
+                                <div class="text-xl font-black text-emerald-700 mt-0.5">${this.formatMoney(data.totalAnnualEarnings)}</div>
+                            </div>
+                            <div class="p-4 rounded-xl border border-slate-200 bg-slate-50">
+                                <span class="text-[10px] font-bold uppercase text-slate-500 block">Ore Lavorate</span>
+                                <div class="text-xl font-black text-sky-700 mt-0.5">${data.totalAnnualHours.toFixed(1)}h</div>
+                            </div>
+                            <div class="p-4 rounded-xl border border-slate-200 bg-slate-50">
+                                <span class="text-[10px] font-bold uppercase text-slate-500 block">Lezioni Totali</span>
+                                <div class="text-xl font-black text-indigo-700 mt-0.5">${data.totalAnnualLessons}</div>
+                            </div>
+                        </div>
+
+                        <!-- 12 Months Summary Table -->
+                        <div class="space-y-2">
+                            <h3 class="font-black text-slate-900 text-sm">Riepilogo dei 12 Mesi</h3>
+                            <table class="w-full border-collapse border border-slate-300 text-xs">
+                                <thead>
+                                    <tr class="bg-slate-100 border-b border-slate-300 text-slate-700 font-extrabold">
+                                        <th class="p-2 border-r border-slate-300 text-left">Mese</th>
+                                        <th class="p-2 border-r border-slate-300 text-center">Lezioni</th>
+                                        <th class="p-2 border-r border-slate-300 text-center">Ore Lavorate</th>
+                                        <th class="p-2 text-right">Guadagni Totali</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${data.months.map(m => `
+                                        <tr class="border-b border-slate-200">
+                                            <td class="p-2 border-r border-slate-200 font-bold">${m.monthName}</td>
+                                            <td class="p-2 border-r border-slate-200 text-center">${m.lessonsCount}</td>
+                                            <td class="p-2 border-r border-slate-200 text-center">${m.hoursWorked.toFixed(1)}h</td>
+                                            <td class="p-2 text-right font-black ${m.totalEarnings > 0 ? 'text-emerald-700' : 'text-slate-400'}">${this.formatMoney(m.totalEarnings)}</td>
+                                        </tr>
+                                    `).join("")}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Annual Client Leaderboard -->
+                        <div class="space-y-2 a4-avoid-break">
+                            <h3 class="font-black text-slate-900 text-sm">Classifica Clienti dell'Anno (${data.year})</h3>
+                            <table class="w-full border-collapse border border-slate-300 text-xs">
+                                <thead>
+                                    <tr class="bg-slate-100 border-b border-slate-300 text-slate-700 font-extrabold">
+                                        <th class="p-2 border-r border-slate-300 text-center w-12">Pos.</th>
+                                        <th class="p-2 border-r border-slate-300 text-left">Cliente</th>
+                                        <th class="p-2 border-r border-slate-300 text-center">Ore</th>
+                                        <th class="p-2 border-r border-slate-300 text-center">Lezioni</th>
+                                        <th class="p-2 text-right">Spesa Totale</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${data.annualClients.map((cl, rank) => `
+                                        <tr class="border-b border-slate-200">
+                                            <td class="p-2 border-r border-slate-200 text-center font-black">${rank + 1}°</td>
+                                            <td class="p-2 border-r border-slate-200 font-bold">${this.escapeHtml(cl.name)}</td>
+                                            <td class="p-2 border-r border-slate-200 text-center">${cl.hoursWorked.toFixed(1)}h</td>
+                                            <td class="p-2 border-r border-slate-200 text-center">${cl.lessonsCount}</td>
+                                            <td class="p-2 text-right font-black text-emerald-700">${this.formatMoney(cl.totalSpent)}</td>
+                                        </tr>
+                                    `).join("")}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        ${monthlyDetailsHtml}
+
+                        <!-- Footer -->
+                        <div class="pt-6 border-t border-slate-300 text-center text-[10px] text-slate-400">
+                            ClassDesk • Report Finanziario Annuale Generato Automaticamente
+                        </div>
+                    </div>
+                `;
+
+                this.openA4PrintableDocument(
+                    `Report Annuale ${data.year} ${detailed ? 'Dettagliato' : 'Generale'}`,
+                    `Formato A4 • ${detailed ? 'Anno + 12 Mesi di Dettaglio' : 'Sintesi Annuale & Classifica'}`,
+                    docHtml
+                );
+            }
+
+            exportBillingMonthlyPdf(monthIndex) {
+                const data = this.computeBillingAnnualData(this.billingAnalyticsYear);
+                const m = data.months[monthIndex] || data.months[0];
+                const todayFormatted = new Date().toLocaleDateString("it-IT", { day: "2-digit", month: "long", year: "numeric" });
+                const weekdayHeaders = ["Lun", "Mar", "Mer", "Gio", "Ven", "Sab", "Dom"];
+
+                const y = data.year;
+                const mIdx = m.monthIndex;
+                const firstDay = new Date(y, mIdx, 1);
+                const lastDay = new Date(y, mIdx + 1, 0);
+                const daysInMonth = lastDay.getDate();
+                const fDow = firstDay.getDay();
+                const leadingEmpty = fDow === 0 ? 6 : fDow - 1;
+                const workedDays = Object.keys(m.dailyLessons).length;
+
+                const docHtml = `
+                    <div class="space-y-6">
+                        <!-- Header -->
+                        <div class="border-b-4 border-slate-900 pb-4 flex items-center justify-between">
+                            <div class="flex items-center gap-3">
+                                <div class="w-12 h-12 rounded-2xl bg-sky-600 text-white flex items-center justify-center text-2xl font-black">
+                                    <i class="fa-solid fa-calendar-check"></i>
+                                </div>
+                                <div>
+                                    <h1 class="text-xl font-black text-slate-900">Report Mensile — ${m.monthName} ${data.year}</h1>
+                                    <p class="text-xs font-bold text-slate-500 uppercase tracking-wider">Report Didattico & Finanziario Formato A4</p>
+                                </div>
+                            </div>
+                            <div class="text-right">
+                                <span class="px-3 py-1 rounded-full bg-slate-900 text-white text-xs font-black">${m.shortName} ${data.year}</span>
+                                <p class="text-[11px] text-slate-400 mt-1">${todayFormatted}</p>
+                            </div>
+                        </div>
+
+                        <!-- KPIs -->
+                        <div class="grid grid-cols-3 gap-3">
+                            <div class="p-4 rounded-xl border border-slate-200 bg-slate-50">
+                                <span class="text-[10px] font-bold uppercase text-slate-500 block">Guadagni del Mese</span>
+                                <div class="text-xl font-black text-emerald-700 mt-0.5">${this.formatMoney(m.totalEarnings)}</div>
+                            </div>
+                            <div class="p-4 rounded-xl border border-slate-200 bg-slate-50">
+                                <span class="text-[10px] font-bold uppercase text-slate-500 block">Ore Lavorate</span>
+                                <div class="text-xl font-black text-sky-700 mt-0.5">${m.hoursWorked.toFixed(1)}h</div>
+                            </div>
+                            <div class="p-4 rounded-xl border border-slate-200 bg-slate-50">
+                                <span class="text-[10px] font-bold uppercase text-slate-500 block">Giorni Lavorati</span>
+                                <div class="text-xl font-black text-indigo-700 mt-0.5">${workedDays} su ${daysInMonth}</div>
+                            </div>
+                        </div>
+
+                        <!-- Quadratini del Mese nel PDF -->
+                        <div class="p-5 rounded-2xl border border-slate-200 bg-slate-50 space-y-3">
+                            <div class="border-b border-slate-200 pb-2">
+                                <h3 class="font-black text-slate-900 text-sm">Calendario Giorni Lavorati (${m.monthName} ${data.year})</h3>
+                                <p class="text-[11px] text-slate-400">Quadratini colorati: lezioni svolte • Quadratini grigi: giorni senza lezioni</p>
+                            </div>
+                            <div class="grid grid-cols-7 gap-1.5 text-center text-[10px] font-black uppercase text-slate-400">
+                                ${weekdayHeaders.map(w => `<div>${w}</div>`).join("")}
+                            </div>
+                            <div class="grid grid-cols-7 gap-1.5 text-xs">
+                                ${Array(leadingEmpty).fill(0).map(() => `<div class="h-12 rounded-lg bg-transparent"></div>`).join("")}
+                                ${Array.from({ length: daysInMonth }, (_, i) => {
+                                    const d = i + 1;
+                                    const hasL = (m.dailyLessons[d] || 0) > 0;
+                                    const hrs = m.dailyHours[d] || 0;
+                                    const ern = m.dailyEarnings[d] || 0;
+                                    return `
+                                        <div class="h-12 rounded-lg p-1 flex flex-col justify-between ${hasL ? 'bg-sky-600 text-white font-black' : 'bg-slate-200 text-slate-400'}">
+                                            <div class="flex items-center justify-between">
+                                                <span class="text-[11px]">${d}</span>
+                                                ${hasL ? `<span class="text-[8px] bg-black/20 px-1 rounded">${m.dailyLessons[d]}L</span>` : ''}
+                                            </div>
+                                            ${hasL ? `<span class="text-[8px] opacity-90">${hrs.toFixed(1)}h • ${Math.round(ern)}€</span>` : ''}
+                                        </div>
+                                    `;
+                                }).join("")}
+                            </div>
+                        </div>
+
+                        <!-- Client Leaderboard for Month -->
+                        <div class="space-y-2 a4-avoid-break">
+                            <h3 class="font-black text-slate-900 text-sm">Classifica Clienti di ${m.monthName} ${data.year}</h3>
+                            <table class="w-full border-collapse border border-slate-300 text-xs">
+                                <thead>
+                                    <tr class="bg-slate-100 border-b border-slate-300 text-slate-700 font-extrabold">
+                                        <th class="p-2 border-r border-slate-300 text-center w-12">Pos.</th>
+                                        <th class="p-2 border-r border-slate-300 text-left">Cliente</th>
+                                        <th class="p-2 border-r border-slate-300 text-center">Ore</th>
+                                        <th class="p-2 border-r border-slate-300 text-center">Lezioni</th>
+                                        <th class="p-2 text-right">Spesa Totale</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${m.clientLeaderboard.length === 0 ? `
+                                        <tr><td colspan="5" class="p-4 text-center text-slate-400">Nessuna spesa registrata per questo mese.</td></tr>
+                                    ` : m.clientLeaderboard.map((cl, rank) => `
+                                        <tr class="border-b border-slate-200">
+                                            <td class="p-2 border-r border-slate-200 text-center font-black">${rank + 1}°</td>
+                                            <td class="p-2 border-r border-slate-200 font-bold">${this.escapeHtml(cl.name)}</td>
+                                            <td class="p-2 border-r border-slate-200 text-center">${cl.hoursWorked.toFixed(1)}h</td>
+                                            <td class="p-2 border-r border-slate-200 text-center">${cl.lessonsCount}</td>
+                                            <td class="p-2 text-right font-black text-emerald-700">${this.formatMoney(cl.totalSpent)}</td>
+                                        </tr>
+                                    `).join("")}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Footer -->
+                        <div class="pt-6 border-t border-slate-300 text-center text-[10px] text-slate-400">
+                            ClassDesk • Report Finanziario Mensile Generato Automaticamente
+                        </div>
+                    </div>
+                `;
+
+                this.openA4PrintableDocument(
+                    `Report Mensile ${m.monthName} ${data.year}`,
+                    `Formato A4 • Quadratini Calendario & Spesa Clienti`,
+                    docHtml
+                );
+            }
+
         }
 
         const app = new ClassRegisterApp();

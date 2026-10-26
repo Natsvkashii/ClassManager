@@ -413,6 +413,17 @@ public struct HomeView: View {
                 .buttonStyle(.borderedProminent)
                 .tint(pal.color)
 
+                Button {
+                    activeSheet = .exportCoursePDF(course)
+                } label: {
+                    Image(systemName: "square.and.arrow.up")
+                        .font(.system(size: 13, weight: .semibold))
+                        .frame(width: 28, height: 22)
+                }
+                .buttonStyle(.bordered)
+                .tint(pal.color)
+                .help("Esporta contenuto del corso in PDF")
+
                 Button(role: .destructive) {
                     courseToDeleteOrArchive = course
                 } label: {
@@ -757,10 +768,217 @@ public struct HomeView: View {
 
 // MARK: - Attendance Register View
 
+public struct QuickLessonActionPopover: View {
+    @Environment(AppStore.self) private var store
+    let course: Course
+    let module: CourseModule
+    let slotKey: String
+    let lessonNum: Int
+    let palette: CourseColorInfo
+    let onOpenFullLessonPlan: (String) -> Void
+    let onClose: () -> Void
+
+    @State private var selectedDate: Date = Date()
+    @State private var startTimeStr: String = "19:00"
+    @State private var endTimeStr: String = "20:30"
+
+    public init(
+        course: Course,
+        module: CourseModule,
+        slotKey: String,
+        lessonNum: Int,
+        palette: CourseColorInfo,
+        onOpenFullLessonPlan: @escaping (String) -> Void,
+        onClose: @escaping () -> Void
+    ) {
+        self.course = course
+        self.module = module
+        self.slotKey = slotKey
+        self.lessonNum = lessonNum
+        self.palette = palette
+        self.onOpenFullLessonPlan = onOpenFullLessonPlan
+        self.onClose = onClose
+    }
+
+    public var body: some View {
+        let les = store.findLesson(in: course, sectionId: module.id, slotKey: slotKey)
+
+        VStack(alignment: .leading, spacing: 14) {
+            // Header with Lesson Number & Apple-style Edit (Pencil) Button for Lesson Planning
+            HStack(spacing: 10) {
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(spacing: 6) {
+                        Text("Lezione \(lessonNum)")
+                            .font(.caption.bold())
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 2)
+                            .background(Capsule().fill(palette.color))
+                        Text(module.name)
+                            .font(.caption.bold())
+                            .foregroundStyle(.secondary)
+                    }
+                    Text( (les?.title.isEmpty == false) ? les!.title : "Modifica Rapida Data e Orario" )
+                        .font(.subheadline.bold())
+                        .lineLimit(1)
+                }
+
+                Spacer()
+
+                // Classic Apple-style Pencil Button to open the full Lesson Planning window
+                Button {
+                    let currentKey = saveQuickChangesIfNeeded()
+                    onOpenFullLessonPlan(currentKey)
+                } label: {
+                    HStack(spacing: 5) {
+                        Image(systemName: "pencil")
+                            .font(.system(size: 13, weight: .bold))
+                        Text("Pianifica")
+                            .font(.caption.bold())
+                    }
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(
+                        RoundedRectangle(cornerRadius: 8)
+                            .fill(palette.color.opacity(0.15))
+                            .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(palette.color.opacity(0.4), lineWidth: 1))
+                    )
+                    .foregroundStyle(palette.color)
+                }
+                .buttonStyle(.plain)
+                .help("Apri la finestra completa di pianificazione della lezione")
+            }
+
+            Divider()
+
+            if course.archived {
+                HStack(spacing: 8) {
+                    Image(systemName: "lock.fill")
+                        .foregroundStyle(.orange)
+                    Text("Corso archiviato in sola lettura. Ripristina il corso per modificare data e orari.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                .padding(8)
+                .background(RoundedRectangle(cornerRadius: 8).fill(Color.orange.opacity(0.12)))
+            } else {
+                // Quick Date & Time Controls
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack {
+                        Label("Data:", systemImage: "calendar")
+                            .font(.caption.bold())
+                            .frame(width: 75, alignment: .leading)
+                        DatePicker(
+                            "",
+                            selection: $selectedDate,
+                            displayedComponents: .date
+                        )
+                        .labelsHidden()
+                        .datePickerStyle(.field)
+                    }
+
+                    HStack(spacing: 8) {
+                        Label("Orario:", systemImage: "clock")
+                            .font(.caption.bold())
+                            .frame(width: 75, alignment: .leading)
+
+                        TextField("19:00", text: $startTimeStr)
+                            .textFieldStyle(.roundedBorder)
+                            .frame(width: 68)
+                            .multilineTextAlignment(.center)
+
+                        Text("→")
+                            .font(.caption.bold())
+                            .foregroundStyle(.secondary)
+
+                        TextField("20:30", text: $endTimeStr)
+                            .textFieldStyle(.roundedBorder)
+                            .frame(width: 68)
+                            .multilineTextAlignment(.center)
+                    }
+                }
+
+                Divider()
+
+                HStack(spacing: 8) {
+                    Button("Annulla") {
+                        onClose()
+                    }
+                    .controlSize(.small)
+
+                    Spacer()
+
+                    Button {
+                        let updatedKey = saveQuickChanges()
+                        onOpenFullLessonPlan(updatedKey)
+                    } label: {
+                        Label("Pianificazione Lezione", systemImage: "pencil")
+                            .font(.caption.bold())
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+
+                    Button {
+                        _ = saveQuickChanges()
+                        onClose()
+                    } label: {
+                        Label("Salva", systemImage: "checkmark")
+                            .font(.caption.bold())
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(palette.color)
+                    .controlSize(.small)
+                }
+            }
+        }
+        .padding(16)
+        .frame(width: 340)
+        .onAppear {
+            let dOnly = store.extractDate(from: slotKey)
+            if let d = AppStore.isoDateFormatter.date(from: dOnly) {
+                selectedDate = d
+            }
+            startTimeStr = les?.time ?? module.startTime
+            endTimeStr = les?.endTime ?? module.endTime
+        }
+    }
+
+    private func saveQuickChangesIfNeeded() -> String {
+        guard !course.archived else { return slotKey }
+        let newDateIso = AppStore.isoDateFormatter.string(from: selectedDate)
+        let oldDateIso = store.extractDate(from: slotKey)
+        let les = store.findLesson(in: course, sectionId: module.id, slotKey: slotKey)
+        let oldStart = les?.time ?? module.startTime
+        let oldEnd = les?.endTime ?? module.endTime
+        let cleanStart = startTimeStr.trimmingCharacters(in: .whitespacesAndNewlines)
+        let cleanEnd = endTimeStr.trimmingCharacters(in: .whitespacesAndNewlines)
+        if newDateIso != oldDateIso || cleanStart != oldStart || cleanEnd != oldEnd {
+            return saveQuickChanges()
+        }
+        return slotKey
+    }
+
+    private func saveQuickChanges() -> String {
+        guard !course.archived else { return slotKey }
+        let newDateIso = AppStore.isoDateFormatter.string(from: selectedDate)
+        let cleanStart = startTimeStr.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? module.startTime : startTimeStr.trimmingCharacters(in: .whitespacesAndNewlines)
+        let cleanEnd = endTimeStr.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? module.endTime : endTimeStr.trimmingCharacters(in: .whitespacesAndNewlines)
+        return store.quickUpdateLessonDateAndTime(
+            courseId: course.id,
+            moduleId: module.id,
+            slotKey: slotKey,
+            newDateStr: newDateIso,
+            newStartTime: cleanStart,
+            newEndTime: cleanEnd
+        )
+    }
+}
+
 public struct AttendanceView: View {
     @Environment(AppStore.self) private var store
     @Environment(\.colorScheme) private var colorScheme
     @Binding var activeSheet: ActiveModalSheet?
+    @State private var quickActionSlotKey: String? = nil
 
     private var todayIsoString: String {
         let cal = Calendar.current
@@ -796,30 +1014,32 @@ public struct AttendanceView: View {
 
                     Spacer()
 
-                    Button {
-                        activeSheet = .lessonPlan(courseId: course.id, sectionId: mod.id, slotKey: nil)
-                    } label: {
-                        Label(store.t("addDateBtn"), systemImage: "calendar.badge.plus")
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .tint(pal.color)
-
-                    Button {
-                        activeSheet = .recurringGenerator
-                    } label: {
-                        Label(store.t("recurringBtn"), systemImage: "repeat")
-                    }
-
-                    Button {
-                        store.attendanceDateEditMode.toggle()
-                        if !store.attendanceDateEditMode {
-                            store.selectedDatesForDelete.removeAll()
+                    if !course.archived {
+                        Button {
+                            activeSheet = .lessonPlan(courseId: course.id, sectionId: mod.id, slotKey: nil)
+                        } label: {
+                            Label(store.t("addDateBtn"), systemImage: "calendar.badge.plus")
                         }
-                    } label: {
-                        Label(
-                            store.attendanceDateEditMode ? store.t("exitEditDatesModeBtn") : store.t("editDatesModeBtn"),
-                            systemImage: store.attendanceDateEditMode ? "checkmark.circle.fill" : "checkmark.circle"
-                        )
+                        .buttonStyle(.borderedProminent)
+                        .tint(pal.color)
+
+                        Button {
+                            activeSheet = .recurringGenerator
+                        } label: {
+                            Label(store.t("recurringBtn"), systemImage: "repeat")
+                        }
+
+                        Button {
+                            store.attendanceDateEditMode.toggle()
+                            if !store.attendanceDateEditMode {
+                                store.selectedDatesForDelete.removeAll()
+                            }
+                        } label: {
+                            Label(
+                                store.attendanceDateEditMode ? store.t("exitEditDatesModeBtn") : store.t("editDatesModeBtn"),
+                                systemImage: store.attendanceDateEditMode ? "checkmark.circle.fill" : "checkmark.circle"
+                            )
+                        }
                     }
                 }
                 .padding(12)
@@ -859,218 +1079,249 @@ public struct AttendanceView: View {
                     )
                 }
 
-                // Attendance Table with Fixed Left Student Column & Horizontally Scrollable Date Columns
-                ScrollView(.vertical) {
-                    if students.isEmpty && slots.isEmpty {
-                        Text(store.t("noStudentsInModulePrompt"))
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .padding(24)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                    } else {
-                        HStack(alignment: .top, spacing: 2) {
-                            // LEFT FIXED STUDENT COLUMN (Sticky on left when scrolling right)
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text("\(store.t("studentCol")) (\(students.count))")
-                                    .font(.caption.bold())
-                                    .padding(.horizontal, 12)
-                                    .frame(width: 236, height: 92, alignment: .leading)
-                                    .background(
-                                        RoundedRectangle(cornerRadius: 8)
-                                            .fill(tableHeaderCellFill(colorScheme))
-                                            .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(tableHeaderCellStroke(colorScheme)))
-                                    )
-
-                                if students.isEmpty {
-                                    Text(store.t("noStudentsInModulePrompt"))
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
+                // Attendance Table with Fixed Left Student Column & Horizontally Scrollable Date Columns (Scrollbar pinned to bottom border of card)
+                GeometryReader { cardGeo in
+                    let minTableHeight = max(cardGeo.size.height - 2, CGFloat(96 + max(1, students.count) * 54))
+                    ScrollView(.vertical) {
+                        if students.isEmpty && slots.isEmpty {
+                            Text(store.t("noStudentsInModulePrompt"))
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .padding(24)
+                                .frame(maxWidth: .infinity, minHeight: cardGeo.size.height, alignment: .topLeading)
+                        } else {
+                            HStack(alignment: .top, spacing: 2) {
+                                // LEFT FIXED STUDENT COLUMN (Sticky on left when scrolling right)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("\(store.t("studentCol")) (\(students.count))")
+                                        .font(.caption.bold())
                                         .padding(.horizontal, 12)
-                                        .frame(width: 236, height: 52, alignment: .leading)
-                                } else {
-                                    ForEach(Array(students.enumerated()), id: \.element.id) { sIdx, st in
-                                        let stAtt = mod.attendance[st.id] ?? [:]
-                                        let isAlt = sIdx % 2 == 1
-                                        let totalCount = max(1, slots.count)
-                                        let pCount = slots.filter { stAtt[$0] == "P" }.count
-                                        let gCount = slots.filter { stAtt[$0] == "G" }.count
-                                        let aCount = slots.filter { stAtt[$0] == "A" }.count
-
-                                        Button {
-                                            activeSheet = .studentDetail(st.id)
-                                        } label: {
-                                            VStack(alignment: .leading, spacing: 5) {
-                                                HStack(spacing: 4) {
-                                                    Text(st.fullName)
-                                                        .font(.caption.bold())
-                                                        .lineLimit(1)
-                                                    Spacer(minLength: 4)
-                                                    if !slots.isEmpty {
-                                                        Text("\(pCount)P · \(gCount)G · \(aCount)A")
-                                                            .font(.system(size: 9, weight: .semibold))
-                                                            .foregroundStyle(.secondary)
-                                                    }
-                                                }
-
-                                                // Student Participation Segmented Progress Bar (Green = P, Yellow = G, Red = A, Gray = Remaining)
-                                                GeometryReader { geo in
-                                                    let w = geo.size.width
-                                                    let pWidth = w * (CGFloat(pCount) / CGFloat(totalCount))
-                                                    let gWidth = w * (CGFloat(gCount) / CGFloat(totalCount))
-                                                    let aWidth = w * (CGFloat(aCount) / CGFloat(totalCount))
-
-                                                    ZStack(alignment: .leading) {
-                                                        Capsule()
-                                                            .fill(Color.gray.opacity(0.28))
-                                                            .frame(width: w, height: 6)
-
-                                                        HStack(spacing: 0) {
-                                                            if pWidth > 0 {
-                                                                Rectangle()
-                                                                    .fill(Color.green)
-                                                                    .frame(width: pWidth, height: 6)
-                                                            }
-                                                            if gWidth > 0 {
-                                                                Rectangle()
-                                                                    .fill(Color.yellow)
-                                                                    .frame(width: gWidth, height: 6)
-                                                            }
-                                                            if aWidth > 0 {
-                                                                Rectangle()
-                                                                    .fill(Color.red)
-                                                                    .frame(width: aWidth, height: 6)
-                                                            }
-                                                        }
-                                                        .clipShape(Capsule())
-                                                    }
-                                                }
-                                                .frame(height: 6)
-                                            }
-                                            .padding(.horizontal, 12)
-                                            .frame(width: 236, height: 52, alignment: .leading)
-                                        }
-                                        .buttonStyle(.plain)
+                                        .frame(width: 236, height: 92, alignment: .leading)
                                         .background(
                                             RoundedRectangle(cornerRadius: 8)
-                                                .fill(tableRowCellFill(colorScheme, isAlt: isAlt))
-                                                .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(tableRowCellStroke(colorScheme)))
+                                                .fill(tableHeaderCellFill(colorScheme))
+                                                .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(tableHeaderCellStroke(colorScheme)))
                                         )
-                                    }
-                                }
-                                Spacer(minLength: 0)
-                            }
 
-                            // RIGHT HORIZONTALLY SCROLLABLE DATE COLUMNS
-                            ScrollView(.horizontal, showsIndicators: true) {
-                                VStack(alignment: .leading, spacing: 2) {
-                                    // Date Header Row
-                                    HStack(spacing: 2) {
-                                        ForEach(Array(slots.enumerated()), id: \.element) { idx, slotKey in
-                                            let les = store.findLesson(in: course, sectionId: mod.id, slotKey: slotKey)
-                                            let sTime = les?.time ?? mod.startTime
-                                            let eTime = les?.endTime ?? mod.endTime
-                                            let isTodaySlot = (store.extractDate(from: slotKey) == todayIso)
+                                    if students.isEmpty {
+                                        Text(store.t("noStudentsInModulePrompt"))
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                            .padding(.horizontal, 12)
+                                            .frame(width: 236, height: 52, alignment: .leading)
+                                    } else {
+                                        ForEach(Array(students.enumerated()), id: \.element.id) { sIdx, st in
+                                            let stAtt = mod.attendance[st.id] ?? [:]
+                                            let isAlt = sIdx % 2 == 1
+                                            let totalCount = max(1, slots.count)
+                                            let pCount = slots.filter { stAtt[$0] == "P" }.count
+                                            let gCount = slots.filter { stAtt[$0] == "G" }.count
+                                            let aCount = slots.filter { stAtt[$0] == "A" }.count
 
-                                            VStack(spacing: 3) {
-                                                Button {
-                                                    activeSheet = .lessonPlan(courseId: course.id, sectionId: mod.id, slotKey: slotKey)
-                                                } label: {
-                                                    VStack(spacing: 3) {
-                                                        HStack(spacing: 4) {
-                                                            Text("\(idx + 1)")
-                                                                .font(.caption2.bold())
-                                                                .padding(.horizontal, 7)
-                                                                .padding(.vertical, 2)
-                                                                .background(Capsule().fill(isTodaySlot ? pal.color : pal.color.opacity(0.18)))
-                                                                .foregroundStyle(isTodaySlot ? Color.white : pal.color)
-                                                        }
-
-                                                        Text(store.formatShortWeekdayDate(slotKey))
+                                            Button {
+                                                activeSheet = .studentDetail(st.id)
+                                            } label: {
+                                                VStack(alignment: .leading, spacing: 5) {
+                                                    HStack(spacing: 4) {
+                                                        Text(st.fullName)
                                                             .font(.caption.bold())
-                                                            .foregroundStyle(isTodaySlot ? pal.color : Color.primary)
-                                                            .underline(pattern: .dot)
-
-                                                        Text("\(store.formatTimeDisplay(sTime))-\(store.formatTimeDisplay(eTime))")
-                                                            .font(.system(size: 9, weight: .semibold))
-                                                            .foregroundStyle(.secondary)
-
-                                                        if let t = les?.title, !t.isEmpty {
-                                                            Text(t)
-                                                                .font(.system(size: 10, weight: .bold))
-                                                                .foregroundStyle(.green)
-                                                                .lineLimit(1)
-                                                                .multilineTextAlignment(.center)
-                                                        } else {
-                                                            Text(" ")
-                                                                .font(.system(size: 10, weight: .bold))
-                                                                .opacity(0)
+                                                            .lineLimit(1)
+                                                        Spacer(minLength: 4)
+                                                        if !slots.isEmpty {
+                                                            Text("\(pCount)P · \(gCount)G · \(aCount)A")
+                                                                .font(.system(size: 9, weight: .semibold))
+                                                                .foregroundStyle(.secondary)
                                                         }
                                                     }
-                                                    .frame(width: 118)
-                                                }
-                                                .buttonStyle(.plain)
 
-                                                if store.attendanceDateEditMode {
-                                                    Toggle("", isOn: Binding(
-                                                        get: { store.selectedDatesForDelete.contains(slotKey) },
-                                                        set: { val in
-                                                            if val { store.selectedDatesForDelete.insert(slotKey) }
-                                                            else { store.selectedDatesForDelete.remove(slotKey) }
+                                                    // Student Participation Segmented Progress Bar (Green = P, Yellow = G, Red = A, Gray = Remaining)
+                                                    GeometryReader { geo in
+                                                        let w = geo.size.width
+                                                        let pWidth = w * (CGFloat(pCount) / CGFloat(totalCount))
+                                                        let gWidth = w * (CGFloat(gCount) / CGFloat(totalCount))
+                                                        let aWidth = w * (CGFloat(aCount) / CGFloat(totalCount))
+
+                                                        ZStack(alignment: .leading) {
+                                                            Capsule()
+                                                                .fill(Color.gray.opacity(0.28))
+                                                                .frame(width: w, height: 6)
+
+                                                            HStack(spacing: 0) {
+                                                                if pWidth > 0 {
+                                                                    Rectangle()
+                                                                        .fill(Color.green)
+                                                                        .frame(width: pWidth, height: 6)
+                                                                }
+                                                                if gWidth > 0 {
+                                                                    Rectangle()
+                                                                        .fill(Color.yellow)
+                                                                        .frame(width: gWidth, height: 6)
+                                                                }
+                                                                if aWidth > 0 {
+                                                                    Rectangle()
+                                                                        .fill(Color.red)
+                                                                        .frame(width: aWidth, height: 6)
+                                                                }
+                                                            }
+                                                            .clipShape(Capsule())
                                                         }
-                                                    ))
-                                                    .labelsHidden()
+                                                    }
+                                                    .frame(height: 6)
                                                 }
+                                                .padding(.horizontal, 12)
+                                                .frame(width: 236, height: 52, alignment: .leading)
                                             }
-                                            .padding(.vertical, 6)
-                                            .padding(.horizontal, 4)
-                                            .frame(width: 124, height: 92, alignment: .top)
+                                            .buttonStyle(.plain)
                                             .background(
                                                 RoundedRectangle(cornerRadius: 8)
-                                                    .fill(isTodaySlot ? pal.color.opacity(colorScheme == .dark ? 0.24 : 0.14) : tableHeaderCellFill(colorScheme))
-                                                    .overlay(
-                                                        RoundedRectangle(cornerRadius: 8)
-                                                            .strokeBorder(isTodaySlot ? pal.color : tableHeaderCellStroke(colorScheme), lineWidth: isTodaySlot ? 2.2 : 1.0)
-                                                    )
+                                                    .fill(tableRowCellFill(colorScheme, isAlt: isAlt))
+                                                    .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(tableRowCellStroke(colorScheme)))
                                             )
                                         }
                                     }
+                                    Spacer(minLength: 0)
+                                }
+                                .frame(minHeight: minTableHeight, alignment: .top)
 
-                                    // Student Attendance Cells
-                                    ForEach(Array(students.enumerated()), id: \.element.id) { sIdx, st in
-                                        let stAtt = mod.attendance[st.id] ?? [:]
-                                        let isAlt = sIdx % 2 == 1
+                                // RIGHT HORIZONTALLY SCROLLABLE DATE COLUMNS
+                                ScrollView(.horizontal, showsIndicators: true) {
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        // Date Header Row
                                         HStack(spacing: 2) {
-                                            ForEach(slots, id: \.self) { slotKey in
-                                                let val = stAtt[slotKey] ?? ""
+                                            ForEach(Array(slots.enumerated()), id: \.element) { idx, slotKey in
+                                                let les = store.findLesson(in: course, sectionId: mod.id, slotKey: slotKey)
+                                                let sTime = les?.time ?? mod.startTime
+                                                let eTime = les?.endTime ?? mod.endTime
                                                 let isTodaySlot = (store.extractDate(from: slotKey) == todayIso)
-                                                Button {
-                                                    store.cycleAttendance(studentId: st.id, slotKey: slotKey)
-                                                } label: {
-                                                    Text(val.isEmpty ? "·" : val)
-                                                        .font(.caption.bold())
-                                                        .frame(width: 38, height: 28)
-                                                        .background(
-                                                            RoundedRectangle(cornerRadius: 7)
-                                                                .fill(attendanceColor(for: val))
+
+                                                VStack(spacing: 3) {
+                                                    Button {
+                                                        quickActionSlotKey = slotKey
+                                                    } label: {
+                                                        VStack(spacing: 3) {
+                                                            HStack(spacing: 4) {
+                                                                Text("\(idx + 1)")
+                                                                    .font(.caption2.bold())
+                                                                    .padding(.horizontal, 7)
+                                                                    .padding(.vertical, 2)
+                                                                    .background(Capsule().fill(isTodaySlot ? pal.color : pal.color.opacity(0.18)))
+                                                                    .foregroundStyle(isTodaySlot ? Color.white : pal.color)
+                                                            }
+
+                                                            Text(store.formatShortWeekdayDate(slotKey))
+                                                                .font(.caption.bold())
+                                                                .foregroundStyle(isTodaySlot ? pal.color : Color.primary)
+                                                                .underline(pattern: .dot)
+
+                                                            Text("\(store.formatTimeDisplay(sTime))-\(store.formatTimeDisplay(eTime))")
+                                                                .font(.system(size: 9, weight: .semibold))
+                                                                .foregroundStyle(.secondary)
+
+                                                            if let t = les?.title, !t.isEmpty {
+                                                                Text(t)
+                                                                    .font(.system(size: 10, weight: .bold))
+                                                                    .foregroundStyle(.green)
+                                                                    .lineLimit(1)
+                                                                    .multilineTextAlignment(.center)
+                                                            } else {
+                                                                Text(" ")
+                                                                    .font(.system(size: 10, weight: .bold))
+                                                                    .opacity(0)
+                                                            }
+                                                        }
+                                                        .frame(width: 118)
+                                                    }
+                                                    .buttonStyle(.plain)
+                                                    .popover(
+                                                        isPresented: Binding(
+                                                            get: { quickActionSlotKey == slotKey },
+                                                            set: { if !$0 && quickActionSlotKey == slotKey { quickActionSlotKey = nil } }
+                                                        ),
+                                                        arrowEdge: .bottom
+                                                    ) {
+                                                        QuickLessonActionPopover(
+                                                            course: course,
+                                                            module: mod,
+                                                            slotKey: slotKey,
+                                                            lessonNum: idx + 1,
+                                                            palette: pal,
+                                                            onOpenFullLessonPlan: { updatedKey in
+                                                                quickActionSlotKey = nil
+                                                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                                                                    activeSheet = .lessonPlan(courseId: course.id, sectionId: mod.id, slotKey: updatedKey)
+                                                                }
+                                                            },
+                                                            onClose: {
+                                                                quickActionSlotKey = nil
+                                                            }
                                                         )
-                                                        .foregroundStyle(val.isEmpty ? Color.secondary : Color.white)
+                                                    }
+
+                                                    if store.attendanceDateEditMode {
+                                                        Toggle("", isOn: Binding(
+                                                            get: { store.selectedDatesForDelete.contains(slotKey) },
+                                                            set: { val in
+                                                                if val { store.selectedDatesForDelete.insert(slotKey) }
+                                                                else { store.selectedDatesForDelete.remove(slotKey) }
+                                                            }
+                                                        ))
+                                                        .labelsHidden()
+                                                    }
                                                 }
-                                                .buttonStyle(.plain)
-                                                .frame(width: 124, height: 52)
+                                                .padding(.vertical, 6)
+                                                .padding(.horizontal, 4)
+                                                .frame(width: 124, height: 92, alignment: .top)
                                                 .background(
-                                                    RoundedRectangle(cornerRadius: 6)
-                                                        .fill(isTodaySlot ? pal.color.opacity(colorScheme == .dark ? 0.16 : 0.08) : tableRowCellFill(colorScheme, isAlt: isAlt))
+                                                    RoundedRectangle(cornerRadius: 8)
+                                                        .fill(isTodaySlot ? pal.color.opacity(colorScheme == .dark ? 0.24 : 0.14) : tableHeaderCellFill(colorScheme))
                                                         .overlay(
-                                                            RoundedRectangle(cornerRadius: 6)
-                                                                .strokeBorder(isTodaySlot ? pal.color.opacity(0.65) : tableRowCellStroke(colorScheme), lineWidth: isTodaySlot ? 1.5 : 1.0)
+                                                            RoundedRectangle(cornerRadius: 8)
+                                                                .strokeBorder(isTodaySlot ? pal.color : tableHeaderCellStroke(colorScheme), lineWidth: isTodaySlot ? 2.2 : 1.0)
                                                         )
                                                 )
                                             }
                                         }
+
+                                        // Student Attendance Cells
+                                        ForEach(Array(students.enumerated()), id: \.element.id) { sIdx, st in
+                                            let stAtt = mod.attendance[st.id] ?? [:]
+                                            let isAlt = sIdx % 2 == 1
+                                            HStack(spacing: 2) {
+                                                ForEach(slots, id: \.self) { slotKey in
+                                                    let val = stAtt[slotKey] ?? ""
+                                                    let isTodaySlot = (store.extractDate(from: slotKey) == todayIso)
+                                                    Button {
+                                                        store.cycleAttendance(studentId: st.id, slotKey: slotKey)
+                                                    } label: {
+                                                        Text(val.isEmpty ? "·" : val)
+                                                            .font(.caption.bold())
+                                                            .frame(width: 38, height: 28)
+                                                            .background(
+                                                                RoundedRectangle(cornerRadius: 7)
+                                                                    .fill(attendanceColor(for: val))
+                                                            )
+                                                            .foregroundStyle(val.isEmpty ? Color.secondary : Color.white)
+                                                    }
+                                                    .buttonStyle(.plain)
+                                                    .disabled(course.archived)
+                                                    .frame(width: 124, height: 52)
+                                                    .background(
+                                                        RoundedRectangle(cornerRadius: 6)
+                                                            .fill(isTodaySlot ? pal.color.opacity(colorScheme == .dark ? 0.16 : 0.08) : tableRowCellFill(colorScheme, isAlt: isAlt))
+                                                            .overlay(
+                                                                RoundedRectangle(cornerRadius: 6)
+                                                                    .strokeBorder(isTodaySlot ? pal.color.opacity(0.65) : tableRowCellStroke(colorScheme), lineWidth: isTodaySlot ? 1.5 : 1.0)
+                                                            )
+                                                    )
+                                                }
+                                            }
+                                        }
+                                        Spacer(minLength: 0)
                                     }
+                                    .frame(minHeight: minTableHeight, alignment: .top)
                                 }
-                                Spacer(minLength: 0)
                             }
+                            .frame(minHeight: minTableHeight, alignment: .top)
                         }
                     }
                 }
@@ -1223,250 +1474,261 @@ public struct GradesView: View {
                 .padding(12)
                 .appCardStyle(cornerRadius: 12)
 
-                // Grades Table with Fixed Left Student Column & Horizontally Scrollable Activity Columns
-                ScrollView(.vertical) {
-                    HStack(alignment: .top, spacing: 2) {
-                        // FIXED LEFT STUDENT COLUMN (Sticky on left when scrolling right)
-                        VStack(alignment: .leading, spacing: 2) {
-                            HStack {
-                                Text("\(store.t("statusCol")) & \(store.t("studentCol"))")
-                                Spacer()
-                                Text(store.t("finalAvgCol")).foregroundStyle(store.activeCoursePalette.color)
-                            }
-                            .font(.caption.bold())
-                            .padding(.horizontal, 12)
-                            .frame(width: 260, height: 56)
-                            .background(
-                                RoundedRectangle(cornerRadius: 8)
-                                    .fill(tableHeaderCellFill(colorScheme))
-                                    .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(tableHeaderCellStroke(colorScheme)))
-                            )
-
-                            if students.isEmpty {
-                                Text(store.t("noStudentsInModulePrompt"))
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                                    .padding(.horizontal, 12)
-                                    .frame(width: 260, height: 48, alignment: .leading)
-                            } else {
-                                ForEach(Array(students.enumerated()), id: \.element.id) { sIdx, st in
-                                    let isAlt = sIdx % 2 == 1
-                                    let avg = store.calculateStudentCourseAverage(course: course, studentId: st.id, module: mod)
-                                    let allPresent = store.areAllStudentGradesPresent(course: course, studentId: st.id, module: mod)
-                                    let passed = allPresent && (avg ?? 0) >= course.gradeConfig.minPass
-
-                                    HStack(spacing: 8) {
-                                        if allPresent && avg != nil {
-                                            Image(systemName: passed ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
-                                                .foregroundStyle(passed ? .green : .red)
-                                                .help(passed ? store.t("passedBadge") : store.t("recoverBadge"))
-                                        } else {
-                                            Image(systemName: "minus.circle")
-                                                .foregroundStyle(.secondary)
-                                                .help("\(store.t("pendingBadge")) (\(store.t("pendingEvalSub")))")
-                                        }
-
-                                        Button {
-                                            activeSheet = .studentDetail(st.id)
-                                        } label: {
-                                            Text(st.fullName).font(.caption.bold()).lineLimit(1)
-                                        }
-                                        .buttonStyle(.plain)
-
-                                        Spacer()
-
-                                        Text(avg != nil ? String(format: "%.2f", avg!) : "—")
-                                            .font(.caption.bold())
-                                            .padding(.horizontal, 8)
-                                            .padding(.vertical, 3)
-                                            .background(
-                                                RoundedRectangle(cornerRadius: 6)
-                                                    .fill(avg == nil ? Color.secondary.opacity(0.1) : (!allPresent ? Color.secondary.opacity(0.15) : (passed ? Color.green.opacity(0.18) : Color.red.opacity(0.18))))
-                                            )
-                                    }
-                                    .padding(.horizontal, 10)
-                                    .frame(width: 260, height: 48)
-                                    .background(
-                                        RoundedRectangle(cornerRadius: 6)
-                                            .fill(tableRowCellFill(colorScheme, isAlt: isAlt))
-                                            .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(tableRowCellStroke(colorScheme)))
-                                    )
-                                }
-                            }
-                            Spacer(minLength: 0)
-                        }
-
-                        // RIGHT HORIZONTALLY SCROLLABLE ACTIVITY COLUMNS
-                        ScrollView(.horizontal, showsIndicators: true) {
+                // Grades Table with Fixed Left Student Column & Horizontally Scrollable Activity Columns (Scrollbar pinned to bottom border of card)
+                GeometryReader { cardGeo in
+                    let minTableHeight = max(cardGeo.size.height - 2, CGFloat(60 + max(1, students.count) * 50))
+                    ScrollView(.vertical) {
+                        HStack(alignment: .top, spacing: 2) {
+                            // FIXED LEFT STUDENT COLUMN (Sticky on left when scrolling right)
                             VStack(alignment: .leading, spacing: 2) {
-                                // Activities Header Row
-                                HStack(spacing: 2) {
-                                    if evalAtt {
-                                        Button {
-                                            showAttendanceConfigPopover = true
-                                        } label: {
-                                            VStack(spacing: 2) {
-                                                Text(store.t("navAttendance").uppercased())
-                                                    .font(.caption.bold())
-                                                    .underline(pattern: .dot)
-                                                    .foregroundStyle(.green)
-                                                Text("\(String(format: "%.0f", attWeight))%")
-                                                    .font(.caption2.bold())
-                                                    .foregroundStyle(.green)
-                                            }
-                                            .padding(.horizontal, 8)
-                                            .frame(width: 128, height: 56)
-                                            .contentShape(Rectangle())
-                                        }
-                                        .buttonStyle(.plain)
-                                        .help("Clicca per configurare la ponderazione delle presenze")
-                                        .popover(isPresented: $showAttendanceConfigPopover) {
-                                            VStack(alignment: .leading, spacing: 14) {
-                                                HStack {
-                                                    Image(systemName: "checklist.checked")
-                                                        .foregroundStyle(.green)
-                                                    Text("Configurazione Attività Presenze")
-                                                        .font(.headline.bold())
-                                                }
+                                HStack {
+                                    Text("\(store.t("statusCol")) & \(store.t("studentCol"))")
+                                    Spacer()
+                                    Text(store.t("finalAvgCol")).foregroundStyle(store.activeCoursePalette.color)
+                                }
+                                .font(.caption.bold())
+                                .padding(.horizontal, 12)
+                                .frame(width: 260, height: 56)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 8)
+                                        .fill(tableHeaderCellFill(colorScheme))
+                                        .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(tableHeaderCellStroke(colorScheme)))
+                                )
 
-                                                Text("Il punteggio viene calcolato automaticamente in base al numero di ore in cui lo studente è stato presente rispetto al totale delle ore del modulo.")
-                                                    .font(.caption)
+                                if students.isEmpty {
+                                    Text(store.t("noStudentsInModulePrompt"))
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                        .padding(.horizontal, 12)
+                                        .frame(width: 260, height: 48, alignment: .leading)
+                                } else {
+                                    ForEach(Array(students.enumerated()), id: \.element.id) { sIdx, st in
+                                        let isAlt = sIdx % 2 == 1
+                                        let avg = store.calculateStudentCourseAverage(course: course, studentId: st.id, module: mod)
+                                        let allPresent = store.areAllStudentGradesPresent(course: course, studentId: st.id, module: mod)
+                                        let passed = allPresent && (avg ?? 0) >= course.gradeConfig.minPass
+
+                                        HStack(spacing: 8) {
+                                            if allPresent && avg != nil {
+                                                Image(systemName: passed ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
+                                                    .foregroundStyle(passed ? .green : .red)
+                                                    .help(passed ? store.t("passedBadge") : store.t("recoverBadge"))
+                                            } else {
+                                                Image(systemName: "minus.circle")
                                                     .foregroundStyle(.secondary)
-                                                    .fixedSize(horizontal: false, vertical: true)
-
-                                                Divider()
-
-                                                HStack {
-                                                    Text("Ponderazione (%):")
-                                                        .font(.subheadline.bold())
-                                                    Spacer()
-                                                    TextField("5", value: Binding(
-                                                        get: { store.getAttendanceWeight(course: store.state.courses[cIdx], module: store.state.courses[cIdx].levels[lIdx].modules[mIdx]) },
-                                                        set: { val in
-                                                            let clamped = min(100, max(0, val))
-                                                            store.recordUndoSnapshot()
-                                                            store.state.courses[cIdx].gradeConfig.attendanceWeight = clamped
-                                                            store.state.courses[cIdx].levels[lIdx].modules[mIdx].attendanceWeight = clamped
-                                                            store.persist()
-                                                        }
-                                                    ), format: .number)
-                                                    .textFieldStyle(.roundedBorder)
-                                                    .frame(width: 75)
-                                                    Text("%")
-                                                        .font(.subheadline.bold())
-                                                }
-
-                                                HStack {
-                                                    Spacer()
-                                                    Button("Chiudi") {
-                                                        showAttendanceConfigPopover = false
-                                                    }
-                                                    .buttonStyle(.borderedProminent)
-                                                    .tint(.green)
-                                                }
+                                                    .help("\(store.t("pendingBadge")) (\(store.t("pendingEvalSub")))")
                                             }
-                                            .padding(18)
-                                            .frame(width: 320)
-                                        }
-                                        .background(
-                                            RoundedRectangle(cornerRadius: 8)
-                                                .fill(Color.green.opacity(0.12))
-                                                .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color.green.opacity(0.35)))
-                                        )
-                                    }
 
-                                    ForEach(activities) { act in
-                                        VStack(spacing: 3) {
                                             Button {
-                                                activeSheet = .activityForm(act)
+                                                activeSheet = .studentDetail(st.id)
                                             } label: {
-                                                Text(act.name)
-                                                    .font(.caption.bold())
-                                                    .underline(pattern: .dot)
-                                                    .lineLimit(1)
+                                                Text(st.fullName).font(.caption.bold()).lineLimit(1)
                                             }
                                             .buttonStyle(.plain)
 
-                                            HStack(spacing: 4) {
-                                                if course.gradeConfig.calcMethod == "weighted" {
-                                                    Text("\(String(format: "%.0f", act.weight))%")
-                                                        .font(.caption2.bold())
-                                                        .foregroundStyle(store.activeCoursePalette.color)
-                                                }
-                                                if act.useRubric {
-                                                    Text(store.t("rubricBadgeShort"))
-                                                        .font(.system(size: 9, weight: .bold))
-                                                        .padding(.horizontal, 4)
-                                                        .padding(.vertical, 1)
-                                                        .background(Capsule().fill(Color.green.opacity(0.2)))
-                                                        .foregroundStyle(.green)
-                                                }
-                                            }
+                                            Spacer()
+
+                                            Text(avg != nil ? String(format: "%.2f", avg!) : "—")
+                                                .font(.caption.bold())
+                                                .padding(.horizontal, 8)
+                                                .padding(.vertical, 3)
+                                                .background(
+                                                    RoundedRectangle(cornerRadius: 6)
+                                                        .fill(avg == nil ? Color.secondary.opacity(0.1) : (!allPresent ? Color.secondary.opacity(0.15) : (passed ? Color.green.opacity(0.18) : Color.red.opacity(0.18))))
+                                                )
                                         }
-                                        .padding(.horizontal, 8)
-                                        .frame(width: 150, height: 56)
+                                        .padding(.horizontal, 10)
+                                        .frame(width: 260, height: 48)
                                         .background(
-                                            RoundedRectangle(cornerRadius: 8)
-                                                .fill(tableHeaderCellFill(colorScheme))
-                                                .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(tableHeaderCellStroke(colorScheme)))
+                                            RoundedRectangle(cornerRadius: 6)
+                                                .fill(tableRowCellFill(colorScheme, isAlt: isAlt))
+                                                .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(tableRowCellStroke(colorScheme)))
                                         )
-                                    }
-                                }
-
-                                // Student Evaluation Rows
-                                ForEach(Array(students.enumerated()), id: \.element.id) { sIdx, st in
-                                    let isAlt = sIdx % 2 == 1
-                                    let attInfo = evalAtt ? store.getStudentAttendanceEvalInfo(course: course, studentId: st.id, module: mod) : nil
-
-                                    HStack(spacing: 2) {
-                                        if evalAtt {
-                                            VStack(spacing: 2) {
-                                                if let info = attInfo, info.totalLessons > 0 {
-                                                    Text(String(format: "%.2f", info.score))
-                                                        .font(.caption.bold())
-                                                        .padding(.horizontal, 6)
-                                                        .padding(.vertical, 2)
-                                                        .background(
-                                                            RoundedRectangle(cornerRadius: 6)
-                                                                .fill(info.isComplete ? Color.green.opacity(0.2) : Color.secondary.opacity(0.12))
-                                                        )
-                                                        .foregroundStyle(info.isComplete ? .green : .secondary)
-                                                        .help(info.isComplete ? store.t("attendanceCompletedHint") : store.t("attendanceInProgressHint"))
-
-                                                    Text("\(String(format: "%.1f", info.presentHours))/\(String(format: "%.1f", info.totalHours))h")
-                                                        .font(.system(size: 9, weight: .semibold))
-                                                        .foregroundStyle(.secondary)
-                                                } else {
-                                                    Text("—").foregroundStyle(.secondary)
-                                                }
-                                            }
-                                            .frame(width: 128, height: 48)
-                                            .background(
-                                                RoundedRectangle(cornerRadius: 6)
-                                                    .fill(tableRowCellFill(colorScheme, isAlt: isAlt))
-                                                    .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(tableRowCellStroke(colorScheme)))
-                                            )
-                                        }
-
-                                        ForEach(activities) { act in
-                                            GradeCellView(
-                                                courseIndex: cIdx,
-                                                studentId: st.id,
-                                                activity: act,
-                                                activeSheet: $activeSheet
-                                            )
-                                            .frame(width: 150, height: 48)
-                                            .background(
-                                                RoundedRectangle(cornerRadius: 6)
-                                                    .fill(tableRowCellFill(colorScheme, isAlt: isAlt))
-                                                    .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(tableRowCellStroke(colorScheme)))
-                                            )
-                                        }
                                     }
                                 }
                                 Spacer(minLength: 0)
                             }
+                            .frame(minHeight: minTableHeight, alignment: .top)
+
+                            // RIGHT HORIZONTALLY SCROLLABLE ACTIVITY COLUMNS
+                            ScrollView(.horizontal, showsIndicators: true) {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    // Activities Header Row
+                                    HStack(spacing: 2) {
+                                        if evalAtt {
+                                            Button {
+                                                if !course.archived {
+                                                    showAttendanceConfigPopover = true
+                                                }
+                                            } label: {
+                                                VStack(spacing: 2) {
+                                                    Text(store.t("navAttendance").uppercased())
+                                                        .font(.caption.bold())
+                                                        .underline(pattern: .dot)
+                                                        .foregroundStyle(.green)
+                                                    Text("\(String(format: "%.0f", attWeight))%")
+                                                        .font(.caption2.bold())
+                                                        .foregroundStyle(.green)
+                                                }
+                                                .padding(.horizontal, 8)
+                                                .frame(width: 128, height: 56)
+                                                .contentShape(Rectangle())
+                                            }
+                                            .buttonStyle(.plain)
+                                            .help("Clicca per configurare la ponderazione delle presenze")
+                                            .popover(isPresented: $showAttendanceConfigPopover) {
+                                                VStack(alignment: .leading, spacing: 14) {
+                                                    HStack {
+                                                        Image(systemName: "checklist.checked")
+                                                            .foregroundStyle(.green)
+                                                        Text("Configurazione Attività Presenze")
+                                                            .font(.headline.bold())
+                                                    }
+
+                                                    Text("Il punteggio viene calcolato automaticamente in base al numero di ore in cui lo studente è stato presente rispetto al totale delle ore del modulo.")
+                                                        .font(.caption)
+                                                        .foregroundStyle(.secondary)
+                                                        .fixedSize(horizontal: false, vertical: true)
+
+                                                    Divider()
+
+                                                    HStack {
+                                                        Text("Ponderazione (%):")
+                                                            .font(.subheadline.bold())
+                                                        Spacer()
+                                                        TextField("5", value: Binding(
+                                                            get: { store.getAttendanceWeight(course: store.state.courses[cIdx], module: store.state.courses[cIdx].levels[lIdx].modules[mIdx]) },
+                                                            set: { val in
+                                                                let clamped = min(100, max(0, val))
+                                                                store.recordUndoSnapshot()
+                                                                store.state.courses[cIdx].gradeConfig.attendanceWeight = clamped
+                                                                store.state.courses[cIdx].levels[lIdx].modules[mIdx].attendanceWeight = clamped
+                                                                store.persist()
+                                                            }
+                                                        ), format: .number)
+                                                        .textFieldStyle(.roundedBorder)
+                                                        .frame(width: 75)
+                                                        Text("%")
+                                                            .font(.subheadline.bold())
+                                                    }
+
+                                                    HStack {
+                                                        Spacer()
+                                                        Button("Chiudi") {
+                                                            showAttendanceConfigPopover = false
+                                                        }
+                                                        .buttonStyle(.borderedProminent)
+                                                        .tint(.green)
+                                                    }
+                                                }
+                                                .padding(18)
+                                                .frame(width: 320)
+                                            }
+                                            .background(
+                                                RoundedRectangle(cornerRadius: 8)
+                                                    .fill(Color.green.opacity(0.12))
+                                                    .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color.green.opacity(0.35)))
+                                            )
+                                        }
+
+                                        ForEach(activities) { act in
+                                            VStack(spacing: 3) {
+                                                Button {
+                                                    if !course.archived {
+                                                        activeSheet = .activityForm(act)
+                                                    }
+                                                } label: {
+                                                    Text(act.name)
+                                                        .font(.caption.bold())
+                                                        .underline(pattern: .dot)
+                                                        .lineLimit(1)
+                                                }
+                                                .buttonStyle(.plain)
+
+                                                HStack(spacing: 4) {
+                                                    if course.gradeConfig.calcMethod == "weighted" {
+                                                        Text("\(String(format: "%.0f", act.weight))%")
+                                                            .font(.caption2.bold())
+                                                            .foregroundStyle(store.activeCoursePalette.color)
+                                                    }
+                                                    if act.useRubric {
+                                                        Text(store.t("rubricBadgeShort"))
+                                                            .font(.system(size: 9, weight: .bold))
+                                                            .padding(.horizontal, 4)
+                                                            .padding(.vertical, 1)
+                                                            .background(Capsule().fill(Color.green.opacity(0.2)))
+                                                            .foregroundStyle(.green)
+                                                    }
+                                                }
+                                            }
+                                            .padding(.horizontal, 8)
+                                            .frame(width: 150, height: 56)
+                                            .background(
+                                                RoundedRectangle(cornerRadius: 8)
+                                                    .fill(tableHeaderCellFill(colorScheme))
+                                                    .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(tableHeaderCellStroke(colorScheme)))
+                                            )
+                                        }
+                                    }
+
+                                    // Student Evaluation Rows
+                                    ForEach(Array(students.enumerated()), id: \.element.id) { sIdx, st in
+                                        let isAlt = sIdx % 2 == 1
+                                        let attInfo = evalAtt ? store.getStudentAttendanceEvalInfo(course: course, studentId: st.id, module: mod) : nil
+
+                                        HStack(spacing: 2) {
+                                            if evalAtt {
+                                                VStack(spacing: 2) {
+                                                    if let info = attInfo, info.totalLessons > 0 {
+                                                        Text(String(format: "%.2f", info.score))
+                                                            .font(.caption.bold())
+                                                            .padding(.horizontal, 6)
+                                                            .padding(.vertical, 2)
+                                                            .background(
+                                                                RoundedRectangle(cornerRadius: 6)
+                                                                    .fill(info.isComplete ? Color.green.opacity(0.2) : Color.secondary.opacity(0.12))
+                                                            )
+                                                            .foregroundStyle(info.isComplete ? .green : .secondary)
+                                                            .help(info.isComplete ? store.t("attendanceCompletedHint") : store.t("attendanceInProgressHint"))
+
+                                                        Text("\(String(format: "%.1f", info.presentHours))/\(String(format: "%.1f", info.totalHours))h")
+                                                            .font(.system(size: 9, weight: .semibold))
+                                                            .foregroundStyle(.secondary)
+                                                    } else {
+                                                        Text("—").foregroundStyle(.secondary)
+                                                    }
+                                                }
+                                                .frame(width: 128, height: 48)
+                                                .background(
+                                                    RoundedRectangle(cornerRadius: 6)
+                                                        .fill(tableRowCellFill(colorScheme, isAlt: isAlt))
+                                                        .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(tableRowCellStroke(colorScheme)))
+                                                )
+                                            }
+
+                                            ForEach(activities) { act in
+                                                GradeCellView(
+                                                    courseIndex: cIdx,
+                                                    studentId: st.id,
+                                                    activity: act,
+                                                    activeSheet: $activeSheet
+                                                )
+                                                .disabled(course.archived)
+                                                .frame(width: 150, height: 48)
+                                                .background(
+                                                    RoundedRectangle(cornerRadius: 6)
+                                                        .fill(tableRowCellFill(colorScheme, isAlt: isAlt))
+                                                        .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(tableRowCellStroke(colorScheme)))
+                                                )
+                                            }
+                                        }
+                                    }
+                                    Spacer(minLength: 0)
+                                }
+                                .frame(minHeight: minTableHeight, alignment: .top)
+                            }
                         }
+                        .frame(minHeight: minTableHeight, alignment: .top)
                     }
                 }
                 .frame(minHeight: 450, maxHeight: .infinity, alignment: .top)
@@ -2031,6 +2293,7 @@ public struct ModuleCalendarView: View {
     @State private var collisionMoveData: (slotKey: String, toDate: String)? = nil
     @State private var showCollisionAlert: Bool = false
     @State private var showScanGoogleSheet: Bool = false
+    @State private var quickActionSlotKey: String? = nil
 
     public var body: some View {
         guard let course = store.activeCourse,
@@ -2527,7 +2790,7 @@ public struct ModuleCalendarView: View {
         }()
 
         Button {
-            activeSheet = .lessonPlan(courseId: course.id, sectionId: mod.id, slotKey: sess.slotKey)
+            quickActionSlotKey = sess.slotKey
         } label: {
             VStack(alignment: .leading, spacing: 2) {
                 HStack {
@@ -2556,6 +2819,30 @@ public struct ModuleCalendarView: View {
             .foregroundStyle(boxForeground)
         }
         .buttonStyle(.plain)
+        .popover(
+            isPresented: Binding(
+                get: { quickActionSlotKey == sess.slotKey },
+                set: { if !$0 && quickActionSlotKey == sess.slotKey { quickActionSlotKey = nil } }
+            ),
+            arrowEdge: .bottom
+        ) {
+            QuickLessonActionPopover(
+                course: course,
+                module: mod,
+                slotKey: sess.slotKey,
+                lessonNum: sess.lessonNum,
+                palette: pal,
+                onOpenFullLessonPlan: { updatedKey in
+                    quickActionSlotKey = nil
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                        activeSheet = .lessonPlan(courseId: course.id, sectionId: mod.id, slotKey: updatedKey)
+                    }
+                },
+                onClose: {
+                    quickActionSlotKey = nil
+                }
+            )
+        }
         .contextMenu {
             Button {
                 store.copyLessonStudentInvitation(course: course, module: mod, slotKey: sess.slotKey)
@@ -3514,7 +3801,7 @@ public struct RosterView: View {
                 } else {
                     // Aligned Table Container wrapped in GeometryReader for responsive full width without column squishing
                     GeometryReader { geo in
-                        let contentWidth = max(geo.size.width, 880)
+                        let contentWidth = max(geo.size.width, 940)
                         ScrollView(.horizontal, showsIndicators: contentWidth > geo.size.width) {
                             VStack(spacing: 0) {
                                 // Table Header Row
@@ -3610,51 +3897,53 @@ public struct RosterView: View {
                                                     }
                                                     .controlSize(.small)
 
-                                                    if store.showFormerGroupStudents {
-                                                        Button(store.t("reinsertBtn")) {
-                                                            store.recordUndoSnapshot()
-                                                            if !store.state.courses[cIdx].levels[lIdx].modules[mIdx].studentIds.contains(st.id) {
-                                                                store.state.courses[cIdx].levels[lIdx].modules[mIdx].studentIds.append(st.id)
+                                                    if !course.archived {
+                                                        if store.showFormerGroupStudents {
+                                                            Button(store.t("reinsertBtn")) {
+                                                                store.recordUndoSnapshot()
+                                                                if !store.state.courses[cIdx].levels[lIdx].modules[mIdx].studentIds.contains(st.id) {
+                                                                    store.state.courses[cIdx].levels[lIdx].modules[mIdx].studentIds.append(st.id)
+                                                                }
+                                                                store.state.courses[cIdx].formerStudentIds.removeAll { $0 == st.id }
+                                                                store.persist()
                                                             }
-                                                            store.state.courses[cIdx].formerStudentIds.removeAll { $0 == st.id }
-                                                            store.persist()
-                                                        }
-                                                        .buttonStyle(.borderedProminent)
-                                                        .tint(.green)
-                                                        .controlSize(.small)
-                                                    } else {
-                                                        // 1. Yellow Archive Icon Button (Moves student to Ex Studenti)
-                                                        Button {
-                                                            store.archiveStudentInGroup(cIdx: cIdx, lIdx: lIdx, mIdx: mIdx, studentId: st.id)
-                                                        } label: {
-                                                            Image(systemName: "archivebox.fill")
-                                                                .font(.system(size: 12, weight: .bold))
-                                                                .foregroundStyle(Color(red: 0.55, green: 0.35, blue: 0.0))
-                                                                .frame(width: 28, height: 26)
-                                                                .background(
-                                                                    RoundedRectangle(cornerRadius: 7)
-                                                                        .fill(Color.yellow.opacity(0.32))
-                                                                        .overlay(RoundedRectangle(cornerRadius: 7).strokeBorder(Color.orange.opacity(0.65), lineWidth: 1))
-                                                                )
-                                                        }
-                                                        .buttonStyle(.plain)
-                                                        .help(store.t("archiveStudentTooltip"))
+                                                            .buttonStyle(.borderedProminent)
+                                                            .tint(.green)
+                                                            .controlSize(.small)
+                                                        } else {
+                                                            // 1. Yellow Archive Icon Button (Moves student to Ex Studenti)
+                                                            Button {
+                                                                store.archiveStudentInGroup(cIdx: cIdx, lIdx: lIdx, mIdx: mIdx, studentId: st.id)
+                                                            } label: {
+                                                                Image(systemName: "archivebox.fill")
+                                                                    .font(.system(size: 12, weight: .bold))
+                                                                    .foregroundStyle(Color(red: 0.55, green: 0.35, blue: 0.0))
+                                                                    .frame(width: 28, height: 26)
+                                                                    .background(
+                                                                        RoundedRectangle(cornerRadius: 7)
+                                                                            .fill(Color.yellow.opacity(0.32))
+                                                                            .overlay(RoundedRectangle(cornerRadius: 7).strokeBorder(Color.orange.opacity(0.65), lineWidth: 1))
+                                                                    )
+                                                            }
+                                                            .buttonStyle(.plain)
+                                                            .help(store.t("archiveStudentTooltip"))
 
-                                                        // 2. Red X Icon Button (Shows pop-up proposing to archive instead of removing)
-                                                        Button {
-                                                            studentForRemovePrompt = st
-                                                        } label: {
-                                                            Image(systemName: "xmark")
-                                                                .font(.system(size: 12, weight: .heavy))
-                                                                .foregroundStyle(.white)
-                                                                .frame(width: 28, height: 26)
-                                                                .background(
-                                                                    RoundedRectangle(cornerRadius: 7)
-                                                                        .fill(Color.red)
-                                                                )
+                                                            // 2. Red X Icon Button (Shows pop-up proposing to archive instead of removing)
+                                                            Button {
+                                                                studentForRemovePrompt = st
+                                                            } label: {
+                                                                Image(systemName: "xmark")
+                                                                    .font(.system(size: 12, weight: .heavy))
+                                                                    .foregroundStyle(.white)
+                                                                    .frame(width: 28, height: 26)
+                                                                    .background(
+                                                                        RoundedRectangle(cornerRadius: 7)
+                                                                            .fill(Color.red)
+                                                                    )
+                                                            }
+                                                            .buttonStyle(.plain)
+                                                            .help(store.t("removeFromGroupBtn"))
                                                         }
-                                                        .buttonStyle(.plain)
-                                                        .help(store.t("removeFromGroupBtn"))
                                                     }
                                                 }
                                                 .frame(width: 165, alignment: .trailing)
@@ -3670,8 +3959,10 @@ public struct RosterView: View {
                                     }
                                 }
                             }
-                            .frame(width: contentWidth)
+                            .frame(width: contentWidth, alignment: .leading)
+                            .frame(minHeight: geo.size.height, alignment: .top)
                         }
+                        .frame(width: geo.size.width, height: geo.size.height)
                     }
                     .clipShape(RoundedRectangle(cornerRadius: 14))
                     .appCardStyle(cornerRadius: 14)

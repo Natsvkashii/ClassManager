@@ -55,6 +55,7 @@ public final class AppStore {
     public var calendarFilterCourseId: String = "ALL"
     public var selectedBillingCourseId: String = ""
     public var selectedRubricId: String = ""
+    public var inspectingArchivedCourseId: String? = nil
     public var toastMessage: String? = nil
     public var lastICloudSyncDate: Date? = nil
 
@@ -633,12 +634,41 @@ public final class AppStore {
     }
 
     public var activeCourseIndex: Int? {
-        state.courses.firstIndex(where: { $0.id == state.activeCourseId && !$0.archived })
+        if let archId = inspectingArchivedCourseId,
+           let archIdx = state.courses.firstIndex(where: { $0.id == archId && $0.archived }) {
+            return archIdx
+        }
+        return state.courses.firstIndex(where: { $0.id == state.activeCourseId && !$0.archived })
     }
 
     public var activeCourse: Course? {
         guard let idx = activeCourseIndex else { return nil }
         return state.courses[idx]
+    }
+
+    public var isInspectingArchivedCourse: Bool {
+        activeCourse?.archived == true
+    }
+
+    public func openArchivedCourseReadOnly(_ courseId: String) {
+        guard let c = state.courses.first(where: { $0.id == courseId && $0.archived }) else { return }
+        // Do NOT set c.archived = false and do NOT overwrite state.activeCourseId
+        inspectingArchivedCourseId = c.id
+        selectLatestLevelAndModule(for: c)
+        currentTab = .attendance
+    }
+
+    public func restoreArchivedCourse(_ courseId: String) {
+        guard let cIdx = state.courses.firstIndex(where: { $0.id == courseId }) else { return }
+        recordUndoSnapshot()
+        state.courses[cIdx].archived = false
+        state.activeCourseId = courseId
+        if inspectingArchivedCourseId == courseId {
+            inspectingArchivedCourseId = nil
+        }
+        selectLatestLevelAndModule(for: state.courses[cIdx])
+        persist()
+        showToast("\(t("restoreCourseBtn")): \(state.courses[cIdx].name)")
     }
 
     public func palette(for colorId: String) -> CourseColorInfo {
@@ -711,7 +741,12 @@ public final class AppStore {
 
     public func switchCourse(_ courseId: String, tab: NavigationTab? = nil) {
         guard let c = state.courses.first(where: { $0.id == courseId }) else { return }
-        state.activeCourseId = c.id
+        if c.archived {
+            inspectingArchivedCourseId = c.id
+        } else {
+            inspectingArchivedCourseId = nil
+            state.activeCourseId = c.id
+        }
         selectLatestLevelAndModule(for: c)
         if let t = tab {
             currentTab = t
@@ -821,6 +856,10 @@ public final class AppStore {
 
     public func cycleAttendance(studentId: String, slotKey: String) {
         guard let (cIdx, lIdx, mIdx) = activeIndices() else { return }
+        if state.courses[cIdx].archived {
+            showToast("🔒 Corso archiviato in sola lettura. Ripristina il corso per modificarlo.")
+            return
+        }
         recordUndoSnapshot()
         let order = ["", "P", "A", "G"]
         let curr = state.courses[cIdx].levels[lIdx].modules[mIdx].attendance[studentId]?[slotKey] ?? ""
@@ -837,10 +876,109 @@ public final class AppStore {
         persist()
     }
 
+    /// Updates a lesson's date and start/end times directly from the Quick Lesson Action Menu.
+    @discardableResult
+    public func quickUpdateLessonDateAndTime(
+        courseId: String,
+        moduleId: String,
+        slotKey: String,
+        newDateStr: String,
+        newStartTime: String,
+        newEndTime: String
+    ) -> String {
+        guard let cIdx = state.courses.firstIndex(where: { $0.id == courseId }) else { return slotKey }
+        if state.courses[cIdx].archived {
+            showToast("🔒 Corso archiviato in sola lettura.")
+            return slotKey
+        }
+        var lIdxFound: Int? = nil
+        var mIdxFound: Int? = nil
+        for (li, l) in state.courses[cIdx].levels.enumerated() {
+            if let mi = l.modules.firstIndex(where: { $0.id == moduleId }) {
+                lIdxFound = li
+                mIdxFound = mi
+                break
+            }
+        }
+        guard let lIdx = lIdxFound, let mIdx = mIdxFound else { return slotKey }
+
+        recordUndoSnapshot()
+
+        let oldDateOnly = extractDate(from: slotKey)
+        var effectiveSlotKey = slotKey
+
+        if oldDateOnly != newDateStr {
+            let existingDates = state.courses[cIdx].levels[lIdx].modules[mIdx].dates.filter { $0 != slotKey }
+            let candidate = existingDates.contains(newDateStr)
+                ? "\(newDateStr)__\(UUID().uuidString.prefix(5).lowercased())"
+                : newDateStr
+            effectiveSlotKey = candidate
+
+            if let dIdx = state.courses[cIdx].levels[lIdx].modules[mIdx].dates.firstIndex(of: slotKey) {
+                state.courses[cIdx].levels[lIdx].modules[mIdx].dates[dIdx] = candidate
+            }
+
+            for stId in Array(state.courses[cIdx].levels[lIdx].modules[mIdx].attendance.keys) {
+                if let val = state.courses[cIdx].levels[lIdx].modules[mIdx].attendance[stId]?[slotKey] {
+                    state.courses[cIdx].levels[lIdx].modules[mIdx].attendance[stId]?[candidate] = val
+                    state.courses[cIdx].levels[lIdx].modules[mIdx].attendance[stId]?.removeValue(forKey: slotKey)
+                }
+            }
+
+            if var b = state.courses[cIdx].levels[lIdx].modules[mIdx].billing,
+               let priceOverride = b.lessonOverrides[slotKey] {
+                b.lessonOverrides.removeValue(forKey: slotKey)
+                b.lessonOverrides[candidate] = priceOverride
+                state.courses[cIdx].levels[lIdx].modules[mIdx].billing = b
+            }
+        }
+
+        if let lesIdx = state.courses[cIdx].lessons.firstIndex(where: {
+            $0.slotKey == slotKey && ($0.sectionId == nil || $0.sectionId == moduleId)
+        }) {
+            state.courses[cIdx].lessons[lesIdx].date = newDateStr
+            state.courses[cIdx].lessons[lesIdx].slotKey = effectiveSlotKey
+            state.courses[cIdx].lessons[lesIdx].time = newStartTime
+            state.courses[cIdx].lessons[lesIdx].endTime = newEndTime
+        } else if let fallbackIdx = state.courses[cIdx].lessons.firstIndex(where: {
+            $0.date == oldDateOnly && ($0.slotKey == nil || $0.slotKey?.isEmpty == true) && ($0.sectionId == nil || $0.sectionId == moduleId)
+        }) {
+            state.courses[cIdx].lessons[fallbackIdx].date = newDateStr
+            state.courses[cIdx].lessons[fallbackIdx].slotKey = effectiveSlotKey
+            state.courses[cIdx].lessons[fallbackIdx].time = newStartTime
+            state.courses[cIdx].lessons[fallbackIdx].endTime = newEndTime
+        } else {
+            let newPlan = LessonPlan(
+                sectionId: moduleId,
+                date: newDateStr,
+                slotKey: effectiveSlotKey,
+                time: newStartTime,
+                endTime: newEndTime
+            )
+            state.courses[cIdx].lessons.append(newPlan)
+        }
+
+        state.courses[cIdx].levels[lIdx].modules[mIdx].dates = sortedSlots(
+            for: state.courses[cIdx],
+            module: state.courses[cIdx].levels[lIdx].modules[mIdx]
+        )
+
+        persist()
+        if state.settings.autoSyncAppleCalendar {
+            syncCourseToAppleCalendar(state.courses[cIdx], showNotification: false)
+        }
+        showToast("⏰ Data e orario lezione aggiornati (\(formatDateDisplay(newDateStr)) \(formatTimeDisplay(newStartTime))-\(formatTimeDisplay(newEndTime)))")
+        return effectiveSlotKey
+    }
+
     /// Moves a lesson to a new date, updating the module schedule, attendance records, lesson plan, and Apple Calendar.
     @discardableResult
     public func moveLesson(courseId: String, moduleId: String, slotKey: String, toDate newDateStr: String) -> Bool {
         guard let cIdx = state.courses.firstIndex(where: { $0.id == courseId }) else { return false }
+        if state.courses[cIdx].archived {
+            showToast("🔒 Corso archiviato in sola lettura.")
+            return false
+        }
         var lIdxFound: Int? = nil
         var mIdxFound: Int? = nil
         for (li, l) in state.courses[cIdx].levels.enumerated() {
@@ -920,6 +1058,10 @@ public final class AppStore {
     @discardableResult
     public func moveLessonShiftingForward(courseId: String, moduleId: String, slotKey: String, toDate newDateStr: String) -> Bool {
         guard let cIdx = state.courses.firstIndex(where: { $0.id == courseId }) else { return false }
+        if state.courses[cIdx].archived {
+            showToast("🔒 Corso archiviato in sola lettura.")
+            return false
+        }
         var lIdxFound: Int? = nil
         var mIdxFound: Int? = nil
         for (li, l) in state.courses[cIdx].levels.enumerated() {
@@ -1049,6 +1191,10 @@ public final class AppStore {
 
     public func deleteLevel(courseId: String, levelId: String) {
         guard let cIdx = state.courses.firstIndex(where: { $0.id == courseId }) else { return }
+        if state.courses[cIdx].archived {
+            showToast("🔒 Corso archiviato in sola lettura.")
+            return
+        }
         recordUndoSnapshot()
         if state.courses[cIdx].levels.count > 1 {
             state.courses[cIdx].levels.removeAll { $0.id == levelId }
@@ -1065,6 +1211,10 @@ public final class AppStore {
     public func deleteModule(courseId: String, levelId: String, moduleId: String) {
         guard let cIdx = state.courses.firstIndex(where: { $0.id == courseId }),
               let lIdx = state.courses[cIdx].levels.firstIndex(where: { $0.id == levelId }) else { return }
+        if state.courses[cIdx].archived {
+            showToast("🔒 Corso archiviato in sola lettura.")
+            return
+        }
         recordUndoSnapshot()
         state.courses[cIdx].lessons.removeAll { $0.sectionId == moduleId }
         if state.courses[cIdx].levels[lIdx].modules.count > 1 {

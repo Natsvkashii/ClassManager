@@ -23,6 +23,7 @@ public enum ActiveModalSheet: Identifiable {
     case studentRubricEval(studentId: String, activityId: String)
     case studentDetail(String)
     case newGlobalStudent
+    case exportCoursePDF(Course)
     case updatePrompt(GitHubRelease)
     case onboarding
 
@@ -43,6 +44,7 @@ public enum ActiveModalSheet: Identifiable {
         case .studentRubricEval(let st, let act): return "rubricEval_\(st)_\(act)"
         case .studentDetail(let id): return "studentDetail_\(id)"
         case .newGlobalStudent: return "newGlobalStudent"
+        case .exportCoursePDF(let c): return "exportCoursePDF_\(c.id)"
         case .updatePrompt(let rel): return "updatePrompt_\(rel.tag_name)"
         case .onboarding: return "onboarding"
         }
