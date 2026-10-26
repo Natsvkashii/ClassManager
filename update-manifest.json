@@ -1,15 +1,15 @@
 {
-  "version": "26.10.5-002",
+  "version": "26.10.5-003",
   "channel": "unstable",
-  "tag_name": "v26.10.5-002",
+  "tag_name": "v26.10.5-003",
   "prerelease": true,
-  "published_at": "2026-10-26T17:15:00Z",
-  "name": "ClassDesk v26.10.5-002 (Beta / Unstable)",
-  "body": "Novità Ufficiali ClassDesk v26.10.5-002 (Beta / Unstable):\n- Barra di Scorrimento Orizzontale Ancorata in Fondo: nelle sezioni Voti e Presenze la barra di scorrimento orizzontale è ora permanentemente ancorata nella parte inferiore della pagina anziché fluttuare sotto la lista studenti.\n- Colonna Nomi Fissa (Sticky) nei Voti: la colonna sinistra con nomi degli studenti, stato di approvazione e media finale resta bloccata e sempre visibile durante lo scorrimento orizzontale delle attività valutate.\n- Intestazione Presenze nei Voti Semplificata: rimossa l'icona dell'ingranaggio e il punteggio massimo dall'intestazione 'PRESENZE' nella scheda voti, preservando la percentuale di ponderazione e il calcolo automatico.\n- Registro Presenze Pulito: rimosso il badge testuale 'OGGI' dalle presenze, mantenendo l'evidenziazione visiva e cromatica della data odierna.\n- Scheda Iscritti Responsive: risolta l'anomala compressione del testo e il wrapping delle lettere nelle finestre ridotte, garantendo tabelle orizzontalmente scorrevoli e leggibili.\n- Gestione Dati Fatturazione & Associazione Multi-Profilo: banca dati clienti vuota di default senza autogenerazione da corsi/studenti; nuova schermata statica direttamente sul fondo scheda bianca; pulsante 'Associa dati di fatturazione' per collegare profili esistenti; supporto a profili multipli per gruppo con navigazione a frecce (‹ Cliente X di N ›) e pulsante '+ Aggiungi'; form di creazione cliente con sezioni chiare ad alto contrasto e campi visibili.\n- Anagrafica a Schermo Intero: la tabella dell'anagrafica occupa il 100% della larghezza della finestra eliminando i vuoti bianchi laterali.\n- Canale Centralizzato 0/1: gestione unificata del canale (0 = stable, 1 = unstable) che aggiorna autonomamente colori, badge e scritte dell'intera interfaccia al cambio di ramo.",
-  "setupUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.10.5-002/ClassDesk-26.10.5-002-Setup.exe",
-  "setupName": "ClassDesk-26.10.5-002-Setup.exe",
-  "macZipUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.10.5-002/ClassDesk-26.10.5-002-macOS.zip",
-  "macZipName": "ClassDesk-26.10.5-002-macOS.zip",
-  "macPkgUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.10.5-002/ClassDesk-26.10.5-002-Installer.pkg",
-  "macPkgName": "ClassDesk-26.10.5-002-Installer.pkg"
+  "published_at": "2026-10-26T23:55:00Z",
+  "name": "ClassDesk v26.10.5-003 (Beta / Unstable)",
+  "body": "Novità Ufficiali ClassDesk v26.10.5-003 (Beta / Unstable):\n- Esportazione Corso in PDF A4 con Indice Cliccabile: pulsante Condividi in stile Apple nella dashboard con wizard a 3 passaggi, master toggle 'Esporta tutti i moduli e livelli', selezione elementi (Presenze, Voti, Attività, Criteri, Piano lezioni, Struttura, Iscritti), raggruppamento per tipo o per modulo/livello, intestazione livello/modulo in alto a destra e indice cliccabile all'inizio.\n- Report Guadagni & Grafico a Candele in Fatturazione: nuova sezione con navigatore annuale a frecce, grafico a candele mensile SVG, riepilogo 12 mesi con ore e ricavi, quadratini del calendario mensile (1..31) colorati per lezioni di corso e grigi per giorni liberi, classifica clienti per spesa annuale e mensile, e 3 esportazioni PDF (Annuale, Annuale Dettagliato, Mensile).\n- Menu Azioni Rapide Lezioni: cliccando su una data in Presenze o su una lezione nel Piano lezioni si apre un menu rapido per modificare data e orari, con pulsante a matita Apple per la pianificazione completa.\n- Apertura Corsi Archiviati in Sola Lettura: pulsante 'Apri Corso' nell'Archivio per consultare il corso senza riattivarlo, con banner informativo e blocco modifiche.\n- Scrollbar Orizzontale Ancorata in Fondo: posizionata sul limite inferiore del riquadro bianco in Presenze e Voti anche con pochi studenti.\n- Fix Responsive Anagrafica e Iscritti: eliminato ogni taglio di colonne e spazio vuoto laterale su finestre ridotte.",
+  "setupUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.10.5-003/ClassDesk-26.10.5-003-Setup.exe",
+  "setupName": "ClassDesk-26.10.5-003-Setup.exe",
+  "macZipUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.10.5-003/ClassDesk-26.10.5-003-macOS.zip",
+  "macZipName": "ClassDesk-26.10.5-003-macOS.zip",
+  "macPkgUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.10.5-003/ClassDesk-26.10.5-003-Installer.pkg",
+  "macPkgName": "ClassDesk-26.10.5-003-Installer.pkg"
 }
