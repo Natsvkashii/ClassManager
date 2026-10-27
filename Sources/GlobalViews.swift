@@ -1042,14 +1042,14 @@ public struct ArchiveView: View {
                                     Divider()
                                     HStack(spacing: 8) {
                                         Button {
-                                            store.openArchivedCourseReadOnly(course.id)
+                                            store.openArchivedCourse(course.id)
                                         } label: {
-                                            Label(store.t("openBtn"), systemImage: "eye.fill")
+                                            Label(store.t("openBtn"), systemImage: "folder.badge.gearshape")
                                                 .font(.caption.bold())
                                         }
                                         .buttonStyle(.borderedProminent)
                                         .tint(pal.color)
-                                        .help("Apri corso archiviato in sola lettura senza riattivarlo")
+                                        .help("Apri e visualizza il corso archiviato nelle normali schede")
 
                                         Button(store.t("restoreCourseBtn")) {
                                             store.restoreArchivedCourse(course.id)
@@ -1361,7 +1361,13 @@ public struct BillingView: View {
             if billingTabMode == "database" {
                 billingContactsDatabaseView(pal: pal)
             } else if billingTabMode == "analytics" {
-                BillingEarningsAnalyticsView()
+                ScrollView(.vertical, showsIndicators: true) {
+                    BillingEarningsAnalyticsView()
+                        .padding(.horizontal, 22)
+                        .padding(.top, 8)
+                        .padding(.bottom, 36)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 courseBillingMainView
             }

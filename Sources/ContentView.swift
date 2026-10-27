@@ -132,48 +132,6 @@ public struct ContentView: View {
                     UpdateNotificationBanner(release: rel)
                 }
 
-                if store.isInspectingArchivedCourse, let archCourse = store.activeCourse {
-                    HStack(spacing: 12) {
-                        Image(systemName: "lock.shield.fill")
-                            .font(.system(size: 16, weight: .bold))
-                            .foregroundStyle(.orange)
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("Corso Archiviato in Sola Lettura: \(archCourse.name)")
-                                .font(.subheadline.bold())
-                                .foregroundStyle(.primary)
-                            Text("Le informazioni dentro i corsi archiviati non sono modificabili finché non si ripristina il corso.")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                        Spacer()
-                        Button {
-                            store.inspectingArchivedCourseId = nil
-                            store.currentTab = .archived
-                        } label: {
-                            Label("Torna all'Archivio", systemImage: "arrow.left")
-                                .font(.caption.bold())
-                        }
-                        .buttonStyle(.bordered)
-                        .controlSize(.small)
-
-                        Button {
-                            store.restoreArchivedCourse(archCourse.id)
-                        } label: {
-                            Label(store.t("restoreCourseBtn"), systemImage: "arrow.uturn.backward.circle.fill")
-                                .font(.caption.bold())
-                        }
-                        .buttonStyle(.borderedProminent)
-                        .tint(.orange)
-                        .controlSize(.small)
-                    }
-                    .padding(.horizontal, 18)
-                    .padding(.vertical, 10)
-                    .background(Color.orange.opacity(0.14))
-                    .overlay(alignment: .bottom) {
-                        Divider()
-                    }
-                }
-
                 // Main Content Workspace with high-contrast Light/Dark canvas background
                 ZStack(alignment: .bottomTrailing) {
                     mainWorkspaceView
@@ -509,7 +467,7 @@ private struct SidebarView: View {
         let courseTabSet: Set<NavigationTab> = [.attendance, .grades, .activities, .rubrics, .moduleStudentCalendar, .courseConfig, .formerStudents]
         return Button {
             if !courseTabSet.contains(tab) {
-                store.inspectingArchivedCourseId = nil
+                store.rearchiveTemporarilyInspectedCourseIfNeeded()
             }
             store.currentTab = tab
         } label: {
@@ -622,42 +580,30 @@ private struct TopUnifiedHeaderBar: View {
                                     .padding(.vertical, 3)
                                     .background(RoundedRectangle(cornerRadius: 7).fill(palette.color))
 
-                                    if course.archived {
-                                        HStack(spacing: 4) {
-                                            Image(systemName: "archivebox.fill")
-                                                .font(.caption2)
-                                                .foregroundStyle(.orange)
-                                            Text("\(course.name) (Archiviato)")
-                                                .font(.caption.bold())
-                                                .lineLimit(1)
+                                    Picker("", selection: Binding(
+                                        get: { course.id },
+                                        set: { store.switchCourse($0) }
+                                    )) {
+                                        ForEach(activeCourses) { c in
+                                            let cBadge = store.formatLevelModuleBadge(course: c)
+                                            Text("\(c.name) (\(cBadge))").tag(c.id)
                                         }
-                                        .padding(.horizontal, 6)
-                                    } else {
-                                        Picker("", selection: Binding(
-                                            get: { course.id },
-                                            set: { store.switchCourse($0) }
-                                        )) {
-                                            ForEach(activeCourses) { c in
-                                                let cBadge = store.formatLevelModuleBadge(course: c)
-                                                Text("\(c.name) (\(cBadge))").tag(c.id)
-                                            }
-                                        }
-                                        .labelsHidden()
-                                        .frame(minWidth: 95, idealWidth: 145, maxWidth: 200)
-                                        .lineLimit(1)
-
-                                        Button {
-                                            onEditActiveCourse()
-                                        } label: {
-                                            Image(systemName: "pencil")
-                                                .font(.caption.bold())
-                                                .padding(5)
-                                                .background(RoundedRectangle(cornerRadius: 6).fill(palette.color.opacity(0.15)))
-                                                .foregroundStyle(palette.color)
-                                        }
-                                        .buttonStyle(.plain)
-                                        .help(store.t("editBtn"))
                                     }
+                                    .labelsHidden()
+                                    .frame(minWidth: 95, idealWidth: 145, maxWidth: 200)
+                                    .lineLimit(1)
+
+                                    Button {
+                                        onEditActiveCourse()
+                                    } label: {
+                                        Image(systemName: "pencil")
+                                            .font(.caption.bold())
+                                            .padding(5)
+                                            .background(RoundedRectangle(cornerRadius: 6).fill(palette.color.opacity(0.15)))
+                                            .foregroundStyle(palette.color)
+                                    }
+                                    .buttonStyle(.plain)
+                                    .help(store.t("editBtn"))
                                 }
                                 .padding(.horizontal, 10)
                                 .frame(height: 36)

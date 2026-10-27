@@ -16,7 +16,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ClassDesk v26.10.5-003</title>
+    <title>ClassDesk v26.10.5-004</title>
     <link rel="icon" type="image/png" href="logo.png">
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -1278,7 +1278,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
         const IS_UNSTABLE_BUILD = 1;
 
         const INITIAL_DATA = {
-            version: "26.10.5-003",
+            version: "26.10.5-004",
             channel: IS_UNSTABLE_BUILD === 1 ? "unstable" : "stable",
             deletedItems: [],
             billingContacts: [],
@@ -1952,7 +1952,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 this.billingViewTab = "course";
                 this.billingContactSearchQuery = "";
                 this.showStudentLessonNotesInModal = false;
-                this.inspectingArchivedCourseId = null;
+                this.temporarilyInspectedArchivedCourseId = null;
                 this.billingAnalyticsYear = new Date().getFullYear();
                 this.billingAnalyticsSelectedMonth = null;
                 this.coursePdfExportState = null;
@@ -1995,7 +1995,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
 
             applyActiveCourseColorTheme() {
                 const course = this.getActiveCourse();
-                const pal = (course && (!course.archived || this.inspectingArchivedCourseId)) ? this.getCourseColorObj(course.color) : COURSE_COLOR_PALETTE[0];
+                const pal = course ? this.getCourseColorObj(course.color) : COURSE_COLOR_PALETTE[0];
                 const root = document.documentElement;
                 root.style.setProperty("--course-accent", pal.hex);
                 root.style.setProperty("--course-accent-hover", pal.hover);
@@ -2759,47 +2759,29 @@ Removing, obfuscating, or altering these credits violates the author's attributi
             }
 
             getActiveCourse() {
-                if (this.inspectingArchivedCourseId) {
-                    const archivedCourse = (this.state.courses || []).find(c => c.id === this.inspectingArchivedCourseId);
-                    if (archivedCourse) return archivedCourse;
-                    this.inspectingArchivedCourseId = null;
+                return (this.state.courses || []).find(c => c.id === this.state.activeCourseId && !c.archived) || null;
+            }
+
+            openArchivedCourse(courseId) {
+                this.rearchiveTemporarilyInspectedCourseIfNeeded(courseId);
+                const course = (this.state.courses || []).find(c => c.id === courseId);
+                if (!course) return;
+                this.temporarilyInspectedArchivedCourseId = course.id;
+                course.archived = false;
+                this.state.activeCourseId = course.id;
+                this.selectLatestLevelAndModule(course);
+                this.currentTab = "attendance";
+                this.renderAll();
+            }
+
+            rearchiveTemporarilyInspectedCourseIfNeeded(exceptCourseId = null) {
+                if (!this.temporarilyInspectedArchivedCourseId) return;
+                if (this.temporarilyInspectedArchivedCourseId === exceptCourseId) return;
+                const prev = (this.state.courses || []).find(c => c.id === this.temporarilyInspectedArchivedCourseId);
+                if (prev) {
+                    prev.archived = true;
                 }
-                return (this.state.courses || []).find(c => c.id === this.state.activeCourseId) || null;
-            }
-
-            isActiveCourseReadOnly(course = null) {
-                const c = course || this.getActiveCourse();
-                return !!(c && c.archived);
-            }
-
-            renderArchivedReadOnlyBanner(course) {
-                if (!course || !course.archived) return "";
-                return `
-                    <div class="mb-4 rounded-2xl border-2 border-amber-400 dark:border-amber-600 bg-amber-50/95 dark:bg-amber-950/50 p-4 shadow-xs flex flex-wrap items-center justify-between gap-3 text-xs">
-                        <div class="flex items-center gap-3">
-                            <div class="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center text-base shrink-0 shadow-2xs">
-                                <i class="fa-solid fa-box-archive"></i>
-                            </div>
-                            <div>
-                                <div class="flex items-center gap-2 flex-wrap">
-                                    <h3 class="text-sm font-black text-amber-950 dark:text-amber-200">Corso Archiviato — Modalità Sola Lettura</h3>
-                                    <span class="px-2 py-0.5 rounded-full bg-amber-200/80 dark:bg-amber-900 text-amber-900 dark:text-amber-200 text-[10px] font-extrabold uppercase">Sola Lettura</span>
-                                </div>
-                                <p class="text-amber-800 dark:text-amber-300/90 mt-0.5">
-                                    Stai consultando il corso <strong>${this.escapeHtml(course.name)}</strong> dall'archivio senza riattivarlo. Le modifiche sono disabilitate finché il corso non viene ripristinato.
-                                </p>
-                            </div>
-                        </div>
-                        <div class="flex flex-wrap items-center gap-2 shrink-0">
-                            <button type="button" onclick="app.switchTab('archived')" class="px-3.5 py-2 rounded-xl border border-amber-400 dark:border-amber-700 bg-white dark:bg-navy-900 hover:bg-amber-100 dark:hover:bg-navy-800 text-amber-900 dark:text-amber-200 font-extrabold flex items-center gap-1.5 transition">
-                                <i class="fa-solid fa-arrow-left"></i> Torna all'Archivio
-                            </button>
-                            <button type="button" onclick="app.restoreArchivedCourse('${course.id}')" class="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold flex items-center gap-1.5 shadow-2xs transition">
-                                <i class="fa-solid fa-rotate-left"></i> Ripristina Corso
-                            </button>
-                        </div>
-                    </div>
-                `;
+                this.temporarilyInspectedArchivedCourseId = null;
             }
 
             getActiveLevel(course) {
@@ -2851,7 +2833,17 @@ Removing, obfuscating, or altering these credits violates the author's attributi
             async persist() {
                 this.state.lastUpdated = new Date().toISOString();
                 this.syncAllStudentsLevels();
-                await this.memoryDB.saveState(this.state);
+                let stateToSave = this.state;
+                if (this.temporarilyInspectedArchivedCourseId) {
+                    try {
+                        stateToSave = JSON.parse(JSON.stringify(this.state));
+                        const c = (stateToSave.courses || []).find(x => x.id === this.temporarilyInspectedArchivedCourseId);
+                        if (c) c.archived = true;
+                    } catch (e) {
+                        stateToSave = this.state;
+                    }
+                }
+                await this.memoryDB.saveState(stateToSave);
             }
 
             setupSystemThemeListener() {
@@ -3024,7 +3016,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 if (!navContainer) return;
 
                 const curCourse = this.getActiveCourse();
-                const hasActiveCourse = !!curCourse && (!curCourse.archived || !!this.inspectingArchivedCourseId);
+                const hasActiveCourse = !!curCourse && !curCourse.archived;
                 const isHomeActive = this.currentTab === "home";
                 const homeHtml = `
                     <div class="space-y-1 mb-2">
@@ -3039,7 +3031,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
 
                 const groups = [
                     ...(hasActiveCourse ? [{
-                        label: curCourse?.archived ? `${this.t("navCourseSection")} (Archiviato)` : this.t("navCourseSection"),
+                        label: this.t("navCourseSection"),
                         items: [
                             { id: "attendance", icon: "fa-solid fa-clipboard-user", label: this.t("navAttendance") },
                             { id: "grades", icon: "fa-solid fa-award", label: this.t("navGrades") },
@@ -3092,9 +3084,8 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 if (!bar) return;
                 const activeCourses = (this.state.courses || []).filter(c => !c.archived);
                 const course = this.getActiveCourse();
-                const isInspectingArchived = !!(course && course.archived && this.inspectingArchivedCourseId);
 
-                if ((activeCourses.length === 0 && !isInspectingArchived) || !course || (course.archived && !isInspectingArchived)) {
+                if (activeCourses.length === 0 || !course) {
                     bar.innerHTML = `<span class="text-xs font-bold text-slate-400 dark:text-slate-500">${this.escapeHtml(this.t("noActiveCoursesTitle"))}</span>`;
                     return;
                 }
@@ -3112,23 +3103,18 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                                 <span class="w-1.5 h-1.5 rounded-full bg-white"></span>
                                 ${this.escapeHtml(badge)}
                             </span>
-                            ${isInspectingArchived ? `
-                                <span class="text-slate-900 dark:text-white text-xs sm:text-sm font-extrabold px-1.5 py-0.5">${this.escapeHtml(course.name)}</span>
-                                <span class="px-2 py-0.5 rounded-md bg-amber-500 text-white text-[10px] font-black uppercase tracking-wider">Archiviato • Sola Lettura</span>
-                            ` : `
-                                <div class="relative flex items-center">
-                                    <select onchange="app.switchCourse(this.value)" aria-label="${this.t("navCourseSection")}" class="appearance-none bg-transparent text-slate-900 dark:text-white text-xs sm:text-sm font-extrabold pr-5 pl-1 py-0.5 rounded-lg cursor-pointer focus:outline-none">
-                                        ${activeCourses.map(c => {
-                                            const cBadge = this.formatLevelModuleBadge(c);
-                                            return `<option value="${c.id}" ${c.id === course.id ? "selected" : ""} class="bg-white dark:bg-navy-900 text-slate-900 dark:text-white text-xs font-bold">${this.escapeHtml(c.name)} (${this.escapeHtml(cBadge)})</option>`;
-                                        }).join("")}
-                                    </select>
-                                    <i class="fa-solid fa-chevron-down text-[10px] pointer-events-none absolute right-1.5 text-slate-400"></i>
-                                </div>
-                                <button onclick="app.openCourseModal('${course.id}')" class="w-7 h-7 rounded-lg hover:bg-white dark:hover:bg-navy-900 flex items-center justify-center text-xs transition shrink-0" style="color:${pal.hex}" title="${this.t("editBtn")}">
-                                    <i class="fa-solid fa-pen"></i>
-                                </button>
-                            `}
+                            <div class="relative flex items-center">
+                                <select onchange="app.switchCourse(this.value)" aria-label="${this.t("navCourseSection")}" class="appearance-none bg-transparent text-slate-900 dark:text-white text-xs sm:text-sm font-extrabold pr-5 pl-1 py-0.5 rounded-lg cursor-pointer focus:outline-none">
+                                    ${activeCourses.map(c => {
+                                        const cBadge = this.formatLevelModuleBadge(c);
+                                        return `<option value="${c.id}" ${c.id === course.id ? "selected" : ""} class="bg-white dark:bg-navy-900 text-slate-900 dark:text-white text-xs font-bold">${this.escapeHtml(c.name)} (${this.escapeHtml(cBadge)})</option>`;
+                                    }).join("")}
+                                </select>
+                                <i class="fa-solid fa-chevron-down text-[10px] pointer-events-none absolute right-1.5 text-slate-400"></i>
+                            </div>
+                            <button onclick="app.openCourseModal('${course.id}')" class="w-7 h-7 rounded-lg hover:bg-white dark:hover:bg-navy-900 flex items-center justify-center text-xs transition shrink-0" style="color:${pal.hex}" title="${this.t("editBtn")}">
+                                <i class="fa-solid fa-pen"></i>
+                            </button>
                         </div>
 
                         ${activeLevel && activeSection ? `
@@ -3190,7 +3176,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
             switchTab(tabId) {
                 const courseTabs = ["attendance", "grades", "activities", "rubrics", "moduleStudentCalendar", "courseConfig", "formerStudents"];
                 if (!courseTabs.includes(tabId)) {
-                    this.inspectingArchivedCourseId = null;
+                    this.rearchiveTemporarilyInspectedCourseIfNeeded();
                 }
                 if (tabId === "billing" && this.currentTab !== "billing") {
                     this.selectedBillingCourseId = null;
@@ -3202,27 +3188,14 @@ Removing, obfuscating, or altering these credits violates the author's attributi
             }
 
             switchCourse(courseId, targetTab = null) {
+                this.rearchiveTemporarilyInspectedCourseIfNeeded(courseId);
                 const course = (this.state.courses || []).find(c => c.id === courseId);
                 if (!course) return;
-                if (course.archived) {
-                    this.inspectingArchivedCourseId = course.id;
-                } else {
-                    this.inspectingArchivedCourseId = null;
-                    this.state.activeCourseId = course.id;
-                }
+                this.state.activeCourseId = course.id;
                 this.selectLatestLevelAndModule(course);
                 if (targetTab) this.currentTab = targetTab;
                 else if (this.currentTab === "home") this.currentTab = "attendance";
                 this.persist();
-                this.renderAll();
-            }
-
-            openArchivedCourseReadOnly(courseId) {
-                const course = (this.state.courses || []).find(c => c.id === courseId);
-                if (!course) return;
-                this.inspectingArchivedCourseId = course.id;
-                this.selectLatestLevelAndModule(course);
-                this.currentTab = "attendance";
                 this.renderAll();
             }
 
@@ -3312,13 +3285,6 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                         break;
                     default:
                         this.renderHomeView(container);
-                }
-
-                // Prepend archived read-only banner when inspecting an archived course in any course tab
-                const courseTabs = ["attendance", "grades", "activities", "rubrics", "courseConfig", "moduleStudentCalendar", "formerStudents"];
-                const activeCourse = this.getActiveCourse();
-                if (courseTabs.includes(this.currentTab) && activeCourse && activeCourse.archived) {
-                    container.insertAdjacentHTML("afterbegin", this.renderArchivedReadOnlyBanner(activeCourse));
                 }
 
                 // Restore scroll positions after re-rendering
@@ -3671,11 +3637,11 @@ Removing, obfuscating, or altering these credits violates the author's attributi
              */
             renderAttendanceView(container) {
                 const course = this.getActiveCourse();
-                if (!course || (course.archived && !this.inspectingArchivedCourseId)) {
+                if (!course || course.archived) {
                     this.renderHomeView(container);
                     return;
                 }
-                const isReadOnly = !!course.archived;
+                const isReadOnly = false;
                 const activeLevel = this.getActiveLevel(course);
                 const activeSection = this.getActiveSection(course);
                 if (!activeLevel || !activeSection) return;
@@ -7802,8 +7768,8 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                                                 <h3 class="text-sm font-extrabold text-slate-900 dark:text-white mt-2">${this.escapeHtml(c.name)}</h3>
                                             </div>
                                             <div class="flex items-center justify-between gap-2 pt-3 border-t border-sky-100 dark:border-slate-800">
-                                                <button onclick="app.openArchivedCourseReadOnly('${c.id}')" class="flex-1 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-bold flex items-center justify-center gap-1.5 transition text-xs shadow-2xs">
-                                                    <i class="fa-solid fa-arrow-up-right-from-square text-xs"></i> <span>Apri Corso</span>
+                                                <button onclick="app.openArchivedCourse('${c.id}')" class="flex-1 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-bold flex items-center justify-center gap-1.5 transition text-xs shadow-2xs">
+                                                    <i class="fa-solid fa-folder-open text-xs"></i> <span>Apri Corso</span>
                                                 </button>
                                                 <button onclick="app.restoreArchivedCourse('${c.id}')" class="flex-1 py-2 rounded-xl bg-emerald-600 text-white font-bold">${this.t("restoreCourseBtn")}</button>
                                                 <button onclick="app.deleteCoursePermanently('${c.id}')" class="px-3 py-2 rounded-xl border border-rose-200 text-rose-600 font-bold">${this.t("deleteBtn")}</button>
@@ -7822,6 +7788,9 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 if (!c) return;
                 c.archived = false;
                 this.state.activeCourseId = c.id;
+                if (this.temporarilyInspectedArchivedCourseId === courseId) {
+                    this.temporarilyInspectedArchivedCourseId = null;
+                }
                 this.persist();
                 this.renderAll();
             }

@@ -1,15 +1,15 @@
 {
-  "version": "26.10.5-003",
+  "version": "26.10.5-004",
   "channel": "unstable",
-  "tag_name": "v26.10.5-003",
+  "tag_name": "v26.10.5-004",
   "prerelease": true,
-  "published_at": "2026-10-26T23:55:00Z",
-  "name": "ClassDesk v26.10.5-003 (Beta / Unstable)",
-  "body": "Novità Ufficiali ClassDesk v26.10.5-003 (Beta / Unstable):\n- Esportazione Corso in PDF A4 con Indice Cliccabile: pulsante Condividi in stile Apple nella dashboard con wizard a 3 passaggi, master toggle 'Esporta tutti i moduli e livelli', selezione elementi (Presenze, Voti, Attività, Criteri, Piano lezioni, Struttura, Iscritti), raggruppamento per tipo o per modulo/livello, intestazione livello/modulo in alto a destra e indice cliccabile all'inizio.\n- Report Guadagni & Grafico a Candele in Fatturazione: nuova sezione con navigatore annuale a frecce, grafico a candele mensile SVG, riepilogo 12 mesi con ore e ricavi, quadratini del calendario mensile (1..31) colorati per lezioni di corso e grigi per giorni liberi, classifica clienti per spesa annuale e mensile, e 3 esportazioni PDF (Annuale, Annuale Dettagliato, Mensile).\n- Menu Azioni Rapide Lezioni: cliccando su una data in Presenze o su una lezione nel Piano lezioni si apre un menu rapido per modificare data e orari, con pulsante a matita Apple per la pianificazione completa.\n- Apertura Corsi Archiviati in Sola Lettura: pulsante 'Apri Corso' nell'Archivio per consultare il corso senza riattivarlo, con banner informativo e blocco modifiche.\n- Scrollbar Orizzontale Ancorata in Fondo: posizionata sul limite inferiore del riquadro bianco in Presenze e Voti anche con pochi studenti.\n- Fix Responsive Anagrafica e Iscritti: eliminato ogni taglio di colonne e spazio vuoto laterale su finestre ridotte.",
-  "setupUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.10.5-003/ClassDesk-26.10.5-003-Setup.exe",
-  "setupName": "ClassDesk-26.10.5-003-Setup.exe",
-  "macZipUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.10.5-003/ClassDesk-26.10.5-003-macOS.zip",
-  "macZipName": "ClassDesk-26.10.5-003-macOS.zip",
-  "macPkgUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.10.5-003/ClassDesk-26.10.5-003-Installer.pkg",
-  "macPkgName": "ClassDesk-26.10.5-003-Installer.pkg"
+  "published_at": "2026-10-27T00:35:00Z",
+  "name": "ClassDesk v26.10.5-004 (Beta / Unstable)",
+  "body": "Novità Ufficiali ClassDesk v26.10.5-004 (Beta / Unstable):\n- Risoluzione Definitiva Crash Esportazione PDF Corso: eliminato il conflitto di esclusività Swift (_swift_reportExclusivityConflict) in CoursePDFGenerator tramite CoursePDFPageContext di tipo riferimento, garantendo l'esportazione rapida e sicura di tutti i dati del gruppo in formato A4 con indice cliccabile.\n- Layout Pulito e Scrollabile in Fatturazione: la sezione Report Guadagni è ora racchiusa in una ScrollView con spaziatura dedicata, evitando qualsiasi ostruzione di testo, sovrapposizione con il titolo della finestra o taglio dei mesi e della classifica clienti in fondo alla schermata.\n- Apertura Corsi Archiviati nelle Schede Normali: cliccando 'Apri Corso' dall'Archivio il gruppo viene reso temporaneamente disponibile e visualizzato nelle normali schede (Presenze, Voti, Attività, Criteri, ecc.), per poi essere ri-archiviato automaticamente non appena ci si sposta in un altro gruppo o sezione, riutilizzando tutte le viste esistenti e rimuovendo codice e finestre superflue.",
+  "setupUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.10.5-004/ClassDesk-26.10.5-004-Setup.exe",
+  "setupName": "ClassDesk-26.10.5-004-Setup.exe",
+  "macZipUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.10.5-004/ClassDesk-26.10.5-004-macOS.zip",
+  "macZipName": "ClassDesk-26.10.5-004-macOS.zip",
+  "macPkgUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.10.5-004/ClassDesk-26.10.5-004-Installer.pkg",
+  "macPkgName": "ClassDesk-26.10.5-004-Installer.pkg"
 }

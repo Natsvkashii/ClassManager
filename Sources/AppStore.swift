@@ -55,7 +55,7 @@ public final class AppStore {
     public var calendarFilterCourseId: String = "ALL"
     public var selectedBillingCourseId: String = ""
     public var selectedRubricId: String = ""
-    public var inspectingArchivedCourseId: String? = nil
+    public var temporarilyInspectedArchivedCourseId: String? = nil
     public var toastMessage: String? = nil
     public var lastICloudSyncDate: Date? = nil
 
@@ -494,9 +494,16 @@ public final class AppStore {
         purgeExpiredTrashItems()
         state.lastUpdated = AppDateFormatters.currentIsoString()
         syncAllStudentsLevels()
+
+        var stateToPersist = state
+        if let tempId = temporarilyInspectedArchivedCourseId,
+           let idx = stateToPersist.courses.firstIndex(where: { $0.id == tempId }) {
+            stateToPersist.courses[idx].archived = true
+        }
+
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-        if let data = try? encoder.encode(state) {
+        if let data = try? encoder.encode(stateToPersist) {
             try? data.write(to: storageFileURL, options: .atomic)
             // Mirror to legacy ClassManagement path for seamless rollback/backward compatibility
             if let cmDir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first?.appendingPathComponent("ClassManagement", isDirectory: true) {
@@ -634,11 +641,7 @@ public final class AppStore {
     }
 
     public var activeCourseIndex: Int? {
-        if let archId = inspectingArchivedCourseId,
-           let archIdx = state.courses.firstIndex(where: { $0.id == archId && $0.archived }) {
-            return archIdx
-        }
-        return state.courses.firstIndex(where: { $0.id == state.activeCourseId && !$0.archived })
+        state.courses.firstIndex(where: { $0.id == state.activeCourseId && !$0.archived })
     }
 
     public var activeCourse: Course? {
@@ -647,15 +650,28 @@ public final class AppStore {
     }
 
     public var isInspectingArchivedCourse: Bool {
-        activeCourse?.archived == true
+        temporarilyInspectedArchivedCourseId != nil
     }
 
-    public func openArchivedCourseReadOnly(_ courseId: String) {
-        guard let c = state.courses.first(where: { $0.id == courseId && $0.archived }) else { return }
-        // Do NOT set c.archived = false and do NOT overwrite state.activeCourseId
-        inspectingArchivedCourseId = c.id
-        selectLatestLevelAndModule(for: c)
+    /// Opens an archived course by temporarily making it available in normal course tabs.
+    /// It will automatically be re-archived when navigating away or switching courses.
+    public func openArchivedCourse(_ courseId: String) {
+        rearchiveTemporarilyInspectedCourseIfNeeded(exceptCourseId: courseId)
+        guard let idx = state.courses.firstIndex(where: { $0.id == courseId }) else { return }
+        temporarilyInspectedArchivedCourseId = courseId
+        state.courses[idx].archived = false
+        state.activeCourseId = courseId
+        selectLatestLevelAndModule(for: state.courses[idx])
         currentTab = .attendance
+    }
+
+    /// Automatically re-archives the temporarily inspected course when moving to another course or tab.
+    public func rearchiveTemporarilyInspectedCourseIfNeeded(exceptCourseId: String? = nil) {
+        guard let tempId = temporarilyInspectedArchivedCourseId, tempId != exceptCourseId else { return }
+        if let idx = state.courses.firstIndex(where: { $0.id == tempId }) {
+            state.courses[idx].archived = true
+        }
+        temporarilyInspectedArchivedCourseId = nil
     }
 
     public func restoreArchivedCourse(_ courseId: String) {
@@ -663,8 +679,8 @@ public final class AppStore {
         recordUndoSnapshot()
         state.courses[cIdx].archived = false
         state.activeCourseId = courseId
-        if inspectingArchivedCourseId == courseId {
-            inspectingArchivedCourseId = nil
+        if temporarilyInspectedArchivedCourseId == courseId {
+            temporarilyInspectedArchivedCourseId = nil
         }
         selectLatestLevelAndModule(for: state.courses[cIdx])
         persist()
@@ -740,13 +756,9 @@ public final class AppStore {
     }
 
     public func switchCourse(_ courseId: String, tab: NavigationTab? = nil) {
+        rearchiveTemporarilyInspectedCourseIfNeeded(exceptCourseId: courseId)
         guard let c = state.courses.first(where: { $0.id == courseId }) else { return }
-        if c.archived {
-            inspectingArchivedCourseId = c.id
-        } else {
-            inspectingArchivedCourseId = nil
-            state.activeCourseId = c.id
-        }
+        state.activeCourseId = c.id
         selectLatestLevelAndModule(for: c)
         if let t = tab {
             currentTab = t

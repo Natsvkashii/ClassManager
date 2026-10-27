@@ -602,6 +602,27 @@ public struct CoursePDFExportSheet: View {
 
 // MARK: - 2. A4 PDF Generator Engine (CoursePDFGenerator & AnalyticsPDFGenerator)
 
+// MARK: - Course PDF Page Rendering Context (Reference Type to eliminate Exclusivity Conflicts)
+
+final class CoursePDFPageContext {
+    var cursorY: CGFloat = 94.0
+    let maxContentY: CGFloat = 780.0
+    var activeHeaderTitle: String = ""
+    var activeBadge: String = ""
+    var onNewPage: ((String, String) -> Void)?
+
+    init(onNewPage: ((String, String) -> Void)? = nil) {
+        self.onNewPage = onNewPage
+    }
+
+    func ensureSpace(_ neededHeight: CGFloat) {
+        if cursorY + neededHeight > maxContentY {
+            onNewPage?(activeHeaderTitle + " (cont.)", activeBadge)
+            cursorY = 94.0
+        }
+    }
+}
+
 @MainActor
 public enum CoursePDFGenerator {
     public static let pageWidth: CGFloat = 595.28   // Standard A4 Width (pt)
@@ -913,10 +934,7 @@ public enum CoursePDFGenerator {
 
         var bookmarks: [SectionBookmark] = []
         var currentContentPageIndex = -1
-        var cursorY: CGFloat = 0
-        var activeHeaderTitle: String = ""
-        var activeBadge: String = ""
-        let maxContentY: CGFloat = pageHeight - 48.0
+        let pageContext = CoursePDFPageContext()
 
         func startNewPage(sectionTitle: String, levelModBadge: String) {
             if currentContentPageIndex >= 0 {
@@ -931,8 +949,8 @@ public enum CoursePDFGenerator {
             }
 
             currentContentPageIndex += 1
-            activeHeaderTitle = sectionTitle
-            activeBadge = levelModBadge
+            pageContext.activeHeaderTitle = sectionTitle
+            pageContext.activeBadge = levelModBadge
 
             cgContext.beginPDFPage(nil)
             cgContext.saveGState()
@@ -971,13 +989,11 @@ public enum CoursePDFGenerator {
             // Top-Right Badge: Level & Module ("in alto a destra")
             drawTopRightBadge(text: levelModBadge, accent: accentNS, soft: NSColor.white, textAccent: textAccentNS, y: 40)
 
-            cursorY = 94.0
+            pageContext.cursorY = 94.0
         }
 
-        func ensureVerticalSpace(_ neededHeight: CGFloat) {
-            if cursorY + neededHeight > maxContentY {
-                startNewPage(sectionTitle: activeHeaderTitle + " (cont.)", levelModBadge: activeBadge)
-            }
+        pageContext.onNewPage = { newTitle, badge in
+            startNewPage(sectionTitle: newTitle, levelModBadge: badge)
         }
 
         func renderElement(
@@ -987,6 +1003,8 @@ public enum CoursePDFGenerator {
             badge: String
         ) {
             let sectionTitle = "\(element.titleIt) — \(badge)"
+            pageContext.activeHeaderTitle = element.titleIt
+            pageContext.activeBadge = badge
             startNewPage(sectionTitle: element.titleIt, levelModBadge: badge)
             bookmarks.append(SectionBookmark(
                 title: sectionTitle,
@@ -1005,8 +1023,7 @@ public enum CoursePDFGenerator {
                     accentNS: accentNS,
                     softNS: softNS,
                     textAccentNS: textAccentNS,
-                    cursorY: &cursorY,
-                    ensureSpace: ensureVerticalSpace
+                    context: pageContext
                 )
             case .grades:
                 renderGradesSection(
@@ -1017,8 +1034,7 @@ public enum CoursePDFGenerator {
                     accentNS: accentNS,
                     softNS: softNS,
                     textAccentNS: textAccentNS,
-                    cursorY: &cursorY,
-                    ensureSpace: ensureVerticalSpace
+                    context: pageContext
                 )
             case .activities:
                 renderActivitiesSection(
@@ -1027,8 +1043,7 @@ public enum CoursePDFGenerator {
                     accentNS: accentNS,
                     softNS: softNS,
                     textAccentNS: textAccentNS,
-                    cursorY: &cursorY,
-                    ensureSpace: ensureVerticalSpace
+                    context: pageContext
                 )
             case .rubrics:
                 renderRubricsSection(
@@ -1037,8 +1052,7 @@ public enum CoursePDFGenerator {
                     accentNS: accentNS,
                     softNS: softNS,
                     textAccentNS: textAccentNS,
-                    cursorY: &cursorY,
-                    ensureSpace: ensureVerticalSpace
+                    context: pageContext
                 )
             case .lessons:
                 renderLessonsSection(
@@ -1048,8 +1062,7 @@ public enum CoursePDFGenerator {
                     accentNS: accentNS,
                     softNS: softNS,
                     textAccentNS: textAccentNS,
-                    cursorY: &cursorY,
-                    ensureSpace: ensureVerticalSpace
+                    context: pageContext
                 )
             case .structure:
                 renderStructureSection(
@@ -1060,8 +1073,7 @@ public enum CoursePDFGenerator {
                     accentNS: accentNS,
                     softNS: softNS,
                     textAccentNS: textAccentNS,
-                    cursorY: &cursorY,
-                    ensureSpace: ensureVerticalSpace
+                    context: pageContext
                 )
             case .students:
                 renderStudentsSection(
@@ -1071,8 +1083,7 @@ public enum CoursePDFGenerator {
                     accentNS: accentNS,
                     softNS: softNS,
                     textAccentNS: textAccentNS,
-                    cursorY: &cursorY,
-                    ensureSpace: ensureVerticalSpace
+                    context: pageContext
                 )
             }
         }
@@ -1118,8 +1129,7 @@ public enum CoursePDFGenerator {
         accentNS: NSColor,
         softNS: NSColor,
         textAccentNS: NSColor,
-        cursorY: inout CGFloat,
-        ensureSpace: (CGFloat) -> Void
+        context: CoursePDFPageContext
     ) {
         let students = store.getModuleStudents(course: course, module: module)
         let slots = store.sortedSlots(for: course, module: module)
@@ -1135,11 +1145,11 @@ public enum CoursePDFGenerator {
             ],
             softNS: softNS,
             textAccentNS: textAccentNS,
-            cursorY: &cursorY
+            cursorY: &context.cursorY
         )
 
         if students.isEmpty {
-            drawEmptyNotice("Nessuno studente iscritto a questo modulo.", cursorY: &cursorY)
+            drawEmptyNotice("Nessuno studente iscritto a questo modulo.", cursorY: &context.cursorY)
             return
         }
 
@@ -1150,11 +1160,11 @@ public enum CoursePDFGenerator {
             widths: colWidths,
             softNS: softNS,
             textAccentNS: textAccentNS,
-            cursorY: &cursorY
+            cursorY: &context.cursorY
         )
 
         for (idx, st) in students.enumerated() {
-            ensureSpace(26)
+            context.ensureSpace(26)
             let stAtt = module.attendance[st.id] ?? [:]
             var pCount = 0
             var aCount = 0
@@ -1182,25 +1192,25 @@ public enum CoursePDFGenerator {
                 ],
                 widths: colWidths,
                 isAlt: idx % 2 == 1,
-                cursorY: &cursorY
+                cursorY: &context.cursorY
             )
         }
 
         // Detailed Date-by-Date Attendance Matrix (chunked in blocks of up to 8 dates)
         if !slots.isEmpty {
-            cursorY += 12
+            context.cursorY += 12
             let chunkSize = 8
             for chunkStart in stride(from: 0, to: slots.count, by: chunkSize) {
                 let chunkSlots = Array(slots[chunkStart..<min(slots.count, chunkStart + chunkSize)])
-                ensureSpace(46 + CGFloat(students.count) * 22)
+                context.ensureSpace(46 + CGFloat(students.count) * 22)
 
                 drawText(
                     "Dettaglio Giornaliero Lezioni (\(chunkStart + 1) - \(chunkStart + chunkSlots.count))",
-                    in: CGRect(x: marginX, y: cursorY, width: contentWidth, height: 18),
+                    in: CGRect(x: marginX, y: context.cursorY, width: contentWidth, height: 18),
                     font: .systemFont(ofSize: 10.5, weight: .bold),
                     color: textAccentNS
                 )
-                cursorY += 20
+                context.cursorY += 20
 
                 let nameColW: CGFloat = 175
                 let slotW = (contentWidth - nameColW) / CGFloat(max(1, chunkSlots.count))
@@ -1212,17 +1222,17 @@ public enum CoursePDFGenerator {
                     widths.append(slotW)
                 }
 
-                drawTableHeader(columns: headers, widths: widths, softNS: softNS, textAccentNS: textAccentNS, cursorY: &cursorY)
+                drawTableHeader(columns: headers, widths: widths, softNS: softNS, textAccentNS: textAccentNS, cursorY: &context.cursorY)
                 for (sIdx, st) in students.enumerated() {
-                    ensureSpace(22)
+                    context.ensureSpace(22)
                     var rowVals = [st.fullName]
                     for sk in chunkSlots {
                         let status = module.attendance[st.id]?[sk] ?? "—"
                         rowVals.append(status.isEmpty ? "—" : status)
                     }
-                    drawTableRow(values: rowVals, widths: widths, isAlt: sIdx % 2 == 1, cursorY: &cursorY)
+                    drawTableRow(values: rowVals, widths: widths, isAlt: sIdx % 2 == 1, cursorY: &context.cursorY)
                 }
-                cursorY += 8
+                context.cursorY += 8
             }
         }
     }
@@ -1235,8 +1245,7 @@ public enum CoursePDFGenerator {
         accentNS: NSColor,
         softNS: NSColor,
         textAccentNS: NSColor,
-        cursorY: inout CGFloat,
-        ensureSpace: (CGFloat) -> Void
+        context: CoursePDFPageContext
     ) {
         let students = store.getModuleStudents(course: course, module: module)
         let activities = course.gradeConfig.activities
@@ -1253,11 +1262,11 @@ public enum CoursePDFGenerator {
             ],
             softNS: softNS,
             textAccentNS: textAccentNS,
-            cursorY: &cursorY
+            cursorY: &context.cursorY
         )
 
         if students.isEmpty {
-            drawEmptyNotice("Nessuno studente iscritto a questo modulo.", cursorY: &cursorY)
+            drawEmptyNotice("Nessuno studente iscritto a questo modulo.", cursorY: &context.cursorY)
             return
         }
 
@@ -1281,10 +1290,10 @@ public enum CoursePDFGenerator {
             widths.append(actColW)
         }
 
-        drawTableHeader(columns: headers, widths: widths, softNS: softNS, textAccentNS: textAccentNS, cursorY: &cursorY)
+        drawTableHeader(columns: headers, widths: widths, softNS: softNS, textAccentNS: textAccentNS, cursorY: &context.cursorY)
 
         for (idx, st) in students.enumerated() {
-            ensureSpace(24)
+            context.ensureSpace(24)
             let avgOpt = store.calculateStudentCourseAverage(course: course, studentId: st.id, module: module)
             let allComplete = store.areAllStudentGradesPresent(course: course, studentId: st.id, module: module)
             let avgStr = avgOpt != nil ? String(format: "%.2f", avgOpt!) : "—"
@@ -1309,7 +1318,7 @@ public enum CoursePDFGenerator {
                 row.append(String(format: "%.2f", attInfo.score))
             }
 
-            drawTableRow(values: row, widths: widths, isAlt: idx % 2 == 1, cursorY: &cursorY)
+            drawTableRow(values: row, widths: widths, isAlt: idx % 2 == 1, cursorY: &context.cursorY)
         }
     }
 
@@ -1319,18 +1328,17 @@ public enum CoursePDFGenerator {
         accentNS: NSColor,
         softNS: NSColor,
         textAccentNS: NSColor,
-        cursorY: inout CGFloat,
-        ensureSpace: (CGFloat) -> Void
+        context: CoursePDFPageContext
     ) {
         let activities = course.gradeConfig.activities
         if activities.isEmpty {
-            drawEmptyNotice("Nessuna attività didattica registrata per questo corso.", cursorY: &cursorY)
+            drawEmptyNotice("Nessuna attività didattica registrata per questo corso.", cursorY: &context.cursorY)
             return
         }
 
         for act in activities {
-            ensureSpace(96)
-            let cardRect = CGRect(x: marginX, y: cursorY, width: contentWidth, height: 84)
+            context.ensureSpace(96)
+            let cardRect = CGRect(x: marginX, y: context.cursorY, width: contentWidth, height: 84)
             NSColor(calibratedRed: 0.975, green: 0.982, blue: 0.995, alpha: 1.0).setFill()
             NSBezierPath(roundedRect: cardRect, xRadius: 8, yRadius: 8).fill()
             NSColor(calibratedRed: 0.84, green: 0.88, blue: 0.93, alpha: 1.0).setStroke()
@@ -1339,7 +1347,7 @@ public enum CoursePDFGenerator {
             let rubName = store.state.rubrics.first(where: { $0.id == act.rubricId })?.name ?? "Valutazione diretta"
             drawText(
                 "\(act.name)  •  Peso: \(String(format: "%.0f%%", act.weight))",
-                in: CGRect(x: marginX + 12, y: cursorY + 8, width: contentWidth - 24, height: 16),
+                in: CGRect(x: marginX + 12, y: context.cursorY + 8, width: contentWidth - 24, height: 16),
                 font: .systemFont(ofSize: 11, weight: .bold),
                 color: textAccentNS
             )
@@ -1352,7 +1360,7 @@ public enum CoursePDFGenerator {
 
             drawText(
                 datesInfo,
-                in: CGRect(x: marginX + 12, y: cursorY + 26, width: contentWidth - 24, height: 14),
+                in: CGRect(x: marginX + 12, y: context.cursorY + 26, width: contentWidth - 24, height: 14),
                 font: .systemFont(ofSize: 9, weight: .medium),
                 color: NSColor.secondaryLabelColor
             )
@@ -1365,12 +1373,12 @@ public enum CoursePDFGenerator {
 
             drawText(
                 details.isEmpty ? "Nessuna nota o istruzione aggiuntiva." : details,
-                in: CGRect(x: marginX + 12, y: cursorY + 44, width: contentWidth - 24, height: 34),
+                in: CGRect(x: marginX + 12, y: context.cursorY + 44, width: contentWidth - 24, height: 34),
                 font: .systemFont(ofSize: 9, weight: .regular),
                 color: NSColor.darkGray
             )
 
-            cursorY += 92
+            context.cursorY += 92
         }
     }
 
@@ -1380,42 +1388,41 @@ public enum CoursePDFGenerator {
         accentNS: NSColor,
         softNS: NSColor,
         textAccentNS: NSColor,
-        cursorY: inout CGFloat,
-        ensureSpace: (CGFloat) -> Void
+        context: CoursePDFPageContext
     ) {
         let linkedRubricIds = Set(course.gradeConfig.activities.map { $0.rubricId }.filter { !$0.isEmpty })
         let rubricsToRender = store.state.rubrics.filter { linkedRubricIds.isEmpty || linkedRubricIds.contains($0.id) }
         let list = rubricsToRender.isEmpty ? store.state.rubrics : rubricsToRender
 
         for rub in list {
-            ensureSpace(64)
+            context.ensureSpace(64)
             let maxPts = store.calculateRubricMaxPoints(rub)
             drawText(
                 "\(rub.name) (Punteggio Max: \(String(format: "%.0f", maxPts)) pt)",
-                in: CGRect(x: marginX, y: cursorY, width: contentWidth, height: 18),
+                in: CGRect(x: marginX, y: context.cursorY, width: contentWidth, height: 18),
                 font: .systemFont(ofSize: 11.5, weight: .bold),
                 color: textAccentNS
             )
-            cursorY += 18
+            context.cursorY += 18
             if !rub.description.isEmpty {
                 drawText(
                     rub.description,
-                    in: CGRect(x: marginX, y: cursorY, width: contentWidth, height: 15),
+                    in: CGRect(x: marginX, y: context.cursorY, width: contentWidth, height: 15),
                     font: .systemFont(ofSize: 9.5, weight: .regular),
                     color: NSColor.secondaryLabelColor
                 )
-                cursorY += 18
+                context.cursorY += 18
             }
 
             let widths: [CGFloat] = [150, contentWidth - 150]
-            drawTableHeader(columns: ["Criterio", "Livelli e Descrittori"], widths: widths, softNS: softNS, textAccentNS: textAccentNS, cursorY: &cursorY)
+            drawTableHeader(columns: ["Criterio", "Livelli e Descrittori"], widths: widths, softNS: softNS, textAccentNS: textAccentNS, cursorY: &context.cursorY)
 
             for (cIdx, crit) in rub.criteria.enumerated() {
-                ensureSpace(28)
+                context.ensureSpace(28)
                 let levelsSummary = crit.levels.map { "\($0.label) (\(String(format: "%.0f", $0.points)) pt): \($0.desc)" }.joined(separator: "  |  ")
-                drawTableRow(values: [crit.name, levelsSummary], widths: widths, isAlt: cIdx % 2 == 1, rowHeight: 28, cursorY: &cursorY)
+                drawTableRow(values: [crit.name, levelsSummary], widths: widths, isAlt: cIdx % 2 == 1, rowHeight: 28, cursorY: &context.cursorY)
             }
-            cursorY += 14
+            context.cursorY += 14
         }
     }
 
@@ -1426,12 +1433,11 @@ public enum CoursePDFGenerator {
         accentNS: NSColor,
         softNS: NSColor,
         textAccentNS: NSColor,
-        cursorY: inout CGFloat,
-        ensureSpace: (CGFloat) -> Void
+        context: CoursePDFPageContext
     ) {
         let slots = store.sortedSlots(for: course, module: module)
         if slots.isEmpty {
-            drawEmptyNotice("Nessuna lezione programmata nel calendario di questo modulo.", cursorY: &cursorY)
+            drawEmptyNotice("Nessuna lezione programmata nel calendario di questo modulo.", cursorY: &context.cursorY)
             return
         }
 
@@ -1441,11 +1447,11 @@ public enum CoursePDFGenerator {
             widths: widths,
             softNS: softNS,
             textAccentNS: textAccentNS,
-            cursorY: &cursorY
+            cursorY: &context.cursorY
         )
 
         for (idx, sk) in slots.enumerated() {
-            ensureSpace(28)
+            context.ensureSpace(28)
             let lp = store.findLesson(in: course, sectionId: module.id, slotKey: sk)
             let sTime = lp?.time ?? module.startTime
             let eTime = lp?.endTime ?? module.endTime
@@ -1471,7 +1477,7 @@ public enum CoursePDFGenerator {
                 widths: widths,
                 isAlt: idx % 2 == 1,
                 rowHeight: 26,
-                cursorY: &cursorY
+                cursorY: &context.cursorY
             )
         }
     }
@@ -1484,8 +1490,7 @@ public enum CoursePDFGenerator {
         accentNS: NSColor,
         softNS: NSColor,
         textAccentNS: NSColor,
-        cursorY: inout CGFloat,
-        ensureSpace: (CGFloat) -> Void
+        context: CoursePDFPageContext
     ) {
         let lvlCode = store.normalizeCefrLevel(level.code)
         let lvlName = (lvlCode == "Altro") ? (level.customName.isEmpty ? store.t("otherLevelOpt") : level.customName) : lvlCode
@@ -1503,17 +1508,17 @@ public enum CoursePDFGenerator {
             ],
             softNS: softNS,
             textAccentNS: textAccentNS,
-            cursorY: &cursorY
+            cursorY: &context.cursorY
         )
 
         // Overview table of all levels & modules in the course for context
         drawText(
             "Panoramica Struttura Completa del Corso",
-            in: CGRect(x: marginX, y: cursorY, width: contentWidth, height: 18),
+            in: CGRect(x: marginX, y: context.cursorY, width: contentWidth, height: 18),
             font: .systemFont(ofSize: 11, weight: .bold),
             color: textAccentNS
         )
-        cursorY += 22
+        context.cursorY += 22
 
         let widths: [CGFloat] = [95, 95, 110, 75, 75, contentWidth - 450]
         drawTableHeader(
@@ -1521,7 +1526,7 @@ public enum CoursePDFGenerator {
             widths: widths,
             softNS: softNS,
             textAccentNS: textAccentNS,
-            cursorY: &cursorY
+            cursorY: &context.cursorY
         )
 
         var rowCounter = 0
@@ -1529,7 +1534,7 @@ public enum CoursePDFGenerator {
             let lCode = store.normalizeCefrLevel(l.code)
             let lDisp = (lCode == "Altro") ? (l.customName.isEmpty ? store.t("otherLevelOpt") : l.customName) : lCode
             for m in l.modules {
-                ensureSpace(24)
+                context.ensureSpace(24)
                 let hrs = store.moduleTotalHours(course: course, module: m)
                 drawTableRow(
                     values: [
@@ -1542,7 +1547,7 @@ public enum CoursePDFGenerator {
                     ],
                     widths: widths,
                     isAlt: rowCounter % 2 == 1,
-                    cursorY: &cursorY
+                    cursorY: &context.cursorY
                 )
                 rowCounter += 1
             }
@@ -1556,12 +1561,11 @@ public enum CoursePDFGenerator {
         accentNS: NSColor,
         softNS: NSColor,
         textAccentNS: NSColor,
-        cursorY: inout CGFloat,
-        ensureSpace: (CGFloat) -> Void
+        context: CoursePDFPageContext
     ) {
         let students = store.getModuleStudents(course: course, module: module)
         if students.isEmpty {
-            drawEmptyNotice("Nessuno studente iscritto in questo modulo.", cursorY: &cursorY)
+            drawEmptyNotice("Nessuno studente iscritto in questo modulo.", cursorY: &context.cursorY)
             return
         }
 
@@ -1571,11 +1575,11 @@ public enum CoursePDFGenerator {
             widths: widths,
             softNS: softNS,
             textAccentNS: textAccentNS,
-            cursorY: &cursorY
+            cursorY: &context.cursorY
         )
 
         for (idx, st) in students.enumerated() {
-            ensureSpace(24)
+            context.ensureSpace(24)
             drawTableRow(
                 values: [
                     st.fullName,
@@ -1586,7 +1590,7 @@ public enum CoursePDFGenerator {
                 ],
                 widths: widths,
                 isAlt: idx % 2 == 1,
-                cursorY: &cursorY
+                cursorY: &context.cursorY
             )
         }
     }
