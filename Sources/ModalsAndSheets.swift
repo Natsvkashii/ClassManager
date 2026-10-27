@@ -852,6 +852,18 @@ public struct LessonPlanSheet: View {
         .padding(22)
         .frame(minWidth: 780, idealWidth: 840, maxWidth: 960, minHeight: 640, idealHeight: 740, maxHeight: 860)
         .onAppear(perform: loadExisting)
+        .onChange(of: startTime) { _, newStart in
+            guard let course = store.state.courses.first(where: { $0.id == courseId }) else { return }
+            var mod: CourseModule? = nil
+            for l in course.levels {
+                if let m = l.modules.first(where: { $0.id == sectionId }) { mod = m; break }
+            }
+            guard let m = mod else { return }
+            let dur = store.mostRecentLessonDurationHours(course: course, module: m, excludingSlotKey: slotKey)
+            if let autoEnd = AppStore.calculateEndTime(startTime: newStart, durationHours: dur) {
+                endTime = autoEnd
+            }
+        }
     }
 
     @ViewBuilder
@@ -914,8 +926,14 @@ public struct LessonPlanSheet: View {
         }
         startTime = mod?.startTime ?? "19:00"
         endTime = mod?.endTime ?? "20:30"
-        if let m = mod, let meet = m.googleMeetUrl, !meet.isEmpty {
-            googleMeetUrl = meet
+        if let m = mod {
+            let dur = store.mostRecentLessonDurationHours(course: course, module: m, excludingSlotKey: slotKey)
+            if let autoEnd = AppStore.calculateEndTime(startTime: startTime, durationHours: dur) {
+                endTime = autoEnd
+            }
+            if let meet = m.googleMeetUrl, !meet.isEmpty {
+                googleMeetUrl = meet
+            }
         }
 
         if let sk = slotKey {

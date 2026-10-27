@@ -16,7 +16,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ClassDesk v26.10.5-004</title>
+    <title>ClassDesk v26.10.5-005</title>
     <link rel="icon" type="image/png" href="logo.png">
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -1278,7 +1278,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
         const IS_UNSTABLE_BUILD = 1;
 
         const INITIAL_DATA = {
-            version: "26.10.5-004",
+            version: "26.10.5-005",
             channel: IS_UNSTABLE_BUILD === 1 ? "unstable" : "stable",
             deletedItems: [],
             billingContacts: [],
@@ -3648,6 +3648,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
 
                 const modStudents = this.getModuleStudents(course, activeSection);
                 const dates = [...this.sortModuleSlots(course, activeSection)];
+                const totalModHours = this.getModuleTotalHours(course, activeSection);
                 const selectedDatesCount = Array.from(this.selectedDatesForDelete).filter(d => dates.includes(d)).length;
                 const todayIso = new Date().toISOString().substring(0, 10);
 
@@ -3659,6 +3660,8 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                                 <span><strong class="text-slate-800 dark:text-slate-100">${modStudents.length}</strong> ${this.t("enrolledLower")}</span>
                                 <span>•</span>
                                 <span><strong class="text-slate-800 dark:text-slate-100">${dates.length}</strong> ${this.t("lessonsLower")}</span>
+                                <span>•</span>
+                                <span><strong class="text-slate-800 dark:text-slate-100">Ore Totali Modulo: ${totalModHours.toFixed(1)}h</strong></span>
                                 ${activeSection.description ? `<span class="hidden sm:inline">• ${this.escapeHtml(activeSection.description)}</span>` : ''}
                             </div>
 
@@ -6591,7 +6594,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                             <div class="space-y-1">
                                 <div class="flex items-center gap-2 font-extrabold text-slate-800 dark:text-slate-100">
                                     <i class="fa-solid fa-calendar-check text-sky-600"></i>
-                                    <span>${this.t("totalLabel")}: <strong>${slots.length}</strong> ${this.t("lessonsLower")}</span>
+                                    <span>${this.t("totalLabel")}: <strong>${slots.length}</strong> ${this.t("lessonsLower")} • Ore Totali Modulo: <strong>${this.getModuleTotalHours(course, activeSection).toFixed(1)}h</strong></span>
                                 </div>
                                 <p class="text-[11px] text-slate-400">${this.t("dragLessonHint")}</p>
                             </div>
@@ -7852,6 +7855,75 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 if (!mod || !Array.isArray(mod.dates)) return 0;
                 const c = course || this.findCourseForModule(mod);
                 return mod.dates.reduce((sum, sk) => sum + this.getLessonDurationHoursForSlot(c, mod, sk), 0);
+            }
+
+            computeSlotDurationHours(sTime, eTime) {
+                if (!sTime || !eTime) return 1.5;
+                const sp = sTime.split(":").map(Number);
+                const ep = eTime.split(":").map(Number);
+                if (sp.length < 2 || ep.length < 2) return 1.5;
+                const diffMin = (ep[0] * 60 + ep[1]) - (sp[0] * 60 + sp[1]);
+                return diffMin > 0 ? (diffMin / 60.0) : 1.5;
+            }
+
+            getMostRecentLessonDurationHours(course, mod, excludingSlotKey = null) {
+                if (!mod || !Array.isArray(mod.dates)) return 1.5;
+                const sorted = [...this.sortModuleSlots(course, mod)].filter(sk => sk !== excludingSlotKey);
+                if (sorted.length > 0) {
+                    const lastSlot = sorted[sorted.length - 1];
+                    const dur = this.getLessonDurationHoursForSlot(course, mod, lastSlot);
+                    if (dur > 0.05) return dur;
+                }
+                const sTime = mod.startTime || "19:00";
+                const eTime = mod.endTime || "20:30";
+                return this.computeSlotDurationHours(sTime, eTime);
+            }
+
+            calculateEndTime(startTime, durationHours) {
+                if (!startTime || !startTime.includes(":")) return null;
+                const parts = startTime.trim().split(":").map(Number);
+                if (parts.length < 2 || isNaN(parts[0]) || isNaN(parts[1])) return null;
+                const h = parts[0], m = parts[1];
+                if (h < 0 || h > 23 || m < 0 || m > 59) return null;
+                const effectiveDur = (typeof durationHours === "number" && durationHours > 0.05) ? durationHours : 1.5;
+                const startMinutes = h * 60 + m;
+                const durMinutes = Math.max(15, Math.round(effectiveDur * 60));
+                const totalMinutes = startMinutes + durMinutes;
+                const endH = Math.floor(totalMinutes / 60) % 24;
+                const endM = totalMinutes % 60;
+                return `${String(endH).padStart(2, '0')}:${String(endM).padStart(2, '0')}`;
+            }
+
+            handleQuickLessonStartTimeInput(courseId, moduleId, slotKey, startTimeVal) {
+                const course = (this.state.courses || []).find(c => c.id === courseId) || this.getActiveCourse();
+                let targetSec = null;
+                (course?.levels || []).forEach(l => {
+                    const m = (l.modules || []).find(x => x.id === moduleId);
+                    if (m) targetSec = m;
+                });
+                if (!targetSec) targetSec = this.getActiveSection(course);
+                const dur = this.getMostRecentLessonDurationHours(course, targetSec, slotKey);
+                const computedEnd = this.calculateEndTime(startTimeVal, dur);
+                if (computedEnd) {
+                    const endInput = document.getElementById("quickLessonEndTimeInput");
+                    if (endInput) endInput.value = computedEnd;
+                }
+            }
+
+            handleLessonPlanStartTimeInput(courseId, moduleId, slotKey, startTimeVal) {
+                const course = (this.state.courses || []).find(c => c.id === courseId) || this.getActiveCourse();
+                let targetSec = null;
+                (course?.levels || []).forEach(l => {
+                    const m = (l.modules || []).find(x => x.id === moduleId);
+                    if (m) targetSec = m;
+                });
+                if (!targetSec) targetSec = this.getActiveSection(course);
+                const dur = this.getMostRecentLessonDurationHours(course, targetSec, slotKey);
+                const computedEnd = this.calculateEndTime(startTimeVal, dur);
+                if (computedEnd) {
+                    const endInput = document.getElementById("lpEndTimeInput");
+                    if (endInput) endInput.value = computedEnd;
+                }
             }
 
             getLessonPricing(mod, slotKey, courseObj = null) {
@@ -11273,7 +11345,9 @@ Dettagli di Sistema:
                 const dOnly = slotKey ? this.extractDateFromSlotKey(slotKey) : new Date().toISOString().substring(0, 10);
                 const les = slotKey ? this.findLessonForSlot(course, targetSec.id, slotKey) : null;
                 const sTime = les?.time || targetSec.startTime || course.startTime || "19:00";
-                const eTime = les?.endTime || targetSec.endTime || course.endTime || "20:30";
+                const autoDur = this.getMostRecentLessonDurationHours(course, targetSec, slotKey);
+                const autoEndTime = this.calculateEndTime(sTime, autoDur);
+                const eTime = les?.endTime || (isNew ? autoEndTime : null) || targetSec.endTime || course.endTime || "20:30";
 
                 this.openModal(`
                     <form id="lessonPlanModalForm" onsubmit="app.saveLessonPlanModal(event, '${course.id}', '${targetSec.id}', ${slotKey ? `'${slotKey}'` : 'null'})" class="p-6 space-y-4 text-xs max-h-[88vh] overflow-y-auto custom-scrollbar">
@@ -11289,7 +11363,7 @@ Dettagli di Sistema:
                             </div>
                             <div>
                                 <label class="block font-bold mb-1">${this.t("startLabel")} *</label>
-                                <input type="time" id="lpStartTimeInput" required value="${sTime}" class="w-full rounded-xl border border-sky-200 dark:border-slate-700 bg-transparent px-3 py-2 font-bold">
+                                <input type="time" id="lpStartTimeInput" required value="${sTime}" oninput="app.handleLessonPlanStartTimeInput('${course.id}', '${targetSec.id}', ${slotKey ? `'${slotKey}'` : 'null'}, this.value)" class="w-full rounded-xl border border-sky-200 dark:border-slate-700 bg-transparent px-3 py-2 font-bold">
                             </div>
                             <div>
                                 <label class="block font-bold mb-1">${this.t("endLabel")} *</label>
@@ -12747,7 +12821,7 @@ Dettagli di Sistema:
                                     <div class="grid grid-cols-2 gap-3">
                                         <div>
                                             <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">${this.t("startLabel")} *</label>
-                                            <input type="time" id="quickLessonStartTimeInput" required value="${sTime}" class="w-full rounded-xl border border-sky-200 dark:border-slate-700 bg-sky-50/40 dark:bg-navy-800 px-3 py-2 font-bold text-slate-900 dark:text-white">
+                                            <input type="time" id="quickLessonStartTimeInput" required value="${sTime}" oninput="app.handleQuickLessonStartTimeInput('${course.id}', '${targetSec.id}', '${slotKey}', this.value)" class="w-full rounded-xl border border-sky-200 dark:border-slate-700 bg-sky-50/40 dark:bg-navy-800 px-3 py-2 font-bold text-slate-900 dark:text-white">
                                         </div>
                                         <div>
                                             <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">${this.t("endLabel")} *</label>
@@ -13761,6 +13835,10 @@ Dettagli di Sistema:
                                                 </div>
                                             `;
                                         }).join("")}
+
+                                        ${Array((7 - ((leadingEmpty + daysInMonth) % 7)) % 7).fill(0).map(() => `
+                                            <div class="h-16 rounded-xl bg-transparent border border-transparent"></div>
+                                        `).join("")}
                                     </div>
                                 </div>
 

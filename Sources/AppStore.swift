@@ -1194,6 +1194,41 @@ public final class AppStore {
         return total
     }
 
+    /// Finds the duration in hours of the most recent lesson registered in the module.
+    /// Used to automatically compute and set end-time based on the most recent lesson's duration.
+    public func mostRecentLessonDurationHours(course: Course, module: CourseModule, excludingSlotKey: String? = nil) -> Double {
+        let sorted = sortedSlots(for: course, module: module)
+        let candidates = sorted.filter { $0 != excludingSlotKey }
+        if let lastSlot = candidates.last {
+            let dur = lessonDurationHours(course: course, module: module, slotKey: lastSlot)
+            if dur > 0.05 {
+                return dur
+            }
+        }
+        // Fallback to module's default duration
+        let sTime = module.startTime.trimmingCharacters(in: .whitespaces)
+        let eTime = module.endTime.trimmingCharacters(in: .whitespaces)
+        let dur = AppDateFormatters.calculateHours(from: sTime, to: eTime, fallback: state.settings.defaultLessonDurationHours)
+        return dur > 0.05 ? dur : 1.5
+    }
+
+    /// Automatically calculates the end time ("HH:mm") given a start time string ("HH:mm" or "H:mm") and duration in hours.
+    public static func calculateEndTime(startTime: String, durationHours: Double) -> String? {
+        let clean = startTime.trimmingCharacters(in: .whitespacesAndNewlines)
+        let parts = clean.split(separator: ":").compactMap { Int($0) }
+        guard parts.count == 2 else { return nil }
+        let h = parts[0]
+        let m = parts[1]
+        guard h >= 0 && h < 24 && m >= 0 && m < 60 else { return nil }
+        let effectiveDur = durationHours > 0.05 ? durationHours : 1.5
+        let startMinutes = h * 60 + m
+        let durMinutes = max(15, Int(round(effectiveDur * 60.0)))
+        let totalMinutes = startMinutes + durMinutes
+        let endH = (totalMinutes / 60) % 24
+        let endM = totalMinutes % 60
+        return String(format: "%02d:%02d", endH, endM)
+    }
+
     public func moduleTotalGross(course: Course, module: CourseModule) -> Double {
         let b = module.billing ?? ModuleBilling()
         return b.totalGross(for: module.dates) { sk in

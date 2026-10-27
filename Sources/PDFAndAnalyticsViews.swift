@@ -2400,6 +2400,23 @@ public struct BillingEarningsAnalyticsView: View {
         let calInfo = Self.monthCalendarGeometry(year: selectedYear, month: monthData.month)
         let weekdayHeaders = ["Lun", "Mar", "Mer", "Gio", "Ven", "Sab", "Dom"]
 
+        // Build rigid 7-column rows (weeks) with exact day numbers or nil
+        var allSlots: [Int?] = []
+        for _ in 0..<calInfo.leadingEmptySlots {
+            allSlots.append(nil)
+        }
+        for day in 1...calInfo.daysInMonth {
+            allSlots.append(day)
+        }
+        while allSlots.count % 7 != 0 {
+            allSlots.append(nil)
+        }
+
+        var weeks: [[Int?]] = []
+        for i in stride(from: 0, to: allSlots.count, by: 7) {
+            weeks.append(Array(allSlots[i..<min(i + 7, allSlots.count)]))
+        }
+
         return VStack(alignment: .leading, spacing: 14) {
             HStack {
                 VStack(alignment: .leading, spacing: 2) {
@@ -2413,63 +2430,70 @@ public struct BillingEarningsAnalyticsView: View {
             }
 
             // Weekday Header Row
-            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 7), spacing: 8) {
+            HStack(spacing: 8) {
                 ForEach(weekdayHeaders, id: \.self) { wd in
                     Text(wd)
                         .font(.caption.bold())
                         .foregroundStyle(.secondary)
                         .frame(maxWidth: .infinity)
                 }
+            }
 
-                // Leading empty slots before day 1
-                ForEach(0..<calInfo.leadingEmptySlots, id: \.self) { _ in
-                    Color.clear
-                        .frame(height: 56)
-                }
+            // Calendar Weeks (Rigid 7-column grid)
+            VStack(spacing: 8) {
+                ForEach(0..<weeks.count, id: \.self) { weekIdx in
+                    HStack(spacing: 8) {
+                        ForEach(0..<7, id: \.self) { colIdx in
+                            let dayOpt = weeks[weekIdx][colIdx]
+                            if let day = dayOpt {
+                                let lessonsCount = monthData.dailyLessons[day] ?? 0
+                                let hours = monthData.dailyHours[day] ?? 0.0
+                                let earnings = monthData.dailyEarnings[day] ?? 0.0
+                                let hasWorked = lessonsCount > 0
 
-                // Numbered day squares 1 ... daysInMonth
-                ForEach(1...calInfo.daysInMonth, id: \.self) { day in
-                    let lessonsCount = monthData.dailyLessons[day] ?? 0
-                    let hours = monthData.dailyHours[day] ?? 0.0
-                    let earnings = monthData.dailyEarnings[day] ?? 0.0
-                    let hasWorked = lessonsCount > 0
+                                VStack(spacing: 3) {
+                                    Text("\(day)")
+                                        .font(.subheadline.bold())
+                                        .monospacedDigit()
+                                        .foregroundStyle(hasWorked ? .white : .secondary)
 
-                    VStack(spacing: 3) {
-                        Text("\(day)")
-                            .font(.subheadline.bold())
-                            .monospacedDigit()
-                            .foregroundStyle(hasWorked ? .white : .secondary)
-
-                        if hasWorked {
-                            Text(String(format: "%.1fh", hours))
-                                .font(.system(size: 9.5, weight: .semibold))
-                                .foregroundStyle(.white.opacity(0.92))
-                            Text(store.formatMoney(earnings))
-                                .font(.system(size: 8.5, weight: .bold))
-                                .foregroundStyle(.white.opacity(0.95))
-                                .lineLimit(1)
-                                .minimumScaleFactor(0.7)
-                        } else {
-                            Text("—")
-                                .font(.caption2)
-                                .foregroundStyle(.secondary.opacity(0.5))
+                                    if hasWorked {
+                                        Text(String(format: "%.1fh", hours))
+                                            .font(.system(size: 9.5, weight: .semibold))
+                                            .foregroundStyle(.white.opacity(0.92))
+                                        Text(store.formatMoney(earnings))
+                                            .font(.system(size: 8.5, weight: .bold))
+                                            .foregroundStyle(.white.opacity(0.95))
+                                            .lineLimit(1)
+                                            .minimumScaleFactor(0.7)
+                                    } else {
+                                        Text("—")
+                                            .font(.caption2)
+                                            .foregroundStyle(.secondary.opacity(0.5))
+                                    }
+                                }
+                                .frame(maxWidth: .infinity)
+                                .frame(height: 56)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 10)
+                                        .fill(hasWorked
+                                              ? palette.color
+                                              : (colorScheme == .dark ? Color.white.opacity(0.06) : Color.secondary.opacity(0.11)))
+                                )
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 10)
+                                        .strokeBorder(
+                                            hasWorked ? palette.borderColor : Color.secondary.opacity(0.18),
+                                            lineWidth: hasWorked ? 1.5 : 1.0
+                                        )
+                                )
+                            } else {
+                                Color.clear
+                                    .frame(maxWidth: .infinity)
+                                    .frame(height: 56)
+                            }
                         }
                     }
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 56)
-                    .background(
-                        RoundedRectangle(cornerRadius: 10)
-                            .fill(hasWorked
-                                  ? palette.color
-                                  : (colorScheme == .dark ? Color.white.opacity(0.06) : Color.secondary.opacity(0.11)))
-                    )
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 10)
-                            .strokeBorder(
-                                hasWorked ? palette.borderColor : Color.secondary.opacity(0.18),
-                                lineWidth: hasWorked ? 1.5 : 1.0
-                            )
-                    )
                 }
             }
 
@@ -2627,17 +2651,19 @@ public struct BillingEarningsAnalyticsView: View {
 
     fileprivate static func monthCalendarGeometry(year: Int, month: Int) -> (leadingEmptySlots: Int, daysInMonth: Int) {
         var cal = Calendar(identifier: .gregorian)
-        cal.firstWeekday = 2 // Monday
+        cal.locale = Locale(identifier: "it_IT")
+        cal.timeZone = TimeZone(secondsFromGMT: 0)!
         var comps = DateComponents()
         comps.year = year
         comps.month = month
         comps.day = 1
+        comps.hour = 12
         guard let firstDate = cal.date(from: comps),
               let range = cal.range(of: .day, in: .month, for: firstDate) else {
             return (0, 30)
         }
         let weekday = cal.component(.weekday, from: firstDate) // 1=Sun, 2=Mon, ..., 7=Sat
-        let leadingMondayBased = (weekday + 5) % 7
+        let leadingMondayBased = (weekday + 5) % 7 // Mon: 0, Tue: 1, ..., Sun: 6
         return (leadingMondayBased, range.count)
     }
 

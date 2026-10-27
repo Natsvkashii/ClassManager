@@ -804,7 +804,7 @@ public struct QuickLessonActionPopover: View {
         let les = store.findLesson(in: course, sectionId: module.id, slotKey: slotKey)
 
         VStack(alignment: .leading, spacing: 14) {
-            // Header with Lesson Number & Apple-style Edit (Pencil) Button for Lesson Planning
+            // Header with Lesson Number
             HStack(spacing: 10) {
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 6) {
@@ -824,29 +824,6 @@ public struct QuickLessonActionPopover: View {
                 }
 
                 Spacer()
-
-                // Classic Apple-style Pencil Button to open the full Lesson Planning window
-                Button {
-                    let currentKey = saveQuickChangesIfNeeded()
-                    onOpenFullLessonPlan(currentKey)
-                } label: {
-                    HStack(spacing: 5) {
-                        Image(systemName: "pencil")
-                            .font(.system(size: 13, weight: .bold))
-                        Text("Pianifica")
-                            .font(.caption.bold())
-                    }
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 6)
-                    .background(
-                        RoundedRectangle(cornerRadius: 8)
-                            .fill(palette.color.opacity(0.15))
-                            .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(palette.color.opacity(0.4), lineWidth: 1))
-                    )
-                    .foregroundStyle(palette.color)
-                }
-                .buttonStyle(.plain)
-                .help("Apri la finestra completa di pianificazione della lezione")
             }
 
             Divider()
@@ -941,6 +918,12 @@ public struct QuickLessonActionPopover: View {
             startTimeStr = les?.time ?? module.startTime
             endTimeStr = les?.endTime ?? module.endTime
         }
+        .onChange(of: startTimeStr) { _, newStart in
+            let dur = store.mostRecentLessonDurationHours(course: course, module: module, excludingSlotKey: slotKey)
+            if let autoEnd = AppStore.calculateEndTime(startTime: newStart, durationHours: dur) {
+                endTimeStr = autoEnd
+            }
+        }
     }
 
     private func saveQuickChangesIfNeeded() -> String {
@@ -1006,6 +989,13 @@ public struct AttendanceView: View {
                         Text("•").foregroundStyle(.secondary)
                         Text("\(slots.count)").bold()
                         Text(store.t("lessonsLower")).foregroundStyle(.secondary)
+                        Text("•").foregroundStyle(.secondary)
+                        HStack(spacing: 3) {
+                            Image(systemName: "clock.fill")
+                                .font(.system(size: 10))
+                            Text("Ore Totali Modulo: \(String(format: "%.1fh", store.moduleTotalHours(course: course, module: mod)))")
+                                .bold()
+                        }
                         if !mod.description.isEmpty {
                             Text("• \(mod.description)").foregroundStyle(.secondary)
                         }
@@ -2332,7 +2322,7 @@ public struct ModuleCalendarView: View {
                 // Top Header Toolbar with Actions and Drag Hint
                 HStack(spacing: 12) {
                     VStack(alignment: .leading, spacing: 2) {
-                        Label("\(store.t("totalLabel")): \(slots.count) \(store.t("lessonsLower")) • \(posterWeeks.count) \(posterWeeks.count == 1 ? store.t("weekSingular") : store.t("weekPlural"))", systemImage: "calendar.badge.clock")
+                        Label("\(store.t("totalLabel")): \(slots.count) \(store.t("lessonsLower")) • \(posterWeeks.count) \(posterWeeks.count == 1 ? store.t("weekSingular") : store.t("weekPlural")) • Ore Totali Modulo: \(String(format: "%.1fh", store.moduleTotalHours(course: course, module: mod)))", systemImage: "calendar.badge.clock")
                             .font(.subheadline.bold())
                         Text(store.t("dragLessonHint"))
                             .font(.caption)
