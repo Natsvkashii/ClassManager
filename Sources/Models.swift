@@ -18,7 +18,7 @@ public enum AuthorAttribution {
     public static let authorName = "Guaira Jaramillo Nitoglia"
     public static let authorEmail = "guaira.jaramillo.nitoglia@gmail.com"
     public static let appName = "ClassDesk"
-    public static let appVersion = "26.10.5-006"
+    public static let appVersion = "26.10.5-007"
 
     /// Centralized channel indicator: 0 = Stable, 1 = Unstable / Beta
     public static let isUnstableBuild: Int = 1
@@ -1884,6 +1884,14 @@ public struct AppState: Codable, Equatable {
     ]
 
     public static let defaultChangelog: [ChangelogEntry] = [
+        ChangelogEntry(version: "26.10.5-007", date: "2026-10-26", changes: [
+            "Cancellazione Lezione Rapida con Cestino Rosso: aggiunto nel popover di modifica rapida di data e orari della lezione un pulsante dedicato con icona cestino Apple (trash) di colore rosso, con conferma preventiva prima dell'eliminazione permanente della lezione e delle relative presenze.",
+            "Conferma Eliminazione Profilo Fiscale: introdotta la conferma preventiva esplicita prima di procedere all'eliminazione permanente di un contatto dai dati di fatturazione.",
+            "Dati di Fatturazione: la scheda contabile in Fatturazione mostra ora la dicitura pulita 'Dati di fatturazione' senza il conteggio numerico tra parentesi.",
+            "Scheda Studente e Gestione Note: rinominato il tasto superiore in 'Note'; rimossa la casella note dal corpo principale del profilo e introdotto il pulsante '+' per creare e salvare note aggiuntive con consultazione ed eliminazione personalizzata.",
+            "Icona Archivio Iscritti ad Alto Contrasto: ridisegnato il pulsante di archiviazione per gli studenti nella sezione Iscritti con contrasto ottimizzato sia in tema chiaro che in tema scuro.",
+            "Sincronizzazione Completa Multi-Piattaforma macOS e Windows WebView2."
+        ]),
         ChangelogEntry(version: "26.10.5-006", date: "2026-10-26", changes: [
             "Fatturazione — Calendario Giorni Lavorati Rigido a 7 Colonne: rimossa l'instabilità di layout nella vista mensile; la griglia dei quadratini è ora strutturata in righe rigide e deterministiche di 7 colonne da Lunedì a Domenica con larghezza equa, garantendo l'allineamento perfetto e continuo dei giorni con lezioni svolte e dei giorni di riposo per qualsiasi mese dell'anno (Agosto, Ottobre, Novembre, ecc.).",
             "Azioni Rapide Lezione — Pulsante di Pianificazione Unificato: eliminato il pulsante duplicato nell'intestazione del popup di modifica rapida di data e orari; rimane un unico pulsante evidente con icona matita Apple ('Pianificazione Lezione') posizionato strategicamente nella barra inferiore delle azioni accanto ad Annulla e Salva.",

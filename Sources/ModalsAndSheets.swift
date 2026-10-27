@@ -1057,34 +1057,7 @@ public struct LessonPlanSheet: View {
     }
 
     private func deleteLesson(slotKey: String) {
-        guard let cIdx = store.state.courses.firstIndex(where: { $0.id == courseId }) else { return }
-        store.recordUndoSnapshot()
-        for lIdx in store.state.courses[cIdx].levels.indices {
-            if let mIdx = store.state.courses[cIdx].levels[lIdx].modules.firstIndex(where: { $0.id == sectionId }) {
-                let courseCopy = store.state.courses[cIdx]
-                let modCopy = store.state.courses[cIdx].levels[lIdx].modules[mIdx]
-                let foundLesson = store.findLesson(in: courseCopy, sectionId: sectionId, slotKey: slotKey)
-                let savedEvId = foundLesson?.calendarEventIdentifier
-                let savedGoogleId = foundLesson?.googleCalendarEventId
-
-                store.state.courses[cIdx].levels[lIdx].modules[mIdx].dates.removeAll { $0 == slotKey }
-                for stId in store.state.courses[cIdx].levels[lIdx].modules[mIdx].attendance.keys {
-                    store.state.courses[cIdx].levels[lIdx].modules[mIdx].attendance[stId]?.removeValue(forKey: slotKey)
-                }
-                store.state.courses[cIdx].lessons.removeAll { $0.slotKey == slotKey && ($0.sectionId == nil || $0.sectionId == sectionId) }
-                store.persist()
-
-                Task {
-                    if self.store.state.settings.autoSyncAppleCalendar {
-                        await AppleCalendarManager.shared.removeLessonEvent(course: courseCopy, module: modCopy, slotKey: slotKey, savedEventId: savedEvId)
-                    }
-                    if let gId = savedGoogleId, !gId.isEmpty {
-                        await GoogleCalendarManager.shared.removeLessonFromGoogle(eventId: gId, store: self.store)
-                    }
-                }
-                break
-            }
-        }
+        store.deleteLesson(courseId: courseId, sectionId: sectionId, slotKey: slotKey)
         dismiss()
     }
 }
@@ -2097,6 +2070,8 @@ public struct StudentDetailSheet: View {
     @State private var city: String = ""
     @State private var birthDate: String = ""
     @State private var notes: String = ""
+    @State private var isAddingStudentNote: Bool = false
+    @State private var newStudentNoteText: String = ""
     @State private var showPrefixPicker: Bool = false
     @State private var showUnsavedAlert: Bool = false
 
@@ -2110,6 +2085,44 @@ public struct StudentDetailSheet: View {
         let lessonTitle: String
         let noteText: String
         let attendanceStatus: String
+    }
+
+    private struct PersonalStudentNoteItem: Identifiable {
+        let id: String
+        let text: String
+    }
+
+    private var parsedPersonalNotes: [PersonalStudentNoteItem] {
+        let trimmed = notes.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return [] }
+        let blocks = trimmed.components(separatedBy: "\n\n").map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
+        return blocks.enumerated().map { idx, b in
+            PersonalStudentNoteItem(id: "pnote_\(idx)_\(b.hashValue)", text: b)
+        }
+    }
+
+    private func saveAdditionalStudentNote(_ text: String) {
+        guard let idx = studentIndex else { return }
+        let todayStr = AppStore.isoDateFormatter.string(from: Date())
+        let stampedNote = "[\(todayStr)] \(text)"
+        let currentNotes = store.state.studentsDirectory[idx].notes.trimmingCharacters(in: .whitespacesAndNewlines)
+        let updatedNotes = currentNotes.isEmpty ? stampedNote : "\(stampedNote)\n\n\(currentNotes)"
+        store.recordUndoSnapshot()
+        store.state.studentsDirectory[idx].notes = updatedNotes
+        notes = updatedNotes
+        store.persist()
+        store.showToast("Nota aggiunta con successo")
+    }
+
+    private func deletePersonalNote(_ text: String) {
+        guard let idx = studentIndex else { return }
+        var blocks = notes.components(separatedBy: "\n\n").map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
+        blocks.removeAll { $0 == text }
+        notes = blocks.joined(separator: "\n\n")
+        store.recordUndoSnapshot()
+        store.state.studentsDirectory[idx].notes = notes
+        store.persist()
+        store.showToast("Nota eliminata")
     }
 
     /// Collects all lesson notes from groups/modules where the student is CURRENTLY ACTIVE
@@ -2200,7 +2213,7 @@ public struct StudentDetailSheet: View {
                         showLessonNotesHistory.toggle()
                     }
                 } label: {
-                    Label("\(store.t("lessonNotesHistoryBtn")) (\(lessonNotesList.count))", systemImage: showLessonNotesHistory ? "person.text.rectangle" : "note.text")
+                    Label("Note", systemImage: showLessonNotesHistory ? "person.text.rectangle" : "note.text")
                         .font(.caption.bold())
                 }
                 .buttonStyle(.borderedProminent)
@@ -2265,24 +2278,83 @@ public struct StudentDetailSheet: View {
             if showPrefixPicker {
                 whatsAppPrefixPickerBox
             } else if showLessonNotesHistory {
-                // Scrollable Lesson Notes History View inside the same Student Detail Card
+                // Scrollable Notes View (Personal Student Notes + Group Lesson Notes)
                 VStack(alignment: .leading, spacing: 10) {
                     HStack {
-                        Label(store.t("lessonNotesHistoryBtn"), systemImage: "note.text")
+                        Label("Note", systemImage: "note.text")
                             .font(.subheadline.bold())
                             .foregroundStyle(.purple)
                         Spacer()
-                        Text("Solo gruppi attivi (\(lessonNotesList.count))")
-                            .font(.caption2.bold())
-                            .foregroundStyle(.secondary)
+                        Button {
+                            withAnimation(.easeInOut(duration: 0.18)) {
+                                isAddingStudentNote.toggle()
+                                newStudentNoteText = ""
+                            }
+                        } label: {
+                            Image(systemName: "plus")
+                                .font(.system(size: 13, weight: .bold))
+                                .frame(width: 24, height: 24)
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(.purple)
+                        .help("Aggiungi nuova nota sull'alunno")
                     }
 
-                    if lessonNotesList.isEmpty {
+                    if isAddingStudentNote {
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack {
+                                Label("Nuova Nota per lo Studente", systemImage: "square.and.pencil")
+                                    .font(.caption.bold())
+                                    .foregroundStyle(.purple)
+                                Spacer()
+                                Button("Annulla") {
+                                    withAnimation {
+                                        isAddingStudentNote = false
+                                        newStudentNoteText = ""
+                                    }
+                                }
+                                .font(.caption)
+                            }
+
+                            TextEditor(text: $newStudentNoteText)
+                                .frame(height: 60)
+                                .padding(4)
+                                .background(RoundedRectangle(cornerRadius: 8).strokeBorder(Color.purple.opacity(0.35)))
+
+                            HStack {
+                                Spacer()
+                                Button {
+                                    let clean = newStudentNoteText.trimmingCharacters(in: .whitespacesAndNewlines)
+                                    guard !clean.isEmpty else { return }
+                                    saveAdditionalStudentNote(clean)
+                                    withAnimation {
+                                        isAddingStudentNote = false
+                                        newStudentNoteText = ""
+                                    }
+                                } label: {
+                                    Label("Salva Nota", systemImage: "checkmark")
+                                        .font(.caption.bold())
+                                }
+                                .buttonStyle(.borderedProminent)
+                                .tint(.purple)
+                                .controlSize(.small)
+                                .disabled(newStudentNoteText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                            }
+                        }
+                        .padding(10)
+                        .background(
+                            RoundedRectangle(cornerRadius: 10)
+                                .fill(Color.purple.opacity(0.06))
+                                .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Color.purple.opacity(0.25), lineWidth: 1))
+                        )
+                    }
+
+                    if parsedPersonalNotes.isEmpty && lessonNotesList.isEmpty {
                         VStack(spacing: 8) {
                             Image(systemName: "doc.text.magnifyingglass")
                                 .font(.title2)
                                 .foregroundStyle(.secondary)
-                            Text("Nessuna nota delle lezioni registrata nei gruppi attivi a cui partecipa lo studente.")
+                            Text("Nessuna nota personale o di lezione registrata per questo studente.\nPremi '+' per aggiungere una nota.")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                                 .multilineTextAlignment(.center)
@@ -2292,6 +2364,41 @@ public struct StudentDetailSheet: View {
                     } else {
                         ScrollView {
                             VStack(alignment: .leading, spacing: 10) {
+                                // 1. Personal student notes (if any)
+                                ForEach(parsedPersonalNotes) { item in
+                                    VStack(alignment: .leading, spacing: 6) {
+                                        HStack(spacing: 8) {
+                                            Label("Nota Alunno", systemImage: "person.text.rectangle")
+                                                .font(.caption.bold())
+                                                .foregroundStyle(.purple)
+                                            Spacer()
+                                            Button(role: .destructive) {
+                                                deletePersonalNote(item.text)
+                                            } label: {
+                                                Image(systemName: "trash")
+                                                    .font(.system(size: 11, weight: .bold))
+                                                    .foregroundStyle(.red)
+                                            }
+                                            .buttonStyle(.plain)
+                                            .help("Elimina questa nota")
+                                        }
+
+                                        Text(item.text)
+                                            .font(.caption)
+                                            .foregroundStyle(.primary)
+                                            .textSelection(.enabled)
+                                            .fixedSize(horizontal: false, vertical: true)
+                                    }
+                                    .padding(12)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 10)
+                                            .fill(Color.purple.opacity(0.06))
+                                            .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Color.purple.opacity(0.28), lineWidth: 1))
+                                    )
+                                }
+
+                                // 2. Active group lesson notes
                                 ForEach(lessonNotesList) { item in
                                     let pal = store.palette(for: item.courseColor)
                                     VStack(alignment: .leading, spacing: 6) {
@@ -2335,7 +2442,7 @@ public struct StudentDetailSheet: View {
                     }
                 }
             } else if isEditing {
-                // Editable Form Mode
+                // Editable Form Mode (Notes removed from main profile)
                 Grid(horizontalSpacing: 14, verticalSpacing: 10) {
                     GridRow {
                         labeledField("\(store.t("firstNameLabel")) *", text: $firstName)
@@ -2350,16 +2457,8 @@ public struct StudentDetailSheet: View {
                         labeledField(store.t("birthDateLabel"), text: $birthDate)
                     }
                 }
-
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(store.t("notesLabel")).font(.caption.bold())
-                    TextEditor(text: $notes)
-                        .frame(height: 65)
-                        .padding(4)
-                        .background(RoundedRectangle(cornerRadius: 8).strokeBorder(Color.secondary.opacity(0.32)))
-                }
             } else {
-                // Static Read-Only Profile Mode (Default when opening profile)
+                // Static Read-Only Profile Mode (Notes removed from main profile)
                 Grid(horizontalSpacing: 14, verticalSpacing: 10) {
                     GridRow {
                         staticFieldBox(store.t("firstNameLabel"), value: firstName)
@@ -2373,22 +2472,6 @@ public struct StudentDetailSheet: View {
                         staticFieldBox(store.t("cityBillingLabel"), value: city)
                         staticFieldBox(store.t("birthDateLabel"), value: birthDate)
                     }
-                }
-
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(store.t("notesLabel"))
-                        .font(.caption.bold())
-                        .foregroundStyle(.secondary)
-                    Text(notes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "—" : notes)
-                        .font(.body)
-                        .textSelection(.enabled)
-                        .frame(maxWidth: .infinity, minHeight: 54, alignment: .topLeading)
-                        .padding(10)
-                        .background(
-                            RoundedRectangle(cornerRadius: 8)
-                                .fill(Color.secondary.opacity(0.06))
-                                .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color.secondary.opacity(0.22)))
-                        )
                 }
             }
 

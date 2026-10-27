@@ -16,7 +16,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ClassDesk v26.10.5-006</title>
+    <title>ClassDesk v26.10.5-007</title>
     <link rel="icon" type="image/png" href="logo.png">
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -1278,13 +1278,25 @@ Removing, obfuscating, or altering these credits violates the author's attributi
         const IS_UNSTABLE_BUILD = 1;
 
         const INITIAL_DATA = {
-            version: "26.10.5-006",
+            version: "26.10.5-007",
             channel: IS_UNSTABLE_BUILD === 1 ? "unstable" : "stable",
             deletedItems: [],
             billingContacts: [],
             lastUpdated: new Date().toISOString(),
             activeCourseId: "",
             changelog: [
+                {
+                    version: "26.10.5-007",
+                    date: "2026-10-26",
+                    changes: [
+                        "Cancellazione Lezione Rapida con Cestino Rosso: aggiunto nel popover di modifica rapida di data e orari della lezione un pulsante dedicato con icona cestino Apple (trash) di colore rosso, con conferma preventiva prima dell'eliminazione permanente della lezione e delle relative presenze.",
+                        "Conferma Eliminazione Profilo Fiscale: introdotta la conferma preventiva esplicita prima di procedere all'eliminazione permanente di un contatto dai dati di fatturazione.",
+                        "Dati di Fatturazione: la scheda contabile in Fatturazione mostra ora la dicitura pulita 'Dati di fatturazione' senza il conteggio numerico tra parentesi.",
+                        "Scheda Studente e Gestione Note: rinominato il tasto superiore in 'Note'; rimossa la casella note dal corpo principale del profilo e introdotto il pulsante '+' per creare e salvare note aggiuntive con consultazione ed eliminazione personalizzata.",
+                        "Icona Archivio Iscritti ad Alto Contrasto: ridisegnato il pulsante di archiviazione per gli studenti nella sezione Iscritti con contrasto ottimizzato sia in tema chiaro che in tema scuro.",
+                        "Sincronizzazione Completa Multi-Piattaforma macOS e Windows WebView2."
+                    ]
+                },
                 {
                     version: "26.10.5-006",
                     date: "2026-10-26",
@@ -6866,9 +6878,14 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                                                         <div class="inline-flex items-center gap-2">
                                                             <button onclick="app.openStudentDetailModal('${st.id}')" class="px-2.5 py-1 rounded-lg border border-sky-200 dark:border-slate-700 font-bold">${this.t("profileCardBtn")}</button>
                                                             ${this.showFormerGroupStudents ? `
-                                                                <button onclick="app.reinsertFormerStudent('${st.id}')" class="px-2.5 py-1 rounded-lg bg-emerald-600 text-white font-bold">${this.t("reinsertBtn")}</button>
+                                                                <button onclick="app.reinsertFormerStudent('${st.id}')" class="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold">${this.t("reinsertBtn")}</button>
                                                             ` : `
-                                                                <button onclick="app.openExcludeOrRemoveStudentModal('${st.id}')" class="px-2.5 py-1 rounded-lg border border-rose-200 text-rose-600 font-bold">${this.t("excludeRemoveBtn")}</button>
+                                                                <button onclick="app.excludeStudentToFormer('${st.id}')" class="w-7 h-7 rounded-lg border border-amber-400 dark:border-amber-300 bg-amber-100/90 dark:bg-amber-950/60 text-amber-800 dark:text-amber-200 hover:bg-amber-200 dark:hover:bg-amber-900/60 font-bold flex items-center justify-center text-xs" title="Archivia tra gli ex studenti">
+                                                                    <i class="fa-solid fa-box-archive text-amber-700 dark:text-amber-300"></i>
+                                                                </button>
+                                                                <button onclick="app.openExcludeOrRemoveStudentModal('${st.id}')" class="w-7 h-7 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-bold flex items-center justify-center text-xs" title="${this.t("removeFromGroupBtn")}">
+                                                                    <i class="fa-solid fa-xmark"></i>
+                                                                </button>
                                                             `}
                                                         </div>
                                                     </td>
@@ -7719,26 +7736,57 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                             </div>
                         </div>
 
-                        <div>
-                            <label class="block font-bold mb-1">${this.t("notesLabel")}</label>
-                            <textarea id="editStNotes" rows="2" class="w-full rounded-xl border border-sky-200 dark:border-slate-700 bg-transparent p-2.5">${this.escapeHtml(st.notes || '')}</textarea>
-                        </div>
-
                         <div class="pt-1">
                             <button type="button" onclick="app.toggleStudentLessonNotesSection('${st.id}')" class="w-full px-3.5 py-2 rounded-xl border border-sky-200 dark:border-slate-700 bg-sky-50/70 dark:bg-navy-800 hover:bg-sky-100 dark:hover:bg-navy-700 font-extrabold text-sky-700 dark:text-sky-300 flex items-center justify-between transition">
                                 <span class="flex items-center gap-2">
-                                    <i class="fa-solid fa-book-open"></i>
-                                    <span>Note delle Lezioni (Gruppi Attivi)</span>
+                                    <i class="fa-solid fa-note-sticky"></i>
+                                    <span>Note</span>
                                 </span>
                                 <i class="fa-solid ${this.showStudentLessonNotesInModal ? 'fa-chevron-up' : 'fa-chevron-down'}"></i>
                             </button>
                             ${this.showStudentLessonNotesInModal ? (() => {
                                 const activeNotes = this.getStudentActiveLessonNotes(st.id);
+                                const rawNotes = (st.notes || "").trim();
+                                const personalNotes = rawNotes ? rawNotes.split("\n\n").map(x => x.trim()).filter(Boolean) : [];
+                                const isAdding = this.isAddingStudentNoteFor === st.id;
                                 return `
-                                    <div class="mt-2.5 max-h-56 overflow-y-auto custom-scrollbar rounded-xl border border-sky-100 dark:border-slate-800 bg-slate-50/70 dark:bg-navy-950/60 p-3 space-y-2">
-                                        ${activeNotes.length === 0 ? `
-                                            <p class="text-center text-slate-400 py-4">Nessuna nota di lezione registrata nei gruppi attivi dello studente.</p>
-                                        ` : activeNotes.map(n => `
+                                    <div class="mt-2.5 max-h-64 overflow-y-auto custom-scrollbar rounded-xl border border-sky-100 dark:border-slate-800 bg-slate-50/70 dark:bg-navy-950/60 p-3 space-y-2.5">
+                                        <div class="flex items-center justify-between gap-2 pb-1 border-b border-sky-100/60 dark:border-slate-800">
+                                            <span class="font-extrabold text-[11px] text-slate-700 dark:text-slate-300">Note dello Studente</span>
+                                            <button type="button" onclick="app.toggleAddStudentNote('${st.id}')" class="px-2.5 py-1 rounded-lg bg-sky-600 hover:bg-sky-500 text-white font-extrabold text-[11px] flex items-center gap-1.5 shadow-2xs">
+                                                <i class="fa-solid fa-plus"></i>
+                                                <span>Aggiungi Nota</span>
+                                            </button>
+                                        </div>
+
+                                        ${isAdding ? `
+                                            <div class="p-2.5 rounded-xl border border-sky-300 dark:border-sky-700 bg-white dark:bg-navy-900 space-y-2 shadow-2xs">
+                                                <div class="flex items-center justify-between text-[11px]">
+                                                    <span class="font-bold text-sky-700 dark:text-sky-300">Nuova Nota Alunno</span>
+                                                    <button type="button" onclick="app.isAddingStudentNoteFor = null; app.openStudentDetailModal('${st.id}')" class="text-slate-400 hover:text-slate-600 font-bold">Annulla</button>
+                                                </div>
+                                                <textarea id="newStudentNoteInput" rows="2" placeholder="Scrivi una nota per questo studente..." class="w-full rounded-xl border border-sky-200 dark:border-slate-700 bg-transparent p-2 text-xs"></textarea>
+                                                <div class="flex justify-end">
+                                                    <button type="button" onclick="app.saveNewStudentNote('${st.id}')" class="px-3 py-1 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-extrabold text-xs shadow-2xs">Salva Nota</button>
+                                                </div>
+                                            </div>
+                                        ` : ''}
+
+                                        ${personalNotes.map((pn, pIdx) => `
+                                            <div class="p-2.5 rounded-xl bg-purple-50/70 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-900/60 space-y-1">
+                                                <div class="flex items-center justify-between gap-2">
+                                                    <div class="flex items-center gap-1.5">
+                                                        <span class="px-1.5 py-0.5 rounded text-[10px] font-extrabold bg-purple-600 text-white">Nota Alunno</span>
+                                                    </div>
+                                                    <button type="button" onclick="app.deleteStudentPersonalNote('${st.id}', ${pIdx})" class="text-rose-500 hover:text-rose-700 font-bold px-1" title="Elimina nota">
+                                                        <i class="fa-solid fa-trash-can text-xs"></i>
+                                                    </button>
+                                                </div>
+                                                <p class="text-[11px] text-slate-700 dark:text-slate-200 whitespace-pre-line">${this.escapeHtml(pn)}</p>
+                                            </div>
+                                        `).join("")}
+
+                                        ${activeNotes.map(n => `
                                             <div class="p-2.5 rounded-xl bg-white dark:bg-navy-900 border border-sky-100 dark:border-slate-800 space-y-1">
                                                 <div class="flex items-center justify-between gap-2">
                                                     <div class="flex items-center gap-1.5">
@@ -7750,6 +7798,10 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                                                 <p class="text-[11px] text-slate-600 dark:text-slate-300 whitespace-pre-line">${this.escapeHtml(n.notes)}</p>
                                             </div>
                                         `).join("")}
+
+                                        ${personalNotes.length === 0 && activeNotes.length === 0 ? `
+                                            <p class="text-center text-slate-400 py-4">Nessuna nota personale o di lezione registrata per questo studente.</p>
+                                        ` : ''}
                                     </div>
                                 `;
                             })() : ''}
@@ -7763,6 +7815,39 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 `);
             }
 
+            toggleAddStudentNote(studentId) {
+                this.isAddingStudentNoteFor = this.isAddingStudentNoteFor === studentId ? null : studentId;
+                this.openStudentDetailModal(studentId);
+            }
+
+            saveNewStudentNote(studentId) {
+                const text = (document.getElementById("newStudentNoteInput")?.value || "").trim();
+                if (!text) return;
+                const st = (this.state.studentsDirectory || []).find(s => s.id === studentId);
+                if (!st) return;
+                const today = new Date().toISOString().split("T")[0];
+                const stamped = `[${today}] ${text}`;
+                const current = (st.notes || "").trim();
+                st.notes = current ? `${stamped}\n\n${current}` : stamped;
+                this.isAddingStudentNoteFor = null;
+                this.persist();
+                this.openStudentDetailModal(studentId);
+                this.showToast("Nota aggiunta con successo", "success");
+            }
+
+            deleteStudentPersonalNote(studentId, index) {
+                const st = (this.state.studentsDirectory || []).find(s => s.id === studentId);
+                if (!st) return;
+                let blocks = (st.notes || "").split("\n\n").map(x => x.trim()).filter(Boolean);
+                if (index >= 0 && index < blocks.length) {
+                    blocks.splice(index, 1);
+                    st.notes = blocks.join("\n\n");
+                    this.persist();
+                    this.openStudentDetailModal(studentId);
+                    this.showToast("Nota eliminata", "info");
+                }
+            }
+
             saveStudentDetailModal(e, studentId) {
                 if (e) e.preventDefault();
                 const st = (this.state.studentsDirectory || []).find(s => s.id === studentId);
@@ -7773,7 +7858,6 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 st.email = document.getElementById("editStEmail")?.value.trim() || "";
                 st.city = document.getElementById("editStCity")?.value.trim() || "";
                 st.birthDate = document.getElementById("editStBirth")?.value || "";
-                st.notes = document.getElementById("editStNotes")?.value.trim() || "";
                 this.persist();
                 this.closeModal(true);
                 this.renderAll();
@@ -8154,10 +8238,13 @@ Removing, obfuscating, or altering these credits violates the author's attributi
             }
 
             deleteBillingContact(contactId) {
+                const ct = (this.state.billingContacts || []).find(x => x.id === contactId);
+                const name = ct ? (ct.displayName || ct.fullName || ct.companyName || "questo profilo") : "questo profilo";
+                if (!confirm(`Sei sicuro di voler eliminare il profilo fiscale "${name}"? Questa azione non può essere annullata.`)) return;
                 this.state.billingContacts = (this.state.billingContacts || []).filter(x => x.id !== contactId);
                 this.persist();
                 this.renderMainView();
-                this.showToast("Contatto rimosso", "info");
+                this.showToast("Profilo di fatturazione eliminato", "info");
             }
 
             renderBillingView(container) {
@@ -8175,7 +8262,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                             </button>
                             <button type="button" onclick="app.billingViewTab = 'contacts'; app.renderMainView();" class="px-3.5 py-2 rounded-xl font-extrabold flex items-center gap-2 transition ${isContactsTab ? 'bg-sky-600 text-white shadow-2xs' : 'text-slate-600 dark:text-slate-300 hover:bg-sky-50 dark:hover:bg-navy-800'}">
                                 <i class="fa-solid fa-address-book"></i>
-                                <span>Banca Dati Clienti (${(this.state.billingContacts || []).length})</span>
+                                <span>Dati di fatturazione</span>
                             </button>
                             <button type="button" onclick="app.billingViewTab = 'analytics'; app.renderMainView();" class="px-3.5 py-2 rounded-xl font-extrabold flex items-center gap-2 transition ${isAnalyticsTab ? 'bg-sky-600 text-white shadow-2xs' : 'text-slate-600 dark:text-slate-300 hover:bg-sky-50 dark:hover:bg-navy-800'}">
                                 <i class="fa-solid fa-chart-column"></i>
@@ -12871,9 +12958,14 @@ Dettagli di Sistema:
                                         <i class="fa-solid fa-pencil text-sm"></i>
                                         <span>Pianificazione della Lezione</span>
                                     </button>
-                                    <div class="flex items-center justify-end gap-2 pt-1">
-                                        <button type="button" onclick="app.closeModal()" class="px-4 py-2 rounded-xl border border-sky-200 dark:border-slate-700 font-bold hover:bg-sky-50 dark:hover:bg-navy-800">Annulla</button>
-                                        <button type="submit" class="px-5 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-extrabold shadow-2xs transition">Salva Modifiche</button>
+                                    <div class="flex items-center justify-between gap-2 pt-1">
+                                        <button type="button" onclick="app.confirmDeleteLesson('${course.id}', '${targetSec.id}', '${slotKey}')" class="px-3 py-2 rounded-xl border border-rose-200 dark:border-rose-900/60 bg-rose-50 dark:bg-rose-950/40 text-rose-600 hover:bg-rose-100 font-extrabold flex items-center justify-center gap-1.5 transition" title="Elimina lezione">
+                                            <i class="fa-solid fa-trash-can"></i>
+                                        </button>
+                                        <div class="flex items-center gap-2">
+                                            <button type="button" onclick="app.closeModal()" class="px-4 py-2 rounded-xl border border-sky-200 dark:border-slate-700 font-bold hover:bg-sky-50 dark:hover:bg-navy-800">Annulla</button>
+                                            <button type="submit" class="px-5 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-extrabold shadow-2xs transition">Salva Modifiche</button>
+                                        </div>
                                     </div>
                                 </div>
                             </form>
@@ -12948,6 +13040,37 @@ Dettagli di Sistema:
                 this.closeModal(true);
                 this.renderMainView();
                 this.showToast("Lezione aggiornata con successo", "success");
+            }
+
+            confirmDeleteLesson(courseId, moduleId, slotKey) {
+                if (!confirm("Sei sicuro di voler eliminare questa lezione? Questa azione non può essere annullata.")) return;
+                const course = (this.state.courses || []).find(c => c.id === courseId) || this.getActiveCourse();
+                if (!course || course.archived) return;
+                let targetSec = null;
+                (course.levels || []).forEach(l => {
+                    const m = (l.modules || []).find(x => x.id === moduleId);
+                    if (m) targetSec = m;
+                });
+                if (!targetSec) targetSec = this.getActiveSection(course);
+                if (!targetSec) return;
+
+                targetSec.dates = (targetSec.dates || []).filter(d => d !== slotKey);
+                if (targetSec.attendance) {
+                    Object.keys(targetSec.attendance).forEach(stId => {
+                        if (targetSec.attendance[stId]) delete targetSec.attendance[stId][slotKey];
+                    });
+                }
+                if (Array.isArray(course.lessons)) {
+                    const targetLes = course.lessons.find(l => l.slotKey === slotKey && (!l.sectionId || l.sectionId === targetSec.id));
+                    if (targetLes?.googleCalendarEventId) {
+                        this.deleteLessonFromGoogle(targetLes.googleCalendarEventId);
+                    }
+                    course.lessons = course.lessons.filter(l => !(l.slotKey === slotKey && (!l.sectionId || l.sectionId === targetSec.id)));
+                }
+                this.persist();
+                this.closeModal(true);
+                this.renderAll();
+                this.showToast("Lezione eliminata con successo", "info");
             }
 
             /* =====================================================================================

@@ -1236,6 +1236,7 @@ public struct BillingView: View {
     @State private var clientSearchQuery: String = ""
     @State private var editingContact: BillingContact? = nil
     @State private var isCreatingNewContact: Bool = false
+    @State private var contactToDelete: BillingContact? = nil
 
     @State private var selectedModuleId: String? = nil
     @State private var showFiscalModal: Bool = false
@@ -1303,7 +1304,7 @@ public struct BillingView: View {
             HStack(spacing: 14) {
                 Picker("", selection: $billingTabMode) {
                     Text(store.t("billingTitle")).tag("course")
-                    Text("\(store.t("billingDatabaseTab")) (\(store.state.billingContacts.count))").tag("database")
+                    Text(store.t("billingDatabaseTab")).tag("database")
                     Text("Report Guadagni").tag("analytics")
                 }
                 .pickerStyle(.segmented)
@@ -1394,6 +1395,26 @@ public struct BillingView: View {
                 }
             )
             .environment(store)
+        }
+        .alert("Elimina Profilo di Fatturazione", isPresented: Binding(
+            get: { contactToDelete != nil },
+            set: { if !$0 { contactToDelete = nil } }
+        )) {
+            Button(store.t("cancelBtn"), role: .cancel) { contactToDelete = nil }
+            Button(store.t("deleteBtn"), role: .destructive) {
+                if let ct = contactToDelete {
+                    store.recordUndoSnapshot()
+                    store.state.billingContacts.removeAll { $0.id == ct.id }
+                    store.persist()
+                    store.showToast("Profilo di fatturazione eliminato")
+                }
+                contactToDelete = nil
+            }
+        } message: {
+            if let ct = contactToDelete {
+                let name = ct.fullName.trimmingCharacters(in: .whitespacesAndNewlines)
+                Text("Sei sicuro di voler eliminare il profilo fiscale \"\(name.isEmpty ? "questo profilo" : name)\"? Questa azione non può essere annullata.")
+            }
         }
     }
 
@@ -1529,9 +1550,7 @@ public struct BillingView: View {
                                     .buttonStyle(.bordered)
 
                                     Button(role: .destructive) {
-                                        store.recordUndoSnapshot()
-                                        store.state.billingContacts.removeAll { $0.id == contact.id }
-                                        store.persist()
+                                        contactToDelete = contact
                                     } label: {
                                         Image(systemName: "trash")
                                             .font(.caption.bold())

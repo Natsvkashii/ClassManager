@@ -1,15 +1,15 @@
 {
-  "version": "26.10.5-006",
+  "version": "26.10.5-007",
   "channel": "unstable",
-  "tag_name": "v26.10.5-006",
+  "tag_name": "v26.10.5-007",
   "prerelease": true,
-  "published_at": "2026-10-27T01:35:00Z",
-  "name": "ClassDesk v26.10.5-006 (Beta / Unstable)",
-  "body": "Novità Ufficiali ClassDesk v26.10.5-006 (Beta / Unstable):\n- Fatturazione — Calendario Giorni Lavorati Rigido a 7 Colonne: rimossa l'instabilità di layout nella vista mensile; la griglia dei quadratini è ora strutturata in righe rigide e deterministiche di 7 colonne da Lunedì a Domenica con larghezza equa, garantendo l'allineamento perfetto e continuo dei giorni con lezioni svolte e dei giorni di riposo per qualsiasi mese dell'anno (Agosto, Ottobre, Novembre, ecc.).\n- Azioni Rapide Lezione — Pulsante di Pianificazione Unificato: eliminato il pulsante duplicato nell'intestazione del popup di modifica rapida di data e orari; rimane un unico pulsante evidente con icona matita Apple ('Pianificazione Lezione') posizionato strategicamente nella barra inferiore delle azioni accanto ad Annulla e Salva.\n- Presenze e Piano Lezioni — Monte Ore Totale del Modulo: visualizzazione diretta ed evidente del totale ore del modulo sia nella barra riassuntiva del registro Presenze ('Ore Totali Modulo: X.Xh') che nella testata del Piano Lezioni.\n- Pianificazione Intelligente — Calcolo Automatico Orario di Fine: all'inserimento o modifica dell'orario iniziale (es. digitando 18:00), il programma calcola istantaneamente l'orario di fine (es. 20:00) basandosi sulla durata effettiva dell'ultima lezione registrata nel modulo, senza salvare anticipatamente e permettendo all'utente di personalizzare liberamente l'orario prima di confermare.\n- Changelog e Note di Rilascio Aggiornate: sincronizzazione completa del registro modifiche dell'applicazione con tutte le release recenti.",
-  "setupUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.10.5-006/ClassDesk-26.10.5-006-Setup.exe",
-  "setupName": "ClassDesk-26.10.5-006-Setup.exe",
-  "macZipUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.10.5-006/ClassDesk-26.10.5-006-macOS.zip",
-  "macZipName": "ClassDesk-26.10.5-006-macOS.zip",
-  "macPkgUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.10.5-006/ClassDesk-26.10.5-006-Installer.pkg",
-  "macPkgName": "ClassDesk-26.10.5-006-Installer.pkg"
+  "published_at": "2026-10-27T03:45:00Z",
+  "name": "ClassDesk v26.10.5-007 (Beta / Unstable)",
+  "body": "Novità Ufficiali ClassDesk v26.10.5-007 (Beta / Unstable):\n- Cancellazione Lezione Rapida con Cestino Rosso: aggiunto nel popover di modifica rapida di data e orari della lezione un pulsante dedicato con icona cestino Apple (trash) di colore rosso, con conferma preventiva prima dell'eliminazione permanente della lezione e delle relative presenze.\n- Conferma Eliminazione Profilo Fiscale: introdotta la conferma preventiva esplicita prima di procedere all'eliminazione permanente di un contatto dai dati di fatturazione.\n- Dati di Fatturazione: la scheda contabile in Fatturazione mostra ora la dicitura pulita 'Dati di fatturazione' senza il conteggio numerico tra parentesi.\n- Scheda Studente e Gestione Note: rinominato il tasto superiore in 'Note'; rimossa la casella note dal corpo principale del profilo e introdotto il pulsante '+' per creare e salvare note aggiuntive con consultazione ed eliminazione personalizzata.\n- Icona Archivio Iscritti ad Alto Contrasto: ridisegnato il pulsante di archiviazione per gli studenti nella sezione Iscritti con contrasto ottimizzato sia in tema chiaro che in tema scuro.\n- Sincronizzazione Completa Multi-Piattaforma macOS e Windows WebView2.",
+  "setupUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.10.5-007/ClassDesk-26.10.5-007-Setup.exe",
+  "setupName": "ClassDesk-26.10.5-007-Setup.exe",
+  "macZipUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.10.5-007/ClassDesk-26.10.5-007-macOS.zip",
+  "macZipName": "ClassDesk-26.10.5-007-macOS.zip",
+  "macPkgUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.10.5-007/ClassDesk-26.10.5-007-Installer.pkg",
+  "macPkgName": "ClassDesk-26.10.5-007-Installer.pkg"
 }

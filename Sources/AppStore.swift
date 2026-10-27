@@ -983,6 +983,47 @@ public final class AppStore {
         return effectiveSlotKey
     }
 
+    /// Deletes a lesson date completely from the module schedule, student attendance, lesson plans, billing overrides, and external calendars.
+    public func deleteLesson(courseId: String, sectionId: String, slotKey: String) {
+        guard let cIdx = state.courses.firstIndex(where: { $0.id == courseId }) else { return }
+        if state.courses[cIdx].archived {
+            showToast("🔒 Corso archiviato in sola lettura.")
+            return
+        }
+        recordUndoSnapshot()
+        for lIdx in state.courses[cIdx].levels.indices {
+            if let mIdx = state.courses[cIdx].levels[lIdx].modules.firstIndex(where: { $0.id == sectionId }) {
+                let courseCopy = state.courses[cIdx]
+                let modCopy = state.courses[cIdx].levels[lIdx].modules[mIdx]
+                let foundLesson = findLesson(in: courseCopy, sectionId: sectionId, slotKey: slotKey)
+                let savedEvId = foundLesson?.calendarEventIdentifier
+                let savedGoogleId = foundLesson?.googleCalendarEventId
+
+                state.courses[cIdx].levels[lIdx].modules[mIdx].dates.removeAll { $0 == slotKey }
+                for stId in state.courses[cIdx].levels[lIdx].modules[mIdx].attendance.keys {
+                    state.courses[cIdx].levels[lIdx].modules[mIdx].attendance[stId]?.removeValue(forKey: slotKey)
+                }
+                if var b = state.courses[cIdx].levels[lIdx].modules[mIdx].billing {
+                    b.lessonOverrides.removeValue(forKey: slotKey)
+                    state.courses[cIdx].levels[lIdx].modules[mIdx].billing = b
+                }
+                state.courses[cIdx].lessons.removeAll { $0.slotKey == slotKey && ($0.sectionId == nil || $0.sectionId == sectionId) }
+                persist()
+
+                Task {
+                    if self.state.settings.autoSyncAppleCalendar {
+                        await AppleCalendarManager.shared.removeLessonEvent(course: courseCopy, module: modCopy, slotKey: slotKey, savedEventId: savedEvId)
+                    }
+                    if let gId = savedGoogleId, !gId.isEmpty {
+                        await GoogleCalendarManager.shared.removeLessonFromGoogle(eventId: gId, store: self)
+                    }
+                }
+                showToast("Lezione eliminata con successo")
+                break
+            }
+        }
+    }
+
     /// Moves a lesson to a new date, updating the module schedule, attendance records, lesson plan, and Apple Calendar.
     @discardableResult
     public func moveLesson(courseId: String, moduleId: String, slotKey: String, toDate newDateStr: String) -> Bool {

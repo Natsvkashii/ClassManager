@@ -781,6 +781,7 @@ public struct QuickLessonActionPopover: View {
     @State private var selectedDate: Date = Date()
     @State private var startTimeStr: String = "19:00"
     @State private var endTimeStr: String = "20:30"
+    @State private var showDeleteAlert: Bool = false
 
     public init(
         course: Course,
@@ -878,6 +879,17 @@ public struct QuickLessonActionPopover: View {
                 Divider()
 
                 HStack(spacing: 8) {
+                    Button(role: .destructive) {
+                        showDeleteAlert = true
+                    } label: {
+                        Image(systemName: "trash")
+                            .font(.caption.bold())
+                            .foregroundStyle(.red)
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                    .help("Elimina lezione")
+
                     Button("Annulla") {
                         onClose()
                     }
@@ -923,6 +935,15 @@ public struct QuickLessonActionPopover: View {
             if let autoEnd = AppStore.calculateEndTime(startTime: newStart, durationHours: dur) {
                 endTimeStr = autoEnd
             }
+        }
+        .alert("Elimina Lezione", isPresented: $showDeleteAlert) {
+            Button("Annulla", role: .cancel) {}
+            Button("Elimina", role: .destructive) {
+                store.deleteLesson(courseId: course.id, sectionId: module.id, slotKey: slotKey)
+                onClose()
+            }
+        } message: {
+            Text("Sei sicuro di voler eliminare questa lezione? Questa azione non può essere annullata.")
         }
     }
 
@@ -3717,6 +3738,7 @@ public struct CourseStructureView: View {
 
 public struct RosterView: View {
     @Environment(AppStore.self) private var store
+    @Environment(\.colorScheme) private var colorScheme
     @Binding var activeSheet: ActiveModalSheet?
     @State private var studentForRemovePrompt: Student? = nil
 
@@ -3907,12 +3929,15 @@ public struct RosterView: View {
                                                             } label: {
                                                                 Image(systemName: "archivebox.fill")
                                                                     .font(.system(size: 12, weight: .bold))
-                                                                    .foregroundStyle(Color(red: 0.55, green: 0.35, blue: 0.0))
+                                                                    .foregroundStyle(colorScheme == .dark ? Color(red: 1.0, green: 0.85, blue: 0.25) : Color(red: 0.65, green: 0.42, blue: 0.0))
                                                                     .frame(width: 28, height: 26)
                                                                     .background(
                                                                         RoundedRectangle(cornerRadius: 7)
-                                                                            .fill(Color.yellow.opacity(0.32))
-                                                                            .overlay(RoundedRectangle(cornerRadius: 7).strokeBorder(Color.orange.opacity(0.65), lineWidth: 1))
+                                                                            .fill(colorScheme == .dark ? Color.yellow.opacity(0.24) : Color.yellow.opacity(0.32))
+                                                                            .overlay(
+                                                                                RoundedRectangle(cornerRadius: 7)
+                                                                                    .strokeBorder(colorScheme == .dark ? Color.yellow.opacity(0.85) : Color.orange.opacity(0.65), lineWidth: 1)
+                                                                            )
                                                                     )
                                                             }
                                                             .buttonStyle(.plain)

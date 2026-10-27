@@ -5,6 +5,22 @@ Il formato è basato su [Keep a Changelog](https://keepachangelog.com/it/1.0.0/)
 
 ---
 
+## [26.10.5-007] — 2026-10-26 (Beta / Unstable)
+
+### Aggiunto & Modificato
+- **Cancellazione Lezione Rapida con Cestino Rosso**: aggiunto nel popover di modifica rapida di data e orari della lezione un pulsante dedicato con icona cestino Apple (`trash`) di colore rosso, corredato da finestra di dialogo per confermare preventivamente l'eliminazione definitiva della lezione e delle relative presenze.
+- **Conferma Eliminazione Profilo Fiscale**: introdotta una richiesta esplicita di conferma prima di procedere all'eliminazione di un profilo di fatturazione dalla sezione fiscale, prevenendo cancellazioni accidentali di nominativi e coordinate fiscali.
+- **Dati di Fatturazione Semplificati**: la scheda contabile precedentemente intitolata "Banca Dati Clienti" mostra ora esclusivamente la dicitura pulita **"Dati di fatturazione"** senza il conteggio numerico tra parentesi.
+- **Scheda Studente e Gestione Note Rinnovata**:
+  - Il pulsante superiore per consultare lo storico è stato rinominato sinteticamente in **"Note"**.
+  - Rimossa la casella statica "Note" dal corpo principale della scheda studente per una visualizzazione pulita e senza ingombri.
+  - Sostituita la dicitura "Solo gruppi attivi" con un pulsante con icona **"+"** che consente di aggiungere note personalizzate sull'alunno con salvataggio persistente nel profilo.
+  - Possibilità di consultare ed eliminare le singole note personali dello studente affiancate alle note di lezione dei gruppi attivi.
+- **Icona Archivio Studente ad Alto Contrasto nel Tema Scuro**: ridisegnato il pulsante di archiviazione per gli studenti nella sezione Iscritti con contrasto ottimizzato sia in tema chiaro che in tema scuro (ambra dorata luminosa `#FFD94D` con bordo ad alta visibilità), garantendone la perfetta leggibilità.
+- **Sincronizzazione Completa Multi-Piattaforma**: allineate tutte le modifiche sia nell'applicazione nativa macOS che nella versione Windows WebView2.
+
+---
+
 ## [26.10.5-006] — 2026-10-26 (Beta / Unstable)
 
 ### Modificato & Perfezionato
