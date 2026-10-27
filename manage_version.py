@@ -169,9 +169,37 @@ def update_plist_version(version: str):
     print(f"✓ Updated Info.plist -> {version}")
 
 
+def update_manifest_version(version: str):
+    manifest_p = os.path.join(PROJECT_ROOT, "update-manifest.json")
+    if not os.path.exists(manifest_p):
+        return
+    try:
+        with open(manifest_p, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        is_beta = is_version_unstable(version)
+        data["version"] = version
+        data["channel"] = "unstable" if is_beta else "stable"
+        data["tag_name"] = f"v{version}"
+        data["prerelease"] = is_beta
+        data["name"] = f"ClassDesk v{version} ({'Beta / Unstable' if is_beta else 'Stabile'})"
+        data["setupUrl"] = f"https://github.com/{REPO_OWNER}/{REPO_NAME}/releases/download/v{version}/ClassDesk-{version}-Setup.exe"
+        data["setupName"] = f"ClassDesk-{version}-Setup.exe"
+        data["macZipUrl"] = f"https://github.com/{REPO_OWNER}/{REPO_NAME}/releases/download/v{version}/ClassDesk-{version}-macOS.zip"
+        data["macZipName"] = f"ClassDesk-{version}-macOS.zip"
+        data["macPkgUrl"] = f"https://github.com/{REPO_OWNER}/{REPO_NAME}/releases/download/v{version}/ClassDesk-{version}-Installer.pkg"
+        data["macPkgName"] = f"ClassDesk-{version}-Installer.pkg"
+        with open(manifest_p, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2, ensure_ascii=False)
+            f.write("\n")
+        print(f"✓ Updated update-manifest.json -> v{version}")
+    except Exception as e:
+        print(f"[!] Warning updating update-manifest.json: {e}")
+
+
 def set_version(version: str):
     update_swift_version(version)
     update_plist_version(version)
+    update_manifest_version(version)
     is_unstable = 1 if is_version_unstable(version) else 0
     sync_channel_flags(is_unstable)
     print(f"\n[OK] Version synchronized to {version} (isUnstableBuild = {is_unstable})")

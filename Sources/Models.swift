@@ -18,7 +18,7 @@ public enum AuthorAttribution {
     public static let authorName = "Guaira Jaramillo Nitoglia"
     public static let authorEmail = "guaira.jaramillo.nitoglia@gmail.com"
     public static let appName = "ClassDesk"
-    public static let appVersion = "26.10.5-005"
+    public static let appVersion = "26.10.5-006"
 
     /// Centralized channel indicator: 0 = Stable, 1 = Unstable / Beta
     public static let isUnstableBuild: Int = 1
@@ -1884,6 +1884,26 @@ public struct AppState: Codable, Equatable {
     ]
 
     public static let defaultChangelog: [ChangelogEntry] = [
+        ChangelogEntry(version: "26.10.5-006", date: "2026-10-26", changes: [
+            "Fatturazione — Calendario Giorni Lavorati Rigido a 7 Colonne: rimossa l'instabilità di layout nella vista mensile; la griglia dei quadratini è ora strutturata in righe rigide e deterministiche di 7 colonne da Lunedì a Domenica con larghezza equa, garantendo l'allineamento perfetto e continuo dei giorni con lezioni svolte e dei giorni di riposo per qualsiasi mese dell'anno (Agosto, Ottobre, Novembre, ecc.).",
+            "Azioni Rapide Lezione — Pulsante di Pianificazione Unificato: eliminato il pulsante duplicato nell'intestazione del popup di modifica rapida di data e orari; rimane un unico pulsante evidente con icona matita Apple ('Pianificazione Lezione') posizionato strategicamente nella barra inferiore delle azioni accanto ad Annulla e Salva.",
+            "Presenze e Piano Lezioni — Monte Ore Totale del Modulo: visualizzazione diretta ed evidente del totale ore del modulo sia nella barra riassuntiva del registro Presenze ('Ore Totali Modulo: X.Xh') che nella testata del Piano Lezioni.",
+            "Pianificazione Intelligente — Calcolo Automatico Orario di Fine: all'inserimento o modifica dell'orario iniziale (es. digitando 18:00), il programma calcola istantaneamente l'orario di fine (es. 20:00) basandosi sulla durata effettiva dell'ultima lezione registrata nel modulo, senza salvare anticipatamente e permettendo all'utente di personalizzare liberamente l'orario prima di confermare.",
+            "Changelog In-App Sincronizzato: aggiornato il registro completo delle novità e note di rilascio direttamente nella sezione 'Informazioni e Aggiornamenti' di macOS e Windows."
+        ]),
+        ChangelogEntry(version: "26.10.5-005", date: "2026-10-26", changes: [
+            "Perfezionamento del calcolo dinamico dell'orario di fine lezione e sincronizzazione multipiattaforma."
+        ]),
+        ChangelogEntry(version: "26.10.5-004", date: "2026-10-26", changes: [
+            "Risoluzione Definitiva Crash Esportazione PDF: eliminato il conflitto di concorrenza memoria Swift (_swift_reportExclusivityConflict) in CoursePDFGenerator tramite CoursePDFPageContext a riferimento sicuro, garantendo l'esportazione priva di interruzioni.",
+            "Report Guadagni Annuale Scrollabile: aggiunta ScrollView con spaziatura dedicata per evitare qualsiasi ostruzione di testo o sovrapposizione visiva.",
+            "Apertura Corsi Archiviati nelle Schede Normali: consultazione temporanea in sola lettura del corso archiviato all'interno delle normali schede (Presenze, Voti, Attività) senza riattivazione permanente."
+        ]),
+        ChangelogEntry(version: "26.10.5-003", date: "2026-10-26", changes: [
+            "Esportazione PDF Completa del Corso (A4): procedura guidata a 3 passaggi dal pulsante Condividi Apple nella Dashboard per esportare Presenze, Voti, Attività, Criteri, Piano lezioni, Struttura e Iscritti, con indice cliccabile e badge Livello/Modulo in alto a destra.",
+            "Report Guadagni Annuale e Mensile: nuova sezione in Fatturazione con grafico a candele sui 12 mesi, classifica dei clienti con spesa maggiore, vista mensile a quadratini colorati per giorni con lezioni ed esportazioni PDF annuali, annuali dettagliate e mensili.",
+            "Azioni Rapide Lezione: menu contestuale al clic sulle date nelle Presenze e nel Piano Lezioni per modificare rapidamente data e orari."
+        ]),
         ChangelogEntry(version: "26.10.5-002", date: "2026-10-26", changes: [
             "Barra di Scorrimento Orizzontale Fissata in Fondo: in Presenze e Voti la barra di scorrimento laterale rimane sempre ancorata alla parte inferiore della schermata, garantendo la navigazione orizzontale immediata a qualsiasi altezza della pagina.",
             "Colonna Nomi Studenti Fissa (Sticky) in Voti: la colonna dei nomi studente con esito e media rimane bloccata a sinistra durante lo scorrimento delle attività e delle presenze.",

@@ -1,15 +1,15 @@
 {
-  "version": "26.10.5-004",
+  "version": "26.10.5-006",
   "channel": "unstable",
-  "tag_name": "v26.10.5-004",
+  "tag_name": "v26.10.5-006",
   "prerelease": true,
-  "published_at": "2026-10-27T00:35:00Z",
-  "name": "ClassDesk v26.10.5-004 (Beta / Unstable)",
-  "body": "Novità Ufficiali ClassDesk v26.10.5-004 (Beta / Unstable):\n- Risoluzione Definitiva Crash Esportazione PDF Corso: eliminato il conflitto di esclusività Swift (_swift_reportExclusivityConflict) in CoursePDFGenerator tramite CoursePDFPageContext di tipo riferimento, garantendo l'esportazione rapida e sicura di tutti i dati del gruppo in formato A4 con indice cliccabile.\n- Layout Pulito e Scrollabile in Fatturazione: la sezione Report Guadagni è ora racchiusa in una ScrollView con spaziatura dedicata, evitando qualsiasi ostruzione di testo, sovrapposizione con il titolo della finestra o taglio dei mesi e della classifica clienti in fondo alla schermata.\n- Apertura Corsi Archiviati nelle Schede Normali: cliccando 'Apri Corso' dall'Archivio il gruppo viene reso temporaneamente disponibile e visualizzato nelle normali schede (Presenze, Voti, Attività, Criteri, ecc.), per poi essere ri-archiviato automaticamente non appena ci si sposta in un altro gruppo o sezione, riutilizzando tutte le viste esistenti e rimuovendo codice e finestre superflue.",
-  "setupUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.10.5-004/ClassDesk-26.10.5-004-Setup.exe",
-  "setupName": "ClassDesk-26.10.5-004-Setup.exe",
-  "macZipUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.10.5-004/ClassDesk-26.10.5-004-macOS.zip",
-  "macZipName": "ClassDesk-26.10.5-004-macOS.zip",
-  "macPkgUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.10.5-004/ClassDesk-26.10.5-004-Installer.pkg",
-  "macPkgName": "ClassDesk-26.10.5-004-Installer.pkg"
+  "published_at": "2026-10-27T01:35:00Z",
+  "name": "ClassDesk v26.10.5-006 (Beta / Unstable)",
+  "body": "Novità Ufficiali ClassDesk v26.10.5-006 (Beta / Unstable):\n- Fatturazione — Calendario Giorni Lavorati Rigido a 7 Colonne: rimossa l'instabilità di layout nella vista mensile; la griglia dei quadratini è ora strutturata in righe rigide e deterministiche di 7 colonne da Lunedì a Domenica con larghezza equa, garantendo l'allineamento perfetto e continuo dei giorni con lezioni svolte e dei giorni di riposo per qualsiasi mese dell'anno (Agosto, Ottobre, Novembre, ecc.).\n- Azioni Rapide Lezione — Pulsante di Pianificazione Unificato: eliminato il pulsante duplicato nell'intestazione del popup di modifica rapida di data e orari; rimane un unico pulsante evidente con icona matita Apple ('Pianificazione Lezione') posizionato strategicamente nella barra inferiore delle azioni accanto ad Annulla e Salva.\n- Presenze e Piano Lezioni — Monte Ore Totale del Modulo: visualizzazione diretta ed evidente del totale ore del modulo sia nella barra riassuntiva del registro Presenze ('Ore Totali Modulo: X.Xh') che nella testata del Piano Lezioni.\n- Pianificazione Intelligente — Calcolo Automatico Orario di Fine: all'inserimento o modifica dell'orario iniziale (es. digitando 18:00), il programma calcola istantaneamente l'orario di fine (es. 20:00) basandosi sulla durata effettiva dell'ultima lezione registrata nel modulo, senza salvare anticipatamente e permettendo all'utente di personalizzare liberamente l'orario prima di confermare.\n- Changelog e Note di Rilascio Aggiornate: sincronizzazione completa del registro modifiche dell'applicazione con tutte le release recenti.",
+  "setupUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.10.5-006/ClassDesk-26.10.5-006-Setup.exe",
+  "setupName": "ClassDesk-26.10.5-006-Setup.exe",
+  "macZipUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.10.5-006/ClassDesk-26.10.5-006-macOS.zip",
+  "macZipName": "ClassDesk-26.10.5-006-macOS.zip",
+  "macPkgUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.10.5-006/ClassDesk-26.10.5-006-Installer.pkg",
+  "macPkgName": "ClassDesk-26.10.5-006-Installer.pkg"
 }
