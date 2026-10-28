@@ -16,7 +16,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ClassDesk v26.10.5-007</title>
+    <title>ClassDesk v26.10.5-008</title>
     <link rel="icon" type="image/png" href="logo.png">
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -423,6 +423,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 lessonsCountLabel: "Lezioni",
                 enrolledLower: "iscritti",
                 lessonsLower: "lezioni",
+                openBtn: "Apri",
                 openCourseBtn: "Apri",
                 configureCourseBtn: "Struttura",
                 archiveCourseBtn: "Archivia",
@@ -721,6 +722,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 lessonsCountLabel: "Lessons",
                 enrolledLower: "enrolled",
                 lessonsLower: "lessons",
+                openBtn: "Open",
                 openCourseBtn: "Open",
                 configureCourseBtn: "Structure",
                 archiveCourseBtn: "Archive",
@@ -1019,6 +1021,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 lessonsCountLabel: "Clases",
                 enrolledLower: "inscritos",
                 lessonsLower: "clases",
+                openBtn: "Abrir",
                 openCourseBtn: "Abrir",
                 configureCourseBtn: "Estructura",
                 archiveCourseBtn: "Archivar",
@@ -1275,16 +1278,26 @@ Removing, obfuscating, or altering these credits violates the author's attributi
         ];
 
         // Build Channel Configuration: 0 = stable, 1 = unstable
-        const IS_UNSTABLE_BUILD = 1;
+        const IS_UNSTABLE_BUILD = 0;
 
         const INITIAL_DATA = {
-            version: "26.10.5-007",
+            version: "26.10.5-008",
             channel: IS_UNSTABLE_BUILD === 1 ? "unstable" : "stable",
             deletedItems: [],
             billingContacts: [],
             lastUpdated: new Date().toISOString(),
             activeCourseId: "",
             changelog: [
+                {
+                    version: "26.10.5-008",
+                    date: "2026-10-28",
+                    changes: [
+                        "Correzione Sezione Archivio: corretto il nome del pulsante per aprire i corsi archiviati da chiave raw a 'Apri' (stile Apple nativo).",
+                        "Gestione Affidabile Corsi Archiviati: il corso archiviato aperto in ispezione rimane liberamente consultabile navigando in Fatturazione (in modalità protetta di sola lettura con banner dedicato) e in tutte le altre sezioni generali o di sistema, senza causare errori né schermate 'Nessun corso attivo'.",
+                        "Ri-archiviazione Intelligente e Sicurezza alla Chiusura: il corso archiviato viene ri-archiviato automaticamente solo quando si seleziona esplicitamente un altro corso; alla chiusura dell'applicazione viene archiviato e viene ripristinato il corso attivo precedente, evitando qualsiasi anomalia o stato inconsistente.",
+                        "Canale Ufficiale Stabile: commutazione automatica del canale di rilascio su Stabile (IS_UNSTABLE_BUILD = 0), aggiornando coerentemente tutti i badge, i colori e i controlli dell'interfaccia sia su macOS che su Windows WebView2."
+                    ]
+                },
                 {
                     version: "26.10.5-007",
                     date: "2026-10-26",
@@ -2811,25 +2824,49 @@ Removing, obfuscating, or altering these credits violates the author's attributi
             }
 
             openArchivedCourse(courseId) {
-                this.rearchiveTemporarilyInspectedCourseIfNeeded(courseId);
+                if (this.temporarilyInspectedArchivedCourseId && this.temporarilyInspectedArchivedCourseId !== courseId) {
+                    this.rearchiveTemporarilyInspectedCourseIfNeeded(courseId);
+                }
                 const course = (this.state.courses || []).find(c => c.id === courseId);
                 if (!course) return;
+                if (!this.previousActiveCourseIdBeforeInspection) {
+                    this.previousActiveCourseIdBeforeInspection = this.state.activeCourseId;
+                }
                 this.temporarilyInspectedArchivedCourseId = course.id;
                 course.archived = false;
                 this.state.activeCourseId = course.id;
                 this.selectLatestLevelAndModule(course);
                 this.currentTab = "attendance";
                 this.renderAll();
+                this.showToast(`Aperto corso archiviato: ${course.name} (Sola lettura)`, "info");
             }
 
             rearchiveTemporarilyInspectedCourseIfNeeded(exceptCourseId = null) {
                 if (!this.temporarilyInspectedArchivedCourseId) return;
                 if (this.temporarilyInspectedArchivedCourseId === exceptCourseId) return;
-                const prev = (this.state.courses || []).find(c => c.id === this.temporarilyInspectedArchivedCourseId);
+                const tempId = this.temporarilyInspectedArchivedCourseId;
+                const prev = (this.state.courses || []).find(c => c.id === tempId);
                 if (prev) {
                     prev.archived = true;
                 }
+                const fallback = this.previousActiveCourseIdBeforeInspection || (this.state.courses || []).find(c => !c.archived && c.id !== tempId)?.id || "";
+                this.state.activeCourseId = fallback;
                 this.temporarilyInspectedArchivedCourseId = null;
+                this.previousActiveCourseIdBeforeInspection = null;
+            }
+
+            rearchiveAndRevertBeforeQuit() {
+                if (!this.temporarilyInspectedArchivedCourseId) return;
+                const tempId = this.temporarilyInspectedArchivedCourseId;
+                const prev = (this.state.courses || []).find(c => c.id === tempId);
+                if (prev) {
+                    prev.archived = true;
+                }
+                const fallback = this.previousActiveCourseIdBeforeInspection || (this.state.courses || []).find(c => !c.archived && c.id !== tempId)?.id || "";
+                this.state.activeCourseId = fallback;
+                this.temporarilyInspectedArchivedCourseId = null;
+                this.previousActiveCourseIdBeforeInspection = null;
+                this.persist();
             }
 
             getActiveLevel(course) {
@@ -2887,6 +2924,10 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                         stateToSave = JSON.parse(JSON.stringify(this.state));
                         const c = (stateToSave.courses || []).find(x => x.id === this.temporarilyInspectedArchivedCourseId);
                         if (c) c.archived = true;
+                        if (stateToSave.activeCourseId === this.temporarilyInspectedArchivedCourseId) {
+                            const fallback = this.previousActiveCourseIdBeforeInspection || (stateToSave.courses || []).find(x => !x.archived && x.id !== this.temporarilyInspectedArchivedCourseId)?.id || "";
+                            stateToSave.activeCourseId = fallback;
+                        }
                     } catch (e) {
                         stateToSave = this.state;
                     }
@@ -3155,7 +3196,9 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                                 <select onchange="app.switchCourse(this.value)" aria-label="${this.t("navCourseSection")}" class="appearance-none bg-transparent text-slate-900 dark:text-white text-xs sm:text-sm font-extrabold pr-5 pl-1 py-0.5 rounded-lg cursor-pointer focus:outline-none">
                                     ${activeCourses.map(c => {
                                         const cBadge = this.formatLevelModuleBadge(c);
-                                        return `<option value="${c.id}" ${c.id === course.id ? "selected" : ""} class="bg-white dark:bg-navy-900 text-slate-900 dark:text-white text-xs font-bold">${this.escapeHtml(c.name)} (${this.escapeHtml(cBadge)})</option>`;
+                                        const isTemp = c.id === this.temporarilyInspectedArchivedCourseId;
+                                        const tag = isTemp ? ` [${this.t("navArchived")}]` : "";
+                                        return `<option value="${c.id}" ${c.id === course.id ? "selected" : ""} class="bg-white dark:bg-navy-900 text-slate-900 dark:text-white text-xs font-bold">${this.escapeHtml(c.name)} (${this.escapeHtml(cBadge)})${tag}</option>`;
                                     }).join("")}
                                 </select>
                                 <i class="fa-solid fa-chevron-down text-[10px] pointer-events-none absolute right-1.5 text-slate-400"></i>
@@ -3222,10 +3265,6 @@ Removing, obfuscating, or altering these credits violates the author's attributi
             }
 
             switchTab(tabId) {
-                const courseTabs = ["attendance", "grades", "activities", "rubrics", "moduleStudentCalendar", "courseConfig", "formerStudents"];
-                if (!courseTabs.includes(tabId)) {
-                    this.rearchiveTemporarilyInspectedCourseIfNeeded();
-                }
                 if (tabId === "billing" && this.currentTab !== "billing") {
                     this.selectedBillingCourseId = null;
                     this.showGroupBillingData = false;
@@ -7892,7 +7931,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                                             </div>
                                             <div class="flex items-center justify-between gap-2 pt-3 border-t border-sky-100 dark:border-slate-800">
                                                 <button onclick="app.openArchivedCourse('${c.id}')" class="flex-1 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-bold flex items-center justify-center gap-1.5 transition text-xs shadow-2xs">
-                                                    <i class="fa-solid fa-folder-open text-xs"></i> <span>Apri Corso</span>
+                                                    <i class="fa-solid fa-folder-open text-xs"></i> <span>${this.t("openBtn")}</span>
                                                 </button>
                                                 <button onclick="app.restoreArchivedCourse('${c.id}')" class="flex-1 py-2 rounded-xl bg-emerald-600 text-white font-bold">${this.t("restoreCourseBtn")}</button>
                                                 <button onclick="app.deleteCoursePermanently('${c.id}')" class="px-3 py-2 rounded-xl border border-rose-200 text-rose-600 font-bold">${this.t("deleteBtn")}</button>
@@ -8539,6 +8578,12 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 container.innerHTML = `
                     <div class="space-y-5 text-xs">
                         ${topTabBarHtml}
+                        ${(course.archived || this.temporarilyInspectedArchivedCourseId === course.id) ? `
+                            <div class="p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-xl text-amber-800 dark:text-amber-200 text-xs font-bold flex items-center gap-2">
+                                <i class="fa-solid fa-lock text-amber-600"></i>
+                                <span>Corso archiviato in sola lettura. Ripristina il corso per modificare i dati di fatturazione.</span>
+                            </div>
+                        ` : ''}
                         <!-- 1. GENERAL OVERVIEW SPACE -->
                         <div class="bg-white dark:bg-navy-900 rounded-2xl border border-sky-100 dark:border-slate-800 p-5 shadow-xs space-y-4">
                             <div class="flex flex-wrap items-center justify-between gap-3 border-b border-sky-100 dark:border-slate-800 pb-3">
@@ -14492,6 +14537,11 @@ Dettagli di Sistema:
             }
         });
         window.addEventListener("DOMContentLoaded", () => app.init());
+        window.addEventListener("beforeunload", () => {
+            if (window.app && typeof window.app.rearchiveAndRevertBeforeQuit === "function") {
+                window.app.rearchiveAndRevertBeforeQuit();
+            }
+        });
     </script>
 </body>
 </html>

@@ -56,6 +56,7 @@ public final class AppStore {
     public var selectedBillingCourseId: String = ""
     public var selectedRubricId: String = ""
     public var temporarilyInspectedArchivedCourseId: String? = nil
+    public var previousActiveCourseIdBeforeInspection: String? = nil
     public var toastMessage: String? = nil
     public var lastICloudSyncDate: Date? = nil
 
@@ -488,6 +489,14 @@ public final class AppStore {
             self.state = c
             lastICloudSyncDate = Date()
         }
+
+        // Safety: If the loaded active course is archived, fall back to the first non-archived course
+        if let activeIdx = state.courses.firstIndex(where: { $0.id == state.activeCourseId }),
+           state.courses[activeIdx].archived {
+            if let firstActive = state.courses.first(where: { !$0.archived }) {
+                state.activeCourseId = firstActive.id
+            }
+        }
     }
 
     public func persist() {
@@ -496,9 +505,14 @@ public final class AppStore {
         syncAllStudentsLevels()
 
         var stateToPersist = state
-        if let tempId = temporarilyInspectedArchivedCourseId,
-           let idx = stateToPersist.courses.firstIndex(where: { $0.id == tempId }) {
-            stateToPersist.courses[idx].archived = true
+        if let tempId = temporarilyInspectedArchivedCourseId {
+            if let idx = stateToPersist.courses.firstIndex(where: { $0.id == tempId }) {
+                stateToPersist.courses[idx].archived = true
+            }
+            if stateToPersist.activeCourseId == tempId {
+                let fallback = previousActiveCourseIdBeforeInspection ?? stateToPersist.courses.first(where: { !$0.archived && $0.id != tempId })?.id ?? ""
+                stateToPersist.activeCourseId = fallback
+            }
         }
 
         let encoder = JSONEncoder()
@@ -654,10 +668,15 @@ public final class AppStore {
     }
 
     /// Opens an archived course by temporarily making it available in normal course tabs.
-    /// It will automatically be re-archived when navigating away or switching courses.
+    /// It remains open in inspection mode across all tabs and will automatically be re-archived only when switching to another course or closing the app.
     public func openArchivedCourse(_ courseId: String) {
-        rearchiveTemporarilyInspectedCourseIfNeeded(exceptCourseId: courseId)
+        if let currentTemp = temporarilyInspectedArchivedCourseId, currentTemp != courseId {
+            rearchiveTemporarilyInspectedCourseIfNeeded(exceptCourseId: courseId)
+        }
         guard let idx = state.courses.firstIndex(where: { $0.id == courseId }) else { return }
+        if previousActiveCourseIdBeforeInspection == nil {
+            previousActiveCourseIdBeforeInspection = state.activeCourseId
+        }
         temporarilyInspectedArchivedCourseId = courseId
         state.courses[idx].archived = false
         state.activeCourseId = courseId
@@ -665,13 +684,33 @@ public final class AppStore {
         currentTab = .attendance
     }
 
-    /// Automatically re-archives the temporarily inspected course when moving to another course or tab.
+    /// Automatically re-archives the temporarily inspected course when explicitly switching to a different course.
     public func rearchiveTemporarilyInspectedCourseIfNeeded(exceptCourseId: String? = nil) {
         guard let tempId = temporarilyInspectedArchivedCourseId, tempId != exceptCourseId else { return }
         if let idx = state.courses.firstIndex(where: { $0.id == tempId }) {
             state.courses[idx].archived = true
         }
         temporarilyInspectedArchivedCourseId = nil
+        if let prev = previousActiveCourseIdBeforeInspection,
+           let prevIdx = state.courses.firstIndex(where: { $0.id == prev && !$0.archived }) {
+            state.activeCourseId = state.courses[prevIdx].id
+        } else if let firstActive = state.courses.first(where: { !$0.archived && $0.id != tempId }) {
+            state.activeCourseId = firstActive.id
+        }
+        previousActiveCourseIdBeforeInspection = nil
+    }
+
+    /// Automatically re-archives the inspected course and restores the previous active course when quitting or closing.
+    public func rearchiveAndRevertBeforeQuit() {
+        guard let tempId = temporarilyInspectedArchivedCourseId else { return }
+        if let idx = state.courses.firstIndex(where: { $0.id == tempId }) {
+            state.courses[idx].archived = true
+        }
+        let fallback = previousActiveCourseIdBeforeInspection ?? state.courses.first(where: { !$0.archived && $0.id != tempId })?.id ?? ""
+        state.activeCourseId = fallback
+        temporarilyInspectedArchivedCourseId = nil
+        previousActiveCourseIdBeforeInspection = nil
+        persist()
     }
 
     public func restoreArchivedCourse(_ courseId: String) {
@@ -681,6 +720,7 @@ public final class AppStore {
         state.activeCourseId = courseId
         if temporarilyInspectedArchivedCourseId == courseId {
             temporarilyInspectedArchivedCourseId = nil
+            previousActiveCourseIdBeforeInspection = nil
         }
         selectLatestLevelAndModule(for: state.courses[cIdx])
         persist()

@@ -1,15 +1,15 @@
 {
-  "version": "26.10.5-007",
-  "channel": "unstable",
-  "tag_name": "v26.10.5-007",
-  "prerelease": true,
-  "published_at": "2026-10-27T03:45:00Z",
-  "name": "ClassDesk v26.10.5-007 (Beta / Unstable)",
-  "body": "Novità Ufficiali ClassDesk v26.10.5-007 (Beta / Unstable):\n- Cancellazione Lezione Rapida con Cestino Rosso: aggiunto nel popover di modifica rapida di data e orari della lezione un pulsante dedicato con icona cestino Apple (trash) di colore rosso, con conferma preventiva prima dell'eliminazione permanente della lezione e delle relative presenze.\n- Conferma Eliminazione Profilo Fiscale: introdotta la conferma preventiva esplicita prima di procedere all'eliminazione permanente di un contatto dai dati di fatturazione.\n- Dati di Fatturazione: la scheda contabile in Fatturazione mostra ora la dicitura pulita 'Dati di fatturazione' senza il conteggio numerico tra parentesi.\n- Scheda Studente e Gestione Note: rinominato il tasto superiore in 'Note'; rimossa la casella note dal corpo principale del profilo e introdotto il pulsante '+' per creare e salvare note aggiuntive con consultazione ed eliminazione personalizzata.\n- Icona Archivio Iscritti ad Alto Contrasto: ridisegnato il pulsante di archiviazione per gli studenti nella sezione Iscritti con contrasto ottimizzato sia in tema chiaro che in tema scuro.\n- Sincronizzazione Completa Multi-Piattaforma macOS e Windows WebView2.",
-  "setupUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.10.5-007/ClassDesk-26.10.5-007-Setup.exe",
-  "setupName": "ClassDesk-26.10.5-007-Setup.exe",
-  "macZipUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.10.5-007/ClassDesk-26.10.5-007-macOS.zip",
-  "macZipName": "ClassDesk-26.10.5-007-macOS.zip",
-  "macPkgUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.10.5-007/ClassDesk-26.10.5-007-Installer.pkg",
-  "macPkgName": "ClassDesk-26.10.5-007-Installer.pkg"
+  "version": "26.10.5-008",
+  "channel": "stable",
+  "tag_name": "v26.10.5-008",
+  "prerelease": false,
+  "published_at": "2026-10-28T21:00:00Z",
+  "name": "ClassDesk v26.10.5-008 (Release Ufficiale Stabile)",
+  "body": "Novità Ufficiali ClassDesk v26.10.5-008 (Release Ufficiale Stabile):\n- Correzione Sezione Archivio: etichetta corretta 'Apri' in sostituzione della chiave raw.\n- Gestione Affidabile Corsi Archiviati: consultazione fluida del corso archiviato in ispezione attraverso tutte le sezioni di sistema e Fatturazione (in modalità protetta di sola lettura).\n- Ri-archiviazione Intelligente: ri-archiviazione automatica solo al cambio esplicito di corso e ripristino sicuro del corso precedente alla chiusura del programma.\n- Canale Ufficiale Stabile (isUnstableBuild = 0): commutazione automatica del canale di rilascio su Stabile con aggiornamento di badge, colori e controlli sia in macOS che su Windows WebView2.\n- Suite Completa di Migliorie: cestino rosso per eliminazione lezioni, conferma eliminazione profili contabili, note multiple personalizzate per studente e icone archivio ad alto contrasto.",
+  "setupUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.10.5-008/ClassDesk-26.10.5-008-Setup.exe",
+  "setupName": "ClassDesk-26.10.5-008-Setup.exe",
+  "macZipUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.10.5-008/ClassDesk-26.10.5-008-macOS.zip",
+  "macZipName": "ClassDesk-26.10.5-008-macOS.zip",
+  "macPkgUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.10.5-008/ClassDesk-26.10.5-008-Installer.pkg",
+  "macPkgName": "ClassDesk-26.10.5-008-Installer.pkg"
 }

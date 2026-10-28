@@ -18,10 +18,10 @@ public enum AuthorAttribution {
     public static let authorName = "Guaira Jaramillo Nitoglia"
     public static let authorEmail = "guaira.jaramillo.nitoglia@gmail.com"
     public static let appName = "ClassDesk"
-    public static let appVersion = "26.10.5-007"
+    public static let appVersion = "26.10.5-008"
 
     /// Centralized channel indicator: 0 = Stable, 1 = Unstable / Beta
-    public static let isUnstableBuild: Int = 1
+    public static let isUnstableBuild: Int = 0
 
     public static var isBeta: Bool {
         return isUnstableBuild == 1
@@ -1884,6 +1884,12 @@ public struct AppState: Codable, Equatable {
     ]
 
     public static let defaultChangelog: [ChangelogEntry] = [
+        ChangelogEntry(version: "26.10.5-008", date: "2026-10-28", changes: [
+            "Correzione Sezione Archivio: corretto il nome del pulsante per aprire i corsi archiviati da chiave raw a 'Apri' (stile Apple nativo).",
+            "Gestione Affidabile Corsi Archiviati: il corso archiviato aperto in ispezione rimane liberamente consultabile navigando in Fatturazione (in modalità protetta di sola lettura con banner dedicato) e in tutte le altre sezioni generali o di sistema, senza causare errori né schermate 'Nessun corso attivo'.",
+            "Ri-archiviazione Intelligente e Sicurezza alla Chiusura: il corso archiviato viene ri-archiviato automaticamente solo quando si seleziona esplicitamente un altro corso; alla chiusura dell'applicazione viene archiviato e viene ripristinato il corso attivo precedente, evitando qualsiasi anomalia o stato inconsistente.",
+            "Canale Ufficiale Stabile: commutazione automatica del canale di rilascio su Stabile (isUnstableBuild = 0), aggiornando coerentemente tutti i badge, i colori e i controlli dell'interfaccia sia su macOS che su Windows WebView2."
+        ]),
         ChangelogEntry(version: "26.10.5-007", date: "2026-10-26", changes: [
             "Cancellazione Lezione Rapida con Cestino Rosso: aggiunto nel popover di modifica rapida di data e orari della lezione un pulsante dedicato con icona cestino Apple (trash) di colore rosso, con conferma preventiva prima dell'eliminazione permanente della lezione e delle relative presenze.",
             "Conferma Eliminazione Profilo Fiscale: introdotta la conferma preventiva esplicita prima di procedere all'eliminazione permanente di un contatto dai dati di fatturazione.",

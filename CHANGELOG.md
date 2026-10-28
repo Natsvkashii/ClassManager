@@ -5,6 +5,24 @@ Il formato è basato su [Keep a Changelog](https://keepachangelog.com/it/1.0.0/)
 
 ---
 
+## [26.10.5-008] — 2026-10-28 (Release Ufficiale Stabile)
+
+### Correzioni & Novità Stabili
+- **Correzione Sezione Archivio — Etichetta Pulsante Apple Nativo**: risolta l'anomalia grafica che mostrava la chiave raw `openBtn` anziché l'etichetta localizzata `Apri`.
+- **Navigazione Affidabile con Corso Archiviato Aperto**: il corso archiviato aperto in modalità ispezione rimane visualizzabile e liberamente consultabile anche navigando in Fatturazione (con banner protetto di sola lettura) e in tutte le altre sezioni generali e di sistema, senza provocare errori di navigazione, sparizione della barra di selezione o schermate 'Nessun corso attivo'.
+- **Ri-archiviazione Intelligente e Sicurezza alla Chiusura**:
+  - Il corso archiviato viene ri-archiviato automaticamente solo quando l'utente seleziona esplicitamente un altro corso.
+  - Alla chiusura dell'applicazione (`willTerminateNotification` / `beforeunload`), l'app ri-archivia automaticamente il corso ispezionato e ripristina il corso attivo precedente (o il primo corso non archiviato), scongiurando qualsiasi crash o incoerenza di stato al successivo avvio.
+- **Canale Ufficiale Stabile (`isUnstableBuild = 0`)**: commutazione centralizzata del flag booleano di canale su Stabile, aggiornando all'unisono badge, colori e controlli sia in macOS che in Windows WebView2.
+- **Tutte le Novità e Perfezionamenti Recenti**:
+  - Cancellazione rapida della lezione tramite icona cestino Apple (`trash`) di colore rosso con conferma preventiva.
+  - Richiesta di conferma esplicita prima di eliminare un profilo fiscale.
+  - Semplificazione della voce "Dati di fatturazione" senza conteggi numerici.
+  - Gestione avanzata delle note personali dello studente con pulsante '+' e visualizzazione dedicata.
+  - Icona archivio studenti ad alto contrasto ottimizzata per il tema scuro.
+
+---
+
 ## [26.10.5-007] — 2026-10-26 (Beta / Unstable)
 
 ### Aggiunto & Modificato

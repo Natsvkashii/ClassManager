@@ -1628,6 +1628,19 @@ public struct BillingView: View {
                 VStack(alignment: .leading, spacing: 20) {
                     // 1. GENERAL OVERVIEW SPACE (Summary card of hours, total spent, and fiscal data modal button)
                     VStack(alignment: .leading, spacing: 14) {
+                        if course.archived || store.isInspectingArchivedCourse {
+                            HStack(spacing: 8) {
+                                Image(systemName: "lock.fill")
+                                    .foregroundStyle(.orange)
+                                Text("Corso archiviato in sola lettura. Ripristina il corso per modificare i dati di fatturazione.")
+                                    .font(.caption.bold())
+                                    .foregroundStyle(.secondary)
+                            }
+                            .padding(10)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .background(RoundedRectangle(cornerRadius: 10).fill(Color.orange.opacity(0.12)))
+                        }
+
                         HStack(alignment: .center) {
                             HStack(spacing: 8) {
                                 Image(systemName: "chart.bar.doc.horizontal.fill")

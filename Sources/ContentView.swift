@@ -184,6 +184,9 @@ public struct ContentView: View {
                 checkUpdatesOnStartupIfNeeded()
             }
         }
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.willTerminateNotification)) { _ in
+            store.rearchiveAndRevertBeforeQuit()
+        }
     }
 
     private func checkUpdatesOnStartupIfNeeded() {
@@ -464,11 +467,7 @@ private struct SidebarView: View {
 
     private func sidebarButton(tab: NavigationTab, icon: String, title: String) -> some View {
         let isSelected = store.currentTab == tab
-        let courseTabSet: Set<NavigationTab> = [.attendance, .grades, .activities, .rubrics, .moduleStudentCalendar, .courseConfig, .formerStudents]
         return Button {
-            if !courseTabSet.contains(tab) {
-                store.rearchiveTemporarilyInspectedCourseIfNeeded()
-            }
             store.currentTab = tab
         } label: {
             HStack(spacing: 10) {
@@ -586,7 +585,11 @@ private struct TopUnifiedHeaderBar: View {
                                     )) {
                                         ForEach(activeCourses) { c in
                                             let cBadge = store.formatLevelModuleBadge(course: c)
-                                            Text("\(c.name) (\(cBadge))").tag(c.id)
+                                            if c.id == store.temporarilyInspectedArchivedCourseId {
+                                                Text("\(c.name) (\(cBadge)) [\(store.t("navArchived"))]").tag(c.id)
+                                            } else {
+                                                Text("\(c.name) (\(cBadge))").tag(c.id)
+                                            }
                                         }
                                     }
                                     .labelsHidden()
