@@ -1,5 +1,41 @@
 # StudyDesk e HubDesk per Windows in versione nativa leggera – piano
 
+## STATO – 1 novembre 2026, notte (riprendere da qui)
+
+### Fatto (commit locali, NON ancora su GitHub: `git log origin/stable..stable`)
+- **StudyDesk nativo per Windows** – `StudyDesk/windows/native/`
+  - `studydesk_native.cpp`: si installa da solo in `%LOCALAPPDATA%\Programs\StudyDesk` (stessa cartella della versione
+    Electron, che viene disinstallata), chiave Uninstall `HKCU\…\Uninstall\StudyDesk`, collegamenti, file `.sdmod/.sdbook`.
+    Pagina servita da `https://studydesk.app/` (virtual host WebView2), file scelti da `https://files.studydesk.app/`.
+    Dati WebView2 in `%APPDATA%\StudyDesk_Native_Data`. `window.studydesk` con la stessa forma del preload di Electron.
+  - **Migrazione dati**: al primo avvio copia (non sposta) `%APPDATA%\StudyDesk\IndexedDB\app_studydesk_0.indexeddb.leveldb`
+    (+ `.blob`) in `…\StudyDesk_Native_Data\EBWebView\Default\IndexedDB\https_studydesk.app_0.indexeddb.*`; segno in
+    `electron-data-imported.txt`. **DA PROVARE SUL SURFACE**: se WebView2 non accetta la cartella copiata (origine diversa
+    scritta dentro LevelDB), ripiego = esportare il backup ZIP da Electron (Impostazioni › Dati) e importarlo nella nativa.
+  - HubDesk: `app/js/core/hubnative.js` (record, stato, lavagna, `hub.json` dei gruppi di ClassDesk) nella pagina; l'host dà
+    accesso ai file di `%APPDATA%\DeskHub` e il canale TCP locale. Test di parità con Electron: `tests/hubnative.test.js`.
+    Provato nel browser con un DeskHub finto (export/import gruppi, lavagna in entrambi i sensi).
+  - `build.py` → `StudyDesk/dist/StudyDesk-<v>-win-x64.exe` (**3,0 MB** contro 111 MB). `suite.py build` ora usa la nativa
+    (`--studydesk-electron` per la vecchia). HubDesk sa disinstallare entrambe.
+  - `ClassDesk/Windows-Version/native/include/webview.h` (condiviso): cartella dati per app (`WEBVIEW_USER_DATA_FOLDER`),
+    `core_webview()`; la migrazione dei vecchi dati di ClassDesk vale solo per ClassDesk. ClassDesk compila ancora.
+- Animazioni (Hub/MOTION.md) in StudyDesk e ClassDesk, Mac e Windows.
+
+### Non ancora provato
+Niente della versione nativa è stato eseguito su Windows (qui c'è solo il Mac). Il Surface era scollegato.
+
+### Prossimi passi, in ordine
+1. Compilare la 005: `python3 suite.py set 26.11.0-005 --channel unstable`, voci nei CHANGELOG, `PATH=$HOME/.local/bin:$PATH
+   python3 suite.py build`. Chiedere a Guaira il permesso di pubblicare (Unstable) e farla provare sul Surface tramite la chat
+   «Installazione accesso remoto» (Remote Control): installazione dall'installer unico, avvio, **dati migrati** (libri, gruppi,
+   progressi), import di un `.sdbook`, esportazioni (salva file), lavagna a schermo intero, gruppi da ClassDesk, collegamento
+   con HubDesk e lavagna condivisa Mac ↔ Surface.
+2. Se la migrazione IndexedDB non funziona: ripiego col backup ZIP (vedi sopra) prima di pubblicare per altri.
+3. HubDesk nativo (§3): stesso schema → host C++ (`Hub/win-host`), interfaccia `Hub/electron/renderer`, e in C++ la rete
+   (`net/hub-net.js`: server TCP + Bonjour con `DnsServiceRegister/DnsServiceBrowse`), icona nell'area di notifica, avvio
+   all'accesso, catalogo/installazioni (`catalog/*`, semplice da portare nella pagina come fatto per StudyDesk).
+4. Togliere Electron da `suite.py` e dall'installer unico quando anche HubDesk è nativo.
+
 Stato al 26.11.0-004: ClassDesk per Windows è già nativo (C++ + WebView2 di sistema, ~3 MB, `ClassDesk/Windows-Version/native`).
 StudyDesk (~111 MB) e HubDesk (~102 MB) usano Electron, che porta con sé un intero Chromium. Obiettivo: stesso modello di
 ClassDesk, con l'interfaccia web esistente (`StudyDesk/app`, `Hub/electron/renderer`) dentro WebView2 e un host C++ che
