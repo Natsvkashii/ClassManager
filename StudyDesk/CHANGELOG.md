@@ -2,7 +2,7 @@
 
 ## v26.11.0-004 (Unstable) – 1 novembre 2026
 - Animazioni morbide nella versione Windows/web: pagine e schede che entrano, finestre e pannelli che si aprono, pulsanti e interruttori che reagiscono (disattivate con «riduci movimento» del sistema).
-- Mac: il passaggio tra le pagine è animato (dissolvenza con un breve movimento verso l'alto).
+- Mac: il passaggio tra le pagine è animato (dissolvenza con un breve movimento verso l'alto); schede dei moduli, statistiche e lavagne salvate entrano morbide e si sollevano al passaggio del mouse (disattivate con «Riduci movimento»).
 - Si installa e si aggiorna dall'unico installer della suite.
 
 ## v26.11.0-003 (Unstable) – 1 novembre 2026

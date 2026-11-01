@@ -1188,6 +1188,8 @@ struct SavedBoardsGrid: View {
                 .padding(10)
                 .background(RoundedRectangle(cornerRadius: 12).fill(Color(nsColor: .controlBackgroundColor)))
                 .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(.separator))
+                .hoverLift()
+                .appearIn()
             }
         }
         .alert("Rinomina la lavagna", isPresented: Binding(get: { renaming != nil }, set: { if !$0 { renaming = nil } })) {

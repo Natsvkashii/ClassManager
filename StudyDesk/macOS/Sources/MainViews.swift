@@ -53,6 +53,7 @@ struct StatTile: View {
             }
             .padding(14)
         }
+        .appearIn()
     }
 }
 
@@ -88,6 +89,8 @@ struct ModuleCard: View {
                 .padding(14)
             }
         }
+        .hoverLift()
+        .appearIn()
         .contentShape(Rectangle())
         .onTapGesture { store.openModule(module.id) }
         .contextMenu {
