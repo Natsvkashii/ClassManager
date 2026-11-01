@@ -177,7 +177,8 @@ async function start() {
   initSync().catch((e) => console.error('sync', e));
   initHubDesk().catch((e) => console.error('hubdesk', e));
   startHubWatch();
-  if ('serviceWorker' in navigator && location.protocol.startsWith('http') && !platform.isAndroid) navigator.serviceWorker.register('sw.js').catch(() => {});
+  // not in the native Windows app: its files are on disk and are replaced by every update
+  if ('serviceWorker' in navigator && location.protocol.startsWith('http') && !platform.isAndroid && !(window.studydesk && window.studydesk.native)) navigator.serviceWorker.register('sw.js').catch(() => {});
 }
 
 start().catch((e) => { console.error(e); document.getElementById('root').textContent = 'Errore di avvio: ' + e.message; });

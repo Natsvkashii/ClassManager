@@ -242,7 +242,10 @@ def cmd_build(skip_win):
     run([sys.executable, "scripts/manage_version.py", "build", "--no-pkg"], cwd=STUDYDESK)
     run([sys.executable, "scripts/manage_version.py", "build"], cwd=HUB)
     if not skip_win:
-        run([sys.executable, "scripts/manage_version.py", "build-win"], cwd=STUDYDESK)
+        if "--studydesk-electron" in sys.argv:   # old Electron StudyDesk (until the native one is tested everywhere)
+            run([sys.executable, "scripts/manage_version.py", "build-win"], cwd=STUDYDESK)
+        else:                                     # native StudyDesk (C++ + WebView2, ~3 MB): StudyDesk/windows/native
+            run([sys.executable, "windows/native/build.py"], cwd=STUDYDESK)
         run(["npm", "run", "dist:win"], cwd=os.path.join(HUB, "electron"))  # dist.js keeps the exact -001 asset name
         if shutil.which("zig"):
             run(["bash", "Windows-Version/native/build_native.sh"], cwd=CLASSDESK, check=False)

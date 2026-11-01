@@ -123,7 +123,11 @@ function createWindowsDriver({ selfVersion } = {}) {
     async uninstall(id) {
       let cmd, args;
       if (id === 'classdesk') { cmd = exe('classdesk'); args = ['--uninstall']; }
-      else if (id === 'studydesk') { cmd = path.join(path.dirname(exe('studydesk')), 'Uninstall StudyDesk.exe'); args = ['/S']; }
+      else if (id === 'studydesk') {
+        // native StudyDesk (26.11.0-005+) uninstalls itself; the Electron one has its NSIS uninstaller
+        const nsis = path.join(path.dirname(exe('studydesk')), 'Uninstall StudyDesk.exe');
+        if (fs.existsSync(nsis)) { cmd = nsis; args = ['/S']; } else { cmd = exe('studydesk'); args = ['--uninstall', '--silent']; }
+      }
       else throw new Error('HubDesk non si disinstalla da qui');
       if (!fs.existsSync(cmd)) throw new Error('Programma di disinstallazione non trovato');
       await new Promise((resolve, reject) => {

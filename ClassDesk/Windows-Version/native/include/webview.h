@@ -2115,6 +2115,11 @@ private:
   unsigned int m_attempts = 0;
 };
 
+// ClassDesk Suite: each app keeps its WebView2 data (IndexedDB, Local Storage) in %APPDATA%\<folder>
+#ifndef WEBVIEW_USER_DATA_FOLDER
+#define WEBVIEW_USER_DATA_FOLDER L"ClassDesk_Native_Data"
+#endif
+
 class win32_edge_engine {
 public:
   win32_edge_engine(bool debug, void *window) {
@@ -2274,6 +2279,8 @@ public:
     }
   }
   void *window() { return (void *)m_window; }
+  // ClassDesk Suite: the WebView2 object, for settings webview.h does not expose (virtual host mapping, …)
+  ICoreWebView2 *core_webview() { return m_webview; }
   void terminate() { PostQuitMessage(0); }
   void dispatch(dispatch_fn_t f) {
     PostThreadMessage(m_main_thread, WM_APP, 0, (LPARAM) new dispatch_fn_t(f));
@@ -2345,10 +2352,12 @@ private:
       return false;
     }
     wchar_t userDataFolder[MAX_PATH];
-    PathCombineW(userDataFolder, dataPath, L"ClassDesk_Native_Data");
+    PathCombineW(userDataFolder, dataPath, WEBVIEW_USER_DATA_FOLDER);
     wchar_t oldUserDataFolder[MAX_PATH];
     PathCombineW(oldUserDataFolder, dataPath, L"ClassManagement_Native_Data");
-    if (GetFileAttributesW(userDataFolder) == INVALID_FILE_ATTRIBUTES &&
+    // legacy ClassDesk (Class Management) data: only for ClassDesk, never for another app of the suite
+    if (wcscmp(WEBVIEW_USER_DATA_FOLDER, L"ClassDesk_Native_Data") == 0 &&
+        GetFileAttributesW(userDataFolder) == INVALID_FILE_ATTRIBUTES &&
         GetFileAttributesW(oldUserDataFolder) != INVALID_FILE_ATTRIBUTES) {
       MoveFileW(oldUserDataFolder, userDataFolder);
     }
