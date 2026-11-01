@@ -46,6 +46,7 @@ public struct AppCardSurfaceModifier: ViewModifier {
                 RoundedRectangle(cornerRadius: cornerRadius)
                     .strokeBorder(stroke, lineWidth: lineWidth)
             )
+            .appearIn() // every card comes in softly (Hub/MOTION.md)
     }
 }
 

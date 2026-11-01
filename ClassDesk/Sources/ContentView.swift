@@ -135,6 +135,10 @@ public struct ContentView: View {
                 // Main Content Workspace with high-contrast Light/Dark canvas background
                 ZStack(alignment: .bottomTrailing) {
                     mainWorkspaceView
+                        // each section comes in softly: fade + short rise (Hub/MOTION.md)
+                        .id(store.currentTab)
+                        .transition(.opacity.combined(with: .offset(y: 8)))
+                        .animation(reduceMotion ? nil : .easeOut(duration: 0.25), value: store.currentTab)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                         .background(
                             colorScheme == .dark
@@ -215,6 +219,8 @@ public struct ContentView: View {
             updateManager.checkForUpdates(includeBeta: store.state.settings.includeBetaUpdates || AuthorAttribution.isBeta, silent: true, autoStageInBackground: true)
         }
     }
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @ViewBuilder
     private var mainWorkspaceView: some View {

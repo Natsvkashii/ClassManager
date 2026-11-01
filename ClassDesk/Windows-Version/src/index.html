@@ -184,6 +184,21 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 break-inside: avoid;
             }
         }
+        /* ---- motion (Hub/MOTION.md): the page comes in only when the section changes (switchTab adds .cd-enter),
+           not at every redraw; panels and modals open softly; off with prefers-reduced-motion */
+        @keyframes cdRise { from { opacity: 0; transform: translateY(10px); } }
+        @keyframes cdPop { from { opacity: 0; transform: scale(.96) translateY(6px); } }
+        #mainViewContainer.cd-enter > * { animation: cdRise .32s cubic-bezier(.2, .8, .2, 1) both; }
+        #mainViewContainer.cd-enter > * > * { animation: cdRise .36s cubic-bezier(.2, .8, .2, 1) both; }
+        #mainViewContainer.cd-enter > * > *:nth-child(2) { animation-delay: .04s; }
+        #mainViewContainer.cd-enter > * > *:nth-child(3) { animation-delay: .08s; }
+        #mainViewContainer.cd-enter > * > *:nth-child(4) { animation-delay: .12s; }
+        #mainViewContainer.cd-enter > * > *:nth-child(n+5) { animation-delay: .16s; }
+        #modalBackdrop:not(.hidden) > *, #unsavedPromptBackdrop:not(.hidden) > * { animation: cdPop .22s cubic-bezier(.2, .8, .2, 1) both; }
+        #mainViewContainer button:not(:disabled):active { transform: scale(.97); }
+        @media (prefers-reduced-motion: reduce) {
+            #mainViewContainer.cd-enter > *, #mainViewContainer.cd-enter > * > *, #modalBackdrop > *, #unsavedPromptBackdrop > * { animation: none !important; }
+        }
     </style>
     <style id="dynamicCourseThemeStyle"></style>
 </head>
@@ -4194,9 +4209,20 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                     this.selectedBillingCourseId = null;
                     this.showGroupBillingData = false;
                 }
+                const changed = this.currentTab !== tabId;
                 this.currentTab = tabId;
                 this.closeMobileSidebar();
                 this.renderAll();
+                if (changed) this.playPageEnter();
+            }
+
+            // The new section comes in softly (CSS .cd-enter, Hub/MOTION.md); the class goes away so later redraws do not animate.
+            playPageEnter() {
+                const c = document.getElementById("mainViewContainer");
+                if (!c) return;
+                c.classList.remove("cd-enter"); void c.offsetWidth; c.classList.add("cd-enter");
+                clearTimeout(this._enterTimer);
+                this._enterTimer = setTimeout(() => c.classList.remove("cd-enter"), 700);
             }
 
             switchCourse(courseId, targetTab = null) {
