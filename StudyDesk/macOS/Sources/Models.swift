@@ -19,7 +19,7 @@ public enum AuthorAttribution {
     public static let authorName = "Guaira Jaramillo Nitoglia"
     public static let authorEmail = "guaira.jaramillo.nitoglia@gmail.com"
     public static let appName = "StudyDesk"
-    public static let appVersion = "26.11.0-004"
+    public static let appVersion = "26.11.0-005"
 
     /// Centralized channel indicator: 0 = Stable, 1 = Unstable / Beta
     public static let isUnstableBuild: Int = 1
@@ -43,6 +43,14 @@ public struct ChangelogEntry: Identifiable {
 
 public enum AppChangelog {
     public static let entries: [ChangelogEntry] = [
+        ChangelogEntry(version: "26.11.0-005", channel: "Unstable", items: [
+            "Windows: StudyDesk ora è un'app leggera e veloce (circa 3 MB invece di oltre 100 MB), si apre subito e conserva automaticamente libri, moduli, gruppi, progressi e lavagne già presenti sul computer.",
+            "Windows: doppio clic sui file .sdmod e .sdbook per aprirli direttamente in StudyDesk.",
+        ]),
+        ChangelogEntry(version: "26.11.0-004", channel: "Unstable", items: [
+            "Animazioni morbide nel passaggio tra le pagine e nelle schede dei moduli, statistiche e lavagne salvate (disattivate con «Riduci movimento»).",
+            "Si installa e si aggiorna dall'unico installer della suite.",
+        ]),
         ChangelogEntry(version: "26.11.0-001", channel: "Unstable", items: [
             "StudyDesk entra nella ClassDesk Suite insieme a ClassDesk e HubDesk: stessa versione, stesso canale, aggiornamenti da HubDesk.",
             "Sincronizzazione tramite HubDesk: i dispositivi si trovano da soli, restano collegati e si scambiano subito gruppi e risultati; i conflitti si risolvono in HubDesk.",

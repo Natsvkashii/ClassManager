@@ -16,7 +16,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ClassDesk v26.11.0-004</title>
+    <title>ClassDesk v26.11.0-005</title>
     <link rel="icon" type="image/png" href="logo.png">
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -237,7 +237,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                     <span class="sidebar-text" id="sidebarFeedbackBtnText">Invia Feedback</span>
                 </button>
                 <div class="sidebar-footer-card p-1.5 rounded-xl bg-slate-50 dark:bg-navy-950/40 text-[10px] text-center text-slate-400 dark:text-slate-500 font-semibold">
-                    <span id="sidebarVersionBadge">ClassDesk v26.10.5-001 (Beta)</span>
+                    <span id="sidebarVersionBadge">ClassDesk v26.11.0-005</span>
                 </div>
             </div>
         </aside>
@@ -287,7 +287,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 <div class="w-full px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-2">
                     <p class="flex items-center gap-2">
                         <span id="footerPlatformDesc" class="text-slate-400 dark:text-slate-500">Piattaforma Accademica Multi-Livello QCER</span>
-                        <span id="footerVersionBadge" class="px-2 py-0.5 rounded-md bg-sky-100 dark:bg-navy-800 text-sky-700 dark:text-sky-300 text-[10px] font-bold">v26.10.5-001 (Beta)</span>
+                        <span id="footerVersionBadge" class="px-2 py-0.5 rounded-md bg-sky-100 dark:bg-navy-800 text-sky-700 dark:text-sky-300 text-[10px] font-bold">v26.11.0-005</span>
                     </p>
                     <p><span id="footerDevelopedBy">Concepito e Sviluppato da</span> <span class="font-semibold text-sky-700 dark:text-sky-400">Guaira Jaramillo Nitoglia</span> (<a href="mailto:guaira.jaramillo.nitoglia@gmail.com" class="underline hover:text-sky-600">guaira.jaramillo.nitoglia@gmail.com</a>)</p>
                 </div>
@@ -1554,13 +1554,37 @@ Removing, obfuscating, or altering these credits violates the author's attributi
         const IS_UNSTABLE_BUILD = 1;
 
         const INITIAL_DATA = {
-            version: "26.11.0-004",
+            version: "26.11.0-005",
             channel: IS_UNSTABLE_BUILD === 1 ? "unstable" : "stable",
             deletedItems: [],
             billingContacts: [],
             lastUpdated: new Date().toISOString(),
             activeCourseId: "",
             changelog: [
+                {
+                    version: "26.11.0-005",
+                    date: "2026-11-01",
+                    changes: [
+                        "macOS: corretto un arresto anomalo nelle impostazioni della Suite quando la lista dei dispositivi collegati si aggiorna.",
+                        "Windows: la barra laterale e il piè di pagina mostrano sempre la versione attuale del programma anche subito dopo un aggiornamento.",
+                        "Windows: l'installer unico della suite pesa ora circa 8–9 MB e avvia l'installazione solo quando si preme il pulsante «Installa»."
+                    ]
+                },
+                {
+                    version: "26.11.0-004",
+                    date: "2026-11-01",
+                    changes: [
+                        "Animazioni (Mac e Windows): ogni sezione entra con una dissolvenza e un breve movimento verso l'alto, schede e riquadri compaiono morbidi, le finestre si aprono con un piccolo effetto; disattivate con «Riduci movimento».",
+                        "Si installa e si aggiorna dall'unico installer della suite."
+                    ]
+                },
+                {
+                    version: "26.11.0-003",
+                    date: "2026-11-01",
+                    changes: [
+                        "Windows: corretto l'errore all'avvio che lasciava vuote la Dashboard e la pagina Corsi quando c'è almeno un corso attivo."
+                    ]
+                },
                 {
                     version: "26.11.0-001",
                     date: "2026-10-31",
@@ -10882,7 +10906,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
 
             sendFeedbackEmail() {
                 const authorEmail = "guaira.jaramillo.nitoglia@gmail.com";
-                const currentVer = this.state?.version || INITIAL_DATA.version || "26.10.3";
+                const currentVer = INITIAL_DATA.version || this.state?.version || "26.10.3";
                 const subject = `FEEDBACK CLASSDESK v. ${currentVer}`;
                 const osName = (navigator.userAgent.indexOf("Windows") !== -1) ? "Windows" : (navigator.userAgent.indexOf("Mac") !== -1 ? "macOS" : "Desktop");
                 const lang = this.state?.settings?.language || "it";
@@ -10913,7 +10937,7 @@ Dettagli di Sistema:
                     const res = await window.electronAPI.getPendingUpdate();
                     if (res && res.success && res.pendingUpdate && res.pendingUpdate.filePath) {
                         const pending = res.pendingUpdate;
-                        const curVer = this.parseAppVersion(this.state.version || INITIAL_DATA.version || "26.10.4-012");
+                        const curVer = this.parseAppVersion(INITIAL_DATA.version || this.state.version || "26.10.4-012");
                         const pendingVer = this.parseAppVersion(pending.version || "");
                         if (this.compareAppVersions(pendingVer, curVer) > 0) {
                             this.pendingUpdate = pending;
@@ -11288,7 +11312,7 @@ Dettagli di Sistema:
                         return;
                     }
 
-                    const currentVer = this.parseAppVersion(this.state.version || INITIAL_DATA.version || "26.10.4-012");
+                    const currentVer = this.parseAppVersion(INITIAL_DATA.version || this.state.version || "26.10.4-012");
                     // Beta versions receive beta updates even if toggle is off until next stable arrives
                     const isCurrentBeta = this.isBetaVersion();
                     const includeBeta = (this.state.settings?.includeBetaUpdates === true) || isCurrentBeta;
@@ -11391,7 +11415,7 @@ Dettagli di Sistema:
                                     </div>
                                     <div>
                                         <h4 class="text-sm font-extrabold text-slate-900 dark:text-white">ClassDesk è Aggiornato!</h4>
-                                        <p class="text-slate-500 mt-1">Stai già utilizzando l'ultima versione disponibile (<strong>v${this.escapeHtml(this.state.version || INITIAL_DATA.version || "26.10.4-012")}</strong>). Non sono necessari aggiornamenti.</p>
+                                        <p class="text-slate-500 mt-1">Stai già utilizzando l'ultima versione disponibile (<strong>v${this.escapeHtml(INITIAL_DATA.version || this.state.version || "26.10.4-012")}</strong>). Non sono necessari aggiornamenti.</p>
                                     </div>
                                     <div class="pt-2">
                                         <button type="button" onclick="app.closeModal()" class="px-5 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-extrabold shadow-sm transition">OK</button>
@@ -11751,7 +11775,7 @@ Dettagli di Sistema:
 
             renderCreditsView(container) {
                 const s = this.state.settings || {};
-                const currentVer = this.state.version || INITIAL_DATA.version || "26.10.5-001";
+                const currentVer = INITIAL_DATA.version || this.state.version || "26.10.5-001";
                 const isBeta = this.isBetaVersion();
                 const latestChangelog = (this.state.changelog && this.state.changelog.length > 0) ? this.state.changelog[0] : null;
                 const update = this.availableUpdate;
@@ -11931,7 +11955,7 @@ Dettagli di Sistema:
             }
 
             openInfoAndCreditsModal() {
-                const curVer = this.state.version || "26.10.1-1";
+                const curVer = INITIAL_DATA.version || this.state.version || "26.10.1-1";
                 const latestChangelog = (this.state.changelog && this.state.changelog.length > 0) ? this.state.changelog[0] : null;
 
                 this.openModal(`

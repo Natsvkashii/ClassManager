@@ -1,5 +1,9 @@
 # HubDesk – Changelog
 
+## 26.11.0-005 (Unstable)
+- Windows: HubDesk ora è un'app leggera e veloce (circa 1,5 MB invece di oltre 100 MB), si apre subito, resta nell'area di notifica e mantiene la rete tra i dispositivi, i conflitti e la lavagna condivisa; impostazioni e dati restano al loro posto.
+- Windows: l'installer della suite (`ClassDesk-Suite-…-Setup.exe`) pesa ora circa 8–9 MB in totale e avvia l'installazione solo quando premi il pulsante «Installa», così puoi scegliere con calma quali app installare.
+
 ## 26.11.0-004 (Unstable)
 - Un solo installer per sistema: `ClassDesk-Suite-…-Setup.exe` (Windows) e `ClassDesk-Suite-…-Installer.pkg` (macOS) contengono HubDesk, ClassDesk e StudyDesk; durante l'installazione si scelgono le app (HubDesk è sempre incluso).
 - Windows: nuovo installer nativo e leggero con la scelta delle app; HubDesk prende dall'installer solo l'app da installare o aggiornare e la chiude prima di aggiornarla.

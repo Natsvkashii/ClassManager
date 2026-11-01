@@ -5,6 +5,10 @@ Il formato è basato su [Keep a Changelog](https://keepachangelog.com/it/1.0.0/)
 
 ---
 
+## [26.11.0-005] — 2026-11-01 (Unstable)
+- macOS: corretto un arresto anomalo nelle impostazioni della Suite quando la lista dei dispositivi collegati si aggiorna.
+- Windows: la barra laterale e il piè di pagina mostrano sempre la versione attuale del programma anche subito dopo un aggiornamento.
+
 ## [26.11.0-004] — 2026-11-01 (Unstable)
 - Animazioni (Mac e Windows): ogni sezione entra con una dissolvenza e un breve movimento verso l'alto, schede e riquadri compaiono morbidi, le finestre si aprono con un piccolo effetto; disattivate con «Riduci movimento». Su Windows l'animazione parte solo quando cambi sezione, non a ogni modifica.
 - Si installa e si aggiorna dall'unico installer della suite.

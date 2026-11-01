@@ -152,6 +152,8 @@ def update_swift_version(version: str):
             h_content = f.read()
         h_content = re.sub(r'<title>ClassDesk\s+v[^<]+</title>', f'<title>ClassDesk v{version}</title>', h_content)
         h_content = re.sub(r'(version:\s*)"[^"]+"', f'\\1"{version}"', h_content, count=1)
+        h_content = re.sub(r'(<span\s+id="sidebarVersionBadge">ClassDesk\s+v)[^<]+(</span>)', f'\\g<1>{version}\\2', h_content)
+        h_content = re.sub(r'(<span\s+id="footerVersionBadge"[^>]*>v)[^<]+(</span>)', f'\\g<1>{version}\\2', h_content)
         with open(INDEX_HTML, "w", encoding="utf-8") as f:
             f.write(h_content)
         print(f"✓ Updated Windows-Version/src/index.html -> v{version}")

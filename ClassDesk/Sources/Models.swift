@@ -18,7 +18,7 @@ public enum AuthorAttribution {
     public static let authorName = "Guaira Jaramillo Nitoglia"
     public static let authorEmail = "guaira.jaramillo.nitoglia@gmail.com"
     public static let appName = "ClassDesk"
-    public static let appVersion = "26.11.0-004"
+    public static let appVersion = "26.11.0-005"
 
     /// Centralized channel indicator: 0 = Stable, 1 = Unstable / Beta
     public static let isUnstableBuild: Int = 1
@@ -1884,6 +1884,18 @@ public struct AppState: Codable, Equatable {
     ]
 
     public static let defaultChangelog: [ChangelogEntry] = [
+        ChangelogEntry(version: "26.11.0-005", date: "2026-11-01", changes: [
+            "macOS: corretto un arresto anomalo nelle impostazioni della Suite quando la lista dei dispositivi collegati si aggiorna.",
+            "Windows: la barra laterale e il piè di pagina mostrano sempre la versione attuale del programma anche subito dopo un aggiornamento.",
+            "Windows: l'installer unico della suite pesa ora circa 8–9 MB e avvia l'installazione solo quando si preme il pulsante «Installa»."
+        ]),
+        ChangelogEntry(version: "26.11.0-004", date: "2026-11-01", changes: [
+            "Animazioni (Mac e Windows): ogni sezione entra con una dissolvenza e un breve movimento verso l'alto, schede e riquadri compaiono morbidi, le finestre si aprono con un piccolo effetto; disattivate con «Riduci movimento».",
+            "Si installa e si aggiorna dall'unico installer della suite."
+        ]),
+        ChangelogEntry(version: "26.11.0-003", date: "2026-11-01", changes: [
+            "Windows: corretto l'errore all'avvio che lasciava vuote la Dashboard e la pagina Corsi quando c'è almeno un corso attivo."
+        ]),
         ChangelogEntry(version: "26.11.0-001", date: "2026-10-31", changes: [
             "ClassDesk diventa ClassDesk Suite: insieme a StudyDesk e HubDesk, stessa versione e stesso canale.",
             "HubDesk: nuova app che installa, aggiorna, apre e disinstalla ClassDesk e StudyDesk; viene installata automaticamente.",

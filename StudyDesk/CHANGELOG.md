@@ -1,5 +1,9 @@
 # Changelog
 
+## v26.11.0-005 (Unstable) – 1 novembre 2026
+- Windows: StudyDesk ora è un'app leggera e veloce (circa 3 MB invece di oltre 100 MB), si apre subito e conserva automaticamente libri, moduli, gruppi, progressi e lavagne già presenti sul computer.
+- Windows: doppio clic sui file `.sdmod` e `.sdbook` per aprirli direttamente in StudyDesk.
+
 ## v26.11.0-004 (Unstable) – 1 novembre 2026
 - Animazioni morbide nella versione Windows/web: pagine e schede che entrano, finestre e pannelli che si aprono, pulsanti e interruttori che reagiscono (disattivate con «riduci movimento» del sistema).
 - Mac: il passaggio tra le pagine è animato (dissolvenza con un breve movimento verso l'alto); schede dei moduli, statistiche e lavagne salvate entrano morbide e si sollevano al passaggio del mouse (disattivate con «Riduci movimento»).
