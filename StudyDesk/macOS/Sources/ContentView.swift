@@ -80,8 +80,12 @@ struct ContentView: View {
                 }
                 ZStack(alignment: .bottomTrailing) {
                     workspace
+                        // each page comes in softly (fade + short rise); the board opens at once (full screen)
+                        .id(store.currentTab)
+                        .transition(store.currentTab == .board ? .identity : .opacity.combined(with: .offset(y: 8)))
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                         .background(colorScheme == .dark ? Theme.canvasDark : Theme.canvasLight)
+                        .animation(reduceMotion ? nil : .easeOut(duration: 0.25), value: store.currentTab)
                     if let toast = store.toastMessage {
                         HStack(spacing: 10) {
                             Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
@@ -119,6 +123,8 @@ struct ContentView: View {
             if store.state.profile != nil { checkUpdatesIfNeeded() }
         }
     }
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @ViewBuilder private var workspace: some View {
         switch store.currentTab {
