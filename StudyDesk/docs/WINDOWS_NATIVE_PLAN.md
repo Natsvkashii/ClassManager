@@ -21,6 +21,20 @@
     `core_webview()`; la migrazione dei vecchi dati di ClassDesk vale solo per ClassDesk. ClassDesk compila ancora.
 - Animazioni (Hub/MOTION.md) in StudyDesk e ClassDesk, Mac e Windows.
 
+- **HubDesk nativo, prima tappa** – `Hub/win-host/` (non ancora usato da `suite.py`)
+  - `hubdesk_native.cpp` (**1,4 MB** contro 102 MB): si installa da solo in `%LOCALAPPDATA%\Programs\hubdesk` (toglie l'Electron),
+    finestra che si nasconde nell'area di notifica (menu: Apri, ClassDesk, StudyDesk, Esci), avvio all'accesso (`Run`),
+    istanza unica, stato in `%APPDATA%\HubDesk\hubdesk-state.json` (lo stesso di Electron), impostazioni in DeskHub.
+    Funzioni native: download con avanzamento (WinHTTP), registro, processi, installer in attesa, apertura app.
+  - `page/hubdesk-native.js`: `window.hubdesk` per `Hub/electron/renderer` **senza modifiche all'interfaccia**; `catalog.js` e
+    `manager.js` girano invariati (inclusi da `build.py` come funzioni: la pagina ha una CSP che vieta fetch/eval).
+    Provato nel browser con funzioni native simulate: versioni, benvenuto, aggiornamento di StudyDesk (scarica → estrae
+    dall'installer unico → chiude → installa).
+  - **Manca il motore di rete** (`Hub/electron/net/hub-net.js`: server TCP, Bonjour, scambio dei record, conflitti, lavagna,
+    canale locale per le app con `runtime.json`). Finché manca, la pagina «Dispositivi» dice che la rete non è disponibile:
+    **non sostituire ancora l'HubDesk Electron**. Da fare in C++ (Winsock + `DnsServiceRegister/DnsServiceBrowse`), seguendo
+    `Hub/macOS/Sources/Engine.swift` e i test `Hub/electron/tests/net.test.js`.
+
 ### Non ancora provato
 Niente della versione nativa è stato eseguito su Windows (qui c'è solo il Mac). Il Surface era scollegato.
 
