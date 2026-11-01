@@ -13,8 +13,11 @@ ELECTRON = os.path.join(HUB, "electron")
 def page_bundle():
     """page/hubdesk-native.js with catalog.js and manager.js in front, as functions (no fetch, no eval: the page has a CSP)."""
     mods = []
-    for name in ("catalog", "manager"):
-        src = open(os.path.join(ELECTRON, "catalog", name + ".js"), encoding="utf-8").read()
+    sources = [("catalog", os.path.join(ELECTRON, "catalog", "catalog.js")), ("manager", os.path.join(ELECTRON, "catalog", "manager.js")),
+               ("sync-core", os.path.join(ELECTRON, "net", "sync-core.js")), ("describe", os.path.join(ELECTRON, "net", "describe.js")),
+               ("hub-engine", os.path.join(HERE, "page", "hub-engine.js"))]
+    for name, path in sources:
+        src = open(path, encoding="utf-8").read()
         mods.append(f"{json.dumps(name)}: function (module, exports, require) {{\n{src}\n}}")
     return "window.__hd_modules = {\n" + ",\n".join(mods) + "\n};\n" + open(os.path.join(HERE, "page", "hubdesk-native.js"), encoding="utf-8").read()
 

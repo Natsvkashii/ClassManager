@@ -503,6 +503,30 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int) {
     w.bind("__hd_mdns_register", [](std::string r) -> std::string { return MdnsRegister(W(Arg(r, 0)), atoi(Arg(r, 1).c_str()), W(Arg(r, 2)), W(Arg(r, 3)), W(Arg(r, 4))) ? "true" : "false"; });
     w.bind("__hd_mdns_unregister", [](std::string) -> std::string { MdnsUnregister(); return "true"; });
     w.bind("__hd_mdns_browse", [](std::string) -> std::string { return MdnsBrowse() ? "true" : "false"; });
+    // files of the network engine, inside %APPDATA%\DeskHub only (relative paths, no "..")
+    auto hubPath = [](const std::string &rel) -> std::wstring {
+        if (rel.empty() || rel.find("..") != std::string::npos || rel.find(':') != std::string::npos || rel[0] == '/' || rel[0] == '\\') return L"";
+        std::wstring r = W(rel); std::replace(r.begin(), r.end(), L'/', L'\\');
+        return KnownDir(CSIDL_APPDATA) + L"\\DeskHub\\" + r;
+    };
+    w.bind("__hd_fs_read", [hubPath](std::string r) -> std::string { std::wstring p = hubPath(Arg(r, 0)); std::string t; return (!p.empty() && ReadWhole(p, t)) ? Q(t) : "null"; });
+    w.bind("__hd_fs_write", [hubPath](std::string r) -> std::string { std::wstring p = hubPath(Arg(r, 0)); return (!p.empty() && WriteAtomic(p, Arg(r, 1))) ? "true" : "false"; });
+    w.bind("__hd_fs_rm", [hubPath](std::string r) -> std::string { std::wstring p = hubPath(Arg(r, 0)); if (!p.empty()) DeleteFileW(p.c_str()); return "true"; });
+    w.bind("__hd_fs_list", [hubPath](std::string r) -> std::string {
+        std::wstring dir = hubPath(Arg(r, 0)); if (dir.empty()) return "[]";
+        std::string out = "["; WIN32_FIND_DATAW fd; HANDLE h = FindFirstFileW((dir + L"\\*").c_str(), &fd);
+        if (h != INVALID_HANDLE_VALUE) {
+            do {
+                if (!wcscmp(fd.cFileName, L".") || !wcscmp(fd.cFileName, L"..")) continue;
+                ULARGE_INTEGER t; t.LowPart = fd.ftLastWriteTime.dwLowDateTime; t.HighPart = fd.ftLastWriteTime.dwHighDateTime;
+                unsigned long long size = ((unsigned long long)fd.nFileSizeHigh << 32) | fd.nFileSizeLow;
+                out += (out.size() > 1 ? "," : "") + std::string("{\"n\":") + Q(U(fd.cFileName)) + ",\"s\":" + std::to_string(size) + ",\"m\":\"" + std::to_string(t.QuadPart) + "\",\"d\":" + ((fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) ? "true" : "false") + "}";
+            } while (FindNextFileW(h, &fd));
+            FindClose(h);
+        }
+        return out + "]";
+    });
+    w.bind("__hd_hostname", [](std::string) -> std::string { wchar_t n[256]; DWORD len = 256; GetComputerNameW(n, &len); return Q(U(n)); });
     w.bind("__hd_autostart", [](std::string r) -> std::string { SetAutostart(Arg(r, 0) == "1"); return "true"; });
 
     std::string page; ReadWhole(AppDir() + L"\\page\\hubdesk-native.js", page);
