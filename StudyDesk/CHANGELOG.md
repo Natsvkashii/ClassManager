@@ -1,6 +1,7 @@
 # Changelog
 
 ## v26.11.0-004 (Unstable) – 1 novembre 2026
+- Animazioni morbide nella versione Windows/web: pagine e schede che entrano, finestre e pannelli che si aprono, pulsanti e interruttori che reagiscono (disattivate con «riduci movimento» del sistema).
 - Si installa e si aggiorna dall'unico installer della suite.
 
 ## v26.11.0-003 (Unstable) – 1 novembre 2026
