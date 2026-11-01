@@ -44,6 +44,15 @@
 ### Non ancora provato
 Niente della versione nativa è stato eseguito su Windows (qui c'è solo il Mac). Il Surface era scollegato.
 
+### Prova della 26.11.0-004 sul Surface (1 novembre)
+- OK: ClassDesk mostra di nuovo i 7 corsi; installer unico scaricato e verificato; nessun avviso di SmartScreen/Defender.
+- Corretto (non ancora pubblicato): testi dell'installer tagliati al 200 %; `--list` senza output da PowerShell.
+- **Da capire**: l'installazione è partita da sola prima di premere «Installa» (tasto Invio dell'automazione? pulsante
+  predefinito + IsDialogMessage); StudyDesk è rimasto alla 26.11.0-3 (l'installer Electron con `/S` non l'ha aggiornato –
+  con StudyDesk nativo questo installer sparisce); l'HubDesk Electron non apre la finestra, resta solo nell'area di notifica
+  (sarà sostituito da quello nativo); ClassDesk mostra nel piè di pagina la versione salvata nei dati (`state.version`,
+  «v26.11.0-003» e «26.10.5-001 (Beta)»): aggiornarla all'avvio con la versione del programma.
+
 ### Prossimi passi, in ordine
 1. Compilare la 005: `python3 suite.py set 26.11.0-005 --channel unstable`, voci nei CHANGELOG, `PATH=$HOME/.local/bin:$PATH
    python3 suite.py build`. Chiedere a Guaira il permesso di pubblicare (Unstable) e farla provare sul Surface tramite la chat
