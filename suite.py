@@ -14,7 +14,7 @@
 
   python3 suite.py status
   python3 suite.py set 26.11.0-001 --channel unstable
-  python3 suite.py build [--skip-win]      # builds every app, collects assets into dist/<v>/ and the suite .pkg
+  python3 suite.py build [--skip-win] [--hubdesk-native] [--studydesk-electron]   # builds every app, collects assets into dist/<v>/ and the suite .pkg
   python3 suite.py collect                 # only collects already-built assets + suite .pkg
   python3 suite.py manifest                # writes update-manifest.json (root, read by installed ClassDesk)
   python3 suite.py notes                   # writes dist/<v>/RELEASE_NOTES.md from the changelogs
@@ -246,7 +246,11 @@ def cmd_build(skip_win):
             run([sys.executable, "scripts/manage_version.py", "build-win"], cwd=STUDYDESK)
         else:                                     # native StudyDesk (C++ + WebView2, ~3 MB): StudyDesk/windows/native
             run([sys.executable, "windows/native/build.py"], cwd=STUDYDESK)
-        run(["npm", "run", "dist:win"], cwd=os.path.join(HUB, "electron"))  # dist.js keeps the exact -001 asset name
+        if "--hubdesk-native" in sys.argv:       # native HubDesk (Hub/win-host): to be tested on Windows before it becomes the default
+            os.environ["SUITE_VERSION"] = v
+            run([sys.executable, os.path.join(HUB, "win-host", "build.py"), os.path.join(HUB, "electron", "dist", "ClassDesk-Suite-%s-Setup.exe" % v)])
+        else:
+            run(["npm", "run", "dist:win"], cwd=os.path.join(HUB, "electron"))  # dist.js keeps the exact -001 asset name
         if shutil.which("zig"):
             run(["bash", "Windows-Version/native/build_native.sh"], cwd=CLASSDESK, check=False)
         else:
