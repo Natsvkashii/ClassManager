@@ -1,34 +1,25 @@
-# ClassDesk v26.10.5-001
+# ClassDesk Suite – ClassDesk · StudyDesk · HubDesk
 
-**Concepito e Sviluppato da:** Guaira Jaramillo Nitoglia  
-**Contatto:** guaira.jaramillo.nitoglia@gmail.com  
-**Licenza:** GNU General Public License v3.0 (GPL-3.0) — Vedi [LICENSE](LICENSE)
+Concepito e sviluppato da **Guaira Jaramillo Nitoglia** – guaira.jaramillo.nitoglia@gmail.com – licenza GPL-3.0.
 
----
+| Cartella | Contenuto |
+|---|---|
+| [`ClassDesk/`](ClassDesk/) | Gestionale dei corsi (macOS Swift + Windows C++/WebView2). Build: `cd ClassDesk && python3 manage_version.py …` |
+| [`StudyDesk/`](StudyDesk/) | Esercizi interattivi, libri, gruppi, Lavagna (macOS SwiftUI, Windows Electron, Android Capacitor). Build: `cd StudyDesk && python3 scripts/manage_version.py …` |
+| [`Hub/`](Hub/) | **HubDesk**, il centro della suite: installa e aggiorna le app, collega i dispositivi in rete, sincronizza i dati e la lavagna ([`HUBDESK.md`](Hub/HUBDESK.md)); librerie comuni Swift/JS e scambio locale dei gruppi ([`HUB_FORMAT.md`](Hub/HUB_FORMAT.md)). macOS in `Hub/macOS/`, Windows in `Hub/electron/`. |
 
-## Panoramica
-**ClassDesk** è una suite gestionale accademica multi-livello (QCER: A1, A2, B1, B2, C1, C2) nativa per **macOS** e **Windows 10/11 (64-bit)** per la gestione completa di:
-- **Presenze** (con barra di stato della partecipazione, colonna studenti fissa, evidenziazione del giorno odierno e selezione multipla)
-- **Piano Lezioni** (con stati visivi di completamento/ritardo, drag & drop, esportazione PNG 1:1 e testo WhatsApp)
-- **Voti, Attività e Criteri di Valutazione (Rubriche)** (con calcolo automatico del punteggio delle presenze in base alle ore effettive e massimale configurabile)
-- **Anagrafica Studenti** (con storico note delle lezioni per i moduli attivi, filtri e contatti diretti WhatsApp/Email)
-- **Fatturazione e Banca Dati Clienti** (con calcolo automatico delle ore dagli orari delle lezioni e rubrica fiscale integrata con ricerca)
-- **Calendario Generale** (sincronizzazione bidirezionale Google Calendar & Google Meet / link riunioni personalizzati e integrazione macOS EventKit)
-- **Aggiornamenti Silenziosi in Background** (verifica automatica all'avvio e ogni 24 ore con download in background e installazione automatica al riavvio successivo)
+## Release della suite
 
-## Struttura del Repository
-- `Sources/` — Codice sorgente nativo Swift / SwiftUI per macOS (`ClassDesk.app`)
-- `Windows-Version/` — Codice sorgente nativo C++ / WebView2 (`native/app_native.cpp`, `src/index.html`) e configurazione Inno Setup per Windows (`ClassDesk-Setup.exe`)
-- `manage_version.py` — Gestore centralizzato di versioni, build e canali (`stable` / `unstable`)
+Tutte le app hanno la stessa versione `AA.MM.R-BBB` e lo stesso canale. Dalla radice:
 
-## Compilazione
-
-### macOS
 ```bash
-python3 manage_version.py set 26.10.5-001 --channel unstable
+python3 suite.py set 26.11.0-001 --channel unstable
+python3 suite.py build          # tutte le app + pacchetto suite macOS + manifest + note di versione in dist/<v>/
+python3 suite.py publish        # prova: mostra gli asset nell'ordine di caricamento; con --yes crea la release (GITHUB_TOKEN)
 ```
 
-### Windows (Cross-Compilation + Inno Setup)
-```bash
-cd Windows-Version/native && ./build_native.sh
-```
+L'ordine e i nomi degli asset servono anche agli aggiornatori di ClassDesk 26.10 già installati (vedi `Hub/HUBDESK.md` §6):
+così il vecchio ClassDesk passa alla suite con il suo aggiornamento automatico.
+
+`update-manifest.json` nella radice è la copia letta dalle installazioni di ClassDesk già distribuite; `suite.py manifest`
+la scrive con le chiavi storiche e la nuova chiave `suite`.

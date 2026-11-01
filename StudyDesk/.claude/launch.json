@@ -1,0 +1,6 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    { "name": "studydesk-web", "runtimeExecutable": "/usr/local/bin/node", "runtimeArgs": ["/Users/guaira/Documents/Nuovo Espresso/Nuovo Espresso 1/scripts/serve.js"], "port": 8777 }
+  ]
+}

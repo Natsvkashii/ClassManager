@@ -1,15 +1,54 @@
 {
-  "version": "26.10.5-008",
-  "channel": "stable",
-  "tag_name": "v26.10.5-008",
-  "prerelease": false,
-  "published_at": "2026-10-28T21:00:00Z",
-  "name": "ClassDesk v26.10.5-008 (Release Ufficiale Stabile)",
-  "body": "Novità Ufficiali ClassDesk v26.10.5-008 (Release Ufficiale Stabile):\n- Correzione Sezione Archivio: etichetta corretta 'Apri' in sostituzione della chiave raw.\n- Gestione Affidabile Corsi Archiviati: consultazione fluida del corso archiviato in ispezione attraverso tutte le sezioni di sistema e Fatturazione (in modalità protetta di sola lettura).\n- Ri-archiviazione Intelligente: ri-archiviazione automatica solo al cambio esplicito di corso e ripristino sicuro del corso precedente alla chiusura del programma.\n- Canale Ufficiale Stabile (isUnstableBuild = 0): commutazione automatica del canale di rilascio su Stabile con aggiornamento di badge, colori e controlli sia in macOS che su Windows WebView2.\n- Suite Completa di Migliorie: cestino rosso per eliminazione lezioni, conferma eliminazione profili contabili, note multiple personalizzate per studente e icone archivio ad alto contrasto.",
-  "setupUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.10.5-008/ClassDesk-26.10.5-008-Setup.exe",
-  "setupName": "ClassDesk-26.10.5-008-Setup.exe",
-  "macZipUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.10.5-008/ClassDesk-26.10.5-008-macOS.zip",
-  "macZipName": "ClassDesk-26.10.5-008-macOS.zip",
-  "macPkgUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.10.5-008/ClassDesk-26.10.5-008-Installer.pkg",
-  "macPkgName": "ClassDesk-26.10.5-008-Installer.pkg"
+  "version": "26.11.0-001",
+  "channel": "unstable",
+  "tag_name": "v26.11.0-001",
+  "prerelease": true,
+  "published_at": "2026-11-01T00:41:57Z",
+  "name": "ClassDesk Suite v26.11.0-001 (Beta / Unstable)",
+  "body": "# ClassDesk Suite v26.11.0-001 (Unstable)\n\nPrima versione della **ClassDesk Suite**: ClassDesk, StudyDesk e HubDesk insieme, con la stessa versione e lo stesso canale.\n\n## Installazione\n- **macOS**: `ClassDesk-Suite-26.11.0-001-Installer.pkg` (HubDesk sempre incluso; ClassDesk e StudyDesk selezionabili).\n- **Windows**: `ClassDesk-Suite-26.11.0-001-Setup.exe` installa HubDesk, da cui si installano ClassDesk e StudyDesk.\n- Le app si possono anche installare da sole (`ClassDesk-…`, `StudyDesk-…`): al primo avvio installano HubDesk.\n- Chi usa ClassDesk 26.10 riceve la suite con il normale aggiornamento automatico, senza perdere dati.\n\n## HubDesk\n- Prima versione di HubDesk, il centro della ClassDesk Suite (macOS e Windows).\n- Gestione app in stile Creative Cloud: installa, aggiorna, apre e disinstalla ClassDesk e StudyDesk; canale Stabile/Unstable, «Aggiorna tutto» e aggiornamenti automatici.\n- Rete della suite: i computer con lo stesso codice si trovano da soli in rete locale, restano collegati, si ricollegano da soli e si scambiano subito ogni modifica di ClassDesk e StudyDesk.\n- Conflitti: le modifiche fatte nello stesso momento su due computer vengono mostrate affiancate per scegliere quale tenere.\n- Lavagna di StudyDesk condivisa in tempo reale tra i dispositivi collegati.\n- Migrazione da ClassDesk 26.10: il normale aggiornamento installa la suite; su Windows HubDesk aggiorna subito ClassDesk.\n- Icona nella barra dei menu / area di notifica e avvio automatico all'accesso.\n\n## ClassDesk\n- ClassDesk diventa ClassDesk Suite: insieme a StudyDesk e HubDesk, stessa versione e stesso canale.\n- HubDesk: nuova app che installa, aggiorna, apre e disinstalla ClassDesk e StudyDesk; viene installata automaticamente.\n- Rete della suite: i computer si trovano da soli, restano collegati e si scambiano subito corsi, studenti e dati di ClassDesk; i conflitti si risolvono in HubDesk; backup automatico prima della prima sincronizzazione.\n- Gruppi sempre allineati con StudyDesk (solo gruppi attivi).\n- Nuova sezione Suite nelle impostazioni.\n- Interfaccia: «1 iscritto» e «1 lezione» al singolare, conto alla rovescia della prossima lezione scritto «Tra 2h 36m» invece di «-02h 36m», intestazione del Piano lezioni su due righe senza testo schiacciato, niente pulsanti doppi in Fatturazione, sezione dei gruppi condivisi con StudyDesk a tutta larghezza.\n- Aggiornamento dalla versione 26.10 alla suite senza perdita di dati (macOS e Windows).\n\n\n## StudyDesk\n- StudyDesk entra nella ClassDesk Suite insieme a ClassDesk e HubDesk: stessa versione, stesso canale, aggiornamenti da HubDesk.\n- Sincronizzazione tramite HubDesk: i dispositivi si trovano da soli, restano collegati e si scambiano subito gruppi e risultati; i conflitti si risolvono in HubDesk.\n- Lavagna condivisa automaticamente in tempo reale tra i dispositivi collegati (tratti di tutti sulla stessa lavagna, indicatore e pausa).\n- Gruppi di ClassDesk sempre allineati (solo gruppi attivi), ora uno per corso: i moduli dello stesso corso non compaiono più come gruppi separati e i gruppi già importati per modulo vengono uniti (studenti, contenuti assegnati e risultati).\n- Corretto: uno studente senza email poteva essere aggiunto di nuovo al gruppo a ogni aggiornamento dall'Hub.\n- Attività a schermo intero per studenti e insegnanti: usa tutta la larghezza dello schermo, con pulsanti per nascondere l'elenco delle attività e uscire (Esc).\n- L'elenco delle attività a sinistra e la barra di navigazione si possono nascondere (la scelta viene ricordata).\n- Libro aperto: i capitoli sono in una griglia che scorre verso il basso; copertine intere con i dettagli sotto l'immagine.\n- Interfaccia: «1 studente» al singolare, contatori a zero visibili, copertine dei capitoli intere, pulsanti di sincronizzazione da backup nascosti per i gruppi aggiornati da HubDesk, impostazioni insegnante senza campi doppi.\n- Barra della lavagna su una sola riga anche su schermi piccoli (Surface).\n- Lavagna: spessore del tratto con una barra a cono che mostra la grandezza, e un selettore colori in stile Paint con colori consigliati per lavagne chiare e scure; tenendo premuto (anche con la penna) una lente ingrandisce il colore scelto.\n- Lavagna: riquadri di testo con grassetto, corsivo, sottolineato, grandezza e allineamento a sinistra, al centro o a destra.\n- Lavagna: griglia con il lato del quadretto in centimetri e puntamento polare per disegnare linee dritte, tabelle e schemi; con lo strumento Testo si scrive direttamente dentro le celle e i quadretti.\n- Lavagna: puntatore laser con linee che svaniscono, pulsante «Cancella la lavagna» con conferma, colore della lavagna (bianco, grigio scuro, nero o personalizzato) cambiabile durante l'uso: gli inchiostri consigliati passano da soli alla versione leggibile.\n- Lavagna: data automatica (Impostazioni), lavagne salvate nei gruppi (scheda «Lavagne» del gruppo) ed esportazione in PNG, JPEG e PDF.\n- Se HubDesk manca viene installato automaticamente.\n- La sincronizzazione diretta delle versioni 26.10 resta disponibile.\n\n---\n© 2026 Guaira Jaramillo Nitoglia · guaira.jaramillo.nitoglia@gmail.com · GPL-3.0\n",
+  "setupUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.11.0-001/ClassDesk-Suite-26.11.0-001-Setup.exe",
+  "setupName": "ClassDesk-Suite-26.11.0-001-Setup.exe",
+  "macZipUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.11.0-001/ClassDesk-26.11.0-001-macOS.zip",
+  "macZipName": "ClassDesk-26.11.0-001-macOS.zip",
+  "macPkgUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.11.0-001/ClassDesk-Suite-26.11.0-001-Installer.pkg",
+  "macPkgName": "ClassDesk-Suite-26.11.0-001-Installer.pkg",
+  "suite": {
+    "version": "26.11.0-001",
+    "apps": {
+      "hubdesk": {
+        "mac": {
+          "name": "HubDesk-26.11.0-001-mac.zip",
+          "url": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.11.0-001/HubDesk-26.11.0-001-mac.zip"
+        },
+        "win": {
+          "name": "ClassDesk-Suite-26.11.0-001-Setup.exe",
+          "url": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.11.0-001/ClassDesk-Suite-26.11.0-001-Setup.exe"
+        }
+      },
+      "classdesk": {
+        "mac": {
+          "name": "ClassDesk-26.11.0-001-macOS.zip",
+          "url": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.11.0-001/ClassDesk-26.11.0-001-macOS.zip"
+        },
+        "win": {
+          "name": "ClassDesk-26.11.0-001-win-x64.exe",
+          "url": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.11.0-001/ClassDesk-26.11.0-001-win-x64.exe"
+        }
+      },
+      "studydesk": {
+        "mac": {
+          "name": "StudyDesk-26.11.0-001-mac.zip",
+          "url": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.11.0-001/StudyDesk-26.11.0-001-mac.zip"
+        },
+        "win": {
+          "name": "StudyDesk-26.11.0-001-win-x64.exe",
+          "url": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.11.0-001/StudyDesk-26.11.0-001-win-x64.exe"
+        }
+      }
+    },
+    "pkg": {
+      "name": "ClassDesk-Suite-26.11.0-001-Installer.pkg",
+      "url": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.11.0-001/ClassDesk-Suite-26.11.0-001-Installer.pkg"
+    }
+  }
 }

@@ -1,0 +1,14 @@
+{
+  "name": "StudyDesk",
+  "short_name": "StudyDesk",
+  "description": "Esercizi interattivi per corsi di lingua",
+  "lang": "it",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f4f8fc",
+  "theme_color": "#0ea5e9",
+  "icons": [
+    { "src": "icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

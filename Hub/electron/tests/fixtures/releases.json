@@ -1,0 +1,17 @@
+[
+ {"tag_name":"v26.11.0-002","name":"Beta 2","prerelease":true,"draft":false,"body":"Note beta 2","assets":[
+   {"name":"ClassDesk-26.11.0-002-macOS.zip","browser_download_url":"https://x/c.zip"},
+   {"name":"ClassDesk-Suite-26.11.0-002-Setup.exe","browser_download_url":"https://x/suite2.exe","size":100},
+   {"name":"ClassDesk-26.11.0-002-win-x64.exe","browser_download_url":"https://x/cd2.exe"},
+   {"name":"StudyDesk-26.11.0-002-win-x64.exe","browser_download_url":"https://x/sd2.exe"}]},
+ {"tag_name":"v26.11.0-001","name":"Beta 1","prerelease":true,"draft":false,"body":"Note 1","assets":[
+   {"name":"ClassDesk-Suite-26.11.0-001-Setup.exe","browser_download_url":"https://x/suite1.exe"},
+   {"name":"ClassDesk-26.11.0-001-win-x64.exe","browser_download_url":"https://x/cd1.exe"},
+   {"name":"StudyDesk-26.11.0-001-win-x64.exe","browser_download_url":"https://x/sd1.exe"},
+   {"name":"StudyDesk-26.11.0-001-mac.zip","browser_download_url":"https://x/sd1.zip"}]},
+ {"tag_name":"v26.10.5-008","name":"Stable","prerelease":false,"draft":false,"body":"Stabile","assets":[
+   {"name":"ClassDesk-26.10.5-008-win-x64.exe","browser_download_url":"https://x/cd8.exe"},
+   {"name":"ClassDesk-26.10.5-008-macOS.zip","browser_download_url":"https://x/cd8.zip"}]},
+ {"tag_name":"v26.12.0-001","name":"Draft","prerelease":false,"draft":true,"body":"","assets":[
+   {"name":"ClassDesk-26.12.0-001-win-x64.exe","browser_download_url":"https://x/d.exe"}]}
+]

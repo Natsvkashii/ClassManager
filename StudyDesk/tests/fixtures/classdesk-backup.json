@@ -1,0 +1,119 @@
+{
+  "version": 1,
+  "lastUpdated": "2026-10-30T09:00:00Z",
+  "studentsDirectory": [
+    {
+      "id": "st-a1b2c3",
+      "firstName": "Mario",
+      "lastName": "Rossi",
+      "email": "mario.rossi@example.test",
+      "phone": "",
+      "currentLevel": "A1"
+    },
+    {
+      "id": "st-d4e5f6",
+      "firstName": "Anna",
+      "lastName": "Bianchi",
+      "email": "anna.bianchi@example.test",
+      "phone": "",
+      "currentLevel": "A1"
+    },
+    {
+      "id": "st-g7h8i9",
+      "firstName": "Luca",
+      "lastName": "Verdi",
+      "email": "luca.verdi@example.test",
+      "phone": "",
+      "currentLevel": "A2"
+    },
+    {
+      "id": "st-old001",
+      "firstName": "Paola",
+      "lastName": "Gialli",
+      "email": "paola.gialli@example.test",
+      "phone": "",
+      "currentLevel": "B1"
+    }
+  ],
+  "courses": [
+    {
+      "id": "crs-active1",
+      "code": "IG",
+      "name": "Italiano generale",
+      "type": "group",
+      "level": "A1",
+      "color": "sky",
+      "archived": false,
+      "levels": [
+        {
+          "id": "lvl-a1",
+          "code": "A1",
+          "customName": "",
+          "name": "A1",
+          "sublevel": "",
+          "modules": [
+            {
+              "id": "mod-a1-tue",
+              "name": "A1 sera – martedì",
+              "studentIds": [
+                "st-a1b2c3",
+                "st-d4e5f6",
+                "st-missing"
+              ]
+            },
+            {
+              "id": "mod-a1-thu",
+              "name": "A1 mattina – giovedì",
+              "studentIds": [
+                "st-a1b2c3"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "lvl-a2",
+          "code": "A2",
+          "customName": "Elementare",
+          "name": "A2",
+          "sublevel": "",
+          "modules": [
+            {
+              "id": "mod-a2-mon",
+              "name": "A2 lunedì",
+              "studentIds": [
+                "st-g7h8i9"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "crs-archived1",
+      "code": "OLD",
+      "name": "Corso concluso",
+      "type": "group",
+      "level": "B1",
+      "color": "rose",
+      "archived": true,
+      "levels": [
+        {
+          "id": "lvl-b1",
+          "code": "B1",
+          "customName": "",
+          "name": "B1",
+          "sublevel": "",
+          "modules": [
+            {
+              "id": "mod-b1",
+              "name": "B1 vecchio",
+              "studentIds": [
+                "st-old001"
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

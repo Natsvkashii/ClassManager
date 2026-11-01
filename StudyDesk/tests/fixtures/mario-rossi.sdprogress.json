@@ -1,0 +1,111 @@
+{
+  "format": "studydesk-progress",
+  "formatVersion": 1,
+  "app": {
+    "name": "StudyDesk",
+    "version": "26.10.0-001",
+    "platform": "web"
+  },
+  "exportedAt": "2026-10-30T12:00:00Z",
+  "student": {
+    "id": "u-mario",
+    "firstName": "Mario",
+    "lastName": "Rossi",
+    "email": "Mario.Rossi@example.test"
+  },
+  "modules": [
+    {
+      "id": "libro-di-prova-c01",
+      "version": "1.0.0",
+      "title": "Al bar",
+      "stats": {
+        "completedParts": 2,
+        "totalParts": 3,
+        "score": 5,
+        "maxScore": 6,
+        "pendingReview": 0
+      },
+      "results": [
+        {
+          "activityId": "a1",
+          "partId": "a1-b",
+          "type": "choice",
+          "answer": [
+            [
+              0
+            ],
+            [
+              0,
+              2
+            ],
+            [
+              1
+            ]
+          ],
+          "score": 3,
+          "maxScore": 3,
+          "status": "correct",
+          "attempts": 1,
+          "updatedAt": "2026-10-30T11:50:00Z"
+        },
+        {
+          "activityId": "a1",
+          "partId": "a1-c",
+          "type": "truefalse",
+          "answer": [
+            false,
+            false
+          ],
+          "score": 1,
+          "maxScore": 2,
+          "status": "partial",
+          "attempts": 2,
+          "updatedAt": "2026-10-30T11:55:00Z"
+        }
+      ]
+    },
+    {
+      "id": "libro-di-prova-c03",
+      "version": "1.0.0",
+      "title": "Scrivere e parlare",
+      "stats": {
+        "completedParts": 2,
+        "totalParts": 2,
+        "score": 0,
+        "maxScore": 0,
+        "pendingReview": 2
+      },
+      "results": [
+        {
+          "activityId": "a3",
+          "partId": "a3-a",
+          "type": "open",
+          "answer": [
+            "Mi chiamo Mario e sono di Napoli.",
+            "Mi piace il caffè."
+          ],
+          "score": 0,
+          "maxScore": 0,
+          "status": "submitted",
+          "attempts": 1,
+          "updatedAt": "2026-10-30T11:58:00Z"
+        },
+        {
+          "activityId": "a3",
+          "partId": "a3-b",
+          "type": "speaking",
+          "answer": {
+            "text": "Buongiorno! Un caffè, per favore.",
+            "recording": "rec.wav"
+          },
+          "score": 0,
+          "maxScore": 0,
+          "status": "submitted",
+          "attempts": 1,
+          "updatedAt": "2026-10-30T11:59:00Z",
+          "recording": "data:audio/wav;base64,UklGRuQSAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YcASAACAlKa0u7u1qJaCbVtNRURLV2h8kaOyury2qpqGcV5PRkRJVGV4jaCvuby4rZ2JdWFSSERIUmF1iZ2tuLy5r6CNeGVUSURGT15xhpqqtry6sqORfGhXS0RFTVttgpaotbu7tKaUgGxaTEVFS1hqfpOls7u8tamYhG9dTkZESlZmeo+isbq8t6ybiHNgUUdESFNjd4ufrri8uK6fi3djU0hER1Fgc4ibrLe8urGij3pmVkpERk5db4SYqbW8u7Olk35qWEtFRUxabICUprS7u7WoloJtW01FREtXaHyRo7K6vLaqmoZxXk9GRElUZXiNoK+5vLitnYl1YVJIREhSYXWJna24vLmvoI14ZVRJREZPXnGGmqq2vLqyo5F8aFdLREVNW22Clqi1u7u0ppSAbFpMRUVLWGp+k6Wzu7y1qZiEb11ORkRKVmZ6j6Kxury3rJuIc2BRR0RIU2N3i5+uuLy4rp+Ld2NTSERHUWBziJust7y6saKPemZWSkRGTl1vhJiptby7s6WTfmpYS0VFTFpsgJSmtLu7taiWgm1bTUVES1dofJGjsrq8tqqahnFeT0ZESVRleI2gr7m8uK2diXVhUkhESFJhdYmdrbi8ua+gjXhlVElERk9ecYaaqra8urKjkXxoV0tERU1bbYKWqLW7u7SmlIBsWkxFRUtYan6TpbO7vLWpmIRvXU5GREpWZnqPorG6vLesm4hzYFFHREhTY3eLn664vLiun4t3Y1NIREdRYHOIm6y3vLqxoo96ZlZKREZOXW+EmKm1vLuzpZN+alhLRUVMWmyAlKa0u7u1qJaCbVtNRURLV2h8kaOyury2qpqGcV5PRkRJVGV4jaCvuby4rZ2JdWFSSERIUmF1iZ2tuLy5r6CNeGVUSURGT15xhpqqtry6sqORfGhXS0RFTVttgpaotbu7tKaUgGxaTEVFS1hqfpOls7u8tamYhG9dTkZESlZmeo+isbq8t6ybiHNgUUdESFNjd4ufrri8uK6fi3djU0hER1Fgc4ibrLe8urGij3pmVkpERk5db4SYqbW8u7Olk35qWEtFRUxabICUprS7u7WoloJtW01FREtXaHyRo7K6vLaqmoZxXk9GRElUZXiNoK+5vLitnYl1YVJIREhSYXWJna24vLmvoI14ZVRJREZPXnGGmqq2vLqyo5F8aFdLREVNW22Clqi1u7u0ppSAbFpMRUVLWGp+k6Wzu7y1qZiEb11ORkRKVmZ6j6Kxury3rJuIc2BRR0RIU2N3i5+uuLy4rp+Ld2NTSERHUWBziJust7y6saKPemZWSkRGTl1vhJiptby7s6WTfmpYS0VFTFpsgJSmtLu7taiWgm1bTUVES1dofJGjsrq8tqqahnFeT0ZESVRleI2gr7m8uK2diXVhUkhESFJhdYmdrbi8ua+gjXhlVElERk9ecYaaqra8urKjkXxoV0tERU1bbYKWqLW7u7SmlIBsWkxFRUtYan6TpbO7vLWpmIRvXU5GREpWZnqPorG6vLesm4hzYFFHREhTY3eLn664vLiun4t3Y1NIREdRYHOIm6y3vLqxoo96ZlZKREZOXW+EmKm1vLuzpZN+alhLRUVMWmyAlKa0u7u1qJaCbVtNRURLV2h8kaOyury2qpqGcV5PRkRJVGV4jaCvuby4rZ2JdWFSSERIUmF1iZ2tuLy5r6CNeGVUSURGT15xhpqqtry6sqORfGhXS0RFTVttgpaotbu7tKaUgGxaTEVFS1hqfpOls7u8tamYhG9dTkZESlZmeo+isbq8t6ybiHNgUUdESFNjd4ufrri8uK6fi3djU0hER1Fgc4ibrLe8urGij3pmVkpERk5db4SYqbW8u7Olk35qWEtFRUxabICUprS7u7WoloJtW01FREtXaHyRo7K6vLaqmoZxXk9GRElUZXiNoK+5vLitnYl1YVJIREhSYXWJna24vLmvoI14ZVRJREZPXnGGmqq2vLqyo5F8aFdLREVNW22Clqi1u7u0ppSAbFpMRUVLWGp+k6Wzu7y1qZiEb11ORkRKVmZ6j6Kxury3rJuIc2BRR0RIU2N3i5+uuLy4rp+Ld2NTSERHUWBziJust7y6saKPemZWSkRGTl1vhJiptby7s6WTfmpYS0VFTFpsgJSmtLu7taiWgm1bTUVES1dofJGjsrq8tqqahnFeT0ZESVRleI2gr7m8uK2diXVhUkhESFJhdYmdrbi8ua+gjXhlVElERk9ecYaaqra8urKjkXxoV0tERU1bbYKWqLW7u7SmlIBsWkxFRUtYan6TpbO7vLWpmIRvXU5GREpWZnqPorG6vLesm4hzYFFHREhTY3eLn664vLiun4t3Y1NIREdRYHOIm6y3vLqxoo96ZlZKREZOXW+EmKm1vLuzpZN+alhLRUVMWmyAlKa0u7u1qJaCbVtNRURLV2h8kaOyury2qpqGcV5PRkRJVGV4jaCvuby4rZ2JdWFSSERIUmF1iZ2tuLy5r6CNeGVUSURGT15xhpqqtry6sqORfGhXS0RFTVttgpaotbu7tKaUgGxaTEVFS1hqfpOls7u8tamYhG9dTkZESlZmeo+isbq8t6ybiHNgUUdESFNjd4ufrri8uK6fi3djU0hER1Fgc4ibrLe8urGij3pmVkpERk5db4SYqbW8u7Olk35qWEtFRUxabICUprS7u7WoloJtW01FREtXaHyRo7K6vLaqmoZxXk9GRElUZXiNoK+5vLitnYl1YVJIREhSYXWJna24vLmvoI14ZVRJREZPXnGGmqq2vLqyo5F8aFdLREVNW22Clqi1u7u0ppSAbFpMRUVLWGp+k6Wzu7y1qZiEb11ORkRKVmZ6j6Kxury3rJuIc2BRR0RIU2N3i5+uuLy4rp+Ld2NTSERHUWBziJust7y6saKPemZWSkRGTl1vhJiptby7s6WTfmpYS0VFTFpsgJSmtLu7taiWgm1bTUVES1dofJGjsrq8tqqahnFeT0ZESVRleI2gr7m8uK2diXVhUkhESFJhdYmdrbi8ua+gjXhlVElERk9ecYaaqra8urKjkXxoV0tERU1bbYKWqLW7u7SmlIBsWkxFRUtYan6TpbO7vLWpmIRvXU5GREpWZnqPorG6vLesm4hzYFFHREhTY3eLn664vLiun4t3Y1NIREdRYHOIm6y3vLqxoo96ZlZKREZOXW+EmKm1vLuzpZN+alhLRUVMWmyAlKa0u7u1qJaCbVtNRURLV2h8kaOyury2qpqGcV5PRkRJVGV4jaCvuby4rZ2JdWFSSERIUmF1iZ2tuLy5r6CNeGVUSURGT15xhpqqtry6sqORfGhXS0RFTVttgpaotbu7tKaUgGxaTEVFS1hqfpOls7u8tamYhG9dTkZESlZmeo+isbq8t6ybiHNgUUdESFNjd4ufrri8uK6fi3djU0hER1Fgc4ibrLe8urGij3pmVkpERk5db4SYqbW8u7Olk35qWEtFRUxabICUprS7u7WoloJtW01FREtXaHyRo7K6vLaqmoZxXk9GRElUZXiNoK+5vLitnYl1YVJIREhSYXWJna24vLmvoI14ZVRJREZPXnGGmqq2vLqyo5F8aFdLREVNW22Clqi1u7u0ppSAbFpMRUVLWGp+k6Wzu7y1qZiEb11ORkRKVmZ6j6Kxury3rJuIc2BRR0RIU2N3i5+uuLy4rp+Ld2NTSERHUWBziJust7y6saKPemZWSkRGTl1vhJiptby7s6WTfmpYS0VFTFpsgJSmtLu7taiWgm1bTUVES1dofJGjsrq8tqqahnFeT0ZESVRleI2gr7m8uK2diXVhUkhESFJhdYmdrbi8ua+gjXhlVElERk9ecYaaqra8urKjkXxoV0tERU1bbYKWqLW7u7SmlIBsWkxFRUtYan6TpbO7vLWpmIRvXU5GREpWZnqPorG6vLesm4hzYFFHREhTY3eLn664vLiun4t3Y1NIREdRYHOIm6y3vLqxoo96ZlZKREZOXW+EmKm1vLuzpZN+alhLRUVMWmyAlKa0u7u1qJaCbVtNRURLV2h8kaOyury2qpqGcV5PRkRJVGV4jaCvuby4rZ2JdWFSSERIUmF1iZ2tuLy5r6CNeGVUSURGT15xhpqqtry6sqORfGhXS0RFTVttgpaotbu7tKaUgGxaTEVFS1hqfpOls7u8tamYhG9dTkZESlZmeo+isbq8t6ybiHNgUUdESFNjd4ufrri8uK6fi3djU0hER1Fgc4ibrLe8urGij3pmVkpERk5db4SYqbW8u7Olk35qWEtFRUxabICUprS7u7WoloJtW01FREtXaHyRo7K6vLaqmoZxXk9GRElUZXiNoK+5vLitnYl1YVJIREhSYXWJna24vLmvoI14ZVRJREZPXnGGmqq2vLqyo5F8aFdLREVNW22Clqi1u7u0ppSAbFpMRUVLWGp+k6Wzu7y1qZiEb11ORkRKVmZ6j6Kxury3rJuIc2BRR0RIU2N3i5+uuLy4rp+Ld2NTSERHUWBziJust7y6saKPemZWSkRGTl1vhJiptby7s6WTfmpYS0VFTFpsgJSmtLu7taiWgm1bTUVES1dofJGjsrq8tqqahnFeT0ZESVRleI2gr7m8uK2diXVhUkhESFJhdYmdrbi8ua+gjXhlVElERk9ecYaaqra8urKjkXxoV0tERU1bbYKWqLW7u7SmlIBsWkxFRUtYan6TpbO7vLWpmIRvXU5GREpWZnqPorG6vLesm4hzYFFHREhTY3eLn664vLiun4t3Y1NIREdRYHOIm6y3vLqxoo96ZlZKREZOXW+EmKm1vLuzpZN+alhLRUVMWmyAlKa0u7u1qJaCbVtNRURLV2h8kaOyury2qpqGcV5PRkRJVGV4jaCvuby4rZ2JdWFSSERIUmF1iZ2tuLy5r6CNeGVUSURGT15xhpqqtry6sqORfGhXS0RFTVttgpaotbu7tKaUgGxaTEVFS1hqfpOls7u8tamYhG9dTkZESlZmeo+isbq8t6ybiHNgUUdESFNjd4ufrri8uK6fi3djU0hER1Fgc4ibrLe8urGij3pmVkpERk5db4SYqbW8u7Olk35qWEtFRUxabICUprS7u7WoloJtW01FREtXaHyRo7K6vLaqmoZxXk9GRElUZXiNoK+5vLitnYl1YVJIREhSYXWJna24vLmvoI14ZVRJREZPXnGGmqq2vLqyo5F8aFdLREVNW22Clqi1u7u0ppSAbFpMRUVLWGp+k6Wzu7y1qZiEb11ORkRKVmZ6j6Kxury3rJuIc2BRR0RIU2N3i5+uuLy4rp+Ld2NTSERHUWBziJust7y6saKPemZWSkRGTl1vhJiptby7s6WTfmpYS0VFTFpsgJSmtLu7taiWgm1bTUVES1dofJGjsrq8tqqahnFeT0ZESVRleI2gr7m8uK2diXVhUkhESFJhdYmdrbi8ua+gjXhlVElERk9ecYaaqra8urKjkXxoV0tERU1bbYKWqLW7u7SmlIBsWkxFRUtYan6TpbO7vLWpmIRvXU5GREpWZnqPorG6vLesm4hzYFFHREhTY3eLn664vLiun4t3Y1NIREdRYHOIm6y3vLqxoo96ZlZKREZOXW+EmKm1vLuzpZN+alhLRUVMWmyAlKa0u7u1qJaCbVtNRURLV2h8kaOyury2qpqGcV5PRkRJVGV4jaCvuby4rZ2JdWFSSERIUmF1iZ2tuLy5r6CNeGVUSURGT15xhpqqtry6sqORfGhXS0RFTVttgpaotbu7tKaUgGxaTEVFS1hqfpOls7u8tamYhG9dTkZESlZmeo+isbq8t6ybiHNgUUdESFNjd4ufrri8uK6fi3djU0hER1Fgc4ibrLe8urGij3pmVkpERk5db4SYqbW8u7Olk35qWEtFRUxabICUprS7u7WoloJtW01FREtXaHyRo7K6vLaqmoZxXk9GRElUZXiNoK+5vLitnYl1YVJIREhSYXWJna24vLmvoI14ZVRJREZPXnGGmqq2vLqyo5F8aFdLREVNW22Clqi1u7u0ppSAbFpMRUVLWGp+k6Wzu7y1qZiEb11ORkRKVmZ6j6Kxury3rJuIc2BRR0RIU2N3i5+uuLy4rp+Ld2NTSERHUWBziJust7y6saKPemZWSkRGTl1vhJiptby7s6WTfmpYS0VFTFpsgJSmtLu7taiWgm1bTUVES1dofJGjsrq8tqqahnFeT0ZESVRleI2gr7m8uK2diXVhUkhESFJhdYmdrbi8ua+gjXhlVElERk9ecYaaqra8urKjkXxoV0tERU1bbYKWqLW7u7SmlIBsWkxFRUtYan6TpbO7vLWpmIRvXU5GREpWZnqPorG6vLesm4hzYFFHREhTY3eLn664vLiun4t3Y1NIREdRYHOIm6y3vLqxoo96ZlZKREZOXW+EmKm1vLuzpZN+alhLRUVMWmw="
+        }
+      ]
+    }
+  ]
+}

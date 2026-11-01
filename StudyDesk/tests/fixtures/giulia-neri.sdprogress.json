@@ -1,0 +1,48 @@
+{
+  "format": "studydesk-progress",
+  "formatVersion": 1,
+  "app": {
+    "name": "StudyDesk",
+    "version": "26.10.0-001",
+    "platform": "web"
+  },
+  "exportedAt": "2026-10-30T12:00:00Z",
+  "student": {
+    "id": "u-giulia",
+    "firstName": "Giulia",
+    "lastName": "Neri",
+    "email": "giulia.neri@example.test"
+  },
+  "modules": [
+    {
+      "id": "libro-di-prova-c02",
+      "version": "1.0.0",
+      "title": "Essere e avere",
+      "stats": {
+        "completedParts": 1,
+        "totalParts": 6,
+        "score": 3,
+        "maxScore": 4,
+        "pendingReview": 0
+      },
+      "results": [
+        {
+          "activityId": "a2",
+          "partId": "a2-f",
+          "type": "order",
+          "answer": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "score": 4,
+          "maxScore": 4,
+          "status": "correct",
+          "attempts": 1,
+          "updatedAt": "2026-10-30T10:00:00Z"
+        }
+      ]
+    }
+  ]
+}

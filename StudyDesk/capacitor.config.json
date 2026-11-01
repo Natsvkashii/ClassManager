@@ -1,0 +1,6 @@
+{
+  "appId": "com.guairajaramillo.studydesk",
+  "appName": "StudyDesk",
+  "webDir": "app",
+  "android": { "allowMixedContent": false }
+}

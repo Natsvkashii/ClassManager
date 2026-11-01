@@ -10,6 +10,8 @@ __pycache__/
 *.pyc
 
 # Swift Build Outputs (binaries can be rebuilt via manage_version.py build)
+ClassDesk/ClassDesk.app/Contents/MacOS/
+ClassDesk/ClassDesk.app/Contents/_CodeSignature/
 ClassDesk.app/Contents/MacOS/
 ClassDesk.app/Contents/_CodeSignature/
 Class Management.app/Contents/MacOS/
@@ -25,12 +27,22 @@ Gestione Corsi.app/Contents/_CodeSignature/
 
 # Node & Electron Build Outputs
 node_modules/
-Windows-Version/node_modules/
-Windows-Version/dist/
-Windows-Version/*.exe
+ClassDesk/Windows-Version/node_modules/
+ClassDesk/Windows-Version/dist/
+ClassDesk/Windows-Version/*.exe
 dist/
 Versions/
 .build/
 *.pdb
 *.lib
-Windows-Version/native/assets_bundle.h
+ClassDesk/Windows-Version/native/assets_bundle.h
+
+# StudyDesk (Electron, Capacitor, macOS build outputs)
+StudyDesk/android/app/build/
+StudyDesk/android/.gradle/
+StudyDesk/android/build/
+StudyDesk/macOS/StudyDesk.app/
+*.sdmod
+*.sdbook
+!StudyDesk/tests/fixtures/*.sdmod
+!StudyDesk/tests/fixtures/*.sdbook

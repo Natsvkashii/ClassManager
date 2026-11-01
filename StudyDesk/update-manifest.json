@@ -1,0 +1,13 @@
+{
+  "version": "26.11.0-001",
+  "channel": "unstable",
+  "tag_name": "v26.11.0-001",
+  "prerelease": true,
+  "published_at": "2026-10-30T00:00:00Z",
+  "name": "StudyDesk v26.11.0-001 (Unstable)",
+  "body": "StudyDesk entra nella ClassDesk Suite insieme a ClassDesk e HubDesk.",
+  "apkUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.11.0-001/StudyDesk-26.11.0-001-Android.apk",
+  "apkName": "StudyDesk-26.11.0-001-Android.apk",
+  "winUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.11.0-001/StudyDesk-26.11.0-001-win-x64.exe",
+  "winName": "StudyDesk-26.11.0-001-win-x64.exe"
+}
