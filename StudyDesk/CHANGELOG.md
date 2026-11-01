@@ -1,5 +1,9 @@
 # Changelog
 
+## v26.11.0-006 (Unstable) – 1 novembre 2026
+- Lavagna condivisa (Windows e macOS): corretta la sincronizzazione all'avvio e all'apertura della lavagna; quando apri la lavagna su un secondo dispositivo, il disegno già presente sull'altro viene ricevuto subito in entrambe le direzioni.
+- Windows: corretto il collegamento iniziale di StudyDesk al canale locale di HubDesk che poteva andare perso se HubDesk rispondeva prima del caricamento completo della pagina.
+
 ## v26.11.0-005 (Unstable) – 1 novembre 2026
 - Windows: StudyDesk ora è un'app leggera e veloce (circa 3 MB invece di oltre 100 MB), si apre subito e conserva automaticamente libri, moduli, gruppi, progressi e lavagne già presenti sul computer.
 - Windows: doppio clic sui file `.sdmod` e `.sdbook` per aprirli direttamente in StudyDesk.

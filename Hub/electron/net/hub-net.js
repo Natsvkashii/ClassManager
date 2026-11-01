@@ -204,6 +204,7 @@ function createEngine(opts = {}) {
         if (!m.device || m.device === cfg.deviceId) { setTimeout(() => conn.close(), 100); return { t: 'error', message: 'dispositivo non valido' }; }
         if (!(m.proto >= 2)) { setTimeout(() => conn.close(), 100); return { t: 'error', message: 'protocollo non supportato' }; }
         conn.peer = { deviceId: String(m.device), name: String(m.name || m.device), platform: m.platform || '', version: m.version || '' };
+        if (!conn._eventHooked) { conn._eventHooked = true; conn.on('event', (ev) => onEvent(conn, ev)); }
         setTimeout(() => adopt(conn, false), 0);
         return { t: 'hello', device: cfg.deviceId, name: cfg.deviceName, platform, proto: PROTO, version };
       }
@@ -256,7 +257,7 @@ function createEngine(opts = {}) {
     const rec = peers.get(info.deviceId) || {};
     const addr = conn.sock.remoteAddress ? String(conn.sock.remoteAddress).replace(/^::ffff:/, '') : '';
     peers.set(info.deviceId, { ...rec, ...info, host: outgoing ? conn.target.host : (rec.host || addr), port: outgoing ? conn.target.port : (rec.port || 0), lastSeen: nowIso() });
-    conn.on('event', (m) => onEvent(conn, m));
+    if (!conn._eventHooked) { conn._eventHooked = true; conn.on('event', (m) => onEvent(conn, m)); }
     conn.on('close', () => {
       if (conns.get(info.deviceId) === conn) { conns.delete(info.deviceId); log(`«${info.name}» scollegato`); peersChanged(); }
     });

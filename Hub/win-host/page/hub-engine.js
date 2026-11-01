@@ -47,12 +47,21 @@ const fsx = {
 
 // ---------------------------------------------------------------- sockets (one dispatcher for every native socket)
 const sockets = new Map(); // id -> {onData, onClose} or server id -> {onConn}
+const earlyEvents = new Map(); // id -> Array<e> for events arriving before Sock(id) is registered
 const prevTcp = window.__hd_tcp_on;
 const mdnsHandlers = new Set();
 window.__hd_tcp_on = (e) => {
   if (e.ev === 'found' || e.ev === 'lost') { mdnsHandlers.forEach((f) => f(e)); return; }
   if (e.ev === 'conn') { const srv = sockets.get(e.server); if (srv && srv.onConn) srv.onConn(e.id, e.addr); return; }
-  const s = sockets.get(e.id); if (!s) return;
+  const s = sockets.get(e.id);
+  if (!s) {
+    if (e.ev === 'data' || e.ev === 'close') {
+      const q = earlyEvents.get(e.id) || [];
+      q.push(e);
+      earlyEvents.set(e.id, q);
+    }
+    return;
+  }
   if (e.ev === 'data' && s.onData) s.onData(e.text);
   else if (e.ev === 'close') { sockets.delete(e.id); if (s.onClose) s.onClose(); }
   if (prevTcp) prevTcp(e);
@@ -61,9 +70,15 @@ window.__hd_tcp_on = (e) => {
 function Sock(id, remoteAddress = '') {
   const s = { id, remoteAddress, closed: false, _data: [], _close: [] };
   sockets.set(id, { onData: (t) => s._data.forEach((f) => f(t)), onClose: () => { s.closed = true; s._close.forEach((f) => f()); } });
-  s.on = (ev, f) => { if (ev === 'data') s._data.push(f); else if (ev === 'close') s._close.push(f); return s; };
+  const flushEarly = () => {
+    const q = earlyEvents.get(id);
+    if (!q || !s._data.length) return;
+    earlyEvents.delete(id);
+    for (const e of q) window.__hd_tcp_on(e);
+  };
+  s.on = (ev, f) => { if (ev === 'data') { s._data.push(f); flushEarly(); } else if (ev === 'close') s._close.push(f); return s; };
   s.write = (text) => { if (!s.closed) window.__hd_tcp_send(String(id), text); };
-  s.destroy = () => { if (s.closed) return; s.closed = true; window.__hd_tcp_close(String(id)); const h = sockets.get(id); sockets.delete(id); if (h) h.onClose(); };
+  s.destroy = () => { if (s.closed) return; s.closed = true; earlyEvents.delete(id); window.__hd_tcp_close(String(id)); const h = sockets.get(id); sockets.delete(id); if (h) h.onClose(); };
   return s;
 }
 
@@ -203,6 +218,7 @@ async function createEngine(opts = {}) {
         if (!m.device || m.device === cfg.deviceId) { setTimeout(() => conn.close(), 100); return { t: 'error', message: 'dispositivo non valido' }; }
         if (!(m.proto >= 2)) { setTimeout(() => conn.close(), 100); return { t: 'error', message: 'protocollo non supportato' }; }
         conn.peer = { deviceId: String(m.device), name: String(m.name || m.device), platform: m.platform || '', version: m.version || '' };
+        if (!conn._eventHooked) { conn._eventHooked = true; conn.on('event', (ev) => onEvent(conn, ev)); }
         setTimeout(() => adopt(conn, false), 0);
         return { t: 'hello', device: cfg.deviceId, name: cfg.deviceName, platform, proto: PROTO, version };
       }
@@ -244,7 +260,7 @@ async function createEngine(opts = {}) {
     const rec = peers.get(info.deviceId) || {};
     const addr = String(conn.sock.remoteAddress || '').replace(/^::ffff:/, '');
     peers.set(info.deviceId, { ...rec, ...info, host: outgoing ? conn.target.host : (rec.host || addr), port: outgoing ? conn.target.port : (rec.port || 0), lastSeen: nowIso() });
-    conn.on('event', (m) => onEvent(conn, m));
+    if (!conn._eventHooked) { conn._eventHooked = true; conn.on('event', (m) => onEvent(conn, m)); }
     conn.on('close', () => { if (conns.get(info.deviceId) === conn) { conns.delete(info.deviceId); log(`«${info.name}» scollegato`); peersChanged(); } });
     log(`«${info.name}» collegato (${outgoing ? 'in uscita' : 'in ingresso'})`);
     toClients({ t: 'peer-joined', device: info.deviceId, name: info.name });

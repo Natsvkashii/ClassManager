@@ -185,6 +185,11 @@ public final class BoardModel {
             if wasEmpty, !bgTouched, let bg = m["background"] as? String { background = bg }
             if wasEmpty, !gridTouched, m.keys.contains("grid") { grid = decodeJSON(BoardGrid.self, m["grid"]) }
             changed()
+            if (m["reply"] as? Bool) != true, !isEmpty || bgTouched || gridTouched {
+                var snap = snapshotMessage()
+                snap["reply"] = true
+                if hubShared, watching == nil { hubClient?.sendBoard(snap) }
+            }
         case "begin":
             if let id = m["id"] as? String, strokes.contains(where: { $0.id == id }) { return }
             apply(m)

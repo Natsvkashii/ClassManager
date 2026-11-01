@@ -73,14 +73,20 @@ const readText = async (rel) => { try { return await window.__sd_hub_read(rel); 
 const readJSON = async (rel) => { const t = await readText(rel); if (t == null) return null; try { return JSON.parse(t); } catch { return null; } };
 const writeJSON = (rel, v) => window.__sd_hub_write(rel, JSON.stringify(v, null, 2));
 
+let cachedSettings = null;
 async function settings() {
-  const s = (await readJSON('settings.json')) || {};
-  if (!s.deviceId) {
-    s.deviceId = crypto.randomUUID();
-    if (!s.deviceName) s.deviceName = await window.__sd_hostname().catch(() => 'Windows');
-    await writeJSON('settings.json', s);
+  const s = await readJSON('settings.json');
+  if (s && s.deviceId) {
+    cachedSettings = s;
+    return s;
   }
-  return s;
+  if (cachedSettings && cachedSettings.deviceId) return cachedSettings;
+  const fresh = s || {};
+  fresh.deviceId = crypto.randomUUID();
+  if (!fresh.deviceName) fresh.deviceName = await window.__sd_hostname().catch(() => 'Windows');
+  cachedSettings = fresh;
+  await writeJSON('settings.json', fresh);
+  return fresh;
 }
 async function runtime() {
   const r = await readJSON('runtime.json');
@@ -130,6 +136,7 @@ function createService() {
   }
 
   async function run() {
+    if (typeof indexedDB === 'undefined') return;
     const me = (await settings()).deviceId;
     if (!known) known = (await readJSON('mirror-studydesk.json')) || {};
     const local = await localRecords();
@@ -165,14 +172,27 @@ function createService() {
   window.__sd_hub_on = (m) => {
     if (!m || !m.t) return;
     if (m.t === 'hello') { state.connected = !!m.ok; state.peers = m.peers || []; emit(); if (state.connected) reconcile(); }
-    else if (m.t === 'peers') { state.peers = m.peers || []; emit(); }
+    else if (m.t === 'peers') { state.connected = true; state.peers = m.peers || []; emit(); }
     else if (m.t === 'closed') { state.connected = false; emit(); }
-    else if (m.t === 'records' && (!m.app || m.app === 'studydesk')) reconcile();
-    else if (m.t === 'board') fire(subs.board, m);
-    else if (m.t === 'peer-joined') fire(subs.peer, m);
+    else if (m.t === 'records' && (!m.app || m.app === 'studydesk')) { state.connected = true; reconcile(); }
+    else if (m.t === 'board') { state.connected = true; fire(subs.board, m); }
+    else if (m.t === 'peer-joined') { state.connected = true; fire(subs.peer, m); }
   };
 
+  async function syncLink() {
+    if (state.connected || typeof window.__sd_hub_sync !== 'function') return;
+    try {
+      const snap = await window.__sd_hub_sync();
+      if (snap && snap.connected) {
+        if (snap.hello) window.__sd_hub_on(snap.hello);
+        if (snap.peers) window.__sd_hub_on(snap.peers);
+        if (!snap.hello && !snap.peers) { state.connected = true; emit(); reconcile(); }
+      }
+    } catch {}
+  }
+
   async function tick() {
+    await syncLink();
     await emit();
     if (!state.connected && !(await runtime()) && Date.now() - state.lastLaunch > 60000) { state.lastLaunch = Date.now(); window.__sd_hub_launch('--background').catch(() => {}); }
     reconcile();
@@ -181,11 +201,12 @@ function createService() {
     if (state.started) return;
     state.started = true;
     reconcile();
-    setInterval(tick, 5000);
+    const t = setInterval(tick, 5000);
+    if (t && typeof t.unref === 'function') t.unref();
   }
 
   return {
-    ready: async () => { start(); return emit(true); },
+    ready: async () => { start(); await syncLink(); return emit(true); },
     status: () => status(),
     touch: () => reconcile(),
     open: (page) => window.__sd_hub_launch(page || ''),

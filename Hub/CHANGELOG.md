@@ -1,5 +1,8 @@
 # HubDesk – Changelog
 
+## 26.11.0-006 (Unstable)
+- Lavagna condivisa e canale locale: corretta la consegna dei messaggi iniziali tra HubDesk e StudyDesk su Windows e macOS, evitando la perdita dello snapshot della lavagna alla connessione di un dispositivo.
+
 ## 26.11.0-005 (Unstable)
 - Windows: HubDesk ora è un'app leggera e veloce (circa 1,5 MB invece di oltre 100 MB), si apre subito, resta nell'area di notifica e mantiene la rete tra i dispositivi, i conflitti e la lavagna condivisa; impostazioni e dati restano al loro posto.
 - Windows: l'installer della suite (`ClassDesk-Suite-…-Setup.exe`) pesa ora circa 8–9 MB in totale e avvia l'installazione solo quando premi il pulsante «Installa», così puoi scegliere con calma quali app installare.

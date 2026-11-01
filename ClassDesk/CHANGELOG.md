@@ -5,6 +5,9 @@ Il formato è basato su [Keep a Changelog](https://keepachangelog.com/it/1.0.0/)
 
 ---
 
+## [26.11.0-006] — 2026-11-01 (Unstable)
+- Allineata alla suite 26.11.0-006 (correzione della sincronizzazione in tempo reale della Lavagna tra Windows e macOS).
+
 ## [26.11.0-005] — 2026-11-01 (Unstable)
 - macOS: corretto un arresto anomalo nelle impostazioni della Suite quando la lista dei dispositivi collegati si aggiorna.
 - Windows: la barra laterale e il piè di pagina mostrano sempre la versione attuale del programma anche subito dopo un aggiornamento.

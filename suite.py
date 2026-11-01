@@ -246,11 +246,11 @@ def cmd_build(skip_win):
             run([sys.executable, "scripts/manage_version.py", "build-win"], cwd=STUDYDESK)
         else:                                     # native StudyDesk (C++ + WebView2, ~3 MB): StudyDesk/windows/native
             run([sys.executable, "windows/native/build.py"], cwd=STUDYDESK)
-        if "--hubdesk-native" in sys.argv:       # native HubDesk (Hub/win-host): to be tested on Windows before it becomes the default
+        if "--hubdesk-electron" in sys.argv:     # old Electron HubDesk fallback
+            run(["npm", "run", "dist:win"], cwd=os.path.join(HUB, "electron"))
+        else:                                     # native HubDesk (C++ + WebView2, ~2 MB): Hub/win-host
             os.environ["SUITE_VERSION"] = v
             run([sys.executable, os.path.join(HUB, "win-host", "build.py"), os.path.join(HUB, "electron", "dist", "ClassDesk-Suite-%s-Setup.exe" % v)])
-        else:
-            run(["npm", "run", "dist:win"], cwd=os.path.join(HUB, "electron"))  # dist.js keeps the exact -001 asset name
         if shutil.which("zig"):
             run(["bash", "Windows-Version/native/build_native.sh"], cwd=CLASSDESK, check=False)
         else:

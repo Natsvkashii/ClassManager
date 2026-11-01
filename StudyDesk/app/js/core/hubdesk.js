@@ -13,9 +13,12 @@
 // HubDesk client (renderer): status for the Sync page, data-change notifications for the records mirror, and the whiteboard
 // that is shared automatically with the connected devices (Hub/HUBDESK.md §4, §5). Electron only; web / Android have no HubDesk.
 import { platform, electronApi } from './platform.js';
-import { newBoard, shouldShare, sharedStrokeId, strokeId, applyShared, snapshotOf } from './boardlogic.js';
+import { newBoard, isEmptyBoard, shouldShare, sharedStrokeId, strokeId, applyShared, snapshotOf } from './boardlogic.js';
 
-const api = () => (platform.isElectron && electronApi.hubdesk ? electronApi.hubdesk : null);
+const api = () => {
+  const sd = (typeof window !== 'undefined' && window.studydesk) || electronApi;
+  return sd && sd.hubdesk ? sd.hubdesk : null;
+};
 export const hubdeskAvailable = () => !!api();
 
 /** The board of this device + everybody else's strokes. Survives navigation, also when the board view is closed. */
@@ -70,6 +73,9 @@ export async function initHubDesk() {
     if (!m || !m.msg) return;
     applyShared(sharedBoard, m.msg, m.from);
     notify(boardSubs, m);
+    if (m.msg.t === 'snapshot' && !m.msg.reply && (!isEmptyBoard(sharedBoard) || sharedBoard.bgTouched || sharedBoard.gridTouched)) {
+      sendBoard({ ...snapshotOf(sharedBoard), reply: true });
+    }
   });
   a.onPeerJoined(() => sendSnapshot());
   // every save of groups / results: the main process writes the records that changed
@@ -77,4 +83,5 @@ export async function initHubDesk() {
   window.addEventListener('studydesk:db-write', () => { clearTimeout(t); t = setTimeout(() => a.touch().catch(() => {}), 400); });
   hub.status = await a.ready();
   notify(stateSubs, hub.status);
+  if (isSharing()) sendSnapshot();
 }

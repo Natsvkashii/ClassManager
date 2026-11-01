@@ -152,7 +152,9 @@ public final class HubDeskClient {
     private func handle(_ m: [String: Any]) {
         switch m["t"] as? String {
         case "hello":
+            let was = boardActive
             if m["ok"] as? Bool == true { peers = (m["peers"] as? [[String: Any]] ?? []).map(HubPeer.init); linkConnected = true }
+            if boardActive && !was { BoardModel.shared.sendSnapshot() }
         case "peers":
             let before = connectedPeers.count
             peers = (m["peers"] as? [[String: Any]] ?? []).map(HubPeer.init)

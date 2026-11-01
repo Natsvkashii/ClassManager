@@ -2216,6 +2216,14 @@ public:
           }
           break;
         }
+        case WM_APP: {
+          auto f = (dispatch_fn_t *)(lp);
+          if (f) {
+            (*f)();
+            delete f;
+          }
+          break;
+        }
         default:
           return DefWindowProcW(hwnd, msg, wp, lp);
         }
@@ -2297,7 +2305,11 @@ public:
   ICoreWebView2 *core_webview() { return m_webview; }
   void terminate() { PostQuitMessage(0); }
   void dispatch(dispatch_fn_t f) {
-    PostThreadMessage(m_main_thread, WM_APP, 0, (LPARAM) new dispatch_fn_t(f));
+    if (m_window) {
+      PostMessageW(m_window, WM_APP, 0, (LPARAM) new dispatch_fn_t(f));
+    } else {
+      PostThreadMessage(m_main_thread, WM_APP, 0, (LPARAM) new dispatch_fn_t(f));
+    }
   }
 
   void set_title(const std::string &title) {

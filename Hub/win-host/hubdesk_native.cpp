@@ -129,7 +129,14 @@ static void DeleteTree(const std::wstring &path) {
     RemoveDirectoryW(path.c_str());
 }
 static bool ReadWhole(const std::wstring &p, std::string &out) {
-    HANDLE h = CreateFileW(p.c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL, OPEN_EXISTING, 0, NULL);
+    HANDLE h = INVALID_HANDLE_VALUE;
+    for (int i = 0; i < 6; i++) {
+        h = CreateFileW(p.c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL, OPEN_EXISTING, 0, NULL);
+        if (h != INVALID_HANDLE_VALUE) break;
+        DWORD err = GetLastError();
+        if (err != ERROR_SHARING_VIOLATION && err != ERROR_ACCESS_DENIED && err != ERROR_LOCK_VIOLATION) break;
+        Sleep(15);
+    }
     if (h == INVALID_HANDLE_VALUE) return false;
     LARGE_INTEGER sz; GetFileSizeEx(h, &sz); out.assign((size_t)sz.QuadPart, 0); DWORD rd = 0;
     bool ok = sz.QuadPart == 0 || (ReadFile(h, &out[0], (DWORD)sz.QuadPart, &rd, NULL) && rd == (DWORD)sz.QuadPart);
@@ -137,12 +144,16 @@ static bool ReadWhole(const std::wstring &p, std::string &out) {
 }
 static bool WriteAtomic(const std::wstring &target, const std::string &content) {
     MakeDirs(target.substr(0, target.find_last_of(L'\\')));
-    std::wstring tmp = target + L"." + std::to_wstring(GetCurrentProcessId()) + L".tmp";
+    std::wstring tmp = target + L"." + std::to_wstring(GetCurrentProcessId()) + L"." + std::to_wstring(GetTickCount64()) + L".tmp";
     HANDLE h = CreateFileW(tmp.c_str(), GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
     if (h == INVALID_HANDLE_VALUE) return false;
     DWORD wr = 0; bool ok = WriteFile(h, content.data(), (DWORD)content.size(), &wr, NULL) && wr == content.size(); CloseHandle(h);
-    if (!ok || !MoveFileExW(tmp.c_str(), target.c_str(), MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH)) { DeleteFileW(tmp.c_str()); return false; }
-    return true;
+    if (!ok) { DeleteFileW(tmp.c_str()); return false; }
+    for (int i = 0; i < 6; i++) {
+        if (MoveFileExW(tmp.c_str(), target.c_str(), MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH)) return true;
+        Sleep(15);
+    }
+    DeleteFileW(tmp.c_str()); return false;
 }
 static std::vector<DWORD> PidsOf(const std::wstring &exe) {
     std::vector<DWORD> out; DWORD me = GetCurrentProcessId();
