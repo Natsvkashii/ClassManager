@@ -2441,10 +2441,10 @@ public struct BillingEarningsAnalyticsView: View {
 
             // Calendar Weeks (Rigid 7-column grid)
             VStack(spacing: 8) {
-                ForEach(0..<weeks.count, id: \.self) { weekIdx in
+                ForEach(Array(weeks.enumerated()), id: \.offset) { _, week in
                     HStack(spacing: 8) {
                         ForEach(0..<7, id: \.self) { colIdx in
-                            let dayOpt = weeks[weekIdx][colIdx]
+                            let dayOpt = colIdx < week.count ? week[colIdx] : nil
                             if let day = dayOpt {
                                 let lessonsCount = monthData.dailyLessons[day] ?? 0
                                 let hours = monthData.dailyHours[day] ?? 0.0

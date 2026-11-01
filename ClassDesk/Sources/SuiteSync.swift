@@ -40,7 +40,8 @@ public final class SuiteSync {
     // Observable status for the settings UI
     public private(set) var hubInstalled = false
     public private(set) var hubRunning = false
-    public private(set) var peers: [[String: Any]] = []
+    @ObservationIgnored public private(set) var peers: [[String: Any]] = []
+    public private(set) var peerItems: [SuitePeer] = []
     public private(set) var conflictCount = 0
     public private(set) var studyDeskInstalled = false
     public private(set) var recordCount = 0
@@ -332,11 +333,18 @@ public final class SuiteSync {
     // MARK: - Status & actions for the UI
 
     public func refreshStatus() {
-        hubRunning = DeskHubPaths.runtime() != nil
-        hubInstalled = DeskHubBootstrap.isHubInstalled || hubRunning
-        peers = DeskHubPaths.peers()
-        conflictCount = (DeskHubPaths.readJSON(DeskHubPaths.file("conflicts.json")) as? [Any])?.count ?? 0
-        studyDeskInstalled = NSWorkspace.shared.urlForApplication(withBundleIdentifier: Self.studyDeskBundleId) != nil
+        let newRunning = DeskHubPaths.runtime() != nil
+        let newInstalled = DeskHubBootstrap.isHubInstalled || newRunning
+        let rawPeers = DeskHubPaths.peers()
+        let newPeerItems = rawPeers.enumerated().map { SuitePeer(dict: $0.element, index: $0.offset) }
+        let newConflicts = (DeskHubPaths.readJSON(DeskHubPaths.file("conflicts.json")) as? [Any])?.count ?? 0
+        let newStudyDesk = NSWorkspace.shared.urlForApplication(withBundleIdentifier: Self.studyDeskBundleId) != nil
+        peers = rawPeers
+        if hubRunning != newRunning { hubRunning = newRunning }
+        if hubInstalled != newInstalled { hubInstalled = newInstalled }
+        if peerItems != newPeerItems { peerItems = newPeerItems }
+        if conflictCount != newConflicts { conflictCount = newConflicts }
+        if studyDeskInstalled != newStudyDesk { studyDeskInstalled = newStudyDesk }
     }
 
     public func openHub(page: String? = nil) { DeskHubBootstrap.openHub(page: page) }
@@ -366,11 +374,27 @@ public final class SuiteSync {
 
 // MARK: - Settings UI
 
+public struct SuitePeer: Identifiable, Equatable {
+    public let id: String
+    public let name: String
+    public let platform: String
+    public let connected: Bool
+
+    public init(dict: [String: Any], index: Int = 0) {
+        let devId = (dict["deviceId"] as? String) ?? (dict["id"] as? String) ?? ""
+        self.id = devId.isEmpty ? "peer-\(index)-\(dict["name"] as? String ?? "?")" : devId
+        self.name = (dict["name"] as? String) ?? "?"
+        self.platform = (dict["platform"] as? String) ?? ""
+        self.connected = (dict["connected"] as? Bool) ?? false
+    }
+}
+
 public struct SuiteSettingsSection: View {
     @Environment(AppStore.self) private var store
 
     public var body: some View {
         let suite = store.suite
+        let peerList = suite.peerItems
         VStack(alignment: .leading, spacing: 10) {
             Label(store.t("suiteHeader"), systemImage: "square.stack.3d.up.fill")
                 .font(.headline)
@@ -391,19 +415,18 @@ public struct SuiteSettingsSection: View {
                 }
             }
 
-            let connected = suite.peers.filter { ($0["connected"] as? Bool) ?? false }
-            Text("\(store.t("suiteDevices")): \(connected.count) / \(suite.peers.count)").font(.caption.bold())
-            if suite.peers.isEmpty {
+            let connected = peerList.filter(\.connected)
+            Text("\(store.t("suiteDevices")): \(connected.count) / \(peerList.count)").font(.caption.bold())
+            if peerList.isEmpty {
                 Text(store.t("suiteNoDevices")).font(.caption2).foregroundStyle(.secondary)
             } else {
-                ForEach(0..<suite.peers.count, id: \.self) { i in
-                    let p = suite.peers[i]
+                ForEach(peerList) { p in
                     HStack(spacing: 6) {
-                        Image(systemName: ((p["connected"] as? Bool) ?? false) ? "wifi" : "wifi.slash")
-                            .foregroundStyle(((p["connected"] as? Bool) ?? false) ? Color.green : Color.secondary)
-                        Text(p["name"] as? String ?? "?").font(.caption)
+                        Image(systemName: p.connected ? "wifi" : "wifi.slash")
+                            .foregroundStyle(p.connected ? Color.green : Color.secondary)
+                        Text(p.name).font(.caption)
                         Spacer()
-                        Text(p["platform"] as? String ?? "").font(.caption2).foregroundStyle(.secondary)
+                        Text(p.platform).font(.caption2).foregroundStyle(.secondary)
                     }
                 }
             }

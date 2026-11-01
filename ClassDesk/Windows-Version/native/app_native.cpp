@@ -164,16 +164,21 @@ static std::string ParseJsonArg(const std::string& json_array, size_t index) {
     return "";
 }
 
-// Helper: Write embedded asset file if missing or size differs
+// Helper: Write embedded asset file if missing, size differs, or content differs
 static bool EnsureAssetFile(const std::wstring& targetPath, const unsigned char* data, size_t len) {
-    WIN32_FILE_ATTRIBUTE_DATA fileInfo;
-    if (GetFileAttributesExW(targetPath.c_str(), GetFileExInfoStandard, &fileInfo)) {
+    HANDLE hRead = CreateFileW(targetPath.c_str(), GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+    if (hRead != INVALID_HANDLE_VALUE) {
         LARGE_INTEGER size;
-        size.HighPart = fileInfo.nFileSizeHigh;
-        size.LowPart = fileInfo.nFileSizeLow;
-        if ((size_t)size.QuadPart == len) {
-            return true;
+        bool same = false;
+        if (GetFileSizeEx(hRead, &size) && (size_t)size.QuadPart == len) {
+            std::vector<unsigned char> existing(len);
+            DWORD rd = 0;
+            if (len == 0 || (ReadFile(hRead, existing.data(), (DWORD)len, &rd, NULL) && rd == (DWORD)len && memcmp(existing.data(), data, len) == 0)) {
+                same = true;
+            }
         }
+        CloseHandle(hRead);
+        if (same) return true;
     }
 
     HANDLE hFile = CreateFileW(targetPath.c_str(), GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
@@ -591,6 +596,12 @@ static int RunSetupInstaller(const wchar_t* currentExePath, bool isSilent) {
     }
 
     EnsureAssetFile(targetIcon, ASSET_APP_ICON_ICO, ASSET_APP_ICON_ICO_LEN);
+    std::wstring appDataDir = std::wstring(localAppData) + L"\\ClassDesk_App";
+    CreateDirectoryW(appDataDir.c_str(), NULL);
+    EnsureAssetFile(appDataDir + L"\\index.html", ASSET_INDEX_HTML, ASSET_INDEX_HTML_LEN);
+    EnsureAssetFile(appDataDir + L"\\logo.png", ASSET_LOGO_PNG, ASSET_LOGO_PNG_LEN);
+    EnsureAssetFile(appDataDir + L"\\icon.png", ASSET_LOGO_PNG, ASSET_LOGO_PNG_LEN);
+    EnsureAssetFile(appDataDir + L"\\AppIcon.ico", ASSET_APP_ICON_ICO, ASSET_APP_ICON_ICO_LEN);
     Sleep(250);
 
     // Phase 5 (75%): Seamless user data migration (Zero data loss guarantee!)
@@ -672,7 +683,11 @@ static int RunSetupInstaller(const wchar_t* currentExePath, bool isSilent) {
         if (hFontFooter) DeleteObject(hFontFooter);
     }
 
-    ShellExecuteW(NULL, L"open", targetExe.c_str(), isSilent ? L"--skip-staged-update" : NULL, targetDir.c_str(), SW_SHOWNORMAL);
+    std::wstring curExeW = currentExePath ? currentExePath : L"";
+    bool isStagedSelfUpdate = (curExeW.find(L"Staged_Setup") != std::wstring::npos);
+    if (!isSilent || isStagedSelfUpdate) {
+        ShellExecuteW(NULL, L"open", targetExe.c_str(), isSilent ? L"--skip-staged-update" : NULL, targetDir.c_str(), SW_SHOWNORMAL);
+    }
     return 0;
 }
 

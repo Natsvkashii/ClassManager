@@ -108,7 +108,12 @@ static std::wstring programsDir() {
     return std::wstring(p) + L"\\Programs\\";
 }
 static bool isInstalled(const App &a) { return GetFileAttributesW((programsDir() + a.exeName).c_str()) != INVALID_FILE_ATTRIBUTES; }
-static std::wstring widen(const std::string &s) { return std::wstring(s.begin(), s.end()); }
+static std::wstring widen(const std::string &s) {
+    if (s.empty()) return L"";
+    int n = MultiByteToWideChar(CP_UTF8, 0, s.c_str(), (int)s.size(), nullptr, 0);
+    std::wstring w(n, 0); MultiByteToWideChar(CP_UTF8, 0, s.c_str(), (int)s.size(), &w[0], n);
+    return w;
+}
 
 static std::vector<DWORD> pidsOf(const wchar_t *exe) {
     std::vector<DWORD> out;
@@ -165,6 +170,7 @@ enum { ID_CHECK = 100, ID_INSTALL = 200, ID_CANCEL = 201, WM_DONE = WM_APP + 1, 
 static HWND g_wnd, g_check[NAPPS], g_status, g_install, g_cancel, g_progress;
 static HFONT g_font, g_bold, g_title;
 static bool g_busy = false, g_finished = false;
+static ULONGLONG g_shownAt = 0;
 static std::wstring g_statusText;
 static int g_dpi = 96;
 static int S(int v) { return MulDiv(v, g_dpi, 96); } // layout in 96-dpi pixels, scaled for the screen
@@ -214,15 +220,16 @@ static LRESULT CALLBACK wndProc(HWND w, UINT m, WPARAM wp, LPARAM lp) {
         }
         g_progress = CreateWindowW(PROGRESS_CLASSW, nullptr, WS_CHILD | WS_VISIBLE, S(28), S(338), S(440), S(10), w, nullptr, nullptr, nullptr);
         g_status = label(L"HubDesk resta sempre installato: dopo potrai aggiungere o togliere le altre app da HubDesk.", 28, 356, 440, 52, g_font);
-        g_cancel = CreateWindowW(L"BUTTON", L"Annulla", WS_CHILD | WS_VISIBLE | WS_TABSTOP, S(248), S(418), S(100), S(30), w, (HMENU)ID_CANCEL, nullptr, nullptr);
-        g_install = CreateWindowW(L"BUTTON", L"Installa", WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_DEFPUSHBUTTON, S(358), S(418), S(110), S(30), w, (HMENU)ID_INSTALL, nullptr, nullptr);
+        g_cancel = CreateWindowW(L"BUTTON", L"Annulla", WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON, S(248), S(418), S(100), S(30), w, (HMENU)ID_CANCEL, nullptr, nullptr);
+        g_install = CreateWindowW(L"BUTTON", L"Installa", WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON, S(358), S(418), S(110), S(30), w, (HMENU)ID_INSTALL, nullptr, nullptr);
         SendMessageW(g_cancel, WM_SETFONT, (WPARAM)g_font, TRUE);
         SendMessageW(g_install, WM_SETFONT, (WPARAM)g_bold, TRUE);
+        if (g_check[1]) SetFocus(g_check[1]);
         return 0;
     }
     case WM_CTLCOLORSTATIC: { HDC dc = (HDC)wp; SetBkMode(dc, TRANSPARENT); return (LRESULT)GetStockObject(WHITE_BRUSH); }
     case WM_COMMAND:
-        if (LOWORD(wp) == ID_INSTALL) {
+        if (LOWORD(wp) == ID_INSTALL && HIWORD(wp) == BN_CLICKED && (HWND)lp == g_install && !g_busy && g_shownAt > 0 && GetTickCount64() - g_shownAt >= 400) {
             if (g_finished) {
                 ShellExecuteW(nullptr, L"open", (programsDir() + APPS[0].exeName).c_str(), nullptr, nullptr, SW_SHOWNORMAL);
                 DestroyWindow(w);
@@ -232,7 +239,7 @@ static LRESULT CALLBACK wndProc(HWND w, UINT m, WPARAM wp, LPARAM lp) {
             for (int i = 0; i < NAPPS; i++) EnableWindow(g_check[i], FALSE);
             EnableWindow(g_install, FALSE); EnableWindow(g_cancel, FALSE);
             CloseHandle(CreateThread(nullptr, 0, worker, nullptr, 0, nullptr));
-        } else if (LOWORD(wp) == ID_CANCEL) DestroyWindow(w);
+        } else if (LOWORD(wp) == ID_CANCEL && HIWORD(wp) == BN_CLICKED && (HWND)lp == g_cancel && !g_busy) DestroyWindow(w);
         return 0;
     case WM_STATUS: SetWindowTextW(g_status, g_statusText.c_str()); return 0;
     case WM_DONE:
@@ -261,6 +268,12 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int) {
     bool payload = readPayload();
 
     if (hasArg(argc, argv, L"--list")) {
+        std::string s;
+        for (auto &e : g_entries) s += e.id + " " + std::to_string(e.size) + "\n";
+        HANDLE out = GetStdHandle(STD_OUTPUT_HANDLE);
+        DWORD wr = 0;
+        if (out && out != INVALID_HANDLE_VALUE && WriteFile(out, s.data(), (DWORD)s.size(), &wr, nullptr) && wr > 0)
+            return payload ? 0 : 2;
         AttachConsole(ATTACH_PARENT_PROCESS);
         FILE *o = _wfopen(L"CONOUT$", L"w");
         for (auto &e : g_entries) if (o) fprintf(o, "%s %llu\n", e.id.c_str(), (unsigned long long)e.size);
@@ -308,7 +321,12 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int) {
     HWND w = CreateWindowW(wc.lpszClassName, L"Installazione ClassDesk Suite", WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX,
                            CW_USEDEFAULT, CW_USEDEFAULT, r.right - r.left, r.bottom - r.top, nullptr, nullptr, inst, nullptr);
     ShowWindow(w, SW_SHOW);
+    UpdateWindow(w);
+    g_shownAt = GetTickCount64();
     MSG msg;
-    while (GetMessageW(&msg, nullptr, 0, 0)) { if (!IsDialogMessageW(w, &msg)) { TranslateMessage(&msg); DispatchMessageW(&msg); } }
+    while (GetMessageW(&msg, nullptr, 0, 0) > 0) {
+        if ((msg.message == WM_KEYDOWN || msg.message == WM_KEYUP || msg.message == WM_CHAR) && msg.wParam == VK_RETURN) continue;
+        if (!IsDialogMessageW(w, &msg)) { TranslateMessage(&msg); DispatchMessageW(&msg); }
+    }
     return 0;
 }
