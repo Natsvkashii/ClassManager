@@ -72,10 +72,12 @@ function createManager({ driver, fetchJson, download, selfId = 'hubdesk', platfo
       const file = path.join(dir, av.asset.name);
       await download(av.asset.url, file, (p) => { s.progress = p; emit(); });
       s.busy = 'install'; s.progress = 1; emit();
+      const wasRunning = await driver.isRunning(id);
       if (id === selfId) { await driver.runInstallerDetached(id, file); dir = null; quitSelf(); return snapshot(); }
       await driver.runInstaller(id, file, { suite: !!av.asset.suite });
       const ok = await waitFor(async () => { const d = await driver.detect(id); return d && cat.compareVersions(d.version, av.version) >= 0; }, installTimeoutMs);
       if (!ok) throw new Error('Installazione non completata');
+      if (wasRunning) { try { driver.open(id); } catch {} }
     } catch (e) { s.error = e.message; s.busy = ''; emit(); throw e; }
     finally { if (dir) try { fs.rmSync(dir, { recursive: true, force: true }); } catch {} }
     s.busy = ''; s.progress = 0;

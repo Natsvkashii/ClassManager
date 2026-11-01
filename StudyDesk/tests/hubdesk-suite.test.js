@@ -136,8 +136,11 @@ test('file watch: changes in the records folder call onChange', async () => {
   const A = device('dev-a', {});
   let n = 0;
   const stop = A.records.watch(() => { n++; });
+  await new Promise((r) => setTimeout(r, 100));
   A.records.put('group:x', { id: 'x' });
-  await new Promise((r) => setTimeout(r, 600));
+  for (let i = 0; i < 20 && n === 0; i++) {
+    await new Promise((r) => setTimeout(r, 100));
+  }
   stop();
   assert.ok(n >= 1);
 });

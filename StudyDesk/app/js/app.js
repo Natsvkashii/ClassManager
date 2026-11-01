@@ -38,10 +38,10 @@ import { renderCredits, creditsBody } from './views/credits.js';
 const navItems = () => [
   ['Studio', [['home', 'Home', 'house'], ['library', 'Libreria', 'book-open'], ['progress', 'Progressi', 'chart-line'], ['board', 'Lavagna', 'chalkboard']]],
   ...(isTeacher() ? [['Insegnante', [['groups', 'Gruppi', 'users'], ['editor', 'Editor', 'pen-ruler']]]] : []),
-  ['Sistema', [['sync', 'Sincronizzazione', 'arrows-rotate'], ['settings', 'Impostazioni', 'gear'], ['credits', 'Crediti', 'circle-info']]],
+  ['Sistema', [['settings', 'Impostazioni', 'gear'], ['credits', 'Crediti', 'circle-info']]],
 ];
-const ROUTES = { home: renderHome, library: renderLibrary, module: renderPlayer, progress: renderProgress, editor: renderEditor, groups: renderGroups, board: renderBoard, sync: renderSync, settings: renderSettings, credits: renderCredits };
-const TITLES = { home: 'Home', library: 'Libreria', module: 'Modulo', progress: 'Progressi', editor: 'Editor', groups: 'Gruppi', board: 'Lavagna', sync: 'Sincronizzazione', settings: 'Impostazioni', credits: 'Crediti' };
+const ROUTES = { home: renderHome, library: renderLibrary, module: renderPlayer, progress: renderProgress, editor: renderEditor, groups: renderGroups, board: renderBoard, sync: renderSettings, settings: renderSettings, credits: renderCredits };
+const TITLES = { home: 'Home', library: 'Libreria', module: 'Modulo', progress: 'Progressi', editor: 'Editor', groups: 'Gruppi', board: 'Lavagna', sync: 'Impostazioni', settings: 'Impostazioni', credits: 'Crediti' };
 const TEACHER_ONLY = ['editor', 'groups'];
 
 export const app = {

@@ -166,11 +166,13 @@ public final class BoardModel {
         ["t": "snapshot", "strokes": jsonObject(strokes), "texts": jsonObject(texts), "background": background, "grid": grid.map { jsonObject($0) } ?? NSNull()]
     }
     /// On board open and when a device joins: everything on the board goes to the connected devices.
-    public func sendSnapshot() { if hubShared, watching == nil { hubClient?.sendBoard(snapshotMessage()) } }
+    public func sendSnapshot() {
+        if hubShared { hubClient?.sendBoard(snapshotMessage()) }
+        if let remote { write(snapshotMessage(), to: remote) }
+    }
 
     /// A board message from another device (collaborative: drawn on this same board, also when the view is closed).
     func receiveShared(_ m: [String: Any], from: String?, name: String?) {
-        guard watching == nil else { return }
         if let name { lastFromName = name }
         switch m["t"] as? String {
         case "snapshot":
@@ -188,7 +190,8 @@ public final class BoardModel {
             if (m["reply"] as? Bool) != true, !isEmpty || bgTouched || gridTouched {
                 var snap = snapshotMessage()
                 snap["reply"] = true
-                if hubShared, watching == nil { hubClient?.sendBoard(snap) }
+                if hubShared { hubClient?.sendBoard(snap) }
+                if let remote { write(snap, to: remote) }
             }
         case "begin":
             if let id = m["id"] as? String, strokes.contains(where: { $0.id == id }) { return }
@@ -398,6 +401,7 @@ public final class BoardModel {
                     self.clients.append(c); self.viewers = self.clients.count
                     let snap = (try? JSONEncoder().encode(self.strokes)).flatMap { try? JSONSerialization.jsonObject(with: $0) } ?? []
                     self.write(["t": "snapshot", "strokes": snap, "background": self.background], to: c)
+                    self.receive(c)
                 case .failed, .cancelled:
                     self.clients.removeAll { $0 === c }; self.viewers = self.clients.count
                 default: break
@@ -409,6 +413,7 @@ public final class BoardModel {
 
     private func send(_ msg: [String: Any]) {
         for c in clients { write(msg, to: c) }                 // old view-only sharing (26.10)
+        if let remote { write(msg, to: remote) }              // send to remote peer
         if hubShared { hubClient?.sendBoard(msg) }             // HubDesk: shared automatically
     }
 
@@ -818,6 +823,7 @@ struct BoardView: View {
     @State private var showSave = false
     @State private var showSaved = false
     @State private var canvasSize: CGSize = .zero
+    @State private var isToolbarHidden = false
     @AppStorage("studydesk.boardDate") private var boardDate = false
 
     private var boardWidth: CGFloat {
@@ -829,13 +835,43 @@ struct BoardView: View {
         let watching = model.watching != nil
         ZStack(alignment: .top) {
             Color(nsColor: .windowBackgroundColor).ignoresSafeArea()
-            BoardCanvas(model: model, readOnly: watching, revision: model.revision &+ (boardDate ? 1 : 0), mode: model.mode)
+            BoardCanvas(model: model, readOnly: false, revision: model.revision &+ (boardDate ? 1 : 0), mode: model.mode)
                 .background(GeometryReader { g in Color.clear.onAppear { canvasSize = g.size }.onChange(of: g.size) { _, s in canvasSize = s } })
-                .padding(.top, 58).padding([.horizontal, .bottom], 12)
-            toolbar(watching: watching)
+                .padding(.top, isToolbarHidden ? 12 : 58).padding([.horizontal, .bottom], 12)
+            if isToolbarHidden {
+                HStack(spacing: 8) {
+                    Button {
+                        withAnimation(.easeInOut(duration: 0.2)) { isToolbarHidden = false }
+                    } label: {
+                        Image(systemName: "chevron.down").font(.system(size: 13, weight: .bold))
+                    }
+                    .buttonStyle(.plain)
+                    .help("Mostra la barra degli strumenti")
+
+                    Divider().frame(height: 14)
+
+                    Button {
+                        exit()
+                    } label: {
+                        Image(systemName: "xmark").font(.system(size: 12, weight: .bold))
+                    }
+                    .buttonStyle(.plain)
+                    .help("Chiudi lavagna")
+                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background(.regularMaterial, in: Capsule())
+                .overlay(Capsule().strokeBorder(Color.secondary.opacity(0.3)))
+                .shadow(color: .black.opacity(0.12), radius: 4, y: 2)
+                .padding([.top, .trailing], 12)
+                .frame(maxWidth: .infinity, alignment: .topTrailing)
+            } else {
+                toolbar(watching: watching)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+            }
         }
         .onAppear {
-            model.browse(); store.focusMode = true; model.fitInk(); model.sendSnapshot()
+            model.browse(); model.fitInk(); model.sendSnapshot()
             if let rec = model.pendingOpen { model.pendingOpen = nil; askOpen(rec) }
         }
         .onDisappear { if model.editing != nil { model.commitEditing() }; model.stopBrowsing(); if model.watching != nil { model.returnToOwn() } else { model.disconnect() } }
@@ -868,25 +904,26 @@ struct BoardView: View {
         HStack(spacing: 7) {
             Label("Lavagna", systemImage: "pencil.and.scribble").font(.headline).labelStyle(.titleAndIcon).fixedSize()
             Divider().frame(height: 22)
-            if !watching {
-                toolPicker
-                colorButton
-                ViewThatFits(in: .horizontal) {
-                    HStack(spacing: 7) { quickSwatches; modeControls }
-                    modeControls
+            toolPicker
+            colorButton
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 7) { quickSwatches; modeControls }
+                modeControls
+            }
+            Divider().frame(height: 22)
+            gridButton
+            Toggle(isOn: Binding(get: { model.polar }, set: { model.polar = $0; if $0 && model.mode != .pen { model.mode = .pen } })) { Image(systemName: "angle") }
+                .toggleStyle(.button).help(model.polar ? "Puntamento polare attivo: linee dritte ogni 15°" : "Puntamento polare: linee dritte per schemi e tabelle")
+            bgButton
+            Button { model.undo() } label: { Image(systemName: "arrow.uturn.backward") }.help("Annulla (⌘Z)").keyboardShortcut("z").disabled(model.editing != nil)
+            Button { if model.isEmpty { store.showToast("La lavagna è già vuota") } else { confirmClear = true } } label: { Image(systemName: "trash") }.help("Cancella la lavagna")
+            fileMenu
+            sharedIndicator
+            if watching {
+                HStack(spacing: 4) {
+                    Label(model.status, systemImage: "dot.radiowaves.left.and.right").foregroundStyle(Theme.ok).lineLimit(1).font(.caption)
+                    Button("Torna alla mia lavagna") { model.returnToOwn() }.controlSize(.small)
                 }
-                Divider().frame(height: 22)
-                gridButton
-                Toggle(isOn: Binding(get: { model.polar }, set: { model.polar = $0; if $0 && model.mode != .pen { model.mode = .pen } })) { Image(systemName: "angle") }
-                    .toggleStyle(.button).help(model.polar ? "Puntamento polare attivo: linee dritte ogni 15°" : "Puntamento polare: linee dritte per schemi e tabelle")
-                bgButton
-                Button { model.undo() } label: { Image(systemName: "arrow.uturn.backward") }.help("Annulla (⌘Z)").keyboardShortcut("z").disabled(model.editing != nil)
-                Button { if model.isEmpty { store.showToast("La lavagna è già vuota") } else { confirmClear = true } } label: { Image(systemName: "trash") }.help("Cancella la lavagna")
-                fileMenu
-                sharedIndicator
-            } else {
-                Label(model.status, systemImage: "dot.radiowaves.left.and.right").foregroundStyle(Theme.ok).lineLimit(1)
-                Button("Torna alla mia lavagna") { model.returnToOwn() }
             }
             Spacer(minLength: 4)
             Menu {
@@ -902,7 +939,13 @@ struct BoardView: View {
                 }
             } label: { Image(systemName: "ellipsis.circle") }
             .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize().help("Altro")
-            Button { exit() } label: { Label("ESC", systemImage: "xmark.circle.fill") }.help("Esci (ESC)")
+            Button {
+                withAnimation(.easeInOut(duration: 0.2)) { isToolbarHidden = true }
+            } label: {
+                Image(systemName: "chevron.up")
+            }
+            .help("Nascondi la barra degli strumenti")
+            Button { exit() } label: { Image(systemName: "xmark") }.help("Chiudi lavagna")
         }
         .padding(.horizontal, 12).padding(.vertical, 8)
         .background(.bar)
@@ -1101,7 +1144,6 @@ struct BoardView: View {
     private func exit() {
         if model.editing != nil { model.commitEditing() }
         if model.watching != nil { model.returnToOwn() } else { model.disconnect() }
-        store.focusMode = false
         store.currentTab = .home
     }
 }
@@ -1124,7 +1166,7 @@ struct SaveBoardSheet: View {
                 HStack { Spacer(); Button("Chiudi") { dismiss() }.keyboardShortcut(.defaultAction) }
             } else if groups.isEmpty {
                 Text("Non ci sono ancora gruppi. Crea un gruppo nella pagina «Gruppi» e poi salva qui la lavagna.").foregroundStyle(.secondary)
-                HStack { Spacer(); Button("Chiudi") { dismiss() }; Button("Vai ai gruppi") { dismiss(); store.focusMode = false; store.currentTab = .groups }.keyboardShortcut(.defaultAction) }
+                HStack { Spacer(); Button("Chiudi") { dismiss() }; Button("Vai ai gruppi") { dismiss(); store.currentTab = .groups }.keyboardShortcut(.defaultAction) }
             } else {
                 Picker("Gruppo", selection: $groupId) { ForEach(groups) { Text($0.name).tag($0.id) } }
                 TextField("Nome", text: $name).textFieldStyle(.roundedBorder)

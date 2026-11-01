@@ -15,7 +15,6 @@ import { h, icon, toast, confirmDialog, validEmail, clear } from '../core/ui.js'
 import { kv } from '../core/db.js';
 import { settings, saveSettings } from '../core/settings.js';
 import { APP_VERSION, channelLabel } from '../core/version.js';
-import { checkForUpdates, getLog, clearLog, getUpdateState, onUpdateState, syncConfig, downloadAndInstall } from '../core/updater.js';
 import { exportBackup, importBackup, resetAll } from '../core/backup.js';
 import { saveBlob, pickFiles, platform } from '../core/platform.js';
 import { isTeacher, setRole } from '../core/role.js';
@@ -41,17 +40,6 @@ export async function renderSettings(host, params, app) {
     await saveSettings({ ...(teacher ? {} : { teacherEmail: f.teacherEmail.value.trim() }), teacherUrl: f.teacherUrl.value.trim() });
     toast('Impostazioni salvate.', 'ok');
   };
-
-  const status = h('div.muted');
-  const logBox = h('div.log-box.hidden');
-  const showLog = async () => { const l = await getLog(); logBox.classList.remove('hidden'); logBox.textContent = l.length ? l.join('\n') : 'Log vuoto.'; logBox.scrollTop = logBox.scrollHeight; };
-  const paint = (u) => {
-    clear(status);
-    status.append(u.checking ? 'Verifica in corso…' : u.error ? h('span', { style: { color: 'var(--bad-ink)' } }, u.error) : (u.status || `Versione installata: ${APP_VERSION}.`));
-    if (u.available && u.release) status.append(' ', h('button.btn.btn-sm.btn-primary', { onclick: downloadAndInstall }, platform.isElectron ? 'Scarica e installa' : platform.isAndroid ? 'Scarica APK' : 'Vedi release'));
-    if (u.downloading) status.append(` – download ${Math.round((u.progress || 0) * 100)}%`);
-  };
-  const off = onUpdateState(paint);
 
   const teacher = isTeacher();
   const joined = await getJoinedGroup();
@@ -85,15 +73,6 @@ export async function renderSettings(host, params, app) {
     card('Lavagna',
       h('label.switch', h('input', { type: 'checkbox', checked: !!s.boardDate, onchange: (e) => saveSettings({ boardDate: e.target.checked }) }), 'Inserisci automaticamente la data sulla lavagna'),
       h('div.help', 'La data di oggi compare in alto a destra e resta nelle immagini e nei PDF esportati; una lavagna salvata mantiene la data del giorno in cui è stata salvata.')),
-    card('Aggiornamenti',
-      h('div.row', h('span.badge', `Versione ${APP_VERSION}`), h('span.badge.' + (channelLabel() === 'Beta' ? 'warn' : 'ok'), channelLabel())),
-      h('label.switch', h('input', { type: 'checkbox', checked: s.includeBeta, onchange: async (e) => { await saveSettings({ includeBeta: e.target.checked }); syncConfig(); } }), 'Includi le versioni Beta (instabili)'),
-      h('div.help', 'Una build Beta continua a ricevere le Beta finché non viene installata una versione stabile.'),
-      field('Frequenza di verifica', select(s.checkFrequency, [['startup', 'Ad ogni avvio'], ['daily', 'Ogni giorno'], ['weekly', 'Ogni settimana'], ['manual', 'Solo manuale']], async (v) => { await saveSettings({ checkFrequency: v }); syncConfig(); })),
-      h('div.row', h('button.btn', { onclick: () => checkForUpdates() }, icon('rotate'), 'Verifica ora'),
-        h('button.btn.btn-ghost', { onclick: showLog }, icon('terminal'), 'Log aggiornamenti'),
-        h('button.btn.btn-ghost', { onclick: async () => { await clearLog(); showLog(); } }, icon('eraser'), 'Azzera log')),
-      status, logBox),
     card('Dati',
       h('div.row', h('button.btn', {
         onclick: async () => { await saveBlob(await exportBackup(), `studydesk-backup-${new Date().toISOString().slice(0, 10)}.zip`); toast('Backup creato.', 'ok'); },
@@ -111,5 +90,5 @@ export async function renderSettings(host, params, app) {
           if (await confirmDialog('Azzerare tutto?', 'Verranno eliminati profilo, moduli, registrazioni e progressi di questo dispositivo. L\'operazione non è reversibile.', 'Azzera tutto', true)) { await resetAll(); location.hash = ''; location.reload(); }
         },
       }, icon('trash'), 'Azzera tutti i dati')))));
-  return off;
+  return () => {};
 }

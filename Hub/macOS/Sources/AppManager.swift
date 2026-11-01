@@ -101,6 +101,11 @@ public enum Installer {
         let writable = fm.isWritableFile(atPath: parent.path) && (!exists || (fm.isDeletableFile(atPath: dest.path) && ownedByMe(dest)))
         if writable {
             if exists { _ = try fm.replaceItemAt(dest, withItemAt: src) } else { try fm.moveItem(at: src, to: dest) }
+            let p = Process()
+            p.executableURL = URL(fileURLWithPath: "/usr/bin/xattr")
+            p.arguments = ["-dr", "com.apple.quarantine", dest.path]
+            try? p.run()
+            p.waitUntilExit()
         } else {
             try runAdmin("rm -rf \(shQuote(dest.path)) && /usr/bin/ditto \(shQuote(src.path)) \(shQuote(dest.path)) && /usr/bin/xattr -dr com.apple.quarantine \(shQuote(dest.path)) 2>/dev/null; true")
         }
@@ -129,7 +134,14 @@ public enum Installer {
     @MainActor static func open(_ url: URL, args: [String] = []) {
         let cfg = NSWorkspace.OpenConfiguration()
         cfg.arguments = args
-        NSWorkspace.shared.openApplication(at: url, configuration: cfg)
+        NSWorkspace.shared.openApplication(at: url, configuration: cfg) { _, err in
+            if err != nil {
+                let p = Process()
+                p.executableURL = URL(fileURLWithPath: "/usr/bin/open")
+                p.arguments = [url.path]
+                try? p.run()
+            }
+        }
     }
 
     @MainActor static func recycle(_ url: URL) async throws {
@@ -274,6 +286,8 @@ public final class AppManager {
 
     /// Replaces HubDesk's own bundle with a detached script that waits for this process to exit, then relaunches it.
     private func selfUpdate(newApp: URL, dest: URL, work: URL, background: Bool) throws {
+        let hasVisibleWindow = NSApp.windows.contains(where: { $0.isVisible && !$0.className.contains("NSStatusBarWindow") })
+        let shouldBackground = background && !hasVisibleWindow
         let script = work.appendingPathComponent("update.sh")
         let sh = """
         #!/bin/sh
@@ -285,7 +299,7 @@ public final class AppManager {
         """
         try sh.write(to: script, atomically: true, encoding: .utf8)
         let pid = ProcessInfo.processInfo.processIdentifier
-        let args = [pid.description, newApp.path, dest.path, work.path, background ? "background" : "normal"].map(Installer.shQuote).joined(separator: " ")
+        let args = [pid.description, newApp.path, dest.path, work.path, shouldBackground ? "background" : "normal"].map(Installer.shQuote).joined(separator: " ")
         let cmd = "nohup /bin/sh \(Installer.shQuote(script.path)) \(args) >/dev/null 2>&1 &"
         let parent = dest.deletingLastPathComponent()
         if FileManager.default.isWritableFile(atPath: parent.path) && FileManager.default.isDeletableFile(atPath: dest.path) && Installer.ownedByMe(dest) {

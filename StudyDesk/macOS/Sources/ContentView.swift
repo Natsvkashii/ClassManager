@@ -136,7 +136,7 @@ struct ContentView: View {
         case .editor: if store.state.isTeacher { ModuleEditorView() } else { HomeView() }
         case .groups: if store.state.isTeacher { GroupsView() } else { HomeView() }
         case .board: BoardView()
-        case .sync: SyncView()
+        case .sync: SettingsView()
         case .settings: SettingsView()
         case .credits: CreditsView()
         }
@@ -204,7 +204,7 @@ struct SidebarView: View {
                     if store.state.isTeacher {
                         section("Insegnante", [(.groups, "person.3.fill", "Gruppi"), (.editor, "square.and.pencil", "Editor moduli e libri")])
                     }
-                    section("Sistema", [(.sync, "arrow.triangle.2.circlepath", "Sincronizzazione"), (.settings, "gearshape.fill", "Impostazioni"), (.credits, "info.circle.fill", "Crediti e aggiornamenti")])
+                    section("Sistema", [(.settings, "gearshape.fill", "Impostazioni"), (.credits, "info.circle.fill", "Crediti")])
                 }
                 .padding(10)
             }

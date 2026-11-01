@@ -1,5 +1,10 @@
 # HubDesk – Changelog
 
+## 26.11.0-007 (Unstable)
+- Riapertura automatica: al termine di ogni aggiornamento, le applicazioni aperte (ClassDesk, StudyDesk e HubDesk stesso) si riaprono automaticamente conservando la sessione.
+- Rimozione degli attributi di quarantena su macOS per garantire l'apertura immediata post-aggiornamento.
+- Gestione aggiornamenti e sincronizzazione centralizzata come unico punto di riferimento della suite.
+
 ## 26.11.0-006 (Unstable)
 - Lavagna condivisa e canale locale: corretta la consegna dei messaggi iniziali tra HubDesk e StudyDesk su Windows e macOS, evitando la perdita dello snapshot della lavagna alla connessione di un dispositivo.
 

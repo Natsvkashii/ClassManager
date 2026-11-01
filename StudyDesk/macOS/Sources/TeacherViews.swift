@@ -24,7 +24,7 @@ struct GroupsView: View {
     var body: some View {
         HStack(spacing: 0) {
             groupList.frame(width: 260)
-                .background(scheme == .dark ? Color(nsColor: .windowBackgroundColor).opacity(0.6) : Color.white.opacity(0.7))
+                .background(scheme == .dark ? Color(nsColor: .windowBackgroundColor) : Color.white)
             Divider()
             if let g = store.group(store.openGroupId) {
                 GroupDetailView(groupId: g.id).id(g.id)

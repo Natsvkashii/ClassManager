@@ -18,7 +18,7 @@ public enum AuthorAttribution {
     public static let authorName = "Guaira Jaramillo Nitoglia"
     public static let authorEmail = "guaira.jaramillo.nitoglia@gmail.com"
     public static let appName = "ClassDesk"
-    public static let appVersion = "26.11.0-006"
+    public static let appVersion = "26.11.0-007"
 
     /// Centralized channel indicator: 0 = Stable, 1 = Unstable / Beta
     public static let isUnstableBuild: Int = 1
@@ -1884,6 +1884,10 @@ public struct AppState: Codable, Equatable {
     ]
 
     public static let defaultChangelog: [ChangelogEntry] = [
+        ChangelogEntry(version: "26.11.0-007", date: "2026-11-01", changes: [
+            "Centralizzazione suite: rimosse le impostazioni di verifica aggiornamenti e configurazione sincronizzazione; tutto è centralizzato in HubDesk.",
+            "Riapertura automatica delle applicazioni e del centro di controllo al termine degli aggiornamenti.",
+        ]),
         ChangelogEntry(version: "26.11.0-005", date: "2026-11-01", changes: [
             "macOS: corretto un arresto anomalo nelle impostazioni della Suite quando la lista dei dispositivi collegati si aggiorna.",
             "Windows: la barra laterale e il piè di pagina mostrano sempre la versione attuale del programma anche subito dopo un aggiornamento.",

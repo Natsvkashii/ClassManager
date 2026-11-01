@@ -657,21 +657,19 @@ struct SettingsView: View {
     }
 }
 
-// MARK: - Credits & updates (ClassDesk layout)
+// MARK: - Credits & changelog
 
 struct CreditsView: View {
     @Environment(AppStore.self) private var store
-    @State private var updateManager = UpdateManager.shared
     @State private var showInfo = false
 
     var body: some View {
-        @Bindable var store = store
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
                 HStack {
                     VStack(alignment: .leading, spacing: 3) {
-                        Text("Crediti e aggiornamenti").font(.title2.bold())
-                        Text("Gestione aggiornamenti, frequenza di verifica e dettagli applicazione").font(.subheadline).foregroundStyle(.secondary)
+                        Text("Crediti").font(.title2.bold())
+                        Text("Dettagli applicazione, note di rilascio e crediti").font(.subheadline).foregroundStyle(.secondary)
                     }
                     Spacer()
                     Button { showInfo = true } label: {
@@ -692,36 +690,12 @@ struct CreditsView: View {
                                     Pill(text: AuthorAttribution.channelDisplayName, color: AuthorAttribution.channelBadgeColor)
                                     Text("Versione installata").font(.caption2.bold()).foregroundStyle(.secondary)
                                 }
-                                Text(updateManager.statusMessage.isEmpty ? "StudyDesk è aggiornato all'ultima versione." : updateManager.statusMessage)
-                                    .font(.subheadline).foregroundStyle(updateManager.errorMessage != nil ? .red : .secondary)
+                                Text("Gli aggiornamenti della suite sono centralizzati e gestiti da HubDesk.")
+                                    .font(.subheadline).foregroundStyle(.secondary)
                             }
                             Spacer()
-                            Button {
-                                updateManager.checkForUpdates(includeBeta: store.state.settings.includeBetaUpdates, silent: false)
-                            } label: {
-                                if updateManager.isChecking { ProgressView().controlSize(.small) }
-                                Label(updateManager.isChecking ? "Verifica in corso..." : "Verifica aggiornamenti", systemImage: "arrow.triangle.2.circlepath")
-                            }
-                            .buttonStyle(.borderedProminent).tint(.blue).disabled(updateManager.isChecking)
-                        }
-                        if updateManager.updateAvailable, let rel = updateManager.latestRelease {
-                            UpdateBanner(release: rel).clipShape(RoundedRectangle(cornerRadius: 10))
-                        }
-                        if let staged = updateManager.stagedUpdateVersion {
-                            Label("La versione \(staged) è pronta e verrà installata al prossimo avvio.", systemImage: "shippingbox.fill").foregroundStyle(Theme.ok).font(.callout.bold())
                         }
                         Divider()
-                        HStack {
-                            Text("Frequenza di verifica").font(.caption.bold())
-                            Spacer()
-                            Picker("", selection: $store.state.settings.updateCheckFrequency) {
-                                Text("A ogni avvio").tag("startup"); Text("Ogni giorno").tag("daily")
-                                Text("Ogni settimana").tag("weekly"); Text("Solo manuale").tag("manual")
-                            }
-                            .labelsHidden().frame(width: 220)
-                        }
-                        Toggle("Aggiornamenti automatici silenziosi in background", isOn: $store.state.settings.checkForUpdatesAutomatically)
-                        Toggle("Includi versioni Beta (canale instabile)", isOn: $store.state.settings.includeBetaUpdates)
                         DisclosureGroup("Novità") {
                             VStack(alignment: .leading, spacing: 10) {
                                 ForEach(AppChangelog.entries) { e in
@@ -733,20 +707,9 @@ struct CreditsView: View {
                             }
                             .frame(maxWidth: .infinity, alignment: .leading).padding(.top, 6)
                         }
-                        DisclosureGroup("Log comandi aggiornamento") {
-                            ScrollView {
-                                Text(updateManager.commandLogs.suffix(120).joined(separator: "\n"))
-                                    .font(.system(size: 10.5, design: .monospaced)).foregroundStyle(Color(red: 0.65, green: 0.95, blue: 0.99))
-                                    .frame(maxWidth: .infinity, alignment: .leading).padding(10).textSelection(.enabled)
-                            }
-                            .frame(height: 180).background(RoundedRectangle(cornerRadius: 8).fill(Color(red: 0.04, green: 0.07, blue: 0.13)))
-                            Button("Azzera log") { updateManager.clearLogs() }.controlSize(.small)
-                        }
-                        .font(.caption.bold())
                     }
                     .padding(18)
                 }
-                .onChange(of: store.state.settings) { _, _ in store.persist() }
 
                 Card {
                     VStack(alignment: .leading, spacing: 8) {

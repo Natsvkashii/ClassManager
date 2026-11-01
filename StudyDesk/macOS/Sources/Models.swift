@@ -19,7 +19,7 @@ public enum AuthorAttribution {
     public static let authorName = "Guaira Jaramillo Nitoglia"
     public static let authorEmail = "guaira.jaramillo.nitoglia@gmail.com"
     public static let appName = "StudyDesk"
-    public static let appVersion = "26.11.0-006"
+    public static let appVersion = "26.11.0-007"
 
     /// Centralized channel indicator: 0 = Stable, 1 = Unstable / Beta
     public static let isUnstableBuild: Int = 1
@@ -43,6 +43,16 @@ public struct ChangelogEntry: Identifiable {
 
 public enum AppChangelog {
     public static let entries: [ChangelogEntry] = [
+        ChangelogEntry(version: "26.11.0-007", channel: "Unstable", items: [
+            "Lavagna: visualizzazione integrata all'interno dell'app senza forzare lo schermo intero.",
+            "Lavagna: pulsante di chiusura essenziale con icona «X» e barra strumenti a scomparsa con freccia.",
+            "Lavagna collaborativa: strumenti di modifica sempre attivi su entrambi i dispositivi.",
+            "Gruppi: sfondo opaco della colonna per evitare trasparenze con la barra laterale.",
+            "Impostazioni: aggiornamenti e sincronizzazione centralizzati in HubDesk; rimosse le opzioni ridondanti dall'app.",
+        ]),
+        ChangelogEntry(version: "26.11.0-006", channel: "Unstable", items: [
+            "Lavagna condivisa: corretta la sincronizzazione iniziale e in tempo reale tra dispositivi.",
+        ]),
         ChangelogEntry(version: "26.11.0-005", channel: "Unstable", items: [
             "Windows: StudyDesk ora è un'app leggera e veloce (circa 3 MB invece di oltre 100 MB), si apre subito e conserva automaticamente libri, moduli, gruppi, progressi e lavagne già presenti sul computer.",
             "Windows: doppio clic sui file .sdmod e .sdbook per aprirli direttamente in StudyDesk.",

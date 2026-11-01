@@ -1,5 +1,6 @@
 # macOS & System
 .DS_Store
+.claude/
 .AppleDouble
 .LSOverride
 ._*

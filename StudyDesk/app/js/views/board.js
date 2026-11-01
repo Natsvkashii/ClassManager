@@ -466,6 +466,36 @@ export async function renderBoard(host, params, app) {
       }, icon(isBoardPaused() ? 'play' : 'pause')) : null,
     ].filter(Boolean);
   };
+  const floatBtn = h('div.board-float-btn', {
+    style: {
+      position: 'absolute',
+      top: '12px',
+      right: '16px',
+      display: 'none',
+      zIndex: '50',
+      gap: '8px',
+      background: 'var(--surface-1, rgba(255,255,255,0.85))',
+      backdropFilter: 'blur(12px)',
+      borderRadius: '20px',
+      padding: '4px 10px',
+      boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+      border: '1px solid var(--border, rgba(0,0,0,0.15))',
+      alignItems: 'center'
+    }
+  },
+    h('button.btn.btn-sm.btn-icon', {
+      onclick: () => {
+        bar.style.display = '';
+        floatBtn.style.display = 'none';
+      },
+      title: 'Mostra la barra degli strumenti'
+    }, icon('chevron-down')),
+    h('button.btn.btn-sm.btn-icon', {
+      onclick: exit,
+      title: 'Chiudi'
+    }, icon('xmark'))
+  );
+
   const paintBar = () => {
     const watching = !!remote;
     const quick = inksFor(own.background).slice(0, 5);
@@ -474,25 +504,31 @@ export async function renderBoard(host, params, app) {
       ...(watching ? [
         h('span.badge.ok', icon('tower-broadcast'), ` ${netState.status || 'In diretta'}`),
         h('button.btn.btn-sm', { onclick: stopWatching }, 'Torna alla mia lavagna'),
-      ] : [
-        h('div.board-seg.tools', toolBtn('pen', 'pen', 'Penna'), toolBtn('eraser', 'eraser', 'Gomma (anche con il retro della penna)'), toolBtn('text', 'font', 'Testo'), toolBtn('laser', 'wand-magic-sparkles', 'Puntatore laser: linee che svaniscono')),
-        pop('color', 'button.btn.btn-sm.board-colorbtn', { title: 'Colore', 'aria-label': 'Scegli il colore' }, [h('span.board-colordot', { style: { background: tool.color } }), icon('caret-down')], colorPanel),
-        h('div.board-swatches', quick.map(([n, c]) => h('button.swatch' + (tool.color === c && tool.mode !== 'eraser' ? '.on' : ''), {
-          type: 'button', style: { background: c }, title: n, 'aria-label': 'Colore ' + n, onclick: () => { pickColor(c); paintBar(); },
-        }))),
-        ...(tool.mode === 'text' ? textControls() : tool.mode === 'laser' ? [] : [widthControl()]),
-        h('span.board-sep'),
-        pop('grid', 'button.btn.btn-sm.btn-icon' + (own.grid ? '.btn-primary' : ''), { title: 'Griglia', 'aria-label': 'Griglia' }, [icon('border-all')], gridPanel),
-        h('button.btn.btn-sm.btn-icon' + (tool.polar ? '.btn-primary' : ''), { type: 'button', title: tool.polar ? 'Puntamento polare attivo: linee dritte ogni 15°' : 'Puntamento polare: linee dritte per schemi e tabelle', 'aria-label': 'Puntamento polare', 'aria-pressed': tool.polar ? 'true' : 'false', onclick: () => { tool.polar = !tool.polar; if (tool.polar && tool.mode !== 'pen') tool.mode = 'pen'; savePrefs(); paintBar(); } }, icon('compass-drafting')),
-        pop('bg', 'button.btn.btn-sm.btn-icon', { title: 'Colore della lavagna', 'aria-label': 'Colore della lavagna' }, [icon('fill-drip')], bgPanel),
-        h('button.btn.btn-sm.btn-icon', { type: 'button', title: 'Annulla (Ctrl+Z)', 'aria-label': 'Annulla', onclick: undo }, icon('rotate-left')),
-        h('button.btn.btn-sm.btn-icon', { type: 'button', title: 'Cancella la lavagna', 'aria-label': 'Cancella la lavagna', onclick: clearAll }, icon('trash')),
-        pop('file', 'button.btn.btn-sm.btn-icon', { title: 'Salva ed esporta', 'aria-label': 'Salva ed esporta' }, [icon('floppy-disk')], filePanel, 'right'),
-        ...(sharedIndicator() || []),
-      ]),
+      ] : []),
+      h('div.board-seg.tools', toolBtn('pen', 'pen', 'Penna'), toolBtn('eraser', 'eraser', 'Gomma (anche con il retro della penna)'), toolBtn('text', 'font', 'Testo'), toolBtn('laser', 'wand-magic-sparkles', 'Puntatore laser: linee che svaniscono')),
+      pop('color', 'button.btn.btn-sm.board-colorbtn', { title: 'Colore', 'aria-label': 'Scegli il colore' }, [h('span.board-colordot', { style: { background: tool.color } }), icon('caret-down')], colorPanel),
+      h('div.board-swatches', quick.map(([n, c]) => h('button.swatch' + (tool.color === c && tool.mode !== 'eraser' ? '.on' : ''), {
+        type: 'button', style: { background: c }, title: n, 'aria-label': 'Colore ' + n, onclick: () => { pickColor(c); paintBar(); },
+      }))),
+      ...(tool.mode === 'text' ? textControls() : tool.mode === 'laser' ? [] : [widthControl()]),
+      h('span.board-sep'),
+      pop('grid', 'button.btn.btn-sm.btn-icon' + (own.grid ? '.btn-primary' : ''), { title: 'Griglia', 'aria-label': 'Griglia' }, [icon('border-all')], gridPanel),
+      h('button.btn.btn-sm.btn-icon' + (tool.polar ? '.btn-primary' : ''), { type: 'button', title: tool.polar ? 'Puntamento polare attivo: linee dritte ogni 15°' : 'Puntamento polare: linee dritte per schemi e tabelle', 'aria-label': 'Puntamento polare', 'aria-pressed': tool.polar ? 'true' : 'false', onclick: () => { tool.polar = !tool.polar; if (tool.polar && tool.mode !== 'pen') tool.mode = 'pen'; savePrefs(); paintBar(); } }, icon('compass-drafting')),
+      pop('bg', 'button.btn.btn-sm.btn-icon', { title: 'Colore della lavagna', 'aria-label': 'Colore della lavagna' }, [icon('fill-drip')], bgPanel),
+      h('button.btn.btn-sm.btn-icon', { type: 'button', title: 'Annulla (Ctrl+Z)', 'aria-label': 'Annulla', onclick: undo }, icon('rotate-left')),
+      h('button.btn.btn-sm.btn-icon', { type: 'button', title: 'Cancella la lavagna', 'aria-label': 'Cancella la lavagna', onclick: clearAll }, icon('trash')),
+      pop('file', 'button.btn.btn-sm.btn-icon', { title: 'Salva ed esporta', 'aria-label': 'Salva ed esporta' }, [icon('floppy-disk')], filePanel, 'right'),
+      ...(sharedIndicator() || []),
       h('div.spacer'),
       ...(net ? [moreMenu(watching)] : []),
-      h('button.btn.btn-sm', { onclick: exit, title: 'Esci (ESC)' }, icon('xmark'), h('span.board-exit-text', ' Esci'), ' ESC')].filter(Boolean));
+      h('button.btn.btn-sm.btn-icon', {
+        onclick: () => {
+          bar.style.display = 'none';
+          floatBtn.style.display = 'flex';
+        },
+        title: 'Nascondi la barra degli strumenti'
+      }, icon('chevron-up')),
+      h('button.btn.btn-sm.btn-icon', { onclick: exit, title: 'Chiudi' }, icon('xmark'))].filter(Boolean));
   };
   let swallow = false;
   const onDocDown = (e) => { if (openPop && !e.target.closest('.bpop') && !e.target.closest('.modal-backdrop')) { openPop = null; swallow = e.target === canvas; paintBar(); } };
@@ -647,13 +683,8 @@ export async function renderBoard(host, params, app) {
     if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === 'z') { e.preventDefault(); undo(); }
   };
   document.addEventListener('keydown', onKey);
-  const onFs = () => { if (!document.fullscreenElement && fsEntered) exit(); };
-  let fsEntered = false;
-  document.addEventListener('fullscreenchange', onFs);
-  if (platform.isElectron && electronApi.setFullScreen) electronApi.setFullScreen(true).catch(() => {});
-  else if (document.documentElement.requestFullscreen) document.documentElement.requestFullscreen().then(() => { fsEntered = true; }).catch(() => {});
 
-  host.append(h('div.board-root', bar, wrap));
+  host.append(h('div.board-root', { style: { position: 'relative' } }, bar, floatBtn, wrap));
   canvas.style.cursor = tool.mode === 'text' ? 'text' : 'crosshair';
   paintBar();
   const ro = new ResizeObserver(resize);

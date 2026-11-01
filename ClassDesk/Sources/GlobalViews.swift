@@ -3450,10 +3450,6 @@ public struct SettingsView: View {
                             .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color.cyan.opacity(0.30)))
                     )
 
-                    SuiteSettingsSection()
-
-                    HubSettingsSection()
-
                     // Native Apple Calendar (EventKit) Integration Section
                     VStack(alignment: .leading, spacing: 10) {
                         Label("Integrazione Apple Calendar (macOS EventKit)", systemImage: "calendar.badge.checkmark")
@@ -3684,8 +3680,6 @@ public struct SettingsView: View {
 public struct CreditsView: View {
     @Environment(AppStore.self) private var store
     @State private var showInfoSheet: Bool = false
-    @State private var showBetaWarningAlert: Bool = false
-    @State private var updateManager = UpdateManager.shared
 
     public var body: some View {
         ScrollView {
@@ -3695,7 +3689,7 @@ public struct CreditsView: View {
                     VStack(alignment: .leading, spacing: 3) {
                         Text(store.t("navCredits"))
                             .font(.title2.bold())
-                        Text("Gestione aggiornamenti, frequenza di verifica e dettagli applicazione")
+                        Text("Dettagli applicazione, note di rilascio e crediti")
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
                     }
@@ -3715,7 +3709,7 @@ public struct CreditsView: View {
                     .help("Informazioni sull'applicazione e crediti")
                 }
 
-                // MAIN ELEMENT: Update System Card
+                // Application Info Card
                 VStack(alignment: .leading, spacing: 16) {
                     HStack(spacing: 14) {
                         AppLogoImageView(size: 48)
@@ -3741,255 +3735,15 @@ public struct CreditsView: View {
                                     .font(.caption2.bold())
                                     .foregroundStyle(.secondary)
                             }
-                            Text(updateManager.statusMessage.isEmpty
-                                 ? "\(AuthorAttribution.appName) è aggiornato all'ultima versione."
-                                 : updateManager.statusMessage)
+                            Text("Gli aggiornamenti della suite sono centralizzati e gestiti da HubDesk.")
                                 .font(.subheadline)
-                                .foregroundStyle(updateManager.errorMessage != nil ? .red : .secondary)
+                                .foregroundStyle(.secondary)
                         }
                         Spacer()
-
-                        Button {
-                            updateManager.checkForUpdates(includeBeta: store.state.settings.includeBetaUpdates, silent: false)
-                        } label: {
-                            if updateManager.isChecking {
-                                ProgressView()
-                                    .controlSize(.small)
-                                    .padding(.trailing, 4)
-                            }
-                            Label(updateManager.isChecking ? "Verifica in corso..." : "Verifica aggiornamenti", systemImage: "arrow.triangle.2.circlepath")
-                        }
-                        .buttonStyle(.borderedProminent)
-                        .tint(.blue)
-                        .disabled(updateManager.isChecking)
-                    }
-
-                    Divider()
-
-                    // Update Settings
-                    VStack(alignment: .leading, spacing: 12) {
-                        HStack {
-                            Text(store.t("updateFrequencyLabel")).font(.caption.bold())
-                            Spacer()
-                            Picker("", selection: Binding(
-                                get: { store.state.settings.updateCheckFrequency },
-                                set: { store.state.settings.updateCheckFrequency = $0; store.persist() }
-                            )) {
-                                Text(store.t("updateFreqStartup")).tag("startup")
-                                Text(store.t("updateFreqDaily")).tag("daily")
-                                Text(store.t("updateFreqWeekly")).tag("weekly")
-                                Text(store.t("updateFreqManual")).tag("manual")
-                            }
-                            .labelsHidden()
-                            .frame(width: 220)
-                        }
-
-                        Toggle(store.t("includeBetaUpdatesLabel"), isOn: Binding(
-                            get: { store.state.settings.includeBetaUpdates },
-                            set: { newValue in
-                                if newValue {
-                                    showBetaWarningAlert = true
-                                } else {
-                                    store.state.settings.includeBetaUpdates = false
-                                    store.persist()
-                                }
-                            }
-                        ))
-
-                        HStack {
-                            Label(store.t("autoBackupPreUpdateHint"), systemImage: "shield.checkmark.fill")
-                                .font(.caption2)
-                                .foregroundStyle(.secondary)
-                            Spacer()
-                            Button("Esegui backup ora") {
-                                updateManager.performPreUpdateBackup(store: store)
-                            }
-                            .buttonStyle(.bordered)
-                            .controlSize(.small)
-                        }
-                    }
-
-                    // Available Update Banner (if found)
-                    if updateManager.updateAvailable, let release = updateManager.latestRelease {
-                        VStack(alignment: .leading, spacing: 10) {
-                            HStack {
-                                Image(systemName: "sparkles")
-                                    .foregroundStyle(.yellow)
-                                Text("\(store.t("updateAvailableTitle")) \(release.tag_name)")
-                                    .font(.subheadline.bold())
-                                Text(release.prerelease ? store.t("betaBadge") : store.t("stableBadge"))
-                                    .font(.caption2.bold())
-                                    .padding(.horizontal, 6)
-                                    .padding(.vertical, 2)
-                                    .background(Capsule().fill(release.prerelease ? Color.orange.opacity(0.2) : Color.green.opacity(0.2)))
-                                    .foregroundStyle(release.prerelease ? .orange : .green)
-                                Spacer()
-                                if let pkg = release.pkgAsset {
-                                    Text(pkg.formattedSize)
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                }
-                            }
-
-                            if let body = release.body, !body.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                                Text(body)
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                                    .lineLimit(4)
-                            }
-
-                            if updateManager.isDownloading {
-                                VStack(alignment: .leading, spacing: 4) {
-                                    ProgressView(value: updateManager.downloadProgress)
-                                    Text(updateManager.statusMessage)
-                                        .font(.caption2)
-                                        .foregroundStyle(.secondary)
-                                }
-                            } else {
-                                HStack {
-                                    Button {
-                                        updateManager.downloadAndInstall(release: release, store: store)
-                                    } label: {
-                                        Label(store.t("downloadAndInstallBtn"), systemImage: "arrow.down.circle.fill")
-                                    }
-                                    .buttonStyle(.borderedProminent)
-                                    .tint(.purple)
-
-                                    Button {
-                                        updateManager.openInBrowser(release: release)
-                                    } label: {
-                                        Label(store.t("viewOnGitHubBtn"), systemImage: "safari")
-                                    }
-                                }
-                            }
-                        }
-                        .padding(14)
-                        .background(
-                            RoundedRectangle(cornerRadius: 12)
-                                .fill(Color.purple.opacity(0.08))
-                                .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color.purple.opacity(0.35)))
-                        )
                     }
                 }
                 .padding(20)
                 .appCardStyle(cornerRadius: 16)
-
-                // BETA LAB & SILENT UPDATER DIAGNOSTIC CONSOLE (Only visible in Beta builds)
-                if AuthorAttribution.isBeta {
-                    VStack(alignment: .leading, spacing: 14) {
-                        HStack {
-                            Label(store.t("betaLabHeader"), systemImage: "flask.fill")
-                                .font(.headline)
-                                .foregroundStyle(.orange)
-                            Text("BETA ONLY")
-                                .font(.system(size: 10, weight: .black))
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 3)
-                                .background(Capsule().fill(Color.orange.opacity(0.2)))
-                                .foregroundStyle(.orange)
-                            Spacer()
-                            if let stagedVer = updateManager.stagedUpdateVersion {
-                                HStack(spacing: 5) {
-                                    Image(systemName: "checkmark.seal.fill")
-                                        .foregroundStyle(.green)
-                                    Text("Staged per il prossimo avvio: v\(stagedVer)")
-                                        .font(.caption.bold())
-                                        .foregroundStyle(.green)
-                                }
-                                .padding(.horizontal, 10)
-                                .padding(.vertical, 4)
-                                .background(Capsule().fill(Color.green.opacity(0.14)))
-                            }
-                        }
-
-                        Text("In questa versione Beta gli aggiornamenti vengono scaricati silenziosamente in background (ad ogni avvio e ogni 24 ore) e installati automaticamente al successivo riavvio del programma. Puoi testare l'intero flusso reale da GitHub con il pulsante qui sotto.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-
-                        HStack(spacing: 12) {
-                            Button {
-                                updateManager.simulateBackgroundUpdate(store: store)
-                            } label: {
-                                if updateManager.isStagingSilentUpdate {
-                                    ProgressView()
-                                        .controlSize(.small)
-                                        .padding(.trailing, 4)
-                                }
-                                Label(
-                                    updateManager.isStagingSilentUpdate ? "Simulazione in corso..." : store.t("simulateUpdateBtn"),
-                                    systemImage: "play.tv.fill"
-                                )
-                            }
-                            .buttonStyle(.borderedProminent)
-                            .tint(.orange)
-                            .disabled(updateManager.isStagingSilentUpdate)
-
-                            Button {
-                                updateManager.checkForUpdates(includeBeta: true, silent: true, autoStageInBackground: true)
-                            } label: {
-                                Label("Forza Check Silenzioso (24h/Startup)", systemImage: "arrow.clockwise.icloud")
-                            }
-                            .buttonStyle(.bordered)
-
-                            Spacer()
-
-                            Button {
-                                updateManager.clearLogs()
-                            } label: {
-                                Label("Pulisci Log", systemImage: "trash")
-                            }
-                            .buttonStyle(.bordered)
-                            .controlSize(.small)
-                        }
-
-                        VStack(alignment: .leading, spacing: 6) {
-                            HStack {
-                                Image(systemName: "terminal.fill")
-                                    .font(.caption)
-                                    .foregroundStyle(.green)
-                                Text("Log Comandi Aggiornamento Silenzioso in Background")
-                                    .font(.caption.bold())
-                                    .foregroundStyle(.secondary)
-                                Spacer()
-                                Text("\(updateManager.commandLogs.count) eventi")
-                                    .font(.caption2.monospacedDigit())
-                                    .foregroundStyle(.secondary)
-                            }
-
-                            ScrollView {
-                                VStack(alignment: .leading, spacing: 4) {
-                                    if updateManager.commandLogs.isEmpty {
-                                        Text("Nessun comando registrato. Avvia una verifica o simula un aggiornamento.")
-                                            .font(.system(size: 11, design: .monospaced))
-                                            .foregroundStyle(.secondary)
-                                            .padding(8)
-                                    } else {
-                                        ForEach(Array(updateManager.commandLogs.enumerated()), id: \.offset) { _, line in
-                                            Text(line)
-                                                .font(.system(size: 11, design: .monospaced))
-                                                .foregroundStyle(line.contains("ERRORE") ? Color.red : Color.green)
-                                                .frame(maxWidth: .infinity, alignment: .leading)
-                                                .textSelection(.enabled)
-                                        }
-                                    }
-                                }
-                                .padding(10)
-                            }
-                            .frame(height: 170)
-                            .background(
-                                RoundedRectangle(cornerRadius: 10)
-                                    .fill(Color.black.opacity(0.85))
-                                    .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Color.green.opacity(0.28)))
-                            )
-                        }
-                    }
-                    .padding(20)
-                    .background(
-                        RoundedRectangle(cornerRadius: 16)
-                            .fill(Color.orange.opacity(0.06))
-                            .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.orange.opacity(0.32)))
-                    )
-                }
 
                 // ONLY Latest Version Changelog
                 if let latestChangelog = store.state.changelog.first {
@@ -4020,16 +3774,6 @@ public struct CreditsView: View {
         .sheet(isPresented: $showInfoSheet) {
             AppInfoAndCreditsSheet()
                 .environment(store)
-        }
-        .alert("Avviso Rischi Canale Beta", isPresented: $showBetaWarningAlert) {
-            Button("Attiva Canale Beta", role: .destructive) {
-                store.state.settings.includeBetaUpdates = true
-                store.persist()
-                updateManager.checkForUpdates(includeBeta: true, silent: false)
-            }
-            Button("Annulla", role: .cancel) {}
-        } message: {
-            Text("Attivare questo canale consente di ricevere e testare le versioni Beta in anteprima. Queste versioni contengono nuove funzionalità sperimentali che potrebbero presentare instabilità o comportamenti imprevisti.\n\nViene eseguito un backup automatico ogni 5 minuti in Documenti/ClassDesk_Backups. Desideri procedere?")
         }
     }
 }

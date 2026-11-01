@@ -144,6 +144,7 @@ static void closeApp(const App &a) {
 static std::wstring installOne(const App &a, const std::wstring &work) {
     std::wstring file = work + L"\\" + widen(a.id) + L"-setup.exe";
     if (!extractTo(a.id, file)) return L"il pacchetto di " + std::wstring(a.name) + L" manca nell'installer";
+    bool wasRunning = !pidsOf(a.processName).empty();
     closeApp(a);
     std::wstring cmd = L"\"" + file + L"\" " + a.args;
     STARTUPINFOW si = {sizeof(si)}; PROCESS_INFORMATION pi = {};
@@ -155,6 +156,14 @@ static std::wstring installOne(const App &a, const std::wstring &work) {
     DeleteFileW(file.c_str());
     if (code != 0) return L"l'installazione è terminata con codice " + std::to_wstring(code);
     for (int i = 0; i < 100 && !isInstalled(a); i++) Sleep(100); // the NSIS uninstaller copy finishes after the exit
+    if (wasRunning && isInstalled(a)) {
+        std::wstring exe = programsDir() + a.exeName;
+        STARTUPINFOW rsi = {sizeof(rsi)}; PROCESS_INFORMATION rpi = {};
+        std::wstring rcmd = L"\"" + exe + L"\"";
+        if (CreateProcessW(nullptr, &rcmd[0], nullptr, nullptr, FALSE, 0, nullptr, nullptr, &rsi, &rpi)) {
+            CloseHandle(rpi.hThread); CloseHandle(rpi.hProcess);
+        }
+    }
     return isInstalled(a) ? L"" : L"il programma non risulta installato";
 }
 

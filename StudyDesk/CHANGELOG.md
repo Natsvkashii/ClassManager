@@ -1,5 +1,13 @@
 # Changelog
 
+## v26.11.0-007 (Unstable) – 1 novembre 2026
+- Lavagna: visualizzazione integrata all'interno della finestra dell'applicazione senza forzare lo schermo intero né alterare la disposizione delle colonne.
+- Lavagna: pulsante di chiusura essenziale con icona «X» in macOS e Windows/Web.
+- Lavagna: barra degli strumenti a scomparsa rapida tramite pulsante freccia (freccia verso l'alto per nascondere, freccia verso il basso per mostrare).
+- Lavagna collaborativa: strumenti di disegno e modifica sempre disponibili e attivi su tutti i dispositivi collegati contemporaneamente.
+- Gruppi (macOS): sfondo opaco della colonna dei gruppi per impedire la trasparenza e la sovrapposizione visiva con la barra di navigazione laterale.
+- Centralizzazione suite: rimosse le impostazioni di aggiornamento e la scheda di sincronizzazione dalle singole applicazioni; tutto è ora visualizzabile e configurabile esclusivamente in HubDesk. Note di rilascio, crediti e licenza restano disponibili nelle informazioni.
+
 ## v26.11.0-006 (Unstable) – 1 novembre 2026
 - Lavagna condivisa (Windows e macOS): corretta la sincronizzazione all'avvio e all'apertura della lavagna; quando apri la lavagna su un secondo dispositivo, il disegno già presente sull'altro viene ricevuto subito in entrambe le direzioni.
 - Windows: corretto il collegamento iniziale di StudyDesk al canale locale di HubDesk che poteva andare perso se HubDesk rispondeva prima del caricamento completo della pagina.

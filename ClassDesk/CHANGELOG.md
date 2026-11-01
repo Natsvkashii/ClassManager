@@ -5,6 +5,9 @@ Il formato è basato su [Keep a Changelog](https://keepachangelog.com/it/1.0.0/)
 
 ---
 
+## [26.11.0-007] — 2026-11-01 (Unstable)
+- Centralizzazione suite: rimosse le impostazioni di verifica aggiornamenti e le sezioni di configurazione della sincronizzazione dall'applicazione. Tutti gli aggiornamenti e lo stato dei dispositivi collegati sono gestiti e visualizzati centralmente in HubDesk. Note di rilascio e crediti autore rimangono disponibili nella sezione Crediti.
+
 ## [26.11.0-006] — 2026-11-01 (Unstable)
 - Allineata alla suite 26.11.0-006 (correzione della sincronizzazione in tempo reale della Lavagna tra Windows e macOS).
 
