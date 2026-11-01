@@ -31,6 +31,7 @@
 #include <shlwapi.h>
 #include <tlhelp32.h>
 #include <winhttp.h>
+#include <windns.h>
 #include <string>
 #include <vector>
 #include <sstream>
@@ -247,6 +248,57 @@ static bool TcpSend(int id, const std::string &text) {
     return true;
 }
 
+// ---------------------------------------------------------------- mDNS (_deskhub._tcp, same as Bonjour on the Mac and bonjour-service)
+// __hd_mdns_register(name, port, id, version, platform); __hd_mdns_unregister(); __hd_mdns_browse() (restarts the search).
+// Events: window.__hd_tcp_on({ev:'found', name, host, addr, port, txt:{id,v,p}}) and {ev:'lost', name}.
+static DNS_SERVICE_REGISTER_REQUEST g_reg = {};
+static PDNS_SERVICE_INSTANCE g_regInst = nullptr;
+static DNS_SERVICE_CANCEL g_browseCancel = {};
+static bool g_browsing = false;
+static VOID WINAPI MdnsRegistered(DWORD, PVOID, PDNS_SERVICE_INSTANCE inst) { if (inst) DnsServiceFreeInstance(inst); }
+static VOID WINAPI MdnsResolved(DWORD status, PVOID ctx, PDNS_SERVICE_INSTANCE inst) {
+    wchar_t *q = (wchar_t *)ctx;
+    if (status == ERROR_SUCCESS && inst) {
+        std::string txt = "{";
+        for (DWORD i = 0; i < inst->dwPropertyCount; i++) txt += (i ? "," : "") + Q(U(inst->keys[i])) + ":" + Q(U(inst->values[i] ? inst->values[i] : L""));
+        txt += "}";
+        char ip[64] = ""; if (inst->ip4Address) { in_addr a; a.s_addr = *inst->ip4Address; inet_ntop(AF_INET, &a, ip, sizeof(ip)); }
+        TcpEvent("{\"ev\":\"found\",\"name\":" + Q(U(inst->pszInstanceName ? inst->pszInstanceName : L"")) + ",\"host\":" + Q(U(inst->pszHostName ? inst->pszHostName : L"")) +
+                 ",\"addr\":" + Q(ip) + ",\"port\":" + std::to_string(inst->wPort) + ",\"txt\":" + txt + "}");
+    }
+    if (inst) DnsServiceFreeInstance(inst);
+    free(q);
+}
+static VOID WINAPI MdnsBrowsed(DWORD status, PVOID, PDNS_RECORD rec) {
+    if (status != ERROR_SUCCESS || !rec) { if (rec) DnsRecordListFree(rec, DnsFreeRecordList); return; }
+    for (PDNS_RECORD r = rec; r; r = r->pNext) {
+        if (r->wType != DNS_TYPE_PTR || !r->Data.PTR.pNameHost) continue;
+        std::wstring name = r->Data.PTR.pNameHost;
+        if (r->dwTtl == 0) { TcpEvent("{\"ev\":\"lost\",\"name\":" + Q(U(name)) + "}"); continue; }
+        wchar_t *q = _wcsdup(name.c_str());
+        DNS_SERVICE_RESOLVE_REQUEST rr = {}; rr.Version = DNS_QUERY_REQUEST_VERSION1; rr.QueryName = q; rr.pResolveCompletionCallback = MdnsResolved; rr.pQueryContext = q;
+        if (DnsServiceResolve(&rr, NULL) != DNS_REQUEST_PENDING) free(q);
+    }
+    DnsRecordListFree(rec, DnsFreeRecordList);
+}
+static bool MdnsRegister(const std::wstring &name, int port, const std::wstring &id, const std::wstring &v, const std::wstring &p) {
+    if (g_regInst) { DnsServiceDeRegister(&g_reg, NULL); g_regInst = nullptr; }
+    wchar_t host[256]; DWORD len = 256; GetComputerNameExW(ComputerNameDnsHostname, host, &len);
+    std::wstring inst = name + L"._deskhub._tcp.local", hostName = std::wstring(host) + L".local";
+    PCWSTR keys[3] = {L"id", L"v", L"p"}, vals[3] = {id.c_str(), v.c_str(), p.c_str()};
+    g_regInst = DnsServiceConstructInstance(inst.c_str(), hostName.c_str(), NULL, NULL, (WORD)port, 0, 0, 3, keys, vals);
+    if (!g_regInst) return false;
+    g_reg = {}; g_reg.Version = DNS_QUERY_REQUEST_VERSION1; g_reg.pServiceInstance = g_regInst; g_reg.pRegisterCompletionCallback = MdnsRegistered;
+    return DnsServiceRegister(&g_reg, NULL) == DNS_REQUEST_PENDING;
+}
+static void MdnsUnregister() { if (g_regInst) { DnsServiceDeRegister(&g_reg, NULL); g_regInst = nullptr; } }
+static bool MdnsBrowse() {
+    if (g_browsing) { DnsServiceBrowseCancel(&g_browseCancel); g_browsing = false; }
+    DNS_SERVICE_BROWSE_REQUEST b = {}; b.Version = DNS_QUERY_REQUEST_VERSION1; b.QueryName = L"_deskhub._tcp.local"; b.pBrowseCallback = MdnsBrowsed;
+    g_browsing = DnsServiceBrowse(&b, &g_browseCancel) == DNS_REQUEST_PENDING;
+    return g_browsing;
+}
+
 // ---------------------------------------------------------------- payload (page files)
 static bool ExtractApp(const std::wstring &exe, const std::wstring &dir) {
     HANDLE f = CreateFileW(exe.c_str(), GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, 0, NULL);
@@ -448,12 +500,16 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int) {
     }, nullptr);
     w.bind("__hd_tcp_send", [](std::string r) -> std::string { return TcpSend(atoi(Arg(r, 0).c_str()), Arg(r, 1)) ? "true" : "false"; });
     w.bind("__hd_tcp_close", [](std::string r) -> std::string { TcpDrop(atoi(Arg(r, 0).c_str())); return "true"; });
+    w.bind("__hd_mdns_register", [](std::string r) -> std::string { return MdnsRegister(W(Arg(r, 0)), atoi(Arg(r, 1).c_str()), W(Arg(r, 2)), W(Arg(r, 3)), W(Arg(r, 4))) ? "true" : "false"; });
+    w.bind("__hd_mdns_unregister", [](std::string) -> std::string { MdnsUnregister(); return "true"; });
+    w.bind("__hd_mdns_browse", [](std::string) -> std::string { return MdnsBrowse() ? "true" : "false"; });
     w.bind("__hd_autostart", [](std::string r) -> std::string { SetAutostart(Arg(r, 0) == "1"); return "true"; });
 
     std::string page; ReadWhole(AppDir() + L"\\page\\hubdesk-native.js", page);
     w.init("window.__hd_info = { version: " + Q(U(APP_VERSION)) + " };\n" + page);
     w.navigate("https://hubdesk.app/renderer/index.html");
     w.run();
+    MdnsUnregister(); if (g_browsing) DnsServiceBrowseCancel(&g_browseCancel);
     Shell_NotifyIconW(NIM_DELETE, &g_tray);
     if (mutex) CloseHandle(mutex);
     return 0;
