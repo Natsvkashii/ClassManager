@@ -1,5 +1,8 @@
 # Changelog
 
+## v26.11.0-004 (Unstable) – 1 novembre 2026
+- Si installa e si aggiorna dall'unico installer della suite.
+
 ## v26.11.0-003 (Unstable) – 1 novembre 2026
 - Allineata alla suite 26.11.0-003; nessuna modifica a StudyDesk.
 

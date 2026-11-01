@@ -74,23 +74,27 @@ HubDesk legge le release di `Natsvkashii/ClassManager`:
 Versione installata: macOS `CFBundleShortVersionString` dell'Info.plist; Windows `DisplayVersion` della chiave Uninstall
 (`reg query`), o il `version` del `resources\app.asar` → per Electron basta il valore `DisplayVersion` scritto da NSIS.
 
-### Asset della release (nomi obbligatori – vedi §5 per il motivo)
+### Asset della release (dalla 26.11.0-004: un solo installer per sistema)
 | asset | contenuto |
 |---|---|
-| `ClassDesk-<v>-macOS.zip` | `ClassDesk.app` |
-| `StudyDesk-<v>-mac.zip` | `StudyDesk.app` |
-| `HubDesk-<v>-mac.zip` | `HubDesk.app` |
-| `ClassDesk-Suite-<v>-Installer.pkg` | pacchetto macOS con le tre app (HubDesk obbligatorio, le altre selezionabili) |
-| `ClassDesk-Suite-<v>-Setup.exe` | installer Windows di HubDesk (NSIS one-click; accetta `--silent` e `/S`). Al primo avvio HubDesk propone le app da installare |
-| `ClassDesk-<v>-win-x64.exe` | ClassDesk Windows (eseguibile nativo che si installa da solo; `--silent`) |
-| `StudyDesk-<v>-win-x64.exe` | installer NSIS di StudyDesk (`/S` silenzioso) |
+| `ClassDesk-Suite-<v>-Installer.pkg` | pacchetto macOS con le tre app (HubDesk obbligatorio, le altre selezionabili). Il `postinstall` assegna ogni `.app` all'utente della console, così HubDesk le aggiorna senza password |
+| `ClassDesk-Suite-<v>-Setup.exe` | installer Windows nativo (`Hub/installer-win`) con dentro gli installer di HubDesk (NSIS), ClassDesk (nativo) e StudyDesk (NSIS) |
+
+`Setup.exe`: senza argomenti mostra la scelta delle app; `--silent` (o `/S`) installa HubDesk e aggiorna le app già installate;
+`--silent --components=classdesk,studydesk` installa HubDesk e le app elencate; `--extract=<id> --out=<file>` scrive l'installer
+di una sola app (lo usa HubDesk); `--list` elenca il contenuto. Formato: installer appesi in coda + indice (`id[16] u64 offset
+u64 size` × N, `u32 N`, `"CDSUITE1"`), scritto da `suite.py build_win_setup`.
+Release fino alla 26.11.0-003: un file per app (`ClassDesk-<v>-macOS.zip`, `StudyDesk-<v>-mac.zip`, `HubDesk-<v>-mac.zip`,
+`ClassDesk-<v>-win-x64.exe`, `StudyDesk-<v>-win-x64.exe`); il catalogo preferisce il file dell'app e, se manca, l'installer della suite.
 
 ### Azioni
 - **Installa / Aggiorna** – macOS: scarica lo zip in una cartella temporanea nuova, estrae con `ditto -x -k`, sposta l'`.app` in
   `/Applications` (se scrivibile) altrimenti `~/Applications`; se l'app esistente non è scrivibile (installata da `.pkg`, di root)
   usa `do shell script … with administrator privileges` (la password la inserisce l'utente nella finestra di sistema). L'app in
   esecuzione viene chiusa prima (`NSRunningApplication.terminate`) e riaperta dopo, se era aperta.
-  Windows: scarica l'exe ed esegue `ClassDesk-…-win-x64.exe --silent` / `StudyDesk-…-win-x64.exe /S`.
+  Dal `.pkg` della suite l'`.app` si estrae con `pkgutil --expand-full` (senza installare). Windows: scarica l'installer, ne
+  estrae l'app (`Setup.exe --extract=<id>`), chiude l'app se è aperta (prima normalmente, poi forzando dopo 8 s) ed esegue
+  `ClassDesk --silent` / `StudyDesk /S`.
 - **Apri** – `NSWorkspace.openApplication` / `shell.openPath`.
 - **Disinstalla** – macOS: sposta l'app nel Cestino (`NSWorkspace.recycle`), i dati restano. Windows: ClassDesk `ClassDesk.exe
   --uninstall`, StudyDesk `"Uninstall StudyDesk.exe" /S`. HubDesk non si disinstalla da sé finché c'è un'altra app.

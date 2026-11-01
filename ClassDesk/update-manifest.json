@@ -1,54 +1,52 @@
 {
-  "version": "26.11.0-003",
+  "version": "26.11.0-004",
   "channel": "unstable",
-  "tag_name": "v26.11.0-003",
+  "tag_name": "v26.11.0-004",
   "prerelease": true,
-  "published_at": "2026-11-01T01:34:53Z",
-  "name": "ClassDesk Suite v26.11.0-003 (Beta / Unstable)",
-  "body": "# ClassDesk Suite v26.11.0-003 (Unstable)\n\n**ClassDesk Suite**: ClassDesk, StudyDesk e HubDesk insieme, con la stessa versione e lo stesso canale.\n\n## Installazione\n- **macOS**: `ClassDesk-Suite-26.11.0-003-Installer.pkg` (HubDesk sempre incluso; ClassDesk e StudyDesk selezionabili).\n- **Windows**: `ClassDesk-Suite-26.11.0-003-Setup.exe` installa HubDesk, da cui si installano ClassDesk e StudyDesk.\n- Le app si possono anche installare da sole (`ClassDesk-…`, `StudyDesk-…`): al primo avvio installano HubDesk.\n- Chi usa ClassDesk 26.10 riceve la suite con il normale aggiornamento automatico, senza perdere dati.\n\n## HubDesk\n- Allineata alla suite 26.11.0-003; nessuna modifica a HubDesk.\n\n## ClassDesk\n- Windows: corretto l'errore all'avvio che lasciava vuote la Dashboard e la pagina Corsi quando c'è almeno un corso attivo (presente dalla 26.10.5-008). I dati non erano andati persi.\n\n## StudyDesk\n- Allineata alla suite 26.11.0-003; nessuna modifica a StudyDesk.\n\n---\n© 2026 Guaira Jaramillo Nitoglia · guaira.jaramillo.nitoglia@gmail.com · GPL-3.0\n",
-  "setupUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.11.0-003/ClassDesk-Suite-26.11.0-003-Setup.exe",
-  "setupName": "ClassDesk-Suite-26.11.0-003-Setup.exe",
-  "macZipUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.11.0-003/ClassDesk-26.11.0-003-macOS.zip",
-  "macZipName": "ClassDesk-26.11.0-003-macOS.zip",
-  "macPkgUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.11.0-003/ClassDesk-Suite-26.11.0-003-Installer.pkg",
-  "macPkgName": "ClassDesk-Suite-26.11.0-003-Installer.pkg",
+  "published_at": "2026-11-01T03:56:50Z",
+  "name": "ClassDesk Suite v26.11.0-004 (Beta / Unstable)",
+  "body": "# ClassDesk Suite v26.11.0-004 (Unstable)\n\n**ClassDesk Suite**: ClassDesk, StudyDesk e HubDesk insieme, con la stessa versione e lo stesso canale.\n\n## Installazione\n- **macOS**: `ClassDesk-Suite-26.11.0-004-Installer.pkg` (HubDesk sempre incluso; ClassDesk e StudyDesk selezionabili).\n- **Windows**: `ClassDesk-Suite-26.11.0-004-Setup.exe` installa HubDesk, da cui si installano ClassDesk e StudyDesk.\n- Le app si possono anche installare da sole (`ClassDesk-…`, `StudyDesk-…`): al primo avvio installano HubDesk.\n- Chi usa ClassDesk 26.10 riceve la suite con il normale aggiornamento automatico, senza perdere dati.\n\n## HubDesk\n- Un solo installer per sistema: `ClassDesk-Suite-…-Setup.exe` (Windows) e `ClassDesk-Suite-…-Installer.pkg` (macOS) contengono HubDesk, ClassDesk e StudyDesk; durante l'installazione si scelgono le app (HubDesk è sempre incluso).\n- Windows: nuovo installer nativo e leggero con la scelta delle app; HubDesk prende dall'installer solo l'app da installare o aggiornare e la chiude prima di aggiornarla.\n- macOS: gli aggiornamenti non si bloccano più sulle app installate dal pacchetto (appartenevano all'amministratore): ora l'installer le assegna all'utente e HubDesk, se serve, chiede la password.\n\n## ClassDesk\n- Si installa e si aggiorna dall'unico installer della suite.\n\n## StudyDesk\n- Si installa e si aggiorna dall'unico installer della suite.\n\n---\n© 2026 Guaira Jaramillo Nitoglia · guaira.jaramillo.nitoglia@gmail.com · GPL-3.0\n",
+  "setupUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.11.0-004/ClassDesk-Suite-26.11.0-004-Setup.exe",
+  "setupName": "ClassDesk-Suite-26.11.0-004-Setup.exe",
+  "macPkgUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.11.0-004/ClassDesk-Suite-26.11.0-004-Installer.pkg",
+  "macPkgName": "ClassDesk-Suite-26.11.0-004-Installer.pkg",
   "suite": {
-    "version": "26.11.0-003",
+    "version": "26.11.0-004",
     "apps": {
       "hubdesk": {
         "mac": {
-          "name": "HubDesk-26.11.0-003-mac.zip",
-          "url": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.11.0-003/HubDesk-26.11.0-003-mac.zip"
+          "name": "ClassDesk-Suite-26.11.0-004-Installer.pkg",
+          "url": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.11.0-004/ClassDesk-Suite-26.11.0-004-Installer.pkg"
         },
         "win": {
-          "name": "ClassDesk-Suite-26.11.0-003-Setup.exe",
-          "url": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.11.0-003/ClassDesk-Suite-26.11.0-003-Setup.exe"
+          "name": "ClassDesk-Suite-26.11.0-004-Setup.exe",
+          "url": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.11.0-004/ClassDesk-Suite-26.11.0-004-Setup.exe"
         }
       },
       "classdesk": {
         "mac": {
-          "name": "ClassDesk-26.11.0-003-macOS.zip",
-          "url": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.11.0-003/ClassDesk-26.11.0-003-macOS.zip"
+          "name": "ClassDesk-Suite-26.11.0-004-Installer.pkg",
+          "url": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.11.0-004/ClassDesk-Suite-26.11.0-004-Installer.pkg"
         },
         "win": {
-          "name": "ClassDesk-26.11.0-003-win-x64.exe",
-          "url": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.11.0-003/ClassDesk-26.11.0-003-win-x64.exe"
+          "name": "ClassDesk-Suite-26.11.0-004-Setup.exe",
+          "url": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.11.0-004/ClassDesk-Suite-26.11.0-004-Setup.exe"
         }
       },
       "studydesk": {
         "mac": {
-          "name": "StudyDesk-26.11.0-003-mac.zip",
-          "url": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.11.0-003/StudyDesk-26.11.0-003-mac.zip"
+          "name": "ClassDesk-Suite-26.11.0-004-Installer.pkg",
+          "url": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.11.0-004/ClassDesk-Suite-26.11.0-004-Installer.pkg"
         },
         "win": {
-          "name": "StudyDesk-26.11.0-003-win-x64.exe",
-          "url": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.11.0-003/StudyDesk-26.11.0-003-win-x64.exe"
+          "name": "ClassDesk-Suite-26.11.0-004-Setup.exe",
+          "url": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.11.0-004/ClassDesk-Suite-26.11.0-004-Setup.exe"
         }
       }
     },
     "pkg": {
-      "name": "ClassDesk-Suite-26.11.0-003-Installer.pkg",
-      "url": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.11.0-003/ClassDesk-Suite-26.11.0-003-Installer.pkg"
+      "name": "ClassDesk-Suite-26.11.0-004-Installer.pkg",
+      "url": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.11.0-004/ClassDesk-Suite-26.11.0-004-Installer.pkg"
     }
   }
 }

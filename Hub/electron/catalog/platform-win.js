@@ -63,6 +63,17 @@ async function findUninstallKey(name) {
   return null;
 }
 
+/** Closes an app before it is updated: first a normal close (it saves its data), then a forced one after 8 s. */
+async function closeApp(id) {
+  const name = path.basename(EXES[id]());
+  const running = async () => (await run('tasklist', ['/FI', `IMAGENAME eq ${name}`, '/NH'])).stdout.toLowerCase().includes(name.toLowerCase());
+  if (!(await running())) return;
+  await run('taskkill', ['/IM', name]);
+  for (let i = 0; i < 16 && (await running()); i++) await new Promise((r) => setTimeout(r, 500));
+  if (await running()) await run('taskkill', ['/IM', name, '/F']);
+  await new Promise((r) => setTimeout(r, 500));
+}
+
 function createWindowsDriver({ selfVersion } = {}) {
   const exe = (id) => EXES[id]();
   async function version(id) {
@@ -86,13 +97,21 @@ function createWindowsDriver({ selfVersion } = {}) {
       const { stdout } = await run('tasklist', ['/FI', `IMAGENAME eq ${path.basename(exe(id))}`, '/NH']);
       return stdout.toLowerCase().includes(path.basename(exe(id)).toLowerCase());
     },
-    /** Runs the downloaded installer silently; resolves when it exits (exit code != 0 rejects). */
-    runInstaller(id, file) {
-      return new Promise((resolve, reject) => {
-        const child = spawn(file, INSTALL_ARGS[id], { stdio: 'ignore', windowsHide: true });
-        child.once('error', reject);
+    /** Runs the downloaded installer silently; resolves when it exits (exit code != 0 rejects). From the suite installer only
+     *  the app's own installer is taken out (--extract), so HubDesk is not reinstalled while it runs. The app is closed first. */
+    async runInstaller(id, file, { suite = false } = {}) {
+      const exec = (cmd, args) => new Promise((resolve, reject) => {
+        const child = spawn(cmd, args, { stdio: 'ignore', windowsHide: true });
+        child.once('error', (e) => reject(new Error(`impossibile avviare l'installazione: ${e.message}`)));
         child.once('exit', (code) => (code === 0 || code === null ? resolve() : reject(new Error(`installer terminato con codice ${code}`))));
       });
+      let installer = file;
+      if (suite) {
+        installer = path.join(path.dirname(file), `${id}-setup.exe`);
+        await exec(file, [`--extract=${id}`, `--out=${installer}`]).catch((e) => { throw new Error(`estrazione di ${DISPLAY[id]} non riuscita (${e.message})`); });
+      }
+      await closeApp(id);
+      await exec(installer, INSTALL_ARGS[id]);
     },
     /** HubDesk self-update: starts the suite installer silently and returns at once (the caller quits). */
     runInstallerDetached(id, file) {

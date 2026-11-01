@@ -81,3 +81,22 @@ test('Windows: uninstall keys and names written by electron-builder (Surface, 26
   assert.equal(cat.compareVersions('26.11.0-1', '26.11.0-001'), 0, 'electron-builder writes 26.11.0-1 for 26.11.0-001');
   assert.equal(cat.appStatus({ version: '26.11.0-1' }, { version: '26.11.0-001' }), 'ready');
 });
+
+test('26.11.0-004+: one installer per platform, every app taken from it; older releases keep their own files', () => {
+  const rel = (tag, names) => ({ tag_name: tag, prerelease: true, draft: false, assets: names.map((n) => ({ name: n, browser_download_url: 'https://x/' + n, size: 1 })) });
+  const releases = [
+    rel('v26.11.0-003', ['ClassDesk-Suite-26.11.0-003-Setup.exe', 'ClassDesk-26.11.0-003-win-x64.exe', 'StudyDesk-26.11.0-003-win-x64.exe', 'ClassDesk-Suite-26.11.0-003-Installer.pkg', 'ClassDesk-26.11.0-003-macOS.zip', 'StudyDesk-26.11.0-003-mac.zip', 'HubDesk-26.11.0-003-mac.zip']),
+    rel('v26.11.0-004', ['ClassDesk-Suite-26.11.0-004-Installer.pkg', 'ClassDesk-Suite-26.11.0-004-Setup.exe']),
+  ];
+  const win = c.buildCatalog(releases, { channel: 'unstable', platform: 'win' });
+  for (const id of ['hubdesk', 'classdesk', 'studydesk']) {
+    assert.equal(win[id].version, '26.11.0-004');
+    assert.equal(win[id].asset.name, 'ClassDesk-Suite-26.11.0-004-Setup.exe');
+    assert.equal(win[id].asset.suite, true);
+  }
+  const mac = c.buildCatalog(releases, { channel: 'unstable', platform: 'mac' });
+  assert.equal(mac.studydesk.asset.name, 'ClassDesk-Suite-26.11.0-004-Installer.pkg');
+  const old = c.buildCatalog([releases[0]], { channel: 'unstable', platform: 'win' });
+  assert.equal(old.studydesk.asset.name, 'StudyDesk-26.11.0-003-win-x64.exe');
+  assert.equal(old.studydesk.asset.suite, false);
+});

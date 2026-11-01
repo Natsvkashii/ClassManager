@@ -30,6 +30,8 @@ const APPS = [
   },
 ];
 const appById = (id) => APPS.find((a) => a.id === id);
+/** The single suite installer (from 26.11.0-004 the only file per platform: every app is inside it). */
+const SUITE_ASSET = { win: /^ClassDesk-Suite-(.+)-Setup\.exe$/i, mac: /^ClassDesk-Suite-(.+)-Installer\.pkg$/i };
 
 /** Version AA.MM.R-BBB; compare is numeric on the four fields. */
 function parseVersion(s) {
@@ -58,12 +60,15 @@ function buildCatalog(releases, { channel = 'stable', platform = 'win' } = {}) {
     let best = null;
     for (const rel of releases || []) {
       if (!releaseVisible(rel, channel)) continue;
-      const asset = (rel.assets || []).find((a) => app.asset[platform].test(a.name || ''));
+      // the app's own file (releases up to 26.11.0-003), otherwise the suite installer that contains it
+      let asset = (rel.assets || []).find((a) => app.asset[platform].test(a.name || ''));
+      let suite = !!asset && SUITE_ASSET[platform].test(asset.name || '');
+      if (!asset) { asset = (rel.assets || []).find((a) => SUITE_ASSET[platform].test(a.name || '')); suite = !!asset; }
       if (!asset) continue;
       const version = versionOf(rel.tag_name);
       if (!best || compareVersions(version, best.version) > 0) {
         best = { version, tag: rel.tag_name, prerelease: !!rel.prerelease, notes: rel.body || '', name: rel.name || rel.tag_name, publishedAt: rel.published_at || '', url: rel.html_url || '',
-          asset: { name: asset.name, url: asset.browser_download_url, size: asset.size || 0 } };
+          asset: { name: asset.name, url: asset.browser_download_url, size: asset.size || 0, suite } };
       }
     }
     out[app.id] = best;
@@ -103,4 +108,4 @@ async function loadReleases(fetchJson, platform = 'win') {
   }
 }
 
-module.exports = { REPO, RELEASES_API, MANIFEST_URL, APPS, appById, parseVersion, compareVersions, versionOf, releaseVisible, buildCatalog, manifestToReleases, appStatus, primaryAction, loadReleases };
+module.exports = { REPO, RELEASES_API, MANIFEST_URL, APPS, SUITE_ASSET, appById, parseVersion, compareVersions, versionOf, releaseVisible, buildCatalog, manifestToReleases, appStatus, primaryAction, loadReleases };

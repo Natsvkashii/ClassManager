@@ -5,6 +5,9 @@ Il formato è basato su [Keep a Changelog](https://keepachangelog.com/it/1.0.0/)
 
 ---
 
+## [26.11.0-004] — 2026-11-01 (Unstable)
+- Si installa e si aggiorna dall'unico installer della suite.
+
 ## [26.11.0-003] — 2026-11-01 (Unstable)
 - Windows: corretto l'errore all'avvio che lasciava vuote la Dashboard e la pagina Corsi quando c'è almeno un corso attivo (presente dalla 26.10.5-008). I dati non erano andati persi.
 

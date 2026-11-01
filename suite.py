@@ -22,6 +22,7 @@
 """
 import glob
 import json
+import struct
 import os
 import re
 import shutil
@@ -73,26 +74,59 @@ def dist_dir(v):
 
 # Release assets, in upload order. The order matters for the legacy ClassDesk 26.10 updaters (HUBDESK.md §6):
 # macOS takes the first .zip containing "macos"/"classdesk", Windows the first .exe containing "setup".
-def assets(v):
+def parts(v):
+    """What each app's build produces: the inputs of the two suite installers (not uploaded)."""
     return [
         ("ClassDesk-%s-macOS.zip" % v, [os.path.join(CLASSDESK, "ClassDesk-%s-macOS.zip" % v)]),
-        ("ClassDesk-Suite-%s-Installer.pkg" % v, [os.path.join(ROOT, "dist", v, "ClassDesk-Suite-%s-Installer.pkg" % v)]),
-        ("ClassDesk-Suite-%s-Setup.exe" % v, [os.path.join(HUB, "electron", "dist", "ClassDesk-Suite-%s-Setup.exe" % v)]),
-        ("ClassDesk-%s-win-x64.exe" % v, [os.path.join(CLASSDESK, "ClassDesk-%s-win-x64.exe" % v)]),
         ("StudyDesk-%s-mac.zip" % v, glob.glob(os.path.join(STUDYDESK, "dist", "StudyDesk-%s-mac.zip" % v))),
-        ("StudyDesk-%s-win-x64.exe" % v, glob.glob(os.path.join(STUDYDESK, "dist", "StudyDesk-%s-win-x64.exe" % v))),
         ("HubDesk-%s-mac.zip" % v, glob.glob(os.path.join(HUB, "dist", "HubDesk-%s-mac.zip" % v))),
+        ("hubdesk", [os.path.join(HUB, "electron", "dist", "ClassDesk-Suite-%s-Setup.exe" % v)]),
+        ("classdesk", [os.path.join(CLASSDESK, "ClassDesk-%s-win-x64.exe" % v)]),
+        ("studydesk", glob.glob(os.path.join(STUDYDESK, "dist", "StudyDesk-%s-win-x64.exe" % v))),
+    ]
+
+
+def assets(v):
+    """The release: ONE installer per platform (Hub/HUBDESK.md §6). Both contain HubDesk, ClassDesk and StudyDesk."""
+    out = os.path.join(ROOT, "dist", v)
+    return [
+        ("ClassDesk-Suite-%s-Installer.pkg" % v, [os.path.join(out, "ClassDesk-Suite-%s-Installer.pkg" % v)]),
+        ("ClassDesk-Suite-%s-Setup.exe" % v, [os.path.join(out, "ClassDesk-Suite-%s-Setup.exe" % v)]),
     ]
 
 
 def check_names(v):
     names = [n for n, _ in assets(v)]
-    zips = [n for n in names if n.lower().endswith(".zip") and any(w in n.lower() for w in ("macos", "classdesk", "class-management"))]
-    setups = [n for n in names if n.lower().endswith(".exe") and "setup" in n.lower()]
-    pkgs = [n for n in names if n.lower().endswith(".pkg")]
-    assert zips[:1] == ["ClassDesk-%s-macOS.zip" % v], zips
-    assert setups == ["ClassDesk-Suite-%s-Setup.exe" % v], setups
-    assert len(pkgs) == 1, pkgs
+    # ClassDesk 26.10 updaters pick the only Setup .exe (Windows) and the .pkg (macOS) of a release
+    assert [n for n in names if n.lower().endswith(".exe") and "setup" in n.lower()] == ["ClassDesk-Suite-%s-Setup.exe" % v], names
+    assert len([n for n in names if n.lower().endswith(".pkg")]) == 1, names
+
+
+def build_win_setup(v):
+    """ClassDesk-Suite-<v>-Setup.exe: the native installer (Hub/installer-win) + the three Windows installers appended."""
+    zig = shutil.which("zig") or os.path.expanduser("~/.local/bin/zig")
+    src = os.path.join(HUB, "installer-win")
+    found = {n: next((s for s in srcs if os.path.exists(s)), None) for n, srcs in parts(v)}
+    missing = [i for i in ("hubdesk", "classdesk", "studydesk") if not found.get(i)]
+    if missing:
+        print("!! Windows installer not built, missing:", ", ".join(missing))
+        return
+    stub = os.path.join(tempfile.mkdtemp(prefix="suite-setup-"), "stub.exe")
+    run([zig, "c++", "-target", "x86_64-windows", "-municode", "-Wl,--subsystem,windows", "-Os",
+         f'-DSUITE_VERSION=L"{v}"', "suite_setup.cpp", "suite.rc", "-o", stub,
+         "-luser32", "-lshell32", "-lcomctl32", "-lgdi32"], cwd=src)
+    target = os.path.join(dist_dir(v), "ClassDesk-Suite-%s-Setup.exe" % v)
+    with open(target, "wb") as o:
+        o.write(open(stub, "rb").read())
+        index = b""
+        for i in ("hubdesk", "classdesk", "studydesk"):
+            off = o.tell()
+            with open(found[i], "rb") as f:
+                shutil.copyfileobj(f, o, 1 << 20)
+            index += i.encode().ljust(16, b"\0") + struct.pack("<QQ", off, o.tell() - off)
+        o.write(index + struct.pack("<I", 3) + b"CDSUITE1")
+    shutil.rmtree(os.path.dirname(stub), ignore_errors=True)
+    print("suite setup:", target)
 
 
 def cmd_status():
@@ -146,7 +180,7 @@ def build_suite_pkg(v):
         ("studydesk", "StudyDesk", "com.guairajaramillo.studydesk", "StudyDesk-%s-mac.zip" % v,
          "Libri ed esercizi interattivi, gruppi e lavagna.", False),
     ]
-    found = {n: next((s for s in srcs if os.path.exists(s)), None) for n, srcs in assets(v)}
+    found = {n: next((s for s in srcs if os.path.exists(s)), None) for n, srcs in parts(v)}
     choices, refs, outline = [], [], []
     for cid, title, ident, zip_name, desc, required in comps:
         src = found.get(zip_name)
@@ -159,8 +193,19 @@ def build_suite_pkg(v):
         n = int(subprocess.check_output(["/usr/libexec/PlistBuddy", "-c", "Print", plist], text=True).count("RootRelativeBundlePath"))
         for i in range(n):
             run(["plutil", "-replace", f"{i}.BundleIsRelocatable", "-bool", "NO", plist])
+        # postinstall: the app belongs to the user who installs it, so HubDesk can update it later without the administrator password
+        scripts = os.path.join(work, cid, "scripts")
+        os.makedirs(scripts, exist_ok=True)
+        open(os.path.join(scripts, "postinstall"), "w").write(f"""#!/bin/sh
+U=$(/usr/bin/stat -f%Su /dev/console)
+if [ -n "$U" ] && [ "$U" != "root" ] && [ -d "/Applications/{title}.app" ]; then
+  /usr/sbin/chown -R "$U":staff "/Applications/{title}.app"
+fi
+exit 0
+""")
+        os.chmod(os.path.join(scripts, "postinstall"), 0o755)
         run(["pkgbuild", "--root", root, "--component-plist", plist, "--identifier", ident, "--version", v,
-             "--install-location", "/Applications", os.path.join(work, f"{title}.pkg")])
+             "--scripts", scripts, "--install-location", "/Applications", os.path.join(work, f"{title}.pkg")])
         enabled = "false" if required else "true"
         choices.append(f'  <choice id="{cid}" title="{title}" description="{desc}" selected="true" enabled="{enabled}">'
                        f'<pkg-ref id="{ident}"/></choice>')
@@ -210,11 +255,7 @@ def cmd_collect():
     v = suite_version()
     check_names(v)
     build_suite_pkg(v)
-    out = dist_dir(v)
-    for name, srcs in assets(v):
-        src = next((s for s in srcs if os.path.exists(s)), None)
-        if src and os.path.realpath(src) != os.path.realpath(os.path.join(out, name)):
-            shutil.copyfile(src, os.path.join(out, name))
+    build_win_setup(v)
     cmd_manifest()
     cmd_notes()
     cmd_status()
@@ -274,12 +315,12 @@ def cmd_manifest():
         "body": body,
         # Legacy keys, read by ClassDesk 26.10 (HUBDESK.md §6)
         "setupUrl": url(v, f"ClassDesk-Suite-{v}-Setup.exe"), "setupName": f"ClassDesk-Suite-{v}-Setup.exe",
-        "macZipUrl": url(v, f"ClassDesk-{v}-macOS.zip"), "macZipName": f"ClassDesk-{v}-macOS.zip",
         "macPkgUrl": url(v, f"ClassDesk-Suite-{v}-Installer.pkg"), "macPkgName": f"ClassDesk-Suite-{v}-Installer.pkg",
         "suite": {"version": v, "apps": {
-            "hubdesk": entry(f"HubDesk-{v}-mac.zip", f"ClassDesk-Suite-{v}-Setup.exe"),
-            "classdesk": entry(f"ClassDesk-{v}-macOS.zip", f"ClassDesk-{v}-win-x64.exe"),
-            "studydesk": entry(f"StudyDesk-{v}-mac.zip", f"StudyDesk-{v}-win-x64.exe"),
+            # every app comes from the same two installers; HubDesk takes out the one it needs
+            "hubdesk": entry(f"ClassDesk-Suite-{v}-Installer.pkg", f"ClassDesk-Suite-{v}-Setup.exe"),
+            "classdesk": entry(f"ClassDesk-Suite-{v}-Installer.pkg", f"ClassDesk-Suite-{v}-Setup.exe"),
+            "studydesk": entry(f"ClassDesk-Suite-{v}-Installer.pkg", f"ClassDesk-Suite-{v}-Setup.exe"),
         }, "pkg": {"name": f"ClassDesk-Suite-{v}-Installer.pkg", "url": url(v, f"ClassDesk-Suite-{v}-Installer.pkg")}},
     }
     for p in (os.path.join(ROOT, "update-manifest.json"), os.path.join(CLASSDESK, "update-manifest.json")):
@@ -306,7 +347,7 @@ def cmd_publish(confirmed):
     for n, p in files:
         print("   ", "MISSING" if n in missing else "ok     ", n)
     if missing:
-        print("!! missing assets: the legacy Windows migration needs ClassDesk-Suite-…-Setup.exe and ClassDesk-…-win-x64.exe")
+        print("!! missing assets: both suite installers are needed")
     if not confirmed:
         print("\nDry run. Re-run with --yes to create the release (needs GITHUB_TOKEN).")
         return

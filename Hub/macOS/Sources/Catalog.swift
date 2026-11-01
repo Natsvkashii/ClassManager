@@ -31,6 +31,8 @@ public enum SuiteApp: String, CaseIterable, Identifiable {
         }
     }
     public var symbol: String { ["classdesk": "graduationcap.fill", "studydesk": "book.fill", "hubdesk": "point.3.connected.trianglepath.dotted"][rawValue]! }
+    /// The single suite installer (from 26.11.0-004 the only macOS file of a release).
+    public static func isSuitePkg(_ n: String) -> Bool { n.hasPrefix("ClassDesk-Suite-") && n.hasSuffix("-Installer.pkg") }
     /// Name of the macOS zip asset in a release.
     public func isMacAsset(_ n: String) -> Bool {
         switch self {
@@ -61,13 +63,16 @@ public enum Catalog {
             if pre && !includePrereleases { continue }
             let tag = rel["tag_name"] as? String ?? ""
             let body = rel["body"] as? String ?? ""
-            for a in rel["assets"] as? [[String: Any]] ?? [] {
-                guard let n = a["name"] as? String, let u = (a["browser_download_url"] as? String).flatMap(URL.init(string:)) else { continue }
-                for app in SuiteApp.allCases where app.isMacAsset(n) {
-                    let v = AppVersion.fromAssetName(n) ?? AppVersion(tag)
-                    if best[app] == nil || best[app]!.0 < v {
-                        best[app] = (v, Available(version: v.raw, assetName: n, url: u, notes: body, prerelease: pre, tag: tag))
-                    }
+            let assets: [(String, URL)] = (rel["assets"] as? [[String: Any]] ?? []).compactMap { a in
+                guard let n = a["name"] as? String, let u = (a["browser_download_url"] as? String).flatMap(URL.init(string:)) else { return nil }
+                return (n, u)
+            }
+            for app in SuiteApp.allCases {
+                // the app's own zip (releases up to 26.11.0-003), otherwise the suite .pkg that contains every app
+                guard let (n, u) = assets.first(where: { app.isMacAsset($0.0) }) ?? assets.first(where: { SuiteApp.isSuitePkg($0.0) }) else { continue }
+                let v = SuiteApp.isSuitePkg(n) ? AppVersion(tag) : (AppVersion.fromAssetName(n) ?? AppVersion(tag))
+                if best[app] == nil || best[app]!.0 < v {
+                    best[app] = (v, Available(version: v.raw, assetName: n, url: u, notes: body, prerelease: pre, tag: tag))
                 }
             }
         }
@@ -86,7 +91,7 @@ public enum Catalog {
         for app in SuiteApp.allCases {
             guard let a = apps[app.rawValue] as? [String: Any], let mac = a["mac"] as? [String: Any],
                   let name = mac["name"] as? String, let u = (mac["url"] as? String).flatMap(URL.init(string:)) else { continue }
-            let v = (a["version"] as? String) ?? AppVersion.fromAssetName(name)?.raw ?? (suite["version"] as? String) ?? ""
+            let v = (a["version"] as? String) ?? (SuiteApp.isSuitePkg(name) ? nil : AppVersion.fromAssetName(name)?.raw) ?? (suite["version"] as? String) ?? ""
             out[app] = Available(version: v, assetName: name, url: u, notes: notes, prerelease: pre, tag: tag)
         }
         return out

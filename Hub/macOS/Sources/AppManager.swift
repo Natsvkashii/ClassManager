@@ -67,11 +67,20 @@ public enum Installer {
         return zip
     }
 
-    /// Unzips and returns the .app inside.
+    /// Unzips (or, for the suite .pkg, expands without installing) and returns the .app inside.
     static func extract(_ zip: URL, for app: SuiteApp) throws -> URL {
         let out = zip.deletingLastPathComponent().appendingPathComponent("x", isDirectory: true)
-        try DeskHubBootstrap.run("/usr/bin/ditto", ["-x", "-k", zip.path, out.path])
-        let apps = (try FileManager.default.contentsOfDirectory(at: out, includingPropertiesForKeys: nil)).filter { $0.pathExtension == "app" }
+        var apps: [URL]
+        if zip.pathExtension == "pkg" {
+            try DeskHubBootstrap.run("/usr/sbin/pkgutil", ["--expand-full", zip.path, out.path])
+            // <out>/<App>.pkg/Payload/<App>.app
+            let comps = (try? FileManager.default.contentsOfDirectory(at: out, includingPropertiesForKeys: nil)) ?? []
+            apps = comps.flatMap { c in ((try? FileManager.default.contentsOfDirectory(at: c.appendingPathComponent("Payload"), includingPropertiesForKeys: nil)) ?? []).filter { $0.pathExtension == "app" } }
+            guard apps.contains(where: { $0.lastPathComponent == app.appFileName }) else { throw InstallError("Il pacchetto della suite non contiene \(app.name)") }
+        } else {
+            try DeskHubBootstrap.run("/usr/bin/ditto", ["-x", "-k", zip.path, out.path])
+            apps = (try FileManager.default.contentsOfDirectory(at: out, includingPropertiesForKeys: nil)).filter { $0.pathExtension == "app" }
+        }
         guard let found = apps.first(where: { $0.lastPathComponent == app.appFileName }) ?? apps.first else { throw InstallError("Il pacchetto non contiene l'app") }
         if let id = Bundle(url: found)?.bundleIdentifier, id != app.bundleId { throw InstallError("Il pacchetto non è \(app.name)") }
         return found
@@ -89,12 +98,22 @@ public enum Installer {
         let parent = dest.deletingLastPathComponent()
         try? fm.createDirectory(at: parent, withIntermediateDirectories: true)
         let exists = fm.fileExists(atPath: dest.path)
-        let writable = fm.isWritableFile(atPath: parent.path) && (!exists || fm.isDeletableFile(atPath: dest.path))
+        let writable = fm.isWritableFile(atPath: parent.path) && (!exists || (fm.isDeletableFile(atPath: dest.path) && ownedByMe(dest)))
         if writable {
             if exists { _ = try fm.replaceItemAt(dest, withItemAt: src) } else { try fm.moveItem(at: src, to: dest) }
         } else {
             try runAdmin("rm -rf \(shQuote(dest.path)) && /usr/bin/ditto \(shQuote(src.path)) \(shQuote(dest.path)) && /usr/bin/xattr -dr com.apple.quarantine \(shQuote(dest.path)) 2>/dev/null; true")
         }
+    }
+
+    /// An app installed by a .pkg belongs to root: the folder is writable, but its contents cannot be replaced without the administrator.
+    static func ownedByMe(_ url: URL) -> Bool {
+        let me = getuid()
+        for u in [url, url.appendingPathComponent("Contents"), url.appendingPathComponent("Contents/MacOS")] {
+            guard let a = try? FileManager.default.attributesOfItem(atPath: u.path) else { continue }
+            if let o = a[.ownerAccountID] as? NSNumber, o.uint32Value != me { return false }
+        }
+        return true
     }
 
     @MainActor static func quit(_ app: SuiteApp) async -> Bool {
@@ -269,7 +288,7 @@ public final class AppManager {
         let args = [pid.description, newApp.path, dest.path, work.path, background ? "background" : "normal"].map(Installer.shQuote).joined(separator: " ")
         let cmd = "nohup /bin/sh \(Installer.shQuote(script.path)) \(args) >/dev/null 2>&1 &"
         let parent = dest.deletingLastPathComponent()
-        if FileManager.default.isWritableFile(atPath: parent.path) && FileManager.default.isDeletableFile(atPath: dest.path) {
+        if FileManager.default.isWritableFile(atPath: parent.path) && FileManager.default.isDeletableFile(atPath: dest.path) && Installer.ownedByMe(dest) {
             let p = Process()
             p.executableURL = URL(fileURLWithPath: "/bin/sh")
             p.arguments = ["-c", cmd]

@@ -1,5 +1,10 @@
 # HubDesk – Changelog
 
+## 26.11.0-004 (Unstable)
+- Un solo installer per sistema: `ClassDesk-Suite-…-Setup.exe` (Windows) e `ClassDesk-Suite-…-Installer.pkg` (macOS) contengono HubDesk, ClassDesk e StudyDesk; durante l'installazione si scelgono le app (HubDesk è sempre incluso).
+- Windows: nuovo installer nativo e leggero con la scelta delle app; HubDesk prende dall'installer solo l'app da installare o aggiornare e la chiude prima di aggiornarla.
+- macOS: gli aggiornamenti non si bloccano più sulle app installate dal pacchetto (appartenevano all'amministratore): ora l'installer le assegna all'utente e HubDesk, se serve, chiede la password.
+
 ## 26.11.0-003 (Unstable)
 - Allineata alla suite 26.11.0-003; nessuna modifica a HubDesk.
 
