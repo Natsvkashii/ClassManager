@@ -23,6 +23,7 @@
 #define WEBVIEW_USER_DATA_FOLDER L"HubDesk_Native_Data"
 
 #include <winsock2.h>
+#include <ws2tcpip.h>
 #include <windows.h>
 #include <commctrl.h>
 #include <shellapi.h>
@@ -188,6 +189,64 @@ static bool Http(const std::string &url, std::string *body, const std::wstring *
     return ok;
 }
 
+// ---------------------------------------------------------------- TCP for the network engine in the page (engine port: plan §3)
+// __hd_tcp_listen(port, loopbackOnly) -> {"id","port"}; __hd_tcp_connect(host, port) -> id (-1 on error);
+// __hd_tcp_send(id, text); __hd_tcp_close(id). Events: window.__hd_tcp_on({ev:'conn'|'data'|'close', id, server?, text?, addr?}).
+#include <map>
+#include <mutex>
+static std::mutex g_tcpLock;
+static std::map<int, SOCKET> g_socks;
+static int g_tcpSeq = 0;
+static void TcpEvent(const std::string &json);
+static int TcpAdd(SOCKET s) { std::lock_guard<std::mutex> l(g_tcpLock); int id = ++g_tcpSeq; g_socks[id] = s; return id; }
+static SOCKET TcpGet(int id) { std::lock_guard<std::mutex> l(g_tcpLock); auto it = g_socks.find(id); return it == g_socks.end() ? INVALID_SOCKET : it->second; }
+static void TcpDrop(int id) { std::lock_guard<std::mutex> l(g_tcpLock); auto it = g_socks.find(id); if (it != g_socks.end()) { closesocket(it->second); g_socks.erase(it); } }
+static void TcpReader(int id) {
+    std::thread([id]() {
+        char buf[16384];
+        for (;;) {
+            SOCKET s = TcpGet(id); if (s == INVALID_SOCKET) break;
+            int n = recv(s, buf, sizeof(buf), 0); if (n <= 0) break;
+            TcpEvent("{\"ev\":\"data\",\"id\":" + std::to_string(id) + ",\"text\":" + Q(std::string(buf, n)) + "}");
+        }
+        TcpDrop(id);
+        TcpEvent("{\"ev\":\"close\",\"id\":" + std::to_string(id) + "}");
+    }).detach();
+}
+static std::string TcpListen(int port, bool loopback) {
+    SOCKET s = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP); if (s == INVALID_SOCKET) return "null";
+    sockaddr_in a = {}; a.sin_family = AF_INET; a.sin_port = htons((u_short)port); a.sin_addr.s_addr = htonl(loopback ? INADDR_LOOPBACK : INADDR_ANY);
+    if (bind(s, (sockaddr *)&a, sizeof(a)) != 0 || listen(s, 16) != 0) { closesocket(s); return "null"; }
+    int len = sizeof(a); getsockname(s, (sockaddr *)&a, &len);
+    int sid = TcpAdd(s), real = ntohs(a.sin_port);
+    std::thread([sid]() {
+        for (;;) {
+            SOCKET srv = TcpGet(sid); if (srv == INVALID_SOCKET) break;
+            sockaddr_in peer = {}; int pl = sizeof(peer);
+            SOCKET c = accept(srv, (sockaddr *)&peer, &pl); if (c == INVALID_SOCKET) break;
+            char ip[64] = {0}; inet_ntop(AF_INET, &peer.sin_addr, ip, sizeof(ip));
+            int cid = TcpAdd(c);
+            TcpEvent("{\"ev\":\"conn\",\"id\":" + std::to_string(cid) + ",\"server\":" + std::to_string(sid) + ",\"addr\":" + Q(ip) + "}");
+            TcpReader(cid);
+        }
+    }).detach();
+    return "{\"id\":" + std::to_string(sid) + ",\"port\":" + std::to_string(real) + "}";
+}
+static int TcpConnect(const std::string &host, int port) {
+    addrinfo hints = {}, *res = nullptr; hints.ai_family = AF_INET; hints.ai_socktype = SOCK_STREAM;
+    if (getaddrinfo(host.c_str(), std::to_string(port).c_str(), &hints, &res) != 0 || !res) return -1;
+    SOCKET s = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
+    bool ok = s != INVALID_SOCKET && connect(s, res->ai_addr, (int)res->ai_addrlen) == 0;
+    freeaddrinfo(res);
+    if (!ok) { if (s != INVALID_SOCKET) closesocket(s); return -1; }
+    int id = TcpAdd(s); TcpReader(id); return id;
+}
+static bool TcpSend(int id, const std::string &text) {
+    SOCKET s = TcpGet(id); if (s == INVALID_SOCKET) return false;
+    size_t sent = 0; while (sent < text.size()) { int n = send(s, text.data() + sent, (int)(text.size() - sent), 0); if (n <= 0) return false; sent += n; }
+    return true;
+}
+
 // ---------------------------------------------------------------- payload (page files)
 static bool ExtractApp(const std::wstring &exe, const std::wstring &dir) {
     HANDLE f = CreateFileW(exe.c_str(), GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, 0, NULL);
@@ -271,6 +330,11 @@ static HWND g_hwnd = NULL;
 static webview::webview *g_view = nullptr;
 static NOTIFYICONDATAW g_tray = {};
 static bool g_quitting = false;
+static void TcpEvent(const std::string &json) {
+    if (!g_view) return;
+    std::string js = "window.__hd_tcp_on && window.__hd_tcp_on(" + json + ")";
+    g_view->dispatch([js]() { if (g_view) g_view->eval(js); });
+}
 static void ShowMain(const char *page) {
     if (!g_hwnd) return;
     ShowWindow(g_hwnd, SW_SHOW); ShowWindow(g_hwnd, SW_RESTORE); SetForegroundWindow(g_hwnd);
@@ -376,6 +440,14 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int) {
     w.bind("__hd_state_write", [](std::string r) -> std::string { return WriteAtomic(StateFile(), Arg(r, 0)) ? "true" : "false"; });
     w.bind("__hd_settings_read", [](std::string) -> std::string { std::string t; return ReadWhole(HubSettings(), t) ? Q(t) : "null"; });
     w.bind("__hd_settings_write", [](std::string r) -> std::string { return WriteAtomic(HubSettings(), Arg(r, 0)) ? "true" : "false"; });
+    WSADATA wsa; WSAStartup(MAKEWORD(2, 2), &wsa);
+    w.bind("__hd_tcp_listen", [](std::string r) -> std::string { return TcpListen(atoi(Arg(r, 0).c_str()), Arg(r, 1) == "1"); });
+    w.bind("__hd_tcp_connect", [&w](const std::string &seq, const std::string &r, void *) {
+        std::string host = Arg(r, 0); int port = atoi(Arg(r, 1).c_str());
+        std::thread([&w, seq, host, port]() { w.resolve(seq, 0, std::to_string(TcpConnect(host, port))); }).detach();
+    }, nullptr);
+    w.bind("__hd_tcp_send", [](std::string r) -> std::string { return TcpSend(atoi(Arg(r, 0).c_str()), Arg(r, 1)) ? "true" : "false"; });
+    w.bind("__hd_tcp_close", [](std::string r) -> std::string { TcpDrop(atoi(Arg(r, 0).c_str())); return "true"; });
     w.bind("__hd_autostart", [](std::string r) -> std::string { SetAutostart(Arg(r, 0) == "1"); return "true"; });
 
     std::string page; ReadWhole(AppDir() + L"\\page\\hubdesk-native.js", page);
