@@ -4005,7 +4005,9 @@ Removing, obfuscating, or altering these credits violates the author's attributi
             }
 
             renderHeaderAndSidebarControls() {
-                const ver = this.state.version || "1.0.0";
+                // the program's version (INITIAL_DATA, set by manage_version.py), not the one saved in the data by an older build
+                const ver = INITIAL_DATA.version || this.state.version || "1.0.0";
+                if (this.state.version !== INITIAL_DATA.version) this.state.version = INITIAL_DATA.version;
                 document.title = this.t("appTitle");
                 document.documentElement.lang = this.state?.settings?.language || "it";
 
@@ -4023,6 +4025,8 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 if (headerCreator) headerCreator.textContent = this.t("headerCreatedBy");
                 if (newBtnText) newBtnText.textContent = this.t("newCourseBtn");
                 if (footerVer) footerVer.textContent = `v${ver}`;
+                const sideVer = document.getElementById("sidebarVersionBadge");
+                if (sideVer) sideVer.textContent = `ClassDesk v${ver}${IS_UNSTABLE_BUILD === 1 ? " (Unstable)" : ""}`;
                 if (footerDesc) footerDesc.textContent = this.t("footerPlatformDesc");
                 if (footerDevBy) footerDevBy.textContent = this.t("footerDevelopedBy");
                 if (toggleMiniBtn) toggleMiniBtn.title = this.t("expandCollapseSidebar");
