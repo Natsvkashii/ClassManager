@@ -30,6 +30,13 @@
     `manager.js` girano invariati (inclusi da `build.py` come funzioni: la pagina ha una CSP che vieta fetch/eval).
     Provato nel browser con funzioni native simulate: versioni, benvenuto, aggiornamento di StudyDesk (scarica → estrae
     dall'installer unico → chiude → installa).
+  - **Primitive di rete native già pronte** (compilano, non provate su Windows), da usare dal motore nella pagina:
+    `__hd_tcp_listen(port, '1'=solo locale)` → `{id, port}`, `__hd_tcp_connect(host, port)` → id, `__hd_tcp_send(id, testo)`,
+    `__hd_tcp_close(id)`, eventi `window.__hd_tcp_on({ev:'conn'|'data'|'close', id, server, addr, text})`;
+    mDNS `__hd_mdns_register(nome, porta, id, versione, piattaforma)`, `__hd_mdns_unregister()`, `__hd_mdns_browse()` (riavvia la
+    ricerca, da chiamare ogni ~60 s), eventi `{ev:'found', name, host, addr, port, txt:{id,v,p}}` / `{ev:'lost', name}`.
+    Prossimo passo: `page/hub-engine.js` = porting di `net/hub-net.js` su queste primitive (file DeskHub via funzioni asincrone
+    come `__sd_hub_*` di StudyDesk), con `runtime.json` (porta locale + token) per ClassDesk e StudyDesk.
   - **Manca il motore di rete** (`Hub/electron/net/hub-net.js`: server TCP, Bonjour, scambio dei record, conflitti, lavagna,
     canale locale per le app con `runtime.json`). Finché manca, la pagina «Dispositivi» dice che la rete non è disponibile:
     **non sostituire ancora l'HubDesk Electron**. Da fare in C++ (Winsock + `DnsServiceRegister/DnsServiceBrowse`), seguendo
