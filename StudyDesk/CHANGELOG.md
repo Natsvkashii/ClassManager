@@ -1,5 +1,8 @@
 # Changelog
 
+## v26.11.0-002 (Unstable) – 1 novembre 2026
+- Allineata alla suite 26.11.0-002 (correzione di HubDesk su Windows); nessuna modifica a StudyDesk.
+
 ## v26.11.0-001 (Unstable) – 31 ottobre 2026
 - StudyDesk entra nella ClassDesk Suite insieme a ClassDesk e HubDesk: stessa versione, stesso canale, aggiornamenti da HubDesk.
 - Sincronizzazione tramite HubDesk: i dispositivi si trovano da soli, restano collegati e si scambiano subito gruppi e risultati; i conflitti si risolvono in HubDesk.

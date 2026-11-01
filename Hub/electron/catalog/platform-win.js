@@ -30,7 +30,8 @@ const APP_IDS = { studydesk: 'com.guairajaramillo.studydesk', hubdesk: 'com.guai
 const DISPLAY = { classdesk: 'ClassDesk', studydesk: 'StudyDesk', hubdesk: 'HubDesk' };
 const INSTALL_ARGS = { classdesk: ['--silent'], studydesk: ['/S'], hubdesk: ['--silent'] };
 
-/** electron-builder's NSIS uninstall key: uuid v5 of the appId in the electron-builder namespace. */
+/** electron-builder's NSIS uninstall key: uuid v5 of the appId in the electron-builder namespace (written as a plain lowercase
+ *  uuid, e.g. `62a14aa4-bbf3-55e8-a0a6-0808efbc406b`; older builds used `{…}` in upper case, so both are tried). */
 function nsisGuid(appId) {
   const ns = Buffer.from('50e065bc313411e69bab38c9862bdaf3', 'hex');
   const h = crypto.createHash('sha1').update(Buffer.concat([ns, Buffer.from(appId, 'utf8')])).digest();
@@ -48,14 +49,16 @@ async function regValue(key, name) {
   const m = stdout.split(/\r?\n/).map((l) => l.trim().match(/^(\S+)\s+REG_\w+\s+(.*)$/)).find((x) => x && x[1].toLowerCase() === name.toLowerCase());
   return m ? m[2].trim() : null;
 }
-/** Uninstall subkey whose DisplayName is `name` (fallback when the GUID guess misses). */
+/** True for the DisplayName of `name`: electron-builder writes "<productName> <version>" (e.g. "StudyDesk 26.11.0-1"). */
+const displayNameMatches = (value, name) => { const v = String(value || '').trim().toLowerCase(), n = name.toLowerCase(); return v === n || v.startsWith(n + ' '); };
+/** Uninstall subkey whose DisplayName is `name` or "`name` <version>" (fallback when the GUID guess misses). */
 async function findUninstallKey(name) {
   const { err, stdout } = await run('reg', ['query', UNINSTALL, '/s', '/f', name, '/d'], { maxBuffer: 16 * 1024 * 1024 });
   if (err && !stdout) return null;
   let key = null;
   for (const l of stdout.split(/\r?\n/)) {
     if (/^HKEY_/i.test(l.trim())) key = l.trim();
-    else if (key && /DisplayName\s+REG_SZ\s+/i.test(l) && l.trim().split(/\s{2,}/).pop().toLowerCase() === name.toLowerCase()) return key;
+    else if (key && /DisplayName\s+REG_SZ\s+/i.test(l) && displayNameMatches(l.trim().split(/\s{2,}/).pop(), name)) return key;
   }
   return null;
 }
@@ -64,7 +67,9 @@ function createWindowsDriver({ selfVersion } = {}) {
   const exe = (id) => EXES[id]();
   async function version(id) {
     if (id === 'hubdesk' && selfVersion) return selfVersion;
-    const keys = id === 'classdesk' ? [`${UNINSTALL}\\ClassDesk`] : [`${UNINSTALL}\\${nsisGuid(APP_IDS[id])}`, `${UNINSTALL}\\${APP_IDS[id]}`];
+    const guid = id === 'classdesk' ? '' : nsisGuid(APP_IDS[id]);
+    const keys = id === 'classdesk' ? [`${UNINSTALL}\\ClassDesk`]
+      : [`${UNINSTALL}\\${guid.slice(1, -1).toLowerCase()}`, `${UNINSTALL}\\${guid}`, `${UNINSTALL}\\${APP_IDS[id]}`];
     for (const k of keys) { const v = await regValue(k, 'DisplayVersion'); if (v) return v; }
     if (id !== 'classdesk') { const k = await findUninstallKey(DISPLAY[id]); if (k) return regValue(k, 'DisplayVersion'); }
     return null;
@@ -111,4 +116,4 @@ function createWindowsDriver({ selfVersion } = {}) {
   };
 }
 
-module.exports = { createWindowsDriver, nsisGuid, EXES, regValue };
+module.exports = { createWindowsDriver, nsisGuid, displayNameMatches, EXES, regValue };

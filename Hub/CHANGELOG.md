@@ -1,5 +1,8 @@
 # HubDesk – Changelog
 
+## 26.11.0-002 (Unstable)
+- Windows: HubDesk ora riconosce la versione di StudyDesk installata (prima mostrava «0.0.0-000» e l'aggiornamento non andava a buon fine).
+
 ## 26.11.0-001 (Unstable)
 - Prima versione di HubDesk, il centro della ClassDesk Suite (macOS e Windows).
 - Gestione app in stile Creative Cloud: installa, aggiorna, apre e disinstalla ClassDesk e StudyDesk; canale Stabile/Unstable, «Aggiorna tutto» e aggiornamenti automatici.

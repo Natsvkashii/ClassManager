@@ -68,3 +68,16 @@ test('manifest fallback (suite key) becomes a release', async () => {
   assert.equal(cat.studydesk.version, '26.11.0-001');
   assert.equal(c.buildCatalog(r.releases, { channel: 'stable', platform: 'win' }).hubdesk, null);
 });
+
+test('Windows: uninstall keys and names written by electron-builder (Surface, 26.11)', () => {
+  const win = require('../catalog/platform-win.js');
+  // real keys on a Windows 11 PC: plain lowercase uuid, DisplayName "<product> <version>"
+  assert.equal(win.nsisGuid('com.guairajaramillo.studydesk').slice(1, -1).toLowerCase(), '62a14aa4-bbf3-55e8-a0a6-0808efbc406b');
+  assert.equal(win.nsisGuid('com.guairajaramillo.hubdesk').slice(1, -1).toLowerCase(), '7de6f31c-f672-562c-9397-f1c9b0db2d08');
+  assert.ok(win.displayNameMatches('StudyDesk 26.11.0-1', 'StudyDesk'));
+  assert.ok(win.displayNameMatches('StudyDesk', 'StudyDesk'));
+  assert.ok(!win.displayNameMatches('StudyDeskHelper', 'StudyDesk'));
+  const cat = require('../catalog/catalog.js');
+  assert.equal(cat.compareVersions('26.11.0-1', '26.11.0-001'), 0, 'electron-builder writes 26.11.0-1 for 26.11.0-001');
+  assert.equal(cat.appStatus({ version: '26.11.0-1' }, { version: '26.11.0-001' }), 'ready');
+});

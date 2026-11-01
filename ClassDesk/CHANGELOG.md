@@ -5,6 +5,9 @@ Il formato è basato su [Keep a Changelog](https://keepachangelog.com/it/1.0.0/)
 
 ---
 
+## [26.11.0-002] — 2026-11-01 (Unstable)
+- Allineata alla suite 26.11.0-002 (correzione di HubDesk su Windows); nessuna modifica a ClassDesk.
+
 ## [26.11.0-001] — 2026-10-31 (Unstable)
 
 - ClassDesk diventa ClassDesk Suite: insieme a StudyDesk e HubDesk, stessa versione e stesso canale.

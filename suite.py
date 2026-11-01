@@ -235,7 +235,7 @@ def changelog_section(path, v):
 
 def notes_text(v):
     parts = [f"# ClassDesk Suite v{v} (Unstable)", "",
-             "Prima versione della **ClassDesk Suite**: ClassDesk, StudyDesk e HubDesk insieme, con la stessa versione e lo stesso canale.", "",
+             "**ClassDesk Suite**: ClassDesk, StudyDesk e HubDesk insieme, con la stessa versione e lo stesso canale.", "",
              "## Installazione",
              f"- **macOS**: `ClassDesk-Suite-{v}-Installer.pkg` (HubDesk sempre incluso; ClassDesk e StudyDesk selezionabili).",
              f"- **Windows**: `ClassDesk-Suite-{v}-Setup.exe` installa HubDesk, da cui si installano ClassDesk e StudyDesk.",
