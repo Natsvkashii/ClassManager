@@ -1157,6 +1157,11 @@ inline std::wstring widen_string(const std::string &input) {
   auto input_length = static_cast<int>(input.size());
   auto required_length =
       MultiByteToWideChar(cp, flags, input_c, input_length, nullptr, 0);
+  if (required_length <= 0) {
+    flags = 0;
+    required_length =
+        MultiByteToWideChar(cp, flags, input_c, input_length, nullptr, 0);
+  }
   if (required_length > 0) {
     std::wstring output(static_cast<std::size_t>(required_length), L'\0');
     if (MultiByteToWideChar(cp, flags, input_c, input_length, &output[0],
@@ -2120,6 +2125,11 @@ private:
 #define WEBVIEW_USER_DATA_FOLDER L"ClassDesk_Native_Data"
 #endif
 
+inline bool &start_hidden() {
+  static bool v = false;
+  return v;
+}
+
 class win32_edge_engine {
 public:
   win32_edge_engine(bool debug, void *window) {
@@ -2228,16 +2238,20 @@ public:
       m_dpi = get_window_dpi(m_window);
     }
 
-    ShowWindow(m_window, SW_SHOW);
-    UpdateWindow(m_window);
-    SetFocus(m_window);
+    if (!start_hidden()) {
+      ShowWindow(m_window, SW_SHOW);
+      UpdateWindow(m_window);
+      SetFocus(m_window);
+    }
 
     auto cb =
         std::bind(&win32_edge_engine::on_message, this, std::placeholders::_1);
 
     embed(m_window, debug, cb);
     resize_widget();
-    m_controller->MoveFocus(COREWEBVIEW2_MOVE_FOCUS_REASON_PROGRAMMATIC);
+    if (m_controller && !start_hidden()) {
+      m_controller->MoveFocus(COREWEBVIEW2_MOVE_FOCUS_REASON_PROGRAMMATIC);
+    }
   }
 
   virtual ~win32_edge_engine() {

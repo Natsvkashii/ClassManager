@@ -135,6 +135,7 @@ function createService() {
     const local = await localRecords();
     const tombs = new Set(Object.keys(local).filter((k) => k.startsWith(DELETED)).map((k) => k.slice(DELETED.length)));
     const live = Object.fromEntries(Object.entries(local).filter(([k]) => !k.startsWith(DELETED)));
+    if (!Object.keys(live).length && !tombs.size) known = {};
     const hub = await hubRecords();
     const toApply = {}, toRemoveLocal = [];
     for (const key of new Set([...Object.keys(live), ...Object.keys(hub), ...tombs])) {
@@ -173,7 +174,7 @@ function createService() {
 
   async function tick() {
     await emit();
-    if (!state.connected && !(await runtime()) && Date.now() - state.lastLaunch > 60000) { state.lastLaunch = Date.now(); window.__sd_hub_launch().catch(() => {}); }
+    if (!state.connected && !(await runtime()) && Date.now() - state.lastLaunch > 60000) { state.lastLaunch = Date.now(); window.__sd_hub_launch('--background').catch(() => {}); }
     reconcile();
   }
   function start() {

@@ -80,7 +80,7 @@
     exePath: exe,
     async detect(id) {
       if (!(await window.__hd_exists(exe(id)))) return null;
-      const v = id === 'hubdesk' ? SELF_VERSION : await window.__hd_app_version(id === 'classdesk' ? 'ClassDesk' : '', DISPLAY[id]);
+      const v = id === 'hubdesk' ? SELF_VERSION : await window.__hd_app_version(id === 'classdesk' ? 'ClassDesk' : id === 'studydesk' ? 'StudyDesk' : '', DISPLAY[id]);
       return { version: v || '0.0.0-000', path: exe(id) };
     },
     isRunning: (id) => window.__hd_running(EXES[id].split('\\').pop()),
@@ -95,7 +95,7 @@
       const code = await window.__hd_run(installer, JSON.stringify(INSTALL_ARGS[id]));
       if (code !== 0) throw new Error(`installer terminato con codice ${code}`);
     },
-    async runInstallerDetached(id, file) { await window.__hd_run_detached(file, JSON.stringify(['--silent'])); },
+    async runInstallerDetached(id, file) { await window.__hd_run_detached(file, JSON.stringify(['--silent', `--components=${id}`])); },
     async uninstall(id) {
       if (id === 'hubdesk') throw new Error('HubDesk non si disinstalla da qui');
       if (id === 'classdesk') { await window.__hd_run(exe('classdesk'), JSON.stringify(['--uninstall', '--silent'])); return; }

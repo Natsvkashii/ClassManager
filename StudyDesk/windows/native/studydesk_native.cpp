@@ -76,8 +76,8 @@ static std::string WideToUtf8(const std::wstring &w) {
 static std::string JsonEscape(const std::string &s) {
     std::ostringstream o;
     for (char c : s) {
-        if (c == '"') o << "\\\""; else if (c == '\\') o << "\\\\"; else if (c == '\n') o << "\\n"; else if (c == '\r') o << "\\r";
-        else if (c == '\t') o << "\\t";
+        if (c == '"') o << "\\\""; else if (c == '\\') o << "\\\\"; else if (c == '\b') o << "\\b"; else if (c == '\f') o << "\\f";
+        else if (c == '\n') o << "\\n"; else if (c == '\r') o << "\\r"; else if (c == '\t') o << "\\t";
         else if ((unsigned char)c < 0x20) { char b[8]; snprintf(b, sizeof(b), "\\u%04x", (unsigned char)c); o << b; }
         else o << c;
     }
@@ -94,9 +94,15 @@ static std::string ParseJsonArg(const std::string &a, size_t index) {
             if (a[i] == '\\' && i + 1 < a.size()) {
                 char n = a[i + 1];
                 if (n == 'n') out += '\n'; else if (n == 'r') out += '\r'; else if (n == 't') out += '\t';
-                else if (n == 'u' && i + 5 < a.size()) { // \uXXXX (BMP) -> UTF-8
-                    unsigned v = (unsigned)strtoul(a.substr(i + 2, 4).c_str(), nullptr, 16);
-                    out += WideToUtf8(std::wstring(1, (wchar_t)v)); i += 6; continue;
+                else if (n == 'b') out += '\b'; else if (n == 'f') out += '\f';
+                else if (n == 'u' && i + 5 < a.size()) { // \uXXXX (including UTF-16 surrogate pairs) -> UTF-8
+                    wchar_t w1 = (wchar_t)strtoul(a.substr(i + 2, 4).c_str(), nullptr, 16);
+                    if (w1 >= 0xD800 && w1 <= 0xDBFF && i + 11 < a.size() && a[i + 6] == '\\' && a[i + 7] == 'u') {
+                        wchar_t w2 = (wchar_t)strtoul(a.substr(i + 8, 4).c_str(), nullptr, 16);
+                        wchar_t pair[2] = {w1, w2};
+                        out += WideToUtf8(std::wstring(pair, 2)); i += 12; continue;
+                    }
+                    out += WideToUtf8(std::wstring(1, w1)); i += 6; continue;
                 } else out += n;
                 i += 2;
             } else if (a[i] == '"') break; else out += a[i++];
@@ -244,6 +250,10 @@ static bool ExtractApp(const std::wstring &exe, const std::wstring &dir) {
 }
 
 // ---------------------------------------------------------------- data of the Electron versions (26.10 – 26.11.0-004)
+static std::wstring HubDir() {
+    wchar_t env[MAX_PATH]; DWORD n = GetEnvironmentVariableW(L"DESKHUB_HOME", env, MAX_PATH);
+    return (n > 0 && n < MAX_PATH) ? std::wstring(env) : KnownFolder(CSIDL_APPDATA) + L"\\DeskHub";
+}
 /** Copies the IndexedDB of the Electron app (origin app://studydesk) to the native origin (https://studydesk.app), once.
  *  Copy only: %APPDATA%\StudyDesk stays as it is (backup and way back). */
 static void MigrateElectronData() {
@@ -258,14 +268,32 @@ static void MigrateElectronData() {
     if (Exists(srcDb + L"\\app_studydesk_0.indexeddb.leveldb") && !Exists(dstDb + L"\\https_studydesk.app_0.indexeddb.leveldb")) {
         MakeDirs(dstDb);
         CopyTree(srcDb + L"\\app_studydesk_0.indexeddb.leveldb", dstDb + L"\\https_studydesk.app_0.indexeddb.leveldb");
+        DeleteFileW((dstDb + L"\\https_studydesk.app_0.indexeddb.leveldb\\LOCK").c_str());
         if (Exists(srcDb + L"\\app_studydesk_0.indexeddb.blob")) CopyTree(srcDb + L"\\app_studydesk_0.indexeddb.blob", dstDb + L"\\https_studydesk.app_0.indexeddb.blob");
         copied = true;
     }
+    DeleteFileW((HubDir() + L"\\mirror-studydesk.json").c_str());
     HANDLE m = CreateFileW(marker.c_str(), GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
     if (m != INVALID_HANDLE_VALUE) { const char *t = copied ? "copied from %APPDATA%\\StudyDesk (Electron)\r\n" : "nothing to copy\r\n"; DWORD w; WriteFile(m, t, (DWORD)strlen(t), &w, NULL); CloseHandle(m); }
 }
 
 // ---------------------------------------------------------------- install / uninstall
+static void CleanLegacyUninstallKeys(const wchar_t *appName, const wchar_t *keepSubKey) {
+    const wchar_t *base = L"Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall";
+    HKEY k; if (RegOpenKeyExW(HKEY_CURRENT_USER, base, 0, KEY_READ, &k) != ERROR_SUCCESS) return;
+    std::vector<std::wstring> toDelete; wchar_t sub[256];
+    std::wstring prefix = std::wstring(appName) + L" ";
+    for (DWORD i = 0;; i++) {
+        DWORD len = 256; if (RegEnumKeyExW(k, i, sub, &len, NULL, NULL, NULL, NULL) != ERROR_SUCCESS) break;
+        if (!_wcsicmp(sub, keepSubKey)) continue;
+        wchar_t dn[512] = {0}; DWORD sz = sizeof(dn);
+        if (RegGetValueW(HKEY_CURRENT_USER, (std::wstring(base) + L"\\" + sub).c_str(), L"DisplayName", RRF_RT_REG_SZ, NULL, dn, &sz) == ERROR_SUCCESS) {
+            if (!_wcsicmp(dn, appName) || !_wcsnicmp(dn, prefix.c_str(), prefix.size())) toDelete.push_back(sub);
+        }
+    }
+    RegCloseKey(k);
+    for (auto &s : toDelete) RegDeleteTreeW(HKEY_CURRENT_USER, (std::wstring(base) + L"\\" + s).c_str());
+}
 static void RemoveShortcuts() {
     DeleteFileW((KnownFolder(CSIDL_DESKTOPDIRECTORY) + L"\\StudyDesk.lnk").c_str());
     DeleteFileW((KnownFolder(CSIDL_PROGRAMS) + L"\\StudyDesk.lnk").c_str());
@@ -274,6 +302,7 @@ static int Uninstall(bool silent) {
     CloseOtherInstances();
     RemoveShortcuts();
     RegDeleteTreeW(HKEY_CURRENT_USER, UNINSTALL_KEY);
+    CleanLegacyUninstallKeys(L"StudyDesk", L"StudyDesk");
     RegDeleteTreeW(HKEY_CURRENT_USER, L"Software\\Classes\\StudyDesk.module");
     // the exe cannot delete itself while it runs: a hidden cmd removes the folder a few seconds after this process exits
     // (MOVEFILE_DELAY_UNTIL_REBOOT would need administrator rights)
@@ -286,17 +315,24 @@ static int Uninstall(bool silent) {
     if (!silent) MessageBoxW(NULL, L"StudyDesk è stato disinstallato.\nI tuoi dati sono stati conservati.", APP_NAME, MB_OK | MB_ICONINFORMATION);
     return 0;
 }
-/** Removes an Electron StudyDesk installed in the same folder (its uninstaller keeps the data in %APPDATA%\StudyDesk). */
+/** Removes an Electron StudyDesk installed in the same folder synchronously (its data in %APPDATA%\StudyDesk stay). */
 static void RemoveElectronVersion() {
-    std::wstring un = InstallDir() + L"\\Uninstall StudyDesk.exe";
-    if (!Exists(un)) return;
-    std::wstring cmd = L"\"" + un + L"\" /S --updated";
-    STARTUPINFOW si = {sizeof(si)}; PROCESS_INFORMATION pi = {};
-    if (CreateProcessW(NULL, &cmd[0], NULL, NULL, FALSE, CREATE_NO_WINDOW, NULL, NULL, &si, &pi)) {
-        WaitForSingleObject(pi.hProcess, 120000); CloseHandle(pi.hThread); CloseHandle(pi.hProcess);
+    std::wstring dir = InstallDir();
+    DeleteTree(dir + L"\\resources");
+    DeleteTree(dir + L"\\locales");
+    DeleteTree(dir + L"\\swiftshader");
+    WIN32_FIND_DATAW fd; HANDLE h = FindFirstFileW((dir + L"\\*").c_str(), &fd);
+    if (h != INVALID_HANDLE_VALUE) {
+        do {
+            if (fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) continue;
+            if (!_wcsicmp(fd.cFileName, L"StudyDesk.exe")) continue;
+            std::wstring p = dir + L"\\" + fd.cFileName;
+            SetFileAttributesW(p.c_str(), FILE_ATTRIBUTE_NORMAL);
+            DeleteFileW(p.c_str());
+        } while (FindNextFileW(h, &fd));
+        FindClose(h);
     }
-    // the NSIS uninstaller copies itself to %TEMP% and finishes there: wait until the old program is gone
-    for (int i = 0; i < 100 && Exists(InstallDir() + L"\\resources\\app.asar"); i++) Sleep(200);
+    CleanLegacyUninstallKeys(L"StudyDesk", L"StudyDesk");
 }
 static int Install(const std::wstring &self, bool silent) {
     CloseOtherInstances();
@@ -368,10 +404,6 @@ static std::vector<std::wstring> g_pending;
 
 // ---------------------------------------------------------------- HubDesk (Hub/HUBDESK.md): files in %APPDATA%\DeskHub + local channel
 // The records mirror runs in the page (app/js/core/hubnative.js); here only file access inside DeskHub and the TCP link.
-static std::wstring HubDir() {
-    wchar_t env[MAX_PATH]; DWORD n = GetEnvironmentVariableW(L"DESKHUB_HOME", env, MAX_PATH);
-    return (n > 0 && n < MAX_PATH) ? std::wstring(env) : KnownFolder(CSIDL_APPDATA) + L"\\DeskHub";
-}
 /** A path inside DeskHub from a relative "a/b.json" (no "..", no absolute paths). Empty when unsafe. */
 static std::wstring HubPath(const std::string &rel) {
     if (rel.empty() || rel.find("..") != std::string::npos || rel.find(':') != std::string::npos || rel[0] == '/' || rel[0] == '\\') return L"";
@@ -464,13 +496,18 @@ static const char *BRIDGE_JS = R"JS(
   const toB64 = (buf) => { const b = new Uint8Array(buf); let s = ''; for (let i = 0; i < b.length; i += 0x8000) s += String.fromCharCode.apply(null, b.subarray(i, i + 0x8000)); return btoa(s); };
   const fetchFiles = async (list) => Promise.all((list || []).map(async (f) => ({ name: f.name, data: await (await fetch(f.url)).arrayBuffer() })));
   const noop = () => () => {};
+  const openCbs = [];
+  window.__sd_on_open = async (list) => {
+    const files = await fetchFiles(list);
+    openCbs.forEach((cb) => { try { cb(files); } catch (e) { console.error(e); } });
+  };
   window.studydesk = {
     platform: 'win32', native: true,
     saveFile: async ({ name, data }) => window.__sd_save_file(String(name || 'file'), toB64(data)),
     openFiles: async (opts) => fetchFiles(await window.__sd_open_files(JSON.stringify(opts || {}))),
     openExternal: (url) => window.__sd_open_external(String(url)),
     takePendingFiles: async () => fetchFiles(await window.__sd_take_pending()),
-    onOpenFile: () => {},
+    onOpenFile: (cb) => { if (typeof cb === 'function') openCbs.push(cb); },
     setFullScreen: (on) => window.__sd_fullscreen(on ? '1' : '0'),
     // updates come from HubDesk (Hub/HUBDESK.md); the page shows "Aggiorna da HubDesk"
     updater: {
@@ -481,6 +518,24 @@ static const char *BRIDGE_JS = R"JS(
   };
 })();
 )JS";
+
+static LRESULT CALLBACK SdWndSub(HWND h, UINT m, WPARAM wp, LPARAM lp, UINT_PTR, DWORD_PTR) {
+    if (m == WM_COPYDATA) {
+        if (IsIconic(h)) ShowWindow(h, SW_RESTORE);
+        ShowWindow(h, SW_SHOW);
+        SetForegroundWindow(h);
+        const COPYDATASTRUCT *cd = (const COPYDATASTRUCT *)lp;
+        if (cd && cd->dwData == 2 && cd->cbData >= sizeof(wchar_t) && cd->lpData) {
+            std::wstring path((const wchar_t *)cd->lpData);
+            if (Exists(path)) {
+                std::string j = ServeFile(path);
+                if (!j.empty()) HubDeliver("window.__sd_on_open && window.__sd_on_open([" + j + "])");
+            }
+        }
+        return TRUE;
+    }
+    return DefSubclassProc(h, m, wp, lp);
+}
 
 int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int) {
     int argc = 0; wchar_t **argv = CommandLineToArgvW(GetCommandLineW(), &argc);
@@ -495,6 +550,23 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int) {
     for (int i = 1; i < argc; i++) {
         std::wstring a = argv[i], low = a; std::transform(low.begin(), low.end(), low.begin(), ::towlower);
         if (low.size() > 6 && (low.rfind(L".sdmod") == low.size() - 6 || low.rfind(L".sdbook") == low.size() - 7) && Exists(a)) g_pending.push_back(a);
+    }
+    HANDLE mutex = CreateMutexW(NULL, TRUE, L"Local\\ClassDeskSuite.StudyDesk");
+    if (GetLastError() == ERROR_ALREADY_EXISTS) {
+        AllowSetForegroundWindow(ASFW_ANY);
+        HWND other = FindWindowW(L"webview", L"StudyDesk");
+        if (other) {
+            if (g_pending.empty()) {
+                COPYDATASTRUCT cd = {1, 0, NULL};
+                SendMessageW(other, WM_COPYDATA, 0, (LPARAM)&cd);
+            } else {
+                for (auto &p : g_pending) {
+                    COPYDATASTRUCT cd = {2, (DWORD)((p.size() + 1) * sizeof(wchar_t)), (PVOID)p.c_str()};
+                    SendMessageW(other, WM_COPYDATA, 0, (LPARAM)&cd);
+                }
+            }
+        }
+        return 0;
     }
     OleInitialize(NULL);
     MigrateElectronData();
@@ -517,6 +589,11 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int) {
 
     webview::webview w(false, nullptr);
     g_hwnd = (HWND)w.window();
+    if (!g_hwnd || !w.core_webview()) {
+        MessageBoxW(NULL, L"Impossibile avviare il componente WebView2.", APP_NAME, MB_ICONERROR);
+        if (mutex) CloseHandle(mutex);
+        return 1;
+    }
     w.set_title("StudyDesk");
     w.set_size(1360, 880, WEBVIEW_HINT_NONE);
     w.set_size(900, 600, WEBVIEW_HINT_MIN);
@@ -526,6 +603,7 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int) {
         HICON ic = (HICON)LoadImageW(NULL, (AppDir() + L"\\icons\\StudyDesk.ico").c_str(), IMAGE_ICON, 0, 0, LR_LOADFROMFILE | LR_DEFAULTSIZE);
         if (!ic) ic = LoadIconW(inst, MAKEINTRESOURCEW(1));
         if (ic) { SendMessageW(g_hwnd, WM_SETICON, ICON_BIG, (LPARAM)ic); SendMessageW(g_hwnd, WM_SETICON, ICON_SMALL, (LPARAM)ic); }
+        SetWindowSubclass(g_hwnd, SdWndSub, 1, 0);
     }
     // https://studydesk.app/ = the app files; https://files.studydesk.app/ = files the user picked
     if (ICoreWebView2 *core = w.core_webview()) {
@@ -619,10 +697,16 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int) {
         LeaveCriticalSection(&g_hubLock);
         return ok ? "true" : "false";
     });
-    w.bind("__sd_hub_launch", [](std::string) -> std::string {
+    w.bind("__sd_hub_launch", [](std::string req) -> std::string {
         std::wstring hub = KnownFolder(CSIDL_LOCAL_APPDATA) + L"\\Programs\\hubdesk\\HubDesk.exe";
         if (!Exists(hub)) return "false";
-        ShellExecuteW(NULL, L"open", hub.c_str(), L"--background", NULL, SW_SHOWNOACTIVATE);
+        std::string a = ParseJsonArg(req, 0);
+        if (a == "--background") {
+            ShellExecuteW(NULL, L"open", hub.c_str(), L"--background", NULL, SW_SHOWNOACTIVATE);
+        } else {
+            std::wstring param = a.empty() ? L"--page apps" : (L"--page " + Utf8ToWide(a));
+            ShellExecuteW(NULL, L"open", hub.c_str(), param.c_str(), NULL, SW_SHOWNORMAL);
+        }
         return "true";
     });
     w.bind("__sd_hostname", [](std::string) -> std::string {
@@ -638,5 +722,6 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int) {
     g_hubStop = true; g_view = nullptr;
     EnterCriticalSection(&g_hubLock); if (g_hubSock != INVALID_SOCKET) closesocket(g_hubSock); LeaveCriticalSection(&g_hubLock);
     DeleteTree(g_filesDir);
+    if (mutex) CloseHandle(mutex);
     return 0;
 }
