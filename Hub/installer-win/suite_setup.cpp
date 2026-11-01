@@ -206,16 +206,16 @@ static LRESULT CALLBACK wndProc(HWND w, UINT m, WPARAM wp, LPARAM lp) {
         for (int i = 0; i < NAPPS; i++) {
             const App &a = APPS[i];
             std::wstring t = std::wstring(a.name) + (isInstalled(a) ? L"  (installata: verrà aggiornata)" : L"");
-            g_check[i] = CreateWindowW(L"BUTTON", t.c_str(), WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_AUTOCHECKBOX, S(28), S(100 + i * 62), S(440), S(22), w, (HMENU)(INT_PTR)(ID_CHECK + i), nullptr, nullptr);
+            g_check[i] = CreateWindowW(L"BUTTON", t.c_str(), WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_AUTOCHECKBOX, S(28), S(96 + i * 78), S(440), S(24), w, (HMENU)(INT_PTR)(ID_CHECK + i), nullptr, nullptr);
             SendMessageW(g_check[i], WM_SETFONT, (WPARAM)g_bold, TRUE);
             SendMessageW(g_check[i], BM_SETCHECK, BST_CHECKED, 0);
             if (a.required) EnableWindow(g_check[i], FALSE);
-            label(a.desc, 48, 124 + i * 62, 420, 32, g_font);
+            label(a.desc, 48, 122 + i * 78, 420, 46, g_font);
         }
-        g_progress = CreateWindowW(PROGRESS_CLASSW, nullptr, WS_CHILD | WS_VISIBLE, S(28), S(300), S(440), S(10), w, nullptr, nullptr, nullptr);
-        g_status = label(L"HubDesk resta sempre installato: dopo potrai aggiungere o togliere le altre app da HubDesk.", 28, 318, 440, 52, g_font);
-        g_cancel = CreateWindowW(L"BUTTON", L"Annulla", WS_CHILD | WS_VISIBLE | WS_TABSTOP, S(248), S(378), S(100), S(30), w, (HMENU)ID_CANCEL, nullptr, nullptr);
-        g_install = CreateWindowW(L"BUTTON", L"Installa", WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_DEFPUSHBUTTON, S(358), S(378), S(110), S(30), w, (HMENU)ID_INSTALL, nullptr, nullptr);
+        g_progress = CreateWindowW(PROGRESS_CLASSW, nullptr, WS_CHILD | WS_VISIBLE, S(28), S(338), S(440), S(10), w, nullptr, nullptr, nullptr);
+        g_status = label(L"HubDesk resta sempre installato: dopo potrai aggiungere o togliere le altre app da HubDesk.", 28, 356, 440, 52, g_font);
+        g_cancel = CreateWindowW(L"BUTTON", L"Annulla", WS_CHILD | WS_VISIBLE | WS_TABSTOP, S(248), S(418), S(100), S(30), w, (HMENU)ID_CANCEL, nullptr, nullptr);
+        g_install = CreateWindowW(L"BUTTON", L"Installa", WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_DEFPUSHBUTTON, S(358), S(418), S(110), S(30), w, (HMENU)ID_INSTALL, nullptr, nullptr);
         SendMessageW(g_cancel, WM_SETFONT, (WPARAM)g_font, TRUE);
         SendMessageW(g_install, WM_SETFONT, (WPARAM)g_bold, TRUE);
         return 0;
@@ -265,6 +265,7 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int) {
         FILE *o = _wfopen(L"CONOUT$", L"w");
         for (auto &e : g_entries) if (o) fprintf(o, "%s %llu\n", e.id.c_str(), (unsigned long long)e.size);
         if (o) fclose(o);
+        if (!o) { std::wstring t; for (auto &e : g_entries) t += widen(e.id) + L"  " + std::to_wstring(e.size / 1048576) + L" MB\n"; MessageBoxW(nullptr, t.c_str(), L"ClassDesk Suite", MB_OK); }
         return payload ? 0 : 2;
     }
     std::wstring ex = argValue(argc, argv, L"--extract=");
@@ -303,7 +304,7 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int) {
     wc.hbrBackground = (HBRUSH)GetStockObject(WHITE_BRUSH); wc.hCursor = LoadCursor(nullptr, IDC_ARROW);
     wc.hIcon = LoadIconW(inst, MAKEINTRESOURCEW(1));
     RegisterClassW(&wc);
-    RECT r = {0, 0, S(496), S(426)}; AdjustWindowRect(&r, WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX, FALSE);
+    RECT r = {0, 0, S(496), S(466)}; AdjustWindowRect(&r, WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX, FALSE);
     HWND w = CreateWindowW(wc.lpszClassName, L"Installazione ClassDesk Suite", WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX,
                            CW_USEDEFAULT, CW_USEDEFAULT, r.right - r.left, r.bottom - r.top, nullptr, nullptr, inst, nullptr);
     ShowWindow(w, SW_SHOW);
