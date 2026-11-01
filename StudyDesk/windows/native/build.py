@@ -27,7 +27,7 @@ def build(out=None):
     subprocess.run([zig, "c++", "-target", "x86_64-windows", "-municode", "-Wl,--subsystem,windows", "-O2", "-std=c++17",
                     f'-DBUNDLED_APP_VERSION=L"{v}"', "-I", INCLUDE, os.path.join(HERE, "studydesk_native.cpp"), os.path.join(work, "app.rc"),
                     "-o", exe, "-lole32", "-loleaut32", "-luser32", "-lshlwapi", "-lshell32", "-lcomctl32", "-lcomdlg32", "-ladvapi32",
-                    "-lversion", "-lgdi32"], check=True, cwd=work)
+                    "-lversion", "-lgdi32", "-lws2_32"], check=True, cwd=work)
     app = os.path.join(ROOT, "app")
     files = []
     for d, _, names in os.walk(app):
@@ -38,6 +38,7 @@ def build(out=None):
             files.append((os.path.relpath(p, app).replace(os.sep, "/"), p))
     shutil.copy(os.path.join(ROOT, "build", "icon.ico"), os.path.join(work, "StudyDesk.ico"))
     files.append(("icons/StudyDesk.ico", os.path.join(work, "StudyDesk.ico")))
+    files.append(("deskhub.js", os.path.join(ROOT, "electron", "deskhub.js")))   # hub.json rules, loaded by core/hubnative.js
     with open(out, "wb") as o:
         o.write(open(exe, "rb").read())
         start = o.tell()

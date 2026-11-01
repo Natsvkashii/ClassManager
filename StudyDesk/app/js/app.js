@@ -11,6 +11,7 @@
 // =====================================================================================
 
 // App shell: bootstrap, sidebar, topbar, router, update banner.
+import './core/hubnative.js'; // native Windows app: HubDesk link in the page (before core/hubdesk.js starts)
 import { kv } from './core/db.js';
 import { h, icon, clear, toast, modal } from './core/ui.js';
 import { loadSettings, saveSettings, settings } from './core/settings.js';

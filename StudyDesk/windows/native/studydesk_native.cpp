@@ -32,6 +32,8 @@
 #define WIN32_LEAN_AND_MEAN
 #define WEBVIEW_USER_DATA_FOLDER L"StudyDesk_Native_Data"
 
+#include <winsock2.h>
+#include <ws2tcpip.h>
 #include <windows.h>
 #include <commctrl.h>
 #include <commdlg.h>
@@ -360,6 +362,99 @@ static std::string ServeFile(const std::wstring &path) {
 }
 static std::vector<std::wstring> g_pending;
 
+// ---------------------------------------------------------------- HubDesk (Hub/HUBDESK.md): files in %APPDATA%\DeskHub + local channel
+// The records mirror runs in the page (app/js/core/hubnative.js); here only file access inside DeskHub and the TCP link.
+static std::wstring HubDir() {
+    wchar_t env[MAX_PATH]; DWORD n = GetEnvironmentVariableW(L"DESKHUB_HOME", env, MAX_PATH);
+    return (n > 0 && n < MAX_PATH) ? std::wstring(env) : KnownFolder(CSIDL_APPDATA) + L"\\DeskHub";
+}
+/** A path inside DeskHub from a relative "a/b.json" (no "..", no absolute paths). Empty when unsafe. */
+static std::wstring HubPath(const std::string &rel) {
+    if (rel.empty() || rel.find("..") != std::string::npos || rel.find(':') != std::string::npos || rel[0] == '/' || rel[0] == '\\') return L"";
+    std::wstring r = Utf8ToWide(rel); std::replace(r.begin(), r.end(), L'/', L'\\');
+    return HubDir() + L"\\" + r;
+}
+static bool ReadWhole(const std::wstring &p, std::string &out) {
+    HANDLE h = CreateFileW(p.c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL, OPEN_EXISTING, 0, NULL);
+    if (h == INVALID_HANDLE_VALUE) return false;
+    LARGE_INTEGER sz; GetFileSizeEx(h, &sz);
+    if (sz.QuadPart > (16 << 20)) { CloseHandle(h); return false; }
+    out.assign((size_t)sz.QuadPart, 0); DWORD rd = 0;
+    bool ok = sz.QuadPart == 0 || (ReadFile(h, &out[0], (DWORD)sz.QuadPart, &rd, NULL) && rd == (DWORD)sz.QuadPart);
+    CloseHandle(h);
+    return ok;
+}
+/** Atomic write: temporary file next to the target, then replace. */
+static bool WriteAtomic(const std::wstring &target, const std::string &content) {
+    MakeDirs(target.substr(0, target.find_last_of(L'\\')));
+    std::wstring tmp = target + L"." + std::to_wstring(GetCurrentProcessId()) + L".tmp";
+    HANDLE h = CreateFileW(tmp.c_str(), GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+    if (h == INVALID_HANDLE_VALUE) return false;
+    DWORD wr = 0; bool ok = WriteFile(h, content.data(), (DWORD)content.size(), &wr, NULL) && wr == content.size();
+    CloseHandle(h);
+    if (!ok || !MoveFileExW(tmp.c_str(), target.c_str(), MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH)) { DeleteFileW(tmp.c_str()); return false; }
+    return true;
+}
+/** [{"n":name,"s":size,"m":lastWrite}] of the files of a DeskHub folder. */
+static std::string ListFiles(const std::wstring &dir) {
+    std::string out = "[";
+    WIN32_FIND_DATAW fd; HANDLE h = FindFirstFileW((dir + L"\\*").c_str(), &fd);
+    if (h != INVALID_HANDLE_VALUE) {
+        do {
+            if (fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) continue;
+            ULARGE_INTEGER t; t.LowPart = fd.ftLastWriteTime.dwLowDateTime; t.HighPart = fd.ftLastWriteTime.dwHighDateTime;
+            unsigned long long size = ((unsigned long long)fd.nFileSizeHigh << 32) | fd.nFileSizeLow;
+            out += (out.size() > 1 ? "," : "") + std::string("{\"n\":\"") + JsonEscape(WideToUtf8(fd.cFileName)) + "\",\"s\":" + std::to_string(size) + ",\"m\":\"" + std::to_string(t.QuadPart) + "\"}";
+        } while (FindNextFileW(h, &fd));
+        FindClose(h);
+    }
+    return out + "]";
+}
+
+// Local channel: JSON lines on 127.0.0.1:<runtime.json port>; every line received goes to window.__sd_hub_on(line).
+static webview::webview *g_view = nullptr;
+static SOCKET g_hubSock = INVALID_SOCKET;
+static CRITICAL_SECTION g_hubLock;
+static volatile bool g_hubStop = false;
+static void HubDeliver(const std::string &js) {
+    if (!g_view) return;
+    std::string copy = js;
+    g_view->dispatch([copy]() { if (g_view) g_view->eval(copy); });
+}
+static DWORD WINAPI HubLinkThread(LPVOID) {
+    WSADATA wsa; WSAStartup(MAKEWORD(2, 2), &wsa);
+    while (!g_hubStop) {
+        std::string rt;
+        int port = 0; std::string token;
+        if (ReadWhole(HubDir() + L"\\runtime.json", rt)) {
+            size_t p = rt.find("\"port\""); if (p != std::string::npos) port = atoi(rt.c_str() + rt.find(':', p) + 1);
+            size_t t = rt.find("\"token\""); if (t != std::string::npos) { size_t a = rt.find('"', rt.find(':', t) + 1), b = rt.find('"', a + 1); if (a != std::string::npos && b != std::string::npos) token = rt.substr(a + 1, b - a - 1); }
+        }
+        if (port <= 0) { for (int i = 0; i < 50 && !g_hubStop; i++) Sleep(200); continue; }
+        SOCKET s = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+        sockaddr_in a = {}; a.sin_family = AF_INET; a.sin_port = htons((u_short)port); a.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+        if (s == INVALID_SOCKET || connect(s, (sockaddr *)&a, sizeof(a)) != 0) { if (s != INVALID_SOCKET) closesocket(s); for (int i = 0; i < 50 && !g_hubStop; i++) Sleep(200); continue; }
+        EnterCriticalSection(&g_hubLock); g_hubSock = s; LeaveCriticalSection(&g_hubLock);
+        std::string hello = "{\"t\":\"hello\",\"app\":\"studydesk\",\"token\":\"" + JsonEscape(token) + "\"}\n";
+        send(s, hello.c_str(), (int)hello.size(), 0);
+        std::string buf; char chunk[8192];
+        for (;;) {
+            int n = recv(s, chunk, sizeof(chunk), 0);
+            if (n <= 0) break;
+            buf.append(chunk, n);
+            size_t nl;
+            while ((nl = buf.find('\n')) != std::string::npos) {
+                std::string line = buf.substr(0, nl); buf.erase(0, nl + 1);
+                if (!line.empty() && line[0] == '{') HubDeliver("window.__sd_hub_on && window.__sd_hub_on(" + line + ")");
+            }
+        }
+        EnterCriticalSection(&g_hubLock); closesocket(s); g_hubSock = INVALID_SOCKET; LeaveCriticalSection(&g_hubLock);
+        HubDeliver("window.__sd_hub_on && window.__sd_hub_on({t:'closed'})");
+        for (int i = 0; i < 25 && !g_hubStop; i++) Sleep(200);
+    }
+    return 0;
+}
+
 static const char *BRIDGE_JS = R"JS(
 (function () {
   const toB64 = (buf) => { const b = new Uint8Array(buf); let s = ''; for (let i = 0; i < b.length; i += 0x8000) s += String.fromCharCode.apply(null, b.subarray(i, i + 0x8000)); return btoa(s); };
@@ -499,9 +594,45 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int) {
         ShellExecuteW(NULL, L"open", L"https://github.com/Natsvkashii/ClassManager/releases", NULL, NULL, SW_SHOWNORMAL);
         return "false";
     });
+    // HubDesk: files inside %APPDATA%\DeskHub and the local channel (used by app/js/core/hubnative.js)
+    w.bind("__sd_hub_read", [](std::string req) -> std::string {
+        std::wstring p = HubPath(ParseJsonArg(req, 0)); std::string t;
+        return (!p.empty() && ReadWhole(p, t)) ? "\"" + JsonEscape(t) + "\"" : "null";
+    });
+    w.bind("__sd_hub_write", [](std::string req) -> std::string {
+        std::wstring p = HubPath(ParseJsonArg(req, 0));
+        return (!p.empty() && WriteAtomic(p, ParseJsonArg(req, 1))) ? "true" : "false";
+    });
+    w.bind("__sd_hub_list", [](std::string req) -> std::string {
+        std::wstring p = HubPath(ParseJsonArg(req, 0));
+        if (!p.empty()) MakeDirs(p);
+        return p.empty() ? "[]" : ListFiles(p);
+    });
+    w.bind("__sd_hub_send", [](std::string req) -> std::string {
+        std::string line = ParseJsonArg(req, 0) + "\n"; bool ok = false;
+        EnterCriticalSection(&g_hubLock);
+        if (g_hubSock != INVALID_SOCKET) ok = send(g_hubSock, line.c_str(), (int)line.size(), 0) == (int)line.size();
+        LeaveCriticalSection(&g_hubLock);
+        return ok ? "true" : "false";
+    });
+    w.bind("__sd_hub_launch", [](std::string) -> std::string {
+        std::wstring hub = KnownFolder(CSIDL_LOCAL_APPDATA) + L"\\Programs\\hubdesk\\HubDesk.exe";
+        if (!Exists(hub)) return "false";
+        ShellExecuteW(NULL, L"open", hub.c_str(), L"--background", NULL, SW_SHOWNOACTIVATE);
+        return "true";
+    });
+    w.bind("__sd_hostname", [](std::string) -> std::string {
+        wchar_t n[256]; DWORD len = 256; GetComputerNameW(n, &len);
+        return "\"" + JsonEscape(WideToUtf8(n)) + "\"";
+    });
+    g_view = &w;
+    InitializeCriticalSection(&g_hubLock);
+    CloseHandle(CreateThread(NULL, 0, HubLinkThread, NULL, 0, NULL));
     w.init(BRIDGE_JS);
     w.navigate("https://studydesk.app/index.html");
     w.run();
+    g_hubStop = true; g_view = nullptr;
+    EnterCriticalSection(&g_hubLock); if (g_hubSock != INVALID_SOCKET) closesocket(g_hubSock); LeaveCriticalSection(&g_hubLock);
     DeleteTree(g_filesDir);
     return 0;
 }
