@@ -16,7 +16,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ClassDesk v26.11.0-002</title>
+    <title>ClassDesk v26.11.0-003</title>
     <link rel="icon" type="image/png" href="logo.png">
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -1539,7 +1539,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
         const IS_UNSTABLE_BUILD = 1;
 
         const INITIAL_DATA = {
-            version: "26.11.0-002",
+            version: "26.11.0-003",
             channel: IS_UNSTABLE_BUILD === 1 ? "unstable" : "stable",
             deletedItems: [],
             billingContacts: [],
@@ -4106,6 +4106,8 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 const activeSection = this.getActiveSection(course);
                 const pal = this.getCourseColorObj(course.color);
                 const badge = this.formatLevelModuleBadge(course, activeLevel, activeSection);
+                // An archived course is shown read-only: no edit buttons for its level and module
+                const isInspectingArchived = !!course.archived;
 
                 bar.innerHTML = `
                     <div class="flex flex-nowrap items-center gap-2 w-max whitespace-nowrap">

@@ -1,5 +1,8 @@
 # HubDesk – Changelog
 
+## 26.11.0-003 (Unstable)
+- Allineata alla suite 26.11.0-003; nessuna modifica a HubDesk.
+
 ## 26.11.0-002 (Unstable)
 - Windows: HubDesk ora riconosce la versione di StudyDesk installata (prima mostrava «0.0.0-000» e l'aggiornamento non andava a buon fine).
 

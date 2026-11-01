@@ -1,5 +1,8 @@
 # Changelog
 
+## v26.11.0-003 (Unstable) – 1 novembre 2026
+- Allineata alla suite 26.11.0-003; nessuna modifica a StudyDesk.
+
 ## v26.11.0-002 (Unstable) – 1 novembre 2026
 - Allineata alla suite 26.11.0-002 (correzione di HubDesk su Windows); nessuna modifica a StudyDesk.
 
