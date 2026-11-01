@@ -46,7 +46,7 @@ Commit locali NON ancora su GitHub: tutto il lavoro nativo, le animazioni (`Hub/
    `IsDialogMessage` + pulsante predefinito (`Hub/installer-win/suite_setup.cpp`). Testi tagliati al 200 %: già corretti.
 2. StudyDesk Electron non si è aggiornato con `/S` (rimasto 26.11.0-3): sparisce con StudyDesk nativo.
 3. L'HubDesk Electron non apre la finestra (solo area di notifica): sparisce con HubDesk nativo.
-4. ClassDesk mostra nel piè di pagina la versione salvata nei dati (`state.version` in
+4. (CORRETTO in locale) ClassDesk mostrava nel piè di pagina la versione salvata nei dati (`state.version` in
    `ClassDesk/Windows-Version/src/index.html`, `renderHeaderAndSidebarControls`) e in basso «26.10.5-001 (Beta)»: mostrare la
    versione del programma e aggiornare `state.version` all'avvio.
 5. Migrazione dei dati di StudyDesk da Electron (copia della cartella IndexedDB con origine diversa): **non verificata**;
