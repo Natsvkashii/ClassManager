@@ -527,6 +527,11 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int) {
         return out + "]";
     });
     w.bind("__hd_hostname", [](std::string) -> std::string { wchar_t n[256]; DWORD len = 256; GetComputerNameW(n, &len); return Q(U(n)); });
+    w.bind("__hd_notify", [](std::string r) -> std::string {
+        NOTIFYICONDATAW n = g_tray; n.uFlags = NIF_INFO; n.dwInfoFlags = NIIF_INFO;
+        wcsncpy(n.szInfoTitle, W(Arg(r, 0)).c_str(), 63); wcsncpy(n.szInfo, W(Arg(r, 1)).c_str(), 255);
+        Shell_NotifyIconW(NIM_MODIFY, &n); return "true";
+    });
     w.bind("__hd_autostart", [](std::string r) -> std::string { SetAutostart(Arg(r, 0) == "1"); return "true"; });
 
     std::string page; ReadWhole(AppDir() + L"\\page\\hubdesk-native.js", page);

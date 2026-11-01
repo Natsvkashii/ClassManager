@@ -136,7 +136,31 @@
     engine.start().catch((e) => console.error('HubDesk rete:', e));
     manager = createManager({ driver, fetchJson, download, platform: 'win', channel: engine.getState().settings.channel || 'unstable', tmpRoot: TMP, quitSelf: () => window.__hd_quit() });
     manager.on('state', (s) => fire('apps', s));
-    manager.check().catch(() => {});
+    // updates and migration, as Electron's main.js: first check after 3 s, then every 6 hours
+    let updating = false;
+    const checkAndUpdate = async (auto) => {
+      if (updating) return; updating = true;
+      try { await manager.check(); if (auto && appState.autoUpdate) await manager.updateAll({ onlyClosed: true }); } finally { updating = false; }
+    };
+    /** §6: the legacy ClassDesk (26.10.x) is updated to the suite version on first run. */
+    const migrateLegacyClassDesk = async () => {
+      if (appState.migrationDone) return;
+      const st = manager.state.classdesk, snap = manager.snapshot();
+      if (!snap.apps.length || snap.checkError) return;
+      if (!st.installed || !st.available || cat.compareVersions(st.installed.version, st.available.version) >= 0) { saveApp({ migrationDone: true }); return; }
+      saveApp({ notice: `Aggiornamento di ClassDesk ${st.installed.version} alla versione ${st.available.version} in corso…` });
+      try { await manager.install('classdesk'); saveApp({ migrationDone: true, notice: `ClassDesk è stato aggiornato alla versione ${manager.state.classdesk.installed.version}. I tuoi dati sono rimasti al loro posto.` }); }
+      catch (e) { saveApp({ notice: `Aggiornamento di ClassDesk non riuscito: ${e.message}` }); }
+    };
+    setTimeout(async () => { await checkAndUpdate(false).catch(() => {}); await migrateLegacyClassDesk(); if (appState.autoUpdate) manager.updateAll({ onlyClosed: true }).catch(() => {}); }, 3000);
+    setInterval(() => checkAndUpdate(true).catch(() => {}), 6 * 60 * 60 * 1000);
+    // new conflicts: a Windows notification (the tray icon shows it)
+    let lastConflicts = engine.getState().conflicts.length;
+    engine.on('state', (st) => {
+      const n = st.conflicts.length;
+      if (n > lastConflicts) window.__hd_notify('HubDesk – conflitto di sincronizzazione', n - lastConflicts === 1 ? `${st.conflicts[n - 1].title} è stato modificato su due dispositivi.` : `${n - lastConflicts} elementi sono stati modificati su due dispositivi.`).catch(() => {});
+      lastConflicts = n;
+    });
     setInterval(() => manager.refreshInstalled().catch(() => {}), 15000);
   })();
   const saveApp = (patch) => { appState = { ...appState, ...patch }; window.__hd_state_write(JSON.stringify(appState)); fire('app', publicApp()); return publicApp(); };
