@@ -73,6 +73,14 @@ public final class BoardModel {
     public var saved: SavedBoardRef? = nil
     public var editing: BoardText? = nil            // text box being written
     public var revision = 0                         // grows at every change: the canvas redraws
+    public var zoomScale: CGFloat = 1.0
+    public var panOffset: CGPoint = .zero
+
+    public func resetZoom() {
+        zoomScale = 1.0
+        panOffset = .zero
+        changed()
+    }
 
     // tools (remembered)
     public var mode: BoardMode = .pen
@@ -553,12 +561,91 @@ final class BoardCanvasView: NSView, NSTextViewDelegate {
     private var laserClock: Timer? = nil
     private var tracking: NSTrackingArea? = nil
 
-    /// The 16:9 board rectangle inside the view.
-    var boardRect: CGRect {
+    /// The base 16:9 board rectangle inside the view (without zoom/pan).
+    var baseBoardRect: CGRect {
         let a = BoardModel.aspect
         var w = bounds.width, h = w / a
         if h > bounds.height { h = bounds.height; w = h * a }
         return CGRect(x: (bounds.width - w) / 2, y: (bounds.height - h) / 2, width: w, height: h)
+    }
+
+    /// The 16:9 board rectangle inside the view (with zoom and pan).
+    var boardRect: CGRect {
+        let base = baseBoardRect
+        let z = MainActor.assumeIsolated { model.zoomScale }
+        let p = MainActor.assumeIsolated { model.panOffset }
+        return CGRect(
+            x: base.minX + p.x,
+            y: base.minY + p.y,
+            width: base.width * z,
+            height: base.height * z
+        )
+    }
+
+    func clampPan() {
+        let base = baseBoardRect
+        let z = MainActor.assumeIsolated { model.zoomScale }
+        let curW = base.width * z
+        let curH = base.height * z
+        let maxPanX = bounds.width * 0.75
+        let minPanX = -curW + bounds.width * 0.25
+        let maxPanY = bounds.height * 0.75
+        let minPanY = -curH + bounds.height * 0.25
+        MainActor.assumeIsolated {
+            model.panOffset.x = min(maxPanX, max(minPanX, model.panOffset.x))
+            model.panOffset.y = min(maxPanY, max(minPanY, model.panOffset.y))
+        }
+    }
+
+    override func magnify(with event: NSEvent) {
+        let p = convert(event.locationInWindow, from: nil)
+        let curR = boardRect
+        let boardPtX = curR.width > 0 ? (p.x - curR.minX) / curR.width : 0.5
+        let boardPtY = curR.height > 0 ? (p.y - curR.minY) / curR.height : 0.5
+
+        let oldZoom = MainActor.assumeIsolated { model.zoomScale }
+        let newZoom = min(5.0, max(0.6, oldZoom * (1.0 + event.magnification)))
+
+        let base = baseBoardRect
+        MainActor.assumeIsolated {
+            model.zoomScale = newZoom
+            model.panOffset.x = p.x - base.minX - boardPtX * (base.width * newZoom)
+            model.panOffset.y = p.y - base.minY - boardPtY * (base.height * newZoom)
+        }
+        clampPan()
+        needsDisplay = true
+        if let ed = editor, let t = MainActor.assumeIsolated({ model.editing }) { layoutEditor(ed, t) }
+    }
+
+    override func scrollWheel(with event: NSEvent) {
+        if event.modifierFlags.contains(.command) || event.modifierFlags.contains(.control) {
+            let p = convert(event.locationInWindow, from: nil)
+            let curR = boardRect
+            let boardPtX = curR.width > 0 ? (p.x - curR.minX) / curR.width : 0.5
+            let boardPtY = curR.height > 0 ? (p.y - curR.minY) / curR.height : 0.5
+
+            let factor = exp(-Double(event.scrollingDeltaY) * 0.01)
+            let oldZoom = MainActor.assumeIsolated { model.zoomScale }
+            let newZoom = min(5.0, max(0.6, oldZoom * CGFloat(factor)))
+
+            let base = baseBoardRect
+            MainActor.assumeIsolated {
+                model.zoomScale = newZoom
+                model.panOffset.x = p.x - base.minX - boardPtX * (base.width * newZoom)
+                model.panOffset.y = p.y - base.minY - boardPtY * (base.height * newZoom)
+            }
+            clampPan()
+            needsDisplay = true
+            if let ed = editor, let t = MainActor.assumeIsolated({ model.editing }) { layoutEditor(ed, t) }
+        } else {
+            MainActor.assumeIsolated {
+                model.panOffset.x += event.scrollingDeltaX
+                model.panOffset.y += event.scrollingDeltaY
+            }
+            clampPan()
+            needsDisplay = true
+            if let ed = editor, let t = MainActor.assumeIsolated({ model.editing }) { layoutEditor(ed, t) }
+        }
     }
     /// Points per centimetre of the screen this view is on (grid in real centimetres).
     var pointsPerCm: Double {
@@ -940,6 +1027,7 @@ struct BoardView: View {
     @State private var showSaved = false
     @State private var canvasSize: CGSize = .zero
     @State private var isToolbarHidden = false
+    @State private var isFullScreen = false
     @AppStorage("studydesk.boardDate") private var boardDate = false
 
     private var boardWidth: CGFloat {
@@ -987,9 +1075,14 @@ struct BoardView: View {
             }
         }
         .onAppear {
+            if let w = NSApp.keyWindow ?? NSApp.windows.first {
+                isFullScreen = w.styleMask.contains(.fullScreen)
+            }
             model.browse(); model.fitInk(); model.sendSnapshot()
             if let rec = model.pendingOpen { model.pendingOpen = nil; askOpen(rec) }
         }
+        .onReceive(NotificationCenter.default.publisher(for: NSWindow.didEnterFullScreenNotification)) { _ in isFullScreen = true }
+        .onReceive(NotificationCenter.default.publisher(for: NSWindow.didExitFullScreenNotification)) { _ in isFullScreen = false }
         .onDisappear { if model.editing != nil { model.commitEditing() }; model.stopBrowsing(); if model.watching != nil { model.returnToOwn() } else { model.disconnect() } }
         .onExitCommand { if model.editing != nil { model.commitEditing() } else { exit() } }
         .background { Button("") { if model.editing != nil { model.commitEditing() } else { exit() } }.keyboardShortcut(.cancelAction).opacity(0) }
@@ -1046,6 +1139,22 @@ struct BoardView: View {
                 }
             }
             Divider().frame(height: 22)
+            if model.zoomScale != 1.0 || abs(model.panOffset.x) > 1 || abs(model.panOffset.y) > 1 {
+                Button("\(Int(round(model.zoomScale * 100)))%") {
+                    model.resetZoom()
+                }
+                .help("Reimposta zoom (100%)")
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+            }
+            Button {
+                if let w = NSApp.keyWindow ?? NSApp.windows.first {
+                    w.toggleFullScreen(nil)
+                }
+            } label: {
+                Image(systemName: isFullScreen ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right")
+            }
+            .help(isFullScreen ? "Esci da schermo intero" : "Schermo intero")
             Menu {
                 if !watching {
                     Toggle(isOn: Binding(get: { model.sharing }, set: { $0 ? model.startSharing() : model.stopSharing() })) {
@@ -1289,6 +1398,9 @@ struct BoardView: View {
     private func exit() {
         if model.editing != nil { model.commitEditing() }
         if model.watching != nil { model.returnToOwn() } else { model.disconnect() }
+        if let w = NSApp.keyWindow ?? NSApp.windows.first, w.styleMask.contains(.fullScreen) {
+            w.toggleFullScreen(nil)
+        }
         store.currentTab = .home
     }
 }

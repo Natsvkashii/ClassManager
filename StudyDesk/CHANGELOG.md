@@ -1,5 +1,12 @@
 # Changelog
 
+## v26.11.0-009 (Unstable) – 1 novembre 2026
+- Lavagna – Zoom e Pan a due dita: supporto completo per pinch-to-zoom a due dita (touchscreen e trackpad) e spostamento panoramico nell'area della lavagna sia su Windows che su macOS.
+- Lavagna – Schermo intero reale a livello di sistema operativo: ripristinata la modalità a schermo intero nativa a tutto monitor su Windows e macOS tramite apposito pulsante e scorciatoie.
+- Lavagna – Correzione dimensioni finestra Windows: risolto il problema della lavagna visualizzata «piccola piccola» su Windows espandendo l'area della lavagna al 100% dell'altezza e larghezza disponibili.
+- Interfaccia macOS: rimossa la modalità di sovrapposizione laterale e garantita la corretta dimensione minima per evitare tagli o sovrapposizioni visive tra barra laterale e sezioni Gruppi e Lavagna.
+- Scorciatoie zoom: pulsante rapido di indicazione percentuale e ripristino zoom (100%), scorciatoie da tastiera Ctrl/Cmd + / - / 0 e trascinamento panoramico con barra spaziatrice.
+
 ## v26.11.0-008 (Unstable) – 1 novembre 2026
 - Lavagna – Appunti e Immagini: supporto completo per incollare immagini da app esterne (Cmd+V / Ctrl+V e trascinamento file) e per copiare l'intera lavagna negli appunti come immagine PNG senza doverla prima esportare su file.
 - Lavagna – Allineamento verticale del testo: nuovo controllo per allineare le caselle di testo in alto, al centro o in basso.

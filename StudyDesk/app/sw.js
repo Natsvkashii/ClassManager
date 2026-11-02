@@ -11,7 +11,7 @@
 // =====================================================================================
 
 // Offline cache for the PWA build: cache-first for app files, network fallback.
-const CACHE = 'studydesk-v26.11.0-008';
+const CACHE = 'studydesk-v26.11.0-009';
 const CORE = ['./', 'index.html', 'manifest.webmanifest', 'icons/icon.svg', 'css/app.css', 'vendor/jszip.min.js', 'vendor/fontawesome/css/all.min.css',
   'vendor/inter/inter-400.woff2', 'vendor/inter/inter-500.woff2', 'vendor/inter/inter-600.woff2', 'vendor/inter/inter-700.woff2', 'vendor/inter/inter-800.woff2'];
 

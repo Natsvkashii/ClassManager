@@ -1,5 +1,9 @@
 # HubDesk – Changelog
 
+## 26.11.0-009 (Unstable)
+- Allineamento alla release Classroom Tools 26.11.0-009.
+- Gestione centralizzata della sincronizzazione lavagne e avanzamento libri per la suite.
+
 ## 26.11.0-008 (Unstable)
 - Classroom Tools Release: pacchetti di installazione unificati rilasciati come Classroom Tools con indicazione esplicita per macOS (Apple Silicon) e Windows.
 - Impostazioni e canali: commutazione del canale di aggiornamento («Stabile» e «Instabile (Beta)») configurabile unicamente dalle Impostazioni di HubDesk; corretta la localizzazione italiana.

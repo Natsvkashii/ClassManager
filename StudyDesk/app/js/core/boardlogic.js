@@ -434,8 +434,8 @@ export function drawBoard(ctx, board, width, height, border = '#cbd5e1', opts = 
 }
 
 /** Draws only the points of a stroke added since index `from` (incremental drawing while the pen moves) on the ink layer. */
-export function drawStrokeTail(ctx, board, stroke, from, width, height) {
-  const r = boardRect(width, height);
+export function drawStrokeTail(ctx, board, stroke, from, width, height, customR = null) {
+  const r = customR || boardRect(width, height);
   ctx.save();
   ctx.beginPath(); ctx.rect(r.x, r.y, r.w, r.h); ctx.clip();
   drawStroke(ctx, stroke, r, from);

@@ -40,6 +40,7 @@ struct StudyDeskApp: App {
                 .preferredColorScheme(store.state.settings.theme == "light" ? .light : (store.state.settings.theme == "dark" ? .dark : nil))
                 .frame(minWidth: 980, minHeight: 650)
         }
+        .windowResizability(.contentSize)
         .windowToolbarStyle(.unified(showsTitle: true))
         .commands {
             CommandGroup(replacing: .newItem) {
@@ -67,10 +68,9 @@ struct ContentView: View {
     @Environment(\.colorScheme) private var colorScheme
     @State private var updateManager = UpdateManager.shared
     @State private var showUpdatePrompt = false
-    @State private var columns: NavigationSplitViewVisibility = .all
 
     var body: some View {
-        NavigationSplitView(columnVisibility: $columns) {
+        NavigationSplitView {
             SidebarView()
                 .navigationSplitViewColumnWidth(min: 224, ideal: 252, max: 295)
         } detail: {
@@ -98,7 +98,6 @@ struct ContentView: View {
                     }
             }
         }
-        .navigationSplitViewStyle(.balanced)
         .tint(Theme.accent)
         .sheet(isPresented: Binding(get: { store.state.profile == nil || store.state.role == nil }, set: { _ in })) {
             OnboardingView().environment(store).interactiveDismissDisabled()
@@ -112,7 +111,6 @@ struct ContentView: View {
             BookContextSheet(bookId: b.id).environment(store)
         }
         .onChange(of: store.focusMode) { _, on in
-            withAnimation { columns = on ? .detailOnly : .all }
             if let w = NSApp.keyWindow ?? NSApp.windows.first, w.styleMask.contains(.fullScreen) != on { w.toggleFullScreen(nil) }
         }
         .onAppear {

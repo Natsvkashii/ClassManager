@@ -5,6 +5,10 @@ Il formato è basato su [Keep a Changelog](https://keepachangelog.com/it/1.0.0/)
 
 ---
 
+## [26.11.0-009] — 2026-11-01 (Unstable)
+- Allineamento suite Classroom Tools 26.11.0-009.
+- Miglioramenti di stabilità e sincronizzazione centralizzata con StudyDesk e HubDesk.
+
 ## [26.11.0-008] — 2026-11-01 (Unstable)
 - Fatturazione nuovi moduli: creazione di un nuovo modulo con mantenimento automatico dei parametri di fatturazione (tariffa oraria, durata lezione, IVA, sconto e contatti di fatturazione) ereditati dal modulo precedente o attivo.
 - Interfaccia: rimosso il numero di versione dal piè di pagina della barra laterale per centralizzarne la visualizzazione nei Crediti e in HubDesk.

@@ -605,8 +605,11 @@ body.focus-mode .focus-bar { display: flex; gap: .4rem; position: fixed; top: .6
 .seg button { border: 0; background: transparent; padding: .25rem .6rem; font: inherit; font-size: .78rem; cursor: pointer; color: var(--text-2); }
 .seg button.on { background: var(--accent); color: #fff; }
 
-/* ---- Lavagna (full-screen whiteboard) */
-.board-root { position: fixed; inset: 0; z-index: 60; display: flex; flex-direction: column; background: var(--bg); }
+/* ---- Lavagna (whiteboard) */
+body.board-mode .topbar { display: none; }
+body.board-mode .view { padding: 0 !important; overflow: hidden !important; display: flex !important; flex-direction: column !important; height: 100% !important; min-height: 0 !important; }
+.board-root { position: relative; width: 100%; height: 100%; flex: 1; min-height: 0; display: flex; flex-direction: column; background: var(--bg); }
+body.focus-mode .board-root { position: fixed !important; inset: 0 !important; z-index: 60 !important; width: 100vw !important; height: 100vh !important; }
 .board-bar { display: flex; flex-wrap: nowrap; align-items: center; gap: .5rem; padding: .4rem .6rem; position: relative; min-width: 0; background: var(--sidebar); border-bottom: 1px solid var(--border); backdrop-filter: blur(8px); }
 .board-title { display: inline-flex; align-items: center; gap: .4rem; font-weight: 800; }
 .board-swatches { display: inline-flex; gap: .35rem; }

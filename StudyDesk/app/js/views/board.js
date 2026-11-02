@@ -40,25 +40,100 @@ const PX_PER_CM = 96 / 2.54; // CSS pixel = 1/96 inch
 const BOARD_PREFS = 'boardTool';
 
 export async function renderBoard(host, params, app) {
+  document.body.classList.add('board-mode');
   const net = platform.isElectron && electronApi.board ? electronApi.board : null;
   let remote = null; // board being watched (read-only) or null
   let netState = { sharing: false, viewers: 0, remotes: [], watching: null, status: '' };
   const offs = [];
   let leaving = false;
-  const exit = () => { if (!leaving) app.navigate('home'); };
+
+  const viewport = { zoom: 1.0, panX: 0, panY: 0 };
+  const clampPan = () => {
+    const base = boardRect(W, H);
+    const curW = base.w * viewport.zoom;
+    const curH = base.h * viewport.zoom;
+    const maxPanX = W * 0.75;
+    const minPanX = -curW + W * 0.25;
+    const maxPanY = H * 0.75;
+    const minPanY = -curH + H * 0.25;
+    viewport.panX = Math.min(maxPanX, Math.max(minPanX, viewport.panX));
+    viewport.panY = Math.min(maxPanY, Math.max(minPanY, viewport.panY));
+  };
+  const resetZoom = () => {
+    viewport.zoom = 1.0;
+    viewport.panX = 0;
+    viewport.panY = 0;
+    redrawSoon();
+    paintBar();
+  };
+
+  let isFullScreen = false;
+  const onFs = () => {
+    isFullScreen = !!document.fullscreenElement;
+    if (isFullScreen) document.body.classList.add('focus-mode');
+    else document.body.classList.remove('focus-mode');
+    paintBar();
+    setTimeout(resize, 60);
+  };
+  document.addEventListener('fullscreenchange', onFs);
+  const enterFullScreen = () => {
+    isFullScreen = true;
+    document.body.classList.add('focus-mode');
+    if (window.studydesk && window.studydesk.setFullScreen) {
+      window.studydesk.setFullScreen(true);
+    }
+    if (typeof window.__sd_fullscreen === 'function') {
+      try { window.__sd_fullscreen('1'); } catch {}
+    }
+    if (window.electronApi && window.electronApi.setFullScreen) {
+      window.electronApi.setFullScreen(true).catch(() => {});
+    }
+    const el = document.documentElement;
+    if (el.requestFullscreen && !document.fullscreenElement) {
+      el.requestFullscreen().catch(() => {});
+    }
+    setTimeout(resize, 60);
+    setTimeout(resize, 250);
+    paintBar();
+  };
+
+  const exitFullScreen = () => {
+    isFullScreen = false;
+    document.body.classList.remove('focus-mode');
+    if (window.studydesk && window.studydesk.setFullScreen) {
+      window.studydesk.setFullScreen(false);
+    }
+    if (typeof window.__sd_fullscreen === 'function') {
+      try { window.__sd_fullscreen('0'); } catch {}
+    }
+    if (window.electronApi && window.electronApi.setFullScreen) {
+      window.electronApi.setFullScreen(false).catch(() => {});
+    }
+    if (document.fullscreenElement && document.exitFullscreen) {
+      document.exitFullscreen().catch(() => {});
+    }
+    setTimeout(resize, 60);
+    setTimeout(resize, 250);
+    paintBar();
+  };
+
+  const toggleFullScreen = () => {
+    if (isFullScreen || document.fullscreenElement) exitFullScreen();
+    else enterFullScreen();
+  };
+
+  const exit = () => {
+    if (!leaving) {
+      if (isFullScreen || document.fullscreenElement) exitFullScreen();
+      app.navigate('home');
+    }
+  };
+
   const prefs = settings()[BOARD_PREFS] || {};
   Object.assign(tool, prefs, { mode: tool.mode, text: { ...tool.text, ...(prefs.text || {}) } });
   const fitInk = () => { tool.color = inkFor(tool.color, own.background); if (contrast(tool.color, own.background) < 2.2) tool.color = inksFor(own.background)[0][1]; };
   fitInk(); // the remembered ink may have been chosen for a board of the other colour
   const savePrefs = () => saveSettings({ [BOARD_PREFS]: { color: tool.color, width: tool.width, polar: tool.polar, gridCm: tool.gridCm, text: tool.text } }).catch(() => {});
-
-  let isFullScreen = false;
-  const toggleFullScreen = () => {
-    isFullScreen = !isFullScreen;
-    document.body.classList.toggle('focus-mode', isFullScreen);
-    resize();
-    paintBar();
-  };
 
   const canvas = h('canvas.board-canvas', { tabindex: 0 });
   const overlay = h('canvas.board-overlay');
@@ -69,7 +144,15 @@ export async function renderBoard(host, params, app) {
   const wrap = h('div.board-wrap', stage);
   let W = 0, H = 0, dpr = 1;
   const current = () => remote || own;
-  const rect = () => boardRect(W, H);
+  const rect = () => {
+    const base = boardRect(W, H);
+    return {
+      x: base.x + viewport.panX,
+      y: base.y + viewport.panY,
+      w: base.w * viewport.zoom,
+      h: base.h * viewport.zoom,
+    };
+  };
   const border = () => getComputedStyle(document.documentElement).getPropertyValue('--border-strong').trim() || '#cbd5e1';
   const dateText = () => (settings().boardDate ? boardDateLabel(own.date || new Date()) : '');
 
@@ -104,6 +187,7 @@ export async function renderBoard(host, params, app) {
     for (const c of [canvas, overlay, paper, ink]) { c.width = Math.round(W * dpr); c.height = Math.round(H * dpr); }
     for (const c of [canvas, overlay]) { c.style.width = W + 'px'; c.style.height = H + 'px'; }
     stage.style.width = W + 'px'; stage.style.height = H + 'px';
+    clampPan();
     redraw();
     if (editing) placeEditor();
     paintBar(); // the width dot depends on the board size
@@ -261,6 +345,11 @@ export async function renderBoard(host, params, app) {
     return { ...base, x: Math.min(Math.max(0, pt.x), 1 - w), y: Math.min(Math.max(0, pt.y - lh / 2), 1 - lh), w, h: 0, cell: false };
   };
 
+  const activeTouches = new Map();
+  let pinch = null;
+  let panning = null;
+  let spaceDown = false;
+
   canvas.style.touchAction = 'none';
   canvas.addEventListener('contextmenu', (e) => e.preventDefault());
   canvas.addEventListener('pointerover', (e) => { if (e.pointerType === 'pen') { pen.inRange = true; pen.lastSeen = Date.now(); } });
@@ -269,6 +358,50 @@ export async function renderBoard(host, params, app) {
     if (e.pointerType === 'pen') { pen.inRange = true; pen.lastSeen = Date.now(); }
     if (swallow) { swallow = false; return; } // this tap only closed a panel
     if (remote) return;
+
+    if (e.pointerType === 'touch') {
+      activeTouches.set(e.pointerId, { clientX: e.clientX, clientY: e.clientY });
+      if (activeTouches.size >= 2) {
+        if (drawing && drawing.type === 'touch') {
+          const s = drawing.stroke;
+          if (s && own.strokes.length && own.strokes[own.strokes.length - 1].id === s.id) {
+            own.strokes.pop();
+            emit({ t: 'undo' });
+          }
+          drawing = null;
+          paintInk();
+          compose();
+        }
+        if (editing) commitEditor();
+
+        const touches = Array.from(activeTouches.values());
+        const p1 = touches[0], p2 = touches[1];
+        const dist = Math.hypot(p1.clientX - p2.clientX, p1.clientY - p2.clientY);
+        const midX = (p1.clientX + p2.clientX) / 2;
+        const midY = (p1.clientY + p2.clientY) / 2;
+        const b = canvas.getBoundingClientRect();
+        const curR = rect();
+        const boardPtX = curR.w > 0 ? (midX - b.left - curR.x) / curR.w : 0.5;
+        const boardPtY = curR.h > 0 ? (midY - b.top - curR.y) / curR.h : 0.5;
+
+        pinch = {
+          startDist: Math.max(10, dist),
+          startZoom: viewport.zoom,
+          boardPtX,
+          boardPtY,
+        };
+        e.preventDefault();
+        return;
+      }
+    }
+
+    if (e.button === 1 || spaceDown) {
+      panning = { startX: e.clientX, startY: e.clientY, initPanX: viewport.panX, initPanY: viewport.panY, pointerId: e.pointerId };
+      try { canvas.setPointerCapture(e.pointerId); } catch {}
+      e.preventDefault();
+      return;
+    }
+
     if (shouldRejectTouch(e, pen)) { e.preventDefault(); return; } // palm rejection
     if (e.pointerType === 'mouse' && e.button !== 0 && !isEraserEvent(e)) return;
     if (drawing) { // a pen landing while a finger is drawing takes over
@@ -305,6 +438,42 @@ export async function renderBoard(host, params, app) {
   });
   canvas.addEventListener('pointermove', (e) => {
     if (e.pointerType === 'pen') { pen.inRange = true; pen.lastSeen = Date.now(); }
+
+    if (e.pointerType === 'touch' && activeTouches.has(e.pointerId)) {
+      activeTouches.set(e.pointerId, { clientX: e.clientX, clientY: e.clientY });
+      if (activeTouches.size >= 2 && pinch) {
+        e.preventDefault();
+        const touches = Array.from(activeTouches.values());
+        const p1 = touches[0], p2 = touches[1];
+        const dist = Math.hypot(p1.clientX - p2.clientX, p1.clientY - p2.clientY);
+        const midX = (p1.clientX + p2.clientX) / 2;
+        const midY = (p1.clientY + p2.clientY) / 2;
+
+        const scale = dist / pinch.startDist;
+        const newZoom = Math.min(5.0, Math.max(0.6, pinch.startZoom * scale));
+        const b = canvas.getBoundingClientRect();
+        const base = boardRect(W, H);
+
+        viewport.zoom = newZoom;
+        viewport.panX = (midX - b.left) - base.x - pinch.boardPtX * (base.w * newZoom);
+        viewport.panY = (midY - b.top) - base.y - pinch.boardPtY * (base.h * newZoom);
+        clampPan();
+        redrawSoon();
+        paintBar();
+        return;
+      }
+    }
+
+    if (panning && e.pointerId === panning.pointerId) {
+      viewport.panX = panning.initPanX + (e.clientX - panning.startX);
+      viewport.panY = panning.initPanY + (e.clientY - panning.startY);
+      clampPan();
+      redrawSoon();
+      paintBar();
+      e.preventDefault();
+      return;
+    }
+
     if (!drawing) {
       if (tool.mode === 'text' && !remote && !editing) {
         const pt = toPoint(e), c = pt.x >= 0 && pt.x <= 1 && pt.y >= 0 && pt.y <= 1 && !hitText(pt) ? findCell(own, pt) : null;
@@ -349,6 +518,15 @@ export async function renderBoard(host, params, app) {
   };
   const up = (e) => {
     if (e.pointerType === 'pen') pen.lastSeen = Date.now();
+    if (e.pointerType === 'touch') {
+      activeTouches.delete(e.pointerId);
+      if (activeTouches.size < 2) pinch = null;
+    }
+    if (panning && e.pointerId === panning.pointerId) {
+      panning = null;
+      try { canvas.releasePointerCapture(e.pointerId); } catch {}
+      return;
+    }
     if (!drawing || e.pointerId !== drawing.pointerId) return;
     if (drawing.stroke) { if (e.type === 'pointerup') addPoint(round(toPoint(e))); drawTail(); }
     if (drawing.line && e.type === 'pointerup') drawing.b = polarEnd(own, drawing.a, toPoint(e));
@@ -357,11 +535,39 @@ export async function renderBoard(host, params, app) {
   };
   canvas.addEventListener('pointerup', up);
   canvas.addEventListener('pointercancel', up);
+
+  canvas.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    const b = canvas.getBoundingClientRect();
+    const base = boardRect(W, H);
+    if (e.ctrlKey) {
+      const factor = Math.exp(-e.deltaY * 0.005);
+      const oldZoom = viewport.zoom;
+      const newZoom = Math.min(5.0, Math.max(0.6, oldZoom * factor));
+      const curR = rect();
+      const boardPtX = curR.w > 0 ? (e.clientX - b.left - curR.x) / curR.w : 0.5;
+      const boardPtY = curR.h > 0 ? (e.clientY - b.top - curR.y) / curR.h : 0.5;
+
+      viewport.zoom = newZoom;
+      viewport.panX = (e.clientX - b.left) - base.x - boardPtX * (base.w * newZoom);
+      viewport.panY = (e.clientY - b.top) - base.y - boardPtY * (base.h * newZoom);
+      clampPan();
+      redrawSoon();
+      paintBar();
+    } else {
+      viewport.panX -= e.deltaX;
+      viewport.panY -= e.deltaY;
+      clampPan();
+      redrawSoon();
+      paintBar();
+    }
+  }, { passive: false });
+
   function drawTail() {
     if (!drawing || !drawing.stroke) return;
     const s = drawing.stroke;
     ictx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    drawStrokeTail(ictx, own, s, drawing.drawn, W, H);
+    drawStrokeTail(ictx, own, s, drawing.drawn, W, H, rect());
     drawing.drawn = s.points.length; // next call draws the segments ending at the new points
     compose();
   }
@@ -593,6 +799,10 @@ export async function renderBoard(host, params, app) {
       ...(sharedIndicator() || []),
       h('div.spacer'),
       ...(net ? [moreMenu(watching)] : []),
+      (viewport.zoom !== 1 || Math.abs(viewport.panX) > 1 || Math.abs(viewport.panY) > 1) ? h('button.btn.btn-sm.btn-ghost', {
+        onclick: resetZoom, title: 'Reimposta zoom (100%)',
+        style: { fontSize: '0.8rem', padding: '0.2rem 0.5rem', fontWeight: 'bold' }
+      }, `${Math.round(viewport.zoom * 100)}%`) : null,
       h('button.btn.btn-sm.btn-icon', {
         onclick: toggleFullScreen,
         title: isFullScreen ? 'Esci da schermo intero' : 'Schermo intero'
@@ -743,7 +953,7 @@ export async function renderBoard(host, params, app) {
     m = modal({ title: 'Lavagne salvate', wide: true, body, buttons: [{ label: 'Chiudi' }] });
   }
 
-  // ---- full screen + ESC
+  // ---- full screen + ESC + zoom & pan shortcuts
   const onKey = (e) => {
     if (document.querySelector('.modal-backdrop')) return;
     if (e.key === 'Escape') {
@@ -753,13 +963,46 @@ export async function renderBoard(host, params, app) {
       exit();
       return;
     }
+    if (e.code === 'Space' && !editing && !/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement && document.activeElement.tagName)) {
+      spaceDown = true;
+      canvas.style.cursor = 'grab';
+    }
     if (editing || /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement && document.activeElement.tagName)) return;
     if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === 'z') { e.preventDefault(); undo(); }
     if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === 'c') { e.preventDefault(); copyBoardToClipboard(); }
+    if ((e.ctrlKey || e.metaKey) && (e.key === '+' || e.key === '=')) {
+      e.preventDefault();
+      const base = boardRect(W, H);
+      const newZoom = Math.min(5.0, viewport.zoom * 1.25);
+      viewport.zoom = newZoom;
+      viewport.panX = (W / 2) - base.x - 0.5 * (base.w * newZoom);
+      viewport.panY = (H / 2) - base.y - 0.5 * (base.h * newZoom);
+      clampPan(); redrawSoon(); paintBar();
+    }
+    if ((e.ctrlKey || e.metaKey) && (e.key === '-' || e.key === '_')) {
+      e.preventDefault();
+      const base = boardRect(W, H);
+      const newZoom = Math.max(0.6, viewport.zoom / 1.25);
+      viewport.zoom = newZoom;
+      viewport.panX = (W / 2) - base.x - 0.5 * (base.w * newZoom);
+      viewport.panY = (H / 2) - base.y - 0.5 * (base.h * newZoom);
+      clampPan(); redrawSoon(); paintBar();
+    }
+    if ((e.ctrlKey || e.metaKey) && e.key === '0') {
+      e.preventDefault();
+      resetZoom();
+    }
+  };
+  const onKeyUp = (e) => {
+    if (e.code === 'Space') {
+      spaceDown = false;
+      canvas.style.cursor = tool.mode === 'text' ? 'text' : 'crosshair';
+    }
   };
   document.addEventListener('keydown', onKey);
+  document.addEventListener('keyup', onKeyUp);
 
-  host.append(h('div.board-root', { style: { position: 'relative' } }, bar, floatBtn, wrap));
+  host.append(h('div.board-root', bar, floatBtn, wrap));
   canvas.style.cursor = tool.mode === 'text' ? 'text' : 'crosshair';
   paintBar();
   const ro = new ResizeObserver(resize);
@@ -793,16 +1036,17 @@ export async function renderBoard(host, params, app) {
   return async () => {
     leaving = true;
     if (editing) commitEditor();
+    exitFullScreen();
+    document.body.classList.remove('board-mode');
+    document.body.classList.remove('focus-mode');
     document.removeEventListener('keydown', onKey);
+    document.removeEventListener('keyup', onKeyUp);
     document.removeEventListener('fullscreenchange', onFs);
     document.removeEventListener('pointerdown', onDocDown, true);
     window.removeEventListener('resize', resize);
     window.removeEventListener('paste', onPaste);
     ro.disconnect();
     offs.forEach((f) => f());
-    document.body.classList.remove('focus-mode');
     if (net) { net.stopBrowse().catch(() => {}); net.disconnect().catch(() => {}); }
-    if (platform.isElectron && electronApi.setFullScreen) electronApi.setFullScreen(false).catch(() => {});
-    else if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(() => {});
   };
 }
