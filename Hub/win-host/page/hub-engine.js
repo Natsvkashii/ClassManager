@@ -16,6 +16,17 @@ const SERVICE = 'deskhub';
 const PROTO = 2;
 const MAX_LINE = 128 * 1024 * 1024;
 const BATCH = 100;
+// big records (StudyDesk book pieces, ~1.4 MB each) go a few at a time so no message nears MAX_LINE
+const BIG_KEY = /\/book(chunk|file):/;
+const BIG_BATCH = 8;
+const PUT_BYTES = 12 * 1024 * 1024;
+/** Keys in request groups: small records BATCH at a time, big ones BIG_BATCH at a time. */
+function keyBatches(keys) {
+  const out = [], small = keys.filter((k) => !BIG_KEY.test(k)), big = keys.filter((k) => BIG_KEY.test(k));
+  for (let i = 0; i < small.length; i += BATCH) out.push(small.slice(i, i + BATCH));
+  for (let i = 0; i < big.length; i += BIG_BATCH) out.push(big.slice(i, i + BIG_BATCH));
+  return out;
+}
 const APP_RE = /^[A-Za-z0-9._-]{1,64}$/;
 const nowIso = () => new Date().toISOString();
 
@@ -293,14 +304,18 @@ async function createEngine(opts = {}) {
       for (const k of p.delLocal) agreed[k] = local[k];
       for (const k of p.conflict) delete agreed[k];
       const fetched = {}, wantKeys = [...toPull, ...p.conflict];
-      for (let i = 0; i < wantKeys.length; i += BATCH) Object.assign(fetched, (await conn.request({ t: 'get', keys: wantKeys.slice(i, i + BATCH) })).records || {});
+      for (const keys of keyBatches(wantKeys)) Object.assign(fetched, (await conn.request({ t: 'get', keys })).records || {});
       const pulled = [];
       for (const k of toPull) { if (!fetched[k]) { delete agreed[k]; continue; } await storeRecord(k, fetched[k]); pulled.push(k); }
-      for (let i = 0; i < toPush.length; i += BATCH) {
-        const recs = {};
-        for (const k of toPush.slice(i, i + BATCH)) { const r = await getRecord(k); if (r) recs[k] = r; else delete agreed[k]; }
-        if (Object.keys(recs).length) await conn.request({ t: 'put', records: recs });
+      let recs = {}, n = 0, bytes = 0;
+      const flush = async () => { if (n) await conn.request({ t: 'put', records: recs }); recs = {}; n = 0; bytes = 0; };
+      for (const k of toPush) {
+        const r = await getRecord(k);
+        if (!r) { delete agreed[k]; continue; }
+        recs[k] = r; n++; bytes += JSON.stringify(r).length;
+        if (n >= BATCH || bytes >= PUT_BYTES) await flush();
       }
+      await flush();
       if (Object.keys(agreed).length) await conn.request({ t: 'base', hashes: agreed });
       await writeBase(id, mergeBase(base, agreed));
       const fresh = []; let isNew = 0;

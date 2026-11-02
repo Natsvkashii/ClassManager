@@ -91,7 +91,7 @@ public final class BookTransfer {
     public private(set) var entries: [Entry] = []
     @ObservationIgnored private var busy = false
     @ObservationIgnored private var sending: Set<String> = []
-    @ObservationIgnored private var sentThisRun: Set<String> = []
+    @ObservationIgnored private var sentAt: [String: Date] = [:]
 
     private var dismissed: [String: String] {
         get { UserDefaults.standard.dictionary(forKey: "bookTransferDismissed") as? [String: String] ?? [:] }
@@ -117,31 +117,41 @@ public final class BookTransfer {
         busy = true
         defer { busy = false }
         let recs = DeskHubRecords(app: "studydesk")
-        let files = recs.fileNames().filter(BookTransferLogic.isTransferFile)
-        var manifests: [String: [String: Any]] = [:]
-        for f in files {
+        // live transfer files only: devices with an older StudyDesk turn pieces into tombstones ("deleted": true)
+        var files: [String] = [], manifests: [String: [String: Any]] = [:]
+        for f in recs.fileNames() where BookTransferLogic.isTransferFile(f) {
             let k = BookTransferLogic.keyOfFile(f)
-            guard k.hasPrefix("bookfile:"), let r = recs.get(k), !(r["deleted"] as? Bool ?? false),
-                  var v = r["value"] as? [String: Any], let id = v["id"] as? String, v["tid"] is String else { continue }
-            v["device"] = r["device"]
-            manifests[id] = v
+            if k.hasPrefix("bookfile:") {
+                guard let r = recs.get(k), !(r["deleted"] as? Bool ?? false),
+                      var v = r["value"] as? [String: Any], let id = v["id"] as? String, v["tid"] is String else { continue }
+                v["device"] = r["device"]
+                manifests[id] = v
+                files.append(f)
+            } else {
+                let size = (try? FileManager.default.attributesOfItem(atPath: recs.folder.appendingPathComponent(f).path)[.size] as? Int) ?? 0
+                if size > 1024 || (recs.get(k).map { !($0["deleted"] as? Bool ?? false) } ?? false) { files.append(f) }
+            }
         }
         let has = Set(store.modules.map(\.id))
-        send(store, manifests, has)
+        send(store, manifests, has, files)
         receive(store, manifests, has, files, connected)
     }
 
-    private func send(_ store: AppStore, _ manifests: [String: [String: Any]], _ has: Set<String>) {
+    private func send(_ store: AppStore, _ manifests: [String: [String: Any]], _ has: Set<String>, _ files: [String]) {
+        let me = DeskHubPaths.deviceId
         for b in store.books {
             let ids = b.chapters.map(\.moduleId)
-            guard !ids.isEmpty, ids.allSatisfy(has.contains), !sentThisRun.contains(b.id), !sending.contains(b.id) else { continue }
-            let all = store.chapters(of: b).map(\.id)
-            guard BookTransferLogic.needsPublish(manifests[b.id], chapters: all), let pkg = store.bookPackage(b.id) else { continue }
-            sending.insert(b.id); sentThisRun.insert(b.id)
+            guard !ids.isEmpty, ids.allSatisfy(has.contains), !sending.contains(b.id),
+                  Date().timeIntervalSince(sentAt[b.id] ?? .distantPast) > 600 else { continue }
+            let all = store.chapters(of: b).map(\.id), m = manifests[b.id]
+            // publish when no copy has these chapters, or when pieces of the copy this Mac published were deleted
+            let broken = m.map { ($0["device"] as? String) == me && BookTransferLogic.countChunks(files, id: b.id, tid: $0["tid"] as? String ?? "") < ($0["chunks"] as? Int ?? 0) } ?? false
+            guard BookTransferLogic.needsPublish(m, chapters: all) || broken, let pkg = store.bookPackage(b.id) else { continue }
+            sending.insert(b.id); sentAt[b.id] = Date()
             let old = manifests[b.id], id = b.id, title = b.title, from = deviceName
             Task.detached(priority: .utility) {
                 let ok = Self.publish(pkg, id: id, title: title, chapters: all, from: from, old: old)
-                await MainActor.run { self.sending.remove(id); if !ok { self.sentThisRun.remove(id) } }
+                await MainActor.run { self.sending.remove(id); if !ok { self.sentAt[id] = nil } }
             }
         }
     }

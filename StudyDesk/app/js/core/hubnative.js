@@ -14,7 +14,7 @@
 // records-mirror.js, deskhub-records.js) done in the page, with the native host giving file access inside %APPDATA%\DeskHub
 // and the local channel. It installs window.studydesk.hubdesk with the same API as the Electron preload, so core/hubdesk.js
 // does not change. Same records and rules as Hub/HUBDESK.md §1, §4, §5.
-import { localRecords, applyRecords } from './syncstore.js';
+import { localRecords, applyRecords, brokenBookKeys, mirrorDbId } from './syncstore.js';
 import { bookTransferStep, setTransferDevice } from './booktransfer.js';
 import { isTransferFile } from './booktransferlogic.js';
 
@@ -140,11 +140,19 @@ function createService() {
   async function run() {
     if (typeof indexedDB === 'undefined') return;
     const me = (await settings()).deviceId;
-    if (!known) known = (await readJSON('mirror-studydesk.json')) || {};
+    if (!known) {
+      known = (await readJSON('mirror-studydesk.json')) || {};
+      // the memory belongs to one local archive: another one (the Electron app's, an archive emptied by a reinstall)
+      // would read every record it lacks as "deleted here" and delete it everywhere
+      const db = await mirrorDbId();
+      if (known.__db !== db) { if (Object.keys(known).length) console.warn('HubDesk: archivio locale diverso, memoria di sincronizzazione azzerata'); known = { __db: db }; }
+    }
+    // a book card emptied by an older version is taken again from HubDesk instead of being read as deleted
+    for (const k of await brokenBookKeys()) delete known[k];
     const local = await localRecords();
     const tombs = new Set(Object.keys(local).filter((k) => k.startsWith(DELETED)).map((k) => k.slice(DELETED.length)));
     const live = Object.fromEntries(Object.entries(local).filter(([k]) => !k.startsWith(DELETED)));
-    if (!Object.keys(live).length && !tombs.size) known = {};
+    if (!Object.keys(live).length && !tombs.size) known = { __db: known.__db };
     const hub = await hubRecords();
     const toApply = {}, toRemoveLocal = [];
     for (const key of new Set([...Object.keys(live), ...Object.keys(hub), ...tombs])) {
@@ -165,6 +173,7 @@ function createService() {
     setTransferDevice(s.deviceName);
     await bookTransferStep({
       list: () => window.__sd_hub_list(FOLDER),
+      me,
       get: (key) => readJSON(`${FOLDER}/${encodeKey(key)}`),
       put: (key, value, deleted = false) => writeJSON(`${FOLDER}/${encodeKey(key)}`, { key, app: 'studydesk', updatedAt: new Date().toISOString(), device: me, deleted, value: deleted ? null : value }),
       deviceName: s.deviceName || '',

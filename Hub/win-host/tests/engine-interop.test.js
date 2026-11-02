@@ -84,3 +84,33 @@ test('native engine ↔ Electron engine: hello with the code, records both ways,
     fs.rmSync(dirW, { recursive: true, force: true }); fs.rmSync(dirM, { recursive: true, force: true });
   }
 });
+
+test('book pieces (~1.4 MB records): a few per request both ways, all of them arrive', async () => {
+  const dirW = fs.mkdtempSync(path.join(os.tmpdir(), 'hd-win-')), dirM = fs.mkdtempSync(path.join(os.tmpdir(), 'hd-el-'));
+  fs.writeFileSync(path.join(dirW, 'settings.json'), JSON.stringify({ deviceId: 'b-win', deviceName: 'Surface', syncCode: 'prova-123', syncEnabled: true }));
+  fs.writeFileSync(path.join(dirM, 'settings.json'), JSON.stringify({ deviceId: 'a-mac', deviceName: 'Mac', syncCode: 'prova-123', syncEnabled: true }));
+  const big = (i) => ({ id: 'b', tid: 't', n: i, data: String(i % 10).repeat(1400 * 1024) });
+  for (let i = 0; i < 20; i++) { put(dirM, 'studydesk', `bookchunk:b:mac:${i}`, big(i), 'a-mac'); put(dirW, 'studydesk', `bookchunk:b:win:${i}`, big(i), 'b-win'); }
+  global.window = fakeBridges(dirW);
+  const sent = [], send = window.__hd_tcp_send;
+  window.__hd_tcp_send = async (id, t) => { sent.push(t); return send(id, t); };
+  const { createEngine } = loadNativeEngine();
+  const win = await createEngine({ version: '26.11.0-012', pingMs: 60000 });
+  await win.start();
+  const mac = createElectronEngine({ dir: dirM, bonjour: false, version: '26.11.0-012', pingMs: 60000 });
+  await mac.start();
+  const count = (dir, tag) => fs.readdirSync(path.join(dir, 'records', 'studydesk')).filter((n) => n.includes(`%3A${tag}%3A`)).length;
+  try {
+    await mac.connectTo('127.0.0.1', win.getState().port);
+    assert.ok(await until(() => count(dirW, 'mac') === 20 && count(dirM, 'win') === 20, 30000), 'all pieces arrived on both sides');
+    const lines = sent.join('').split('\n').filter(Boolean).map((l) => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean);
+    const gets = lines.filter((m) => m.t === 'get');
+    assert.ok(gets.length >= 1 && gets.every((m) => m.keys.length <= 8), `get requests of at most 8 pieces (${gets.map((m) => m.keys.length)})`);
+    // its own requests and sends stay small (replies are as big as the peer asks: the macOS engine asks 8 pieces at a time)
+    const own = sent.join('').split('\n').filter((l) => /^\{"t":"(put|get)"/.test(l) || /"t":"(put|get)"/.test(l.slice(0, 200)));
+    assert.ok(own.length && own.every((l) => l.length < 14 * 1024 * 1024), `no request near the line limit (${own.map((l) => Math.round(l.length / 1048576))} MB)`);
+  } finally {
+    await mac.stop(); await win.stop(); window._closeAll();
+    fs.rmSync(dirW, { recursive: true, force: true }); fs.rmSync(dirM, { recursive: true, force: true });
+  }
+});

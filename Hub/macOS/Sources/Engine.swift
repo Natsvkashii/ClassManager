@@ -608,8 +608,13 @@ public final class HubEngine {
         for k in plan.delRemote { pullKeys.append(k); agreed[k] = remote[k] }
         let fetch = pullKeys + plan.conflict
         var got: [String: [String: Any]] = [:]
-        if !fetch.isEmpty {
-            guard let gr = await conn.request(["t": "get", "keys": fetch]), let recs = gr["records"] as? [String: Any] else { return }
+        // big records (StudyDesk book pieces, ~1.4 MB each) a few at a time, so no reply nears the 128 MB line limit of HubDesk Windows
+        let isBig = { (k: String) in k.contains("/bookchunk:") || k.contains("/bookfile:") }
+        let small = fetch.filter { !isBig($0) }, big = fetch.filter(isBig)
+        let groups = stride(from: 0, to: small.count, by: 100).map { Array(small[$0..<min(small.count, $0 + 100)]) }
+            + stride(from: 0, to: big.count, by: 8).map { Array(big[$0..<min(big.count, $0 + 8)]) }
+        for keys in groups {
+            guard let gr = await conn.request(["t": "get", "keys": keys], timeout: 60), let recs = gr["records"] as? [String: Any] else { return }
             for (k, v) in recs { if let r = v as? [String: Any] { got[k] = r } }
         }
         var wroteByApp: [String: [String]] = [:]

@@ -24,7 +24,9 @@ import {
 } from './booktransferlogic.js';
 
 const entries = new Map();  // book id -> { id, title, from, tid, done, total, status, error, log, t }
-const sentThisRun = new Set();
+const sentAt = new Map();   // book id -> when this device last published it
+const RESEND_MS = 10 * 60 * 1000;
+const LIVE_SIZE = 1024;     // a piece file this small is a tombstone (or a tiny last piece): read it to know
 let busy = false;
 
 const stamp = () => new Date().toLocaleTimeString('it-IT');
@@ -43,24 +45,27 @@ const fromB64 = (s) => { const bin = atob(s); const out = new Uint8Array(bin.len
 const dismissed = async () => (await kv.get('bookTransferDismissed')) || {};
 
 /**
- * One pass. io: { list() -> [{n}], get(key) -> record|null, put(key, value, deleted?), deviceName, connected }.
+ * One pass. io: { list() -> [{n, s}], get(key) -> record|null, put(key, value, deleted?), me, deviceName, connected }.
  */
 export async function bookTransferStep(io) {
   if (busy) return;
   busy = true;
   try {
-    const files = ((await io.list()) || []).map((f) => f.n).filter(isTransferFile);
-    const manifests = {};
-    for (const n of files) {
-      const k = keyOfFile(n);
-      if (!k.startsWith('bookfile:')) continue;
-      const r = await io.get(k);
-      if (r && !r.deleted && r.value && r.value.tid) manifests[r.value.id] = { ...r.value, device: r.device };
+    // live transfer files only: devices with an older StudyDesk turn pieces into tombstones ("deleted": true)
+    const files = [], manifests = {};
+    for (const f of (await io.list()) || []) {
+      if (!isTransferFile(f.n)) continue;
+      const k = keyOfFile(f.n);
+      if (k.startsWith('bookfile:')) {
+        const r = await io.get(k);
+        if (r && !r.deleted && r.value && r.value.tid) { manifests[r.value.id] = { ...r.value, device: r.device }; files.push(f.n); }
+      } else if (f.s > LIVE_SIZE) files.push(f.n);
+      else { const r = await io.get(k); if (r && !r.deleted) files.push(f.n); }
     }
     const mods = new Set((await listModules()).map((m) => m.id));
     const has = (id) => mods.has(id);
     const recs = await listBookRecs();
-    await send(io, recs, manifests, has);
+    await send(io, recs, manifests, has, files);
     await receive(io, recs, manifests, has, files);
   } catch (e) {
     console.error('Trasferimento libri:', e);
@@ -70,11 +75,14 @@ export async function bookTransferStep(io) {
   }
 }
 
-async function send(io, recs, manifests, has) {
+async function send(io, recs, manifests, has, files) {
   for (const rec of recs) {
-    const meta = rec.book;
-    if (!canSend(meta, has) || !needsPublish(manifests[rec.id], meta) || sentThisRun.has(rec.id)) continue;
-    sentThisRun.add(rec.id);
+    const meta = rec.book, m = manifests[rec.id];
+    if (!canSend(meta, has) || Date.now() - (sentAt.get(rec.id) || 0) < RESEND_MS) continue;
+    // publish when no copy has this book's chapters, or when pieces of the copy this device published were deleted
+    const broken = m && m.device === io.me && countChunks(files, rec.id, m.tid) < m.chunks;
+    if (!needsPublish(m, meta) && !broken) continue;
+    sentAt.set(rec.id, Date.now());
     try {
       const bytes = new Uint8Array(await (await exportSdbook(rec.id)).arrayBuffer());
       const sha = await sha256Hex(bytes), tid = sha.slice(0, 16);
@@ -86,7 +94,7 @@ async function send(io, recs, manifests, has) {
       manifests[rec.id] = { tid, chapters: chapterIds(meta) };
     } catch (e) {
       console.error('Invio libro', rec.id, e);
-      sentThisRun.delete(rec.id);
+      sentAt.delete(rec.id);
     }
   }
 }

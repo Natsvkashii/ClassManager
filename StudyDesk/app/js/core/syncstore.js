@@ -42,6 +42,18 @@ export async function localRecords() {
   return out;
 }
 
+/** book: keys whose local card has no book.json (left empty by StudyDesk 010's sync): they are not exported. */
+export async function brokenBookKeys() {
+  return (await db.all('books')).filter((b) => !(b.book && b.book.title)).map((b) => `book:${b.id}`);
+}
+
+/** Identity of this local archive, kept with the HubDesk records memory (core/hubnative.js). */
+export async function mirrorDbId() {
+  let id = await kv.get('mirrorDbId');
+  if (!id) { id = uid(); await kv.set('mirrorDbId', id); }
+  return id;
+}
+
 export async function removeRecords(keys) {
   for (const key of keys) {
     if (key.startsWith('group:')) {
