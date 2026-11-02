@@ -78,27 +78,27 @@ struct ContentView: View {
                 if updateManager.updateAvailable && !updateManager.bannerDismissed, let rel = updateManager.latestRelease {
                     UpdateBanner(release: rel)
                 }
-                ZStack(alignment: .bottomTrailing) {
-                    workspace
-                        // each page comes in softly (fade + short rise); the board opens at once (full screen)
-                        .id(store.currentTab)
-                        .transition(store.currentTab == .board ? .identity : .opacity.combined(with: .offset(y: 8)))
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        .background(colorScheme == .dark ? Theme.canvasDark : Theme.canvasLight)
-                        .animation(reduceMotion ? nil : .easeOut(duration: 0.25), value: store.currentTab)
-                    if let toast = store.toastMessage {
-                        HStack(spacing: 10) {
-                            Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
-                            Text(toast).font(.subheadline.bold()).foregroundStyle(.white)
+                workspace
+                    .id(store.currentTab)
+                    .transition(store.currentTab == .board ? .identity : .opacity.combined(with: .offset(y: 8)))
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                    .background(colorScheme == .dark ? Theme.canvasDark : Theme.canvasLight)
+                    .animation(reduceMotion ? nil : .easeOut(duration: 0.25), value: store.currentTab)
+                    .overlay(alignment: .bottomTrailing) {
+                        if let toast = store.toastMessage {
+                            HStack(spacing: 10) {
+                                Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
+                                Text(toast).font(.subheadline.bold()).foregroundStyle(.white)
+                            }
+                            .padding(.horizontal, 16).padding(.vertical, 12)
+                            .background(RoundedRectangle(cornerRadius: 12).fill(Color.black.opacity(0.86)).shadow(radius: 8))
+                            .padding(20)
+                            .transition(.move(edge: .bottom).combined(with: .opacity))
                         }
-                        .padding(.horizontal, 16).padding(.vertical, 12)
-                        .background(RoundedRectangle(cornerRadius: 12).fill(Color.black.opacity(0.86)).shadow(radius: 8))
-                        .padding(20)
-                        .transition(.move(edge: .bottom).combined(with: .opacity))
                     }
-                }
             }
         }
+        .navigationSplitViewStyle(.balanced)
         .tint(Theme.accent)
         .sheet(isPresented: Binding(get: { store.state.profile == nil || store.state.role == nil }, set: { _ in })) {
             OnboardingView().environment(store).interactiveDismissDisabled()
@@ -236,11 +236,6 @@ struct SidebarView: View {
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                HStack(spacing: 4) {
-                    Text("\(AuthorAttribution.appName) v\(AuthorAttribution.appVersion)").font(.system(size: 9.5, weight: .medium)).foregroundStyle(.secondary)
-                    Text("[\(AuthorAttribution.channelDisplayName)]").font(.system(size: 8.5, weight: .bold)).foregroundStyle(AuthorAttribution.channelBadgeColor)
-                }
-                .frame(maxWidth: .infinity)
             }
             .padding(.horizontal, 10).padding(.vertical, 8)
         }

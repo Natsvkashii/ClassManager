@@ -18,7 +18,7 @@ public enum AuthorAttribution {
     public static let authorName = "Guaira Jaramillo Nitoglia"
     public static let authorEmail = "guaira.jaramillo.nitoglia@gmail.com"
     public static let appName = "ClassDesk"
-    public static let appVersion = "26.11.0-007"
+    public static let appVersion = "26.11.0-008"
 
     /// Centralized channel indicator: 0 = Stable, 1 = Unstable / Beta
     public static let isUnstableBuild: Int = 1

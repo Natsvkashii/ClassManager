@@ -46,8 +46,8 @@ async function store(name, mode = 'readonly') {
   return db.transaction(name, mode).objectStore(name);
 }
 
-// Data that HubDesk mirrors (groups, results, sync tombstones): tell the app that something was saved (records mirror, hubdesk.js).
-const MIRRORED = new Set(['groups', 'progress']);
+// Data that HubDesk mirrors (groups, results, books, groupProgress, sync tombstones): tell the app that something was saved (records mirror, hubdesk.js).
+const MIRRORED = new Set(['groups', 'progress', 'books', 'groupProgress']);
 function wrote(name, value) {
   if ((MIRRORED.has(name) || (name === 'kv' && value && value.key === 'syncTombstones')) && typeof window !== 'undefined' && window.dispatchEvent) window.dispatchEvent(new Event('studydesk:db-write'));
 }

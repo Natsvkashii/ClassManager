@@ -53,7 +53,7 @@ export const W_MIN = 0.001, W_MAX = 0.03;
 export const widthFromSlider = (v) => W_MIN * Math.pow(W_MAX / W_MIN, Math.min(1, Math.max(0, v)));
 export const sliderFromWidth = (w) => Math.min(1, Math.max(0, Math.log(Math.max(W_MIN, w) / W_MIN) / Math.log(W_MAX / W_MIN)));
 
-export const newBoard = () => ({ strokes: [], texts: [], background: '#ffffff', grid: null });
+export const newBoard = () => ({ strokes: [], texts: [], images: [], background: '#ffffff', grid: null });
 export const strokeId = () => (globalThis.crypto && crypto.randomUUID ? crypto.randomUUID() : 'st-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8));
 
 // ---------------------------------------------------------------- colours
@@ -101,12 +101,23 @@ export function cleanText(t) {
   return {
     id: String(t.id), x: num(t.x, 0), y: num(t.y, 0), w: num(t.w, 0.25), h: num(t.h, 0), text: String(t.text || ''),
     size: num(t.size, 32 / TEXT_REF), color: t.color || '#111827', bold: !!t.bold, italic: !!t.italic, underline: !!t.underline,
-    align: ['left', 'center', 'right'].includes(t.align) ? t.align : 'left', cell: !!t.cell, v: num(t.v, 1),
+    align: ['left', 'center', 'right'].includes(t.align) ? t.align : 'left',
+    vAlign: ['top', 'middle', 'bottom'].includes(t.vAlign) ? t.vAlign : 'middle',
+    cell: !!t.cell, v: num(t.v, 1),
     ...(t.cw > 0 ? { cw: t.cw } : {}), // grid square: the box widens by whole squares (cw = square width)
   };
 }
+export const cleanImage = (img) => ({
+  id: String(img && img.id || ''), src: String(img && img.src || ''),
+  x: num(img && img.x, 0), y: num(img && img.y, 0), w: num(img && img.w, 0.35), h: num(img && img.h, 0.35)
+});
 const cleanGrid = (g) => (g && typeof g.g === 'number' && g.g > 0 ? { g: g.g, cm: num(g.cm, 1) } : null);
-const ensure = (board) => { if (!Array.isArray(board.texts)) board.texts = []; if (board.grid === undefined) board.grid = null; return board; };
+const ensure = (board) => {
+  if (!Array.isArray(board.texts)) board.texts = [];
+  if (!Array.isArray(board.images)) board.images = [];
+  if (board.grid === undefined) board.grid = null;
+  return board;
+};
 
 /** Applies a protocol message (snapshot, begin, pt, end, undo, clear, background, text, textdel, grid) to the board. Mutates and returns it. */
 export function applyMessage(board, m) {
@@ -115,6 +126,7 @@ export function applyMessage(board, m) {
     case 'snapshot':
       board.strokes = (Array.isArray(m.strokes) ? m.strokes : []).map(cleanStroke);
       board.texts = (Array.isArray(m.texts) ? m.texts : []).map(cleanText);
+      board.images = (Array.isArray(m.images) ? m.images : []).map(cleanImage);
       if (typeof m.background === 'string') board.background = m.background;
       if ('grid' in m) board.grid = cleanGrid(m.grid);
       break;
@@ -126,7 +138,14 @@ export function applyMessage(board, m) {
       break;
     }
     case 'undo': undoOf(board, null); break;
-    case 'clear': board.strokes = []; board.texts = []; break;
+    case 'clear': board.strokes = []; board.texts = []; board.images = []; break;
+    case 'image': {
+      const img = cleanImage(m.item);
+      const idx = board.images.findIndex((x) => x.id === img.id);
+      if (idx >= 0) board.images[idx] = img; else board.images.push(img);
+      break;
+    }
+    case 'imagedel': board.images = board.images.filter((x) => x.id !== m.id); break;
     case 'background':
       if (typeof m.color === 'string') { if (isDarkColor(m.color) !== isDarkColor(board.background)) recolorFor(board, m.color); board.background = m.color; }
       break;
@@ -149,10 +168,10 @@ export function upsertText(board, t) {
 export const beginMessage = (s) => (s.line ? { t: 'begin', id: s.id, color: s.color, w: s.w, eraser: s.eraser, line: true } : { t: 'begin', id: s.id, color: s.color, w: s.w, eraser: s.eraser });
 export const pointMessage = (id, pt) => ({ t: 'pt', id, x: pt.x, y: pt.y, p: pt.p });
 export const endMessage = (id) => ({ t: 'end', id });
-export const snapshotOf = (board) => ({ t: 'snapshot', strokes: board.strokes, texts: board.texts || [], background: board.background, grid: board.grid || null });
+export const snapshotOf = (board) => ({ t: 'snapshot', strokes: board.strokes, texts: board.texts || [], images: board.images || [], background: board.background, grid: board.grid || null });
 /** What is kept when a board is saved in a group. */
-export const boardData = (board) => JSON.parse(JSON.stringify({ strokes: board.strokes, texts: board.texts || [], background: board.background, grid: board.grid || null, date: board.date || null }));
-export const isEmptyBoard = (board) => !board.strokes.length && !(board.texts || []).length;
+export const boardData = (board) => JSON.parse(JSON.stringify({ strokes: board.strokes, texts: board.texts || [], images: board.images || [], background: board.background, grid: board.grid || null, date: board.date || null }));
+export const isEmptyBoard = (board) => !board.strokes.length && !(board.texts || []).length && !(board.images || []).length;
 
 /** Pressure to use for a pointer: pens report it, mice report 0.5 while pressed, touch usually 0 -> 0.5. */
 export function pressureOf(e) {
@@ -297,7 +316,14 @@ function drawText(ctx, t, r) {
   ctx.fillStyle = t.color; ctx.strokeStyle = t.color; ctx.textBaseline = 'alphabetic';
   ctx.textAlign = t.align;
   const tx = t.align === 'center' ? b.x + b.w / 2 : t.align === 'right' ? b.x + b.w - b.pad : b.x + b.pad;
-  let y = t.cell ? b.y + Math.max(b.pad, (b.h - b.contentH) / 2) : b.y + b.pad;
+  let y;
+  if (t.vAlign === 'top') {
+    y = b.y + b.pad;
+  } else if (t.vAlign === 'bottom') {
+    y = b.y + Math.max(b.pad, b.h - b.contentH - b.pad);
+  } else {
+    y = b.y + Math.max(b.pad, (b.h - b.contentH) / 2);
+  }
   for (const line of b.lines) {
     const base = y + b.lh * 0.5 + b.px * 0.36;
     ctx.fillText(line, tx, base);
@@ -365,13 +391,28 @@ export function drawInk(ctx, board, r) {
   for (const s of board.strokes) drawStroke(ctx, s, r);
   ctx.restore();
 }
-/** Background, grid, date and texts (everything under the ink). `skip` = id of the text being edited. */
+const imgCache = new Map();
+function drawImageItem(ctx, img, r) {
+  if (!img || !img.src) return;
+  let el = imgCache.get(img.src);
+  if (!el) {
+    el = new Image();
+    el.src = img.src;
+    imgCache.set(img.src, el);
+  }
+  if (el.complete && el.naturalWidth) {
+    ctx.drawImage(el, r.x + img.x * r.w, r.y + img.y * r.h, img.w * r.w, img.h * r.h);
+  }
+}
+
+/** Background, grid, date, images and texts (everything under the ink). `skip` = id of the text being edited. */
 export function drawPaper(ctx, board, r, { date = '', skip = null } = {}) {
   ctx.save();
   ctx.fillStyle = board.background; ctx.fillRect(r.x, r.y, r.w, r.h);
   ctx.beginPath(); ctx.rect(r.x, r.y, r.w, r.h); ctx.clip();
   drawGrid(ctx, board, r);
   drawDate(ctx, board, r, date);
+  for (const img of (board.images || [])) drawImageItem(ctx, img, r);
   for (const t of board.texts || []) if (t.id !== skip) drawText(ctx, t, r);
   ctx.restore();
 }
@@ -449,6 +490,10 @@ export function mergeSnapshot(board, m) {
     else if (s.points.length > cur.points.length) cur.points = s.points;
   }
   for (const raw of Array.isArray(m.texts) ? m.texts : []) upsertText(board, cleanText(raw));
+  for (const raw of Array.isArray(m.images) ? m.images : []) {
+    const img = cleanImage(raw);
+    if (!board.images.some((x) => x.id === img.id)) board.images.push(img);
+  }
   if (wasEmpty && !board.bgTouched && typeof m.background === 'string') board.background = m.background;
   if (wasEmpty && !board.gridTouched && 'grid' in m) board.grid = cleanGrid(m.grid);
   return board;

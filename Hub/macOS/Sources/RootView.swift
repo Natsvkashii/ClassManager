@@ -92,10 +92,12 @@ struct SettingsPage: View {
                         Toggle("Aggiornamenti automatici (con le app chiuse)", isOn: Binding(get: { apps.autoUpdate }, set: { apps.setAutoUpdate($0) }))
                         Toggle("Lavagna condivisa automatica con i dispositivi collegati", isOn: Binding(get: { model.autoBoard }, set: { model.setAutoBoard($0) }))
                         HStack {
-                            Text("Canale")
-                            Picker("Canale", selection: Binding(get: { apps.channel }, set: { apps.setChannel($0) })) {
-                                Text("Stabile").tag("stable"); Text("Unstable").tag("unstable")
-                            }.pickerStyle(.segmented).labelsHidden().frame(width: 170)
+                            Text("Canale di aggiornamento")
+                            Spacer()
+                            Picker("Canale di aggiornamento", selection: Binding(get: { apps.channel }, set: { apps.setChannel($0) })) {
+                                Text("Stabile").tag("stable")
+                                Text("Instabile (Beta)").tag("unstable")
+                            }.pickerStyle(.segmented).labelsHidden().frame(width: 200)
                         }
                     }
                     .toggleStyle(.switch)

@@ -536,14 +536,35 @@ public struct ModuleFormSheet: View {
                         store.state.courses[cIdx].levels[lIdx].modules[mIdx].description = desc.trimmingCharacters(in: .whitespaces)
                         store.state.courses[cIdx].levels[lIdx].modules[mIdx].googleMeetUrl = finalMeet
                     } else {
-                        let prevStudents = store.getActiveModule(for: store.state.courses[cIdx])?.studentIds ?? []
+                        let activeMod = store.getActiveModule(for: store.state.courses[cIdx]) ?? store.state.courses[cIdx].levels[lIdx].modules.last
+                        let prevStudents = activeMod?.studentIds ?? []
                         let nextIdx = store.state.courses[cIdx].levels[lIdx].modules.count + 1
-                        let newMod = CourseModule(
+                        var newMod = CourseModule(
                             name: cleanName.isEmpty ? "M\(nextIdx)" : cleanName,
                             description: desc.trimmingCharacters(in: .whitespaces),
                             studentIds: prevStudents,
                             googleMeetUrl: finalMeet
                         )
+                        if let prevBilling = activeMod?.billing {
+                            newMod.billing = ModuleBilling(
+                                hourlyRateNet: prevBilling.hourlyRateNet,
+                                lessonDurationHours: prevBilling.lessonDurationHours,
+                                vatPercent: prevBilling.vatPercent,
+                                discountType: prevBilling.discountType,
+                                discountTarget: prevBilling.discountTarget,
+                                discountValue: prevBilling.discountValue
+                            )
+                        } else {
+                            let courseBilling = store.state.courses[cIdx].billingConfig
+                            newMod.billing = ModuleBilling(
+                                hourlyRateNet: courseBilling.hourlyRateNet,
+                                lessonDurationHours: courseBilling.lessonDurationHours,
+                                vatPercent: courseBilling.vatPercent
+                            )
+                        }
+                        if let prevContacts = activeMod?.billingContactIds, !prevContacts.isEmpty {
+                            newMod.billingContactIds = prevContacts
+                        }
                         targetModId = newMod.id
                         store.state.courses[cIdx].levels[lIdx].modules.append(newMod)
                         store.switchModule(newMod.id)

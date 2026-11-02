@@ -33,6 +33,8 @@ export const saveSyncConfig = (c) => kv.set('syncConfig', c);
 export async function localRecords() {
   const out = {};
   for (const g of await db.all('groups')) out[groupKey(g.id)] = groupToRecord(g);
+  for (const b of await db.all('books')) out[`book:${b.id}`] = { id: b.id, book: b.book, source: b.source, importedAt: b.importedAt };
+  for (const gp of await db.all('groupProgress')) out[`groupProgress:${gp.key}`] = { key: gp.key, groupId: gp.groupId, studentId: gp.studentId, exportedAt: gp.exportedAt, importedAt: gp.importedAt, doc: gp.doc };
   for (const r of await db.all('progress')) { const v = progressToRecord(r); if (v) out[progressRecordKey(r)] = v; }
   for (const [k, at] of Object.entries(await getTombstones())) out[`deleted:${k}`] = { deletedAt: at };
   return out;
@@ -45,6 +47,8 @@ export async function removeRecords(keys) {
       for (const r of await db.byIndex('groupProgress', 'groupId', id)) await db.del('groupProgress', r.key);
       await db.del('groups', id);
     } else if (key.startsWith('progress:')) { const p = parseProgressKey(key); if (p) await db.del('progress', p.storeKey); }
+    else if (key.startsWith('book:')) { await db.del('books', key.slice(5)); }
+    else if (key.startsWith('groupProgress:')) { await db.del('groupProgress', key.slice(14)); }
     else if (key.startsWith('deleted:')) await clearTombstone(key.slice(8));
   }
 }
@@ -56,6 +60,26 @@ export async function applyRecords(records) {
     else if (key.startsWith('progress:')) {
       const p = parseProgressKey(key);
       if (p) await db.put('progress', recordToProgress(key, value, await db.get('progress', p.storeKey)));
+    } else if (key.startsWith('book:') && value.id) {
+      const existing = await db.get('books', value.id);
+      await db.put('books', {
+        id: value.id,
+        book: value.book || {},
+        source: value.source || existing?.source || 'sync',
+        importedAt: value.importedAt || existing?.importedAt || new Date().toISOString(),
+        coverBlob: existing?.coverBlob || null,
+      });
+      await clearTombstone(key);
+    } else if (key.startsWith('groupProgress:') && value.key) {
+      await db.put('groupProgress', {
+        key: value.key,
+        groupId: value.groupId,
+        studentId: value.studentId,
+        exportedAt: value.exportedAt || '',
+        importedAt: value.importedAt || new Date().toISOString(),
+        doc: value.doc || {},
+      });
+      await clearTombstone(key);
     } else if (key.startsWith('deleted:')) {
       await addTombstone(key.slice(8), value.deletedAt);
       await removeRecords([key.slice(8)]);

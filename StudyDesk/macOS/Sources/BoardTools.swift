@@ -19,6 +19,19 @@ import UniformTypeIdentifiers
 
 // MARK: - Items
 
+public struct BoardImage: Codable, Hashable, Identifiable {
+    public var id: String
+    public var src: String
+    public var x: Double
+    public var y: Double
+    public var w: Double
+    public var h: Double
+
+    public init(id: String = UUID().uuidString, src: String, x: Double, y: Double, w: Double, h: Double) {
+        self.id = id; self.src = src; self.x = x; self.y = y; self.w = w; self.h = h
+    }
+}
+
 public struct BoardText: Codable, Hashable, Identifiable {
     public var id: String
     public var x: Double = 0, y: Double = 0, w: Double = 0.25, h: Double = 0
@@ -27,9 +40,14 @@ public struct BoardText: Codable, Hashable, Identifiable {
     public var color: String = "#111827"
     public var bold = false, italic = false, underline = false
     public var align = "left"
+    public var vAlign = "middle"
     public var cell = false
     public var v: Double = 1
     public var cw: Double? = nil      // grid square: the box widens by whole squares
+
+    enum CodingKeys: String, CodingKey {
+        case id, x, y, w, h, text, size, color, bold, italic, underline, align, vAlign, cell, v, cw
+    }
 
     init(id: String) { self.id = id }
     public init(from d: Decoder) throws {
@@ -47,6 +65,8 @@ public struct BoardText: Codable, Hashable, Identifiable {
         underline = (try? c.decode(Bool.self, forKey: .underline)) ?? false
         let a = (try? c.decode(String.self, forKey: .align)) ?? "left"
         align = ["left", "center", "right"].contains(a) ? a : "left"
+        let va = (try? c.decode(String.self, forKey: .vAlign)) ?? "middle"
+        vAlign = ["top", "middle", "bottom"].contains(va) ? va : "middle"
         cell = (try? c.decode(Bool.self, forKey: .cell)) ?? false
         v = (try? c.decode(Double.self, forKey: .v)) ?? 1
         cw = (try? c.decode(Double.self, forKey: .cw)).flatMap { $0 > 0 ? $0 : nil }
@@ -240,6 +260,7 @@ extension DateFormatter {
 struct BoardContent {
     var strokes: [BoardStroke]
     var texts: [BoardText]
+    var images: [BoardImage] = []
     var background: String
     var grid: BoardGrid?
 }
@@ -272,7 +293,19 @@ enum BoardRenderer {
     static func drawText(_ t: BoardText, in r: CGRect) {
         let L = layout(t, in: r), color = NSColor(hex: t.color)
         let attrs: [NSAttributedString.Key: Any] = [.font: L.font, .foregroundColor: color]
-        var y = t.cell ? L.rect.minY + max(L.pad, (L.rect.height - L.contentH) / 2) : L.rect.minY + L.pad
+        var y: CGFloat
+        if t.cell {
+            y = L.rect.minY + max(L.pad, (L.rect.height - L.contentH) / 2)
+        } else {
+            switch t.vAlign {
+            case "top":
+                y = L.rect.minY + L.pad
+            case "bottom":
+                y = L.rect.minY + max(L.pad, L.rect.height - L.pad - L.contentH)
+            default: // "middle"
+                y = L.rect.minY + max(L.pad, (L.rect.height - L.contentH) / 2)
+            }
+        }
         for line in L.lines {
             let base = y + L.lh * 0.5 + L.px * 0.36
             let lw = (line as NSString).size(withAttributes: attrs).width
@@ -285,6 +318,16 @@ enum BoardRenderer {
             }
             y += L.lh
         }
+    }
+
+    static func drawImageItem(_ img: BoardImage, in r: CGRect) {
+        guard let data = Data(base64Encoded: img.src.replacingOccurrences(of: "^data:image\\/[^;]+;base64,", with: "", options: .regularExpression)),
+              let nsImage = NSImage(data: data) else { return }
+        let targetRect = CGRect(x: r.minX + CGFloat(img.x) * r.width,
+                                y: r.minY + CGFloat(img.y) * r.height,
+                                width: CGFloat(img.w) * r.width,
+                                height: CGFloat(img.h) * r.height)
+        nsImage.draw(in: targetRect)
     }
 
     static func drawGrid(_ c: BoardContent, in r: CGRect) {
@@ -309,13 +352,14 @@ enum BoardRenderer {
         (date as NSString).draw(at: CGPoint(x: r.maxX - px - w, y: r.minY + px * 0.8), withAttributes: attrs)
     }
 
-    /// Background, grid, date and texts (everything under the ink). `skip` = id of the text being edited.
+    /// Background, grid, date, images and texts (everything under the ink). `skip` = id of the text being edited.
     static func drawPaper(_ c: BoardContent, in r: CGRect, date: String, skip: String? = nil) {
         NSColor(hex: c.background).setFill(); NSBezierPath(rect: r).fill()
         NSGraphicsContext.current?.saveGraphicsState()
         NSBezierPath(rect: r).addClip()
         drawGrid(c, in: r)
         drawDate(c, date, in: r)
+        for img in c.images { drawImageItem(img, in: r) }
         for t in c.texts where t.id != skip { drawText(t, in: r) }
         NSGraphicsContext.current?.restoreGraphicsState()
     }
@@ -381,6 +425,7 @@ enum BoardRenderer {
 public struct SavedBoardData: Codable, Hashable {
     public var strokes: [BoardStroke] = []
     public var texts: [BoardText] = []
+    public var images: [BoardImage] = []
     public var background = "#ffffff"
     public var grid: BoardGrid? = nil
     public var date: String? = nil
@@ -389,6 +434,7 @@ public struct SavedBoardData: Codable, Hashable {
         let c = try d.container(keyedBy: CodingKeys.self)
         strokes = (try? c.decode([BoardStroke].self, forKey: .strokes)) ?? []
         texts = (try? c.decode([BoardText].self, forKey: .texts)) ?? []
+        images = (try? c.decode([BoardImage].self, forKey: .images)) ?? []
         background = (try? c.decode(String.self, forKey: .background)) ?? "#ffffff"
         grid = try? c.decode(BoardGrid.self, forKey: .grid)
         date = try? c.decode(String.self, forKey: .date)

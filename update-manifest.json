@@ -1,52 +1,52 @@
 {
-  "version": "26.11.0-007",
+  "version": "26.11.0-008",
   "channel": "unstable",
-  "tag_name": "v26.11.0-007",
+  "tag_name": "v26.11.0-008",
   "prerelease": true,
-  "published_at": "2026-11-01T22:24:29Z",
-  "name": "ClassDesk Suite v26.11.0-007 (Beta / Unstable)",
-  "body": "# ClassDesk Suite v26.11.0-007 (Unstable)\n\n**ClassDesk Suite**: ClassDesk, StudyDesk e HubDesk insieme, con la stessa versione e lo stesso canale.\n\n## Installazione\n- **macOS**: `ClassDesk-Suite-26.11.0-007-Installer.pkg` (HubDesk sempre incluso; ClassDesk e StudyDesk selezionabili).\n- **Windows**: `ClassDesk-Suite-26.11.0-007-Setup.exe` installa HubDesk, da cui si installano ClassDesk e StudyDesk.\n- Le app si possono anche installare da sole (`ClassDesk-…`, `StudyDesk-…`): al primo avvio installano HubDesk.\n- Chi usa ClassDesk 26.10 riceve la suite con il normale aggiornamento automatico, senza perdere dati.\n\n## HubDesk\n- Riapertura automatica: al termine di ogni aggiornamento, le applicazioni aperte (ClassDesk, StudyDesk e HubDesk stesso) si riaprono automaticamente conservando la sessione.\n- Rimozione degli attributi di quarantena su macOS per garantire l'apertura immediata post-aggiornamento.\n- Gestione aggiornamenti e sincronizzazione centralizzata come unico punto di riferimento della suite.\n\n## ClassDesk\n- Centralizzazione suite: rimosse le impostazioni di verifica aggiornamenti e le sezioni di configurazione della sincronizzazione dall'applicazione. Tutti gli aggiornamenti e lo stato dei dispositivi collegati sono gestiti e visualizzati centralmente in HubDesk. Note di rilascio e crediti autore rimangono disponibili nella sezione Crediti.\n\n## StudyDesk\n- Lavagna: visualizzazione integrata all'interno della finestra dell'applicazione senza forzare lo schermo intero né alterare la disposizione delle colonne.\n- Lavagna: pulsante di chiusura essenziale con icona «X» in macOS e Windows/Web.\n- Lavagna: barra degli strumenti a scomparsa rapida tramite pulsante freccia (freccia verso l'alto per nascondere, freccia verso il basso per mostrare).\n- Lavagna collaborativa: strumenti di disegno e modifica sempre disponibili e attivi su tutti i dispositivi collegati contemporaneamente.\n- Gruppi (macOS): sfondo opaco della colonna dei gruppi per impedire la trasparenza e la sovrapposizione visiva con la barra di navigazione laterale.\n- Centralizzazione suite: rimosse le impostazioni di aggiornamento e la scheda di sincronizzazione dalle singole applicazioni; tutto è ora visualizzabile e configurabile esclusivamente in HubDesk. Note di rilascio, crediti e licenza restano disponibili nelle informazioni.\n\n---\n© 2026 Guaira Jaramillo Nitoglia · guaira.jaramillo.nitoglia@gmail.com · GPL-3.0\n",
-  "setupUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.11.0-007/ClassDesk-Suite-26.11.0-007-Setup.exe",
-  "setupName": "ClassDesk-Suite-26.11.0-007-Setup.exe",
-  "macPkgUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.11.0-007/ClassDesk-Suite-26.11.0-007-Installer.pkg",
-  "macPkgName": "ClassDesk-Suite-26.11.0-007-Installer.pkg",
+  "published_at": "2026-11-02T00:03:26Z",
+  "name": "Classroom Tools v26.11.0-008 - macOS (Apple Silicon) & Windows (Beta / Unstable)",
+  "body": "# Classroom Tools v26.11.0-008 (Beta / Unstable) - macOS (Apple Silicon) & Windows\n\n**Classroom Tools**: Suite unificata che include ClassDesk, StudyDesk e HubDesk.\n\n## Download e Installazione\n- **macOS (Apple Silicon)**: [`Classroom-Tools-26.11.0-008-macOS-AppleSilicon.pkg`](https://github.com/Natsvkashii/ClassManager/releases/download/v26.11.0-008/Classroom-Tools-26.11.0-008-macOS-AppleSilicon.pkg) (oppure `ClassDesk-Suite-26.11.0-008-Installer.pkg`)\n- **Windows**: [`Classroom-Tools-26.11.0-008-Windows-Setup.exe`](https://github.com/Natsvkashii/ClassManager/releases/download/v26.11.0-008/Classroom-Tools-26.11.0-008-Windows-Setup.exe) (oppure `ClassDesk-Suite-26.11.0-008-Setup.exe`)\n\n- **HubDesk** è sempre incluso per gestire aggiornamenti centralizzati e sincronizzazione tra dispositivi.\n- **ClassDesk** e **StudyDesk** possono essere selezionati all'installazione o scaricati dall'Hub.\n- Chi possiede una versione precedente riceve l'aggiornamento automatico senza perdita di dati.\n\n## HubDesk\n- Classroom Tools Release: pacchetti di installazione unificati rilasciati come Classroom Tools con indicazione esplicita per macOS (Apple Silicon) e Windows.\n- Impostazioni e canali: commutazione del canale di aggiornamento («Stabile» e «Instabile (Beta)») configurabile unicamente dalle Impostazioni di HubDesk; corretta la localizzazione italiana.\n- Windows: risolto il problema della finestra vuota/trasparente quando HubDesk viene aperto o richiamato dalla barra delle applicazioni di Windows.\n- Sincronizzazione suite: supporto completo per la sincronizzazione dei libri e dei relativi progressi studio tra i nodi della classe.\n- Interfaccia: rimosso il selettore del canale dalla schermata App e il numero di versione dal piè di pagina della barra laterale, mantenendolo centralizzato nei Crediti e nelle Informazioni.\n\n## ClassDesk\n- Fatturazione nuovi moduli: creazione di un nuovo modulo con mantenimento automatico dei parametri di fatturazione (tariffa oraria, durata lezione, IVA, sconto e contatti di fatturazione) ereditati dal modulo precedente o attivo.\n- Interfaccia: rimosso il numero di versione dal piè di pagina della barra laterale per centralizzarne la visualizzazione nei Crediti e in HubDesk.\n- Windows: garantita la corretta ridisposizione e visibilità della finestra WebView2 al ripristino dalla barra delle applicazioni.\n\n## StudyDesk\n- Lavagna – Appunti e Immagini: supporto completo per incollare immagini da app esterne (Cmd+V / Ctrl+V e trascinamento file) e per copiare l'intera lavagna negli appunti come immagine PNG senza doverla prima esportare su file.\n- Lavagna – Allineamento verticale del testo: nuovo controllo per allineare le caselle di testo in alto, al centro o in basso.\n- Lavagna – Layout barre degli strumenti: risolto il troncamento dei pulsanti su finestre strette in macOS tramite scorrimento orizzontale dei controlli mantenendo sempre visibili titolo e azioni rapide.\n- Windows – Correzione avvio Lavagna: risolto l'errore «Cannot access 'exit' before initialization» all'apertura della lavagna su Windows.\n- Sincronizzazione: inclusione dei libri della libreria, dei progressi per gruppo e dei progressi personali dell'insegnante nella sincronizzazione continua tra dispositivi tramite HubDesk.\n- Interfaccia macOS: corretta la disposizione delle colonne in uscita dalla lavagna e nella visualizzazione gruppi; rimossa la versione dal piè di pagina della barra laterale.\n\n---\n© 2026 Guaira Jaramillo Nitoglia · guaira.jaramillo.nitoglia@gmail.com · GPL-3.0\n",
+  "setupUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.11.0-008/ClassDesk-Suite-26.11.0-008-Setup.exe",
+  "setupName": "ClassDesk-Suite-26.11.0-008-Setup.exe",
+  "macPkgUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.11.0-008/ClassDesk-Suite-26.11.0-008-Installer.pkg",
+  "macPkgName": "ClassDesk-Suite-26.11.0-008-Installer.pkg",
   "suite": {
-    "version": "26.11.0-007",
+    "version": "26.11.0-008",
     "apps": {
       "hubdesk": {
         "mac": {
-          "name": "ClassDesk-Suite-26.11.0-007-Installer.pkg",
-          "url": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.11.0-007/ClassDesk-Suite-26.11.0-007-Installer.pkg"
+          "name": "ClassDesk-Suite-26.11.0-008-Installer.pkg",
+          "url": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.11.0-008/ClassDesk-Suite-26.11.0-008-Installer.pkg"
         },
         "win": {
-          "name": "ClassDesk-Suite-26.11.0-007-Setup.exe",
-          "url": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.11.0-007/ClassDesk-Suite-26.11.0-007-Setup.exe"
+          "name": "ClassDesk-Suite-26.11.0-008-Setup.exe",
+          "url": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.11.0-008/ClassDesk-Suite-26.11.0-008-Setup.exe"
         }
       },
       "classdesk": {
         "mac": {
-          "name": "ClassDesk-Suite-26.11.0-007-Installer.pkg",
-          "url": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.11.0-007/ClassDesk-Suite-26.11.0-007-Installer.pkg"
+          "name": "ClassDesk-Suite-26.11.0-008-Installer.pkg",
+          "url": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.11.0-008/ClassDesk-Suite-26.11.0-008-Installer.pkg"
         },
         "win": {
-          "name": "ClassDesk-Suite-26.11.0-007-Setup.exe",
-          "url": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.11.0-007/ClassDesk-Suite-26.11.0-007-Setup.exe"
+          "name": "ClassDesk-Suite-26.11.0-008-Setup.exe",
+          "url": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.11.0-008/ClassDesk-Suite-26.11.0-008-Setup.exe"
         }
       },
       "studydesk": {
         "mac": {
-          "name": "ClassDesk-Suite-26.11.0-007-Installer.pkg",
-          "url": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.11.0-007/ClassDesk-Suite-26.11.0-007-Installer.pkg"
+          "name": "ClassDesk-Suite-26.11.0-008-Installer.pkg",
+          "url": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.11.0-008/ClassDesk-Suite-26.11.0-008-Installer.pkg"
         },
         "win": {
-          "name": "ClassDesk-Suite-26.11.0-007-Setup.exe",
-          "url": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.11.0-007/ClassDesk-Suite-26.11.0-007-Setup.exe"
+          "name": "ClassDesk-Suite-26.11.0-008-Setup.exe",
+          "url": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.11.0-008/ClassDesk-Suite-26.11.0-008-Setup.exe"
         }
       }
     },
     "pkg": {
-      "name": "ClassDesk-Suite-26.11.0-007-Installer.pkg",
-      "url": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.11.0-007/ClassDesk-Suite-26.11.0-007-Installer.pkg"
+      "name": "ClassDesk-Suite-26.11.0-008-Installer.pkg",
+      "url": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.11.0-008/ClassDesk-Suite-26.11.0-008-Installer.pkg"
     }
   }
 }

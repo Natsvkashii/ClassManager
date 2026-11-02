@@ -24,11 +24,6 @@ struct AppsPage: View {
             VStack(alignment: .leading, spacing: 18) {
                 PageHeader("App", "Installa, aggiorna e apri le app della suite.") {
                     HStack(spacing: 10) {
-                        Picker("Canale", selection: Binding(get: { apps.channel }, set: { apps.setChannel($0) })) {
-                            Text("Stabile").tag("stable")
-                            Text("Unstable").tag("unstable")
-                        }
-                        .pickerStyle(.segmented).labelsHidden().frame(width: 170)
                         Button { Task { await apps.check() } } label: {
                             Label(apps.checking ? "Controllo…" : "Cerca aggiornamenti", systemImage: "arrow.clockwise")
                         }

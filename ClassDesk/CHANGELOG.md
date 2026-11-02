@@ -5,6 +5,11 @@ Il formato è basato su [Keep a Changelog](https://keepachangelog.com/it/1.0.0/)
 
 ---
 
+## [26.11.0-008] — 2026-11-01 (Unstable)
+- Fatturazione nuovi moduli: creazione di un nuovo modulo con mantenimento automatico dei parametri di fatturazione (tariffa oraria, durata lezione, IVA, sconto e contatti di fatturazione) ereditati dal modulo precedente o attivo.
+- Interfaccia: rimosso il numero di versione dal piè di pagina della barra laterale per centralizzarne la visualizzazione nei Crediti e in HubDesk.
+- Windows: garantita la corretta ridisposizione e visibilità della finestra WebView2 al ripristino dalla barra delle applicazioni.
+
 ## [26.11.0-007] — 2026-11-01 (Unstable)
 - Centralizzazione suite: rimosse le impostazioni di verifica aggiornamenti e le sezioni di configurazione della sincronizzazione dall'applicazione. Tutti gli aggiornamenti e lo stato dei dispositivi collegati sono gestiti e visualizzati centralmente in HubDesk. Note di rilascio e crediti autore rimangono disponibili nella sezione Crediti.
 

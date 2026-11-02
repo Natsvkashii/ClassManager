@@ -500,8 +500,17 @@ static void TcpEvent(const std::string &json) {
 static void ShowMain(const char *page) {
     if (!g_hwnd) return;
     if (IsIconic(g_hwnd)) ShowWindow(g_hwnd, SW_RESTORE);
-    else ShowWindow(g_hwnd, SW_SHOW);
+    else ShowWindow(g_hwnd, SW_SHOWNORMAL);
     SetForegroundWindow(g_hwnd);
+    RECT r = {}; GetClientRect(g_hwnd, &r);
+    SendMessageW(g_hwnd, WM_SIZE, SIZE_RESTORED, MAKELPARAM(r.right - r.left, r.bottom - r.top));
+    SetWindowPos(g_hwnd, HWND_TOP, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_FRAMECHANGED | SWP_SHOWWINDOW);
+    UpdateWindow(g_hwnd);
+    EnumChildWindows(g_hwnd, [](HWND child, LPARAM) -> BOOL {
+        ShowWindow(child, SW_SHOW);
+        UpdateWindow(child);
+        return TRUE;
+    }, 0);
     if (page && *page && g_view) { std::string js = "window.__hd_nav && window.__hd_nav(" + Q(page) + ")"; g_view->eval(js); }
 }
 static void Quit() { g_quitting = true; Shell_NotifyIconW(NIM_DELETE, &g_tray); if (g_view) g_view->terminate(); }

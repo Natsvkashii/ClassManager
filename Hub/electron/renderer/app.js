@@ -37,7 +37,7 @@
   function renderNav() {
     const cur = page(), n = S.engine ? S.engine.conflicts.length : 0;
     $('#nav').innerHTML = PAGES.map(([id, label]) => `<button class="nav-btn ${cur === id ? 'active' : ''}" data-nav="${id}">${ICONS[id]}<span>${label}</span>${id === 'conflicts' && n ? `<span class="badge">${n}</span>` : ''}</button>`).join('');
-    $('#sbVersion').textContent = S.app ? `HubDesk ${S.app.version}` : '';
+    const sb = $('#sbVersion'); if (sb) sb.textContent = S.app ? `HubDesk ${S.app.version}` : '';
     const t = PAGES.find((p) => p[0] === cur);
     $('#title').textContent = t[1];
     $('#crumb').textContent = 'Suite ClassDesk';
@@ -73,14 +73,13 @@
   }
   function renderApps() {
     const m = S.apps, upd = m.apps.filter((a) => a.status === 'update').length;
-    $('#topActions').innerHTML = `<div class="seg" id="chan"><button data-chan="stable" class="${m.channel === 'stable' ? 'on' : ''}">Stabile</button><button data-chan="unstable" class="${m.channel === 'unstable' ? 'on' : ''}">Unstable</button></div>
-      <button class="btn" data-act="check" ${m.checking ? 'disabled' : ''}>${m.checking ? 'Controllo…' : 'Cerca aggiornamenti'}</button>
+    $('#topActions').innerHTML = `<button class="btn" data-act="check" ${m.checking ? 'disabled' : ''}>${m.checking ? 'Controllo…' : 'Cerca aggiornamenti'}</button>
       <button class="btn btn-primary" data-act="update-all" ${upd ? '' : 'disabled'}>Aggiorna tutto${upd ? ` (${upd})` : ''}</button>`;
     const banners = [];
     if (S.app.notice) banners.push(`<div class="banner">${esc(S.app.notice)}<span class="spacer"></span><button class="btn" data-act="clear-notice">OK</button></div>`);
     if (m.checkError) banners.push(`<div class="banner warn">${esc(m.checkError)}</div>`);
     return `<div class="view-inner">${banners.join('')}<div class="apps">${m.apps.map(appCard).join('')}</div>
-      <div class="faint small">Canale ${m.channel === 'stable' ? 'Stabile' : 'Unstable (include le anteprime)'}${m.lastCheck ? ` · ultimo controllo ${esc(ago(m.lastCheck))}` : ''}${m.source === 'manifest' ? ' · da manifest di riserva' : ''}</div></div>`;
+      <div class="faint small">Canale ${m.channel === 'stable' ? 'Stabile' : 'Instabile (include le anteprime)'}${m.lastCheck ? ` · ultimo controllo ${esc(ago(m.lastCheck))}` : ''}${m.source === 'manifest' ? ' · da manifest di riserva' : ''}</div></div>`;
   }
 
   // ------------------------------------------------------------ Dispositivi
@@ -133,6 +132,12 @@
         ${sw('openAtLogin', a.openAtLogin, 'Avvia con Windows', 'HubDesk resta nell’area di notifica e tiene i dispositivi collegati')}
         ${sw('autoUpdate', a.autoUpdate, 'Aggiornamenti automatici', 'Controlla all’avvio e ogni 6 ore; installa quando le app sono chiuse')}
         ${sw('autoBoard', s.autoBoard, 'Lavagna condivisa automatica', 'Con un dispositivo collegato la lavagna di StudyDesk è condivisa in tempo reale')}
+        <div class="setting"><div><b>Canale di aggiornamento</b><span class="small muted">Scegli tra versioni stabili o versioni instabili (Beta)</span></div>
+          <div class="seg" id="chan">
+            <button data-chan="stable" class="${S.apps.channel === 'stable' ? 'on' : ''}">Stabile</button>
+            <button data-chan="unstable" class="${S.apps.channel === 'unstable' ? 'on' : ''}">Instabile (Beta)</button>
+          </div>
+        </div>
       </div>
       <div class="card card-pad"><h2>Informazioni</h2>
         <div class="setting"><div><b>Versione</b></div><span class="mono">${esc(a.version)}</span></div>

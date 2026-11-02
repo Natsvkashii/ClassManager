@@ -31,7 +31,10 @@ const APPS = [
 ];
 const appById = (id) => APPS.find((a) => a.id === id);
 /** The single suite installer (from 26.11.0-004 the only file per platform: every app is inside it). */
-const SUITE_ASSET = { win: /^ClassDesk-Suite-(.+)-Setup\.exe$/i, mac: /^ClassDesk-Suite-(.+)-Installer\.pkg$/i };
+const SUITE_ASSET = {
+  win: /^(?:ClassDesk-Suite|Classroom-Tools)-(.+?)(?:-Setup)?\.exe$/i,
+  mac: /^(?:ClassDesk-Suite|Classroom-Tools)-(.+?)(?:-Installer|-macOS-AppleSilicon)?\.pkg$/i,
+};
 
 /** Version AA.MM.R-BBB; compare is numeric on the four fields. */
 function parseVersion(s) {

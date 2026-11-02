@@ -2436,6 +2436,8 @@ private:
     RECT bounds;
     GetClientRect(m_window, &bounds);
     m_controller->put_Bounds(bounds);
+    m_controller->put_IsVisible(TRUE);
+    m_controller->NotifyParentWindowPositionChanged();
   }
 
   bool is_webview2_available() const noexcept {

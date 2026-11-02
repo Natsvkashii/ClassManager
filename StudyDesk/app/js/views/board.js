@@ -44,13 +44,22 @@ export async function renderBoard(host, params, app) {
   let remote = null; // board being watched (read-only) or null
   let netState = { sharing: false, viewers: 0, remotes: [], watching: null, status: '' };
   const offs = [];
+  let leaving = false;
+  const exit = () => { if (!leaving) app.navigate('home'); };
   const prefs = settings()[BOARD_PREFS] || {};
   Object.assign(tool, prefs, { mode: tool.mode, text: { ...tool.text, ...(prefs.text || {}) } });
   const fitInk = () => { tool.color = inkFor(tool.color, own.background); if (contrast(tool.color, own.background) < 2.2) tool.color = inksFor(own.background)[0][1]; };
   fitInk(); // the remembered ink may have been chosen for a board of the other colour
   const savePrefs = () => saveSettings({ [BOARD_PREFS]: { color: tool.color, width: tool.width, polar: tool.polar, gridCm: tool.gridCm, text: tool.text } }).catch(() => {});
 
-  document.body.classList.add('focus-mode');
+  let isFullScreen = false;
+  const toggleFullScreen = () => {
+    isFullScreen = !isFullScreen;
+    document.body.classList.toggle('focus-mode', isFullScreen);
+    resize();
+    paintBar();
+  };
+
   const canvas = h('canvas.board-canvas', { tabindex: 0 });
   const overlay = h('canvas.board-overlay');
   const ctx = canvas.getContext('2d'), octx = overlay.getContext('2d');
@@ -194,9 +203,11 @@ export async function renderBoard(host, params, app) {
     const min = item.h ? item.h * r.h : 0;
     const need = ta.scrollHeight;
     ta.style.height = Math.max(min, need) + 'px';
-    if (item.cell && item.h) { // vertically centred in the cell, as on the board
+    if (item.h) { // alignment in the box/cell, as on the board
       const px = item.size * r.w, pad = textPad(r.w), lines = Math.max(1, Math.round((need - pad * 2) / (px * 1.25)));
-      const top = Math.max(pad, (item.h * r.h - lines * px * 1.25) / 2);
+      const top = (item.vAlign === 'top') ? pad
+        : (item.vAlign === 'bottom') ? Math.max(pad, item.h * r.h - lines * px * 1.25 - pad)
+        : Math.max(pad, (item.h * r.h - lines * px * 1.25) / 2);
       ta.style.paddingTop = top + 'px';
       ta.style.height = Math.max(item.h * r.h, top + lines * px * 1.25 + pad) + 'px';
     }
@@ -423,9 +434,65 @@ export async function renderBoard(host, params, app) {
     h('div.board-seg.wrap', GRID_CM.map((cm) => h('button' + (own.grid && own.grid.cm === cm ? '.on' : ''), { type: 'button', onclick: () => setGrid(cm) }, `${String(cm).replace('.', ',')} cm`))),
     h('label.switch', h('input', { type: 'checkbox', checked: tool.polar, onchange: (e) => { tool.polar = e.target.checked; savePrefs(); paintBar(); } }), 'Puntamento polare'),
     h('p.help', 'Con il puntamento polare la penna disegna linee dritte ogni 15°, agganciate alla griglia e alle estremità delle altre linee: così si disegnano tabelle e schemi. Con lo strumento Testo, tocca un riquadro per scriverci dentro.'));
+  const copyBoardToClipboard = async () => {
+    openPop = null; paintBar();
+    if (editing) commitEditor();
+    try {
+      canvas.toBlob(async (blob) => {
+        if (!blob) return toast('Impossibile copiare la lavagna', 'bad');
+        if (navigator.clipboard && navigator.clipboard.write) {
+          try {
+            await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+            toast('Lavagna copiata negli appunti!', 'ok');
+            return;
+          } catch (e) { /* fallback */ }
+        }
+        toast('Copia negli appunti non supportata dal browser', 'bad');
+      }, 'image/png');
+    } catch (e) {
+      toast('Impossibile copiare: ' + e.message, 'bad');
+    }
+  };
+  const onPaste = (e) => {
+    if (editing || /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement && document.activeElement.tagName)) return;
+    const items = e.clipboardData && e.clipboardData.items;
+    if (!items) return;
+    for (const item of items) {
+      if (item.type && item.type.startsWith('image/')) {
+        e.preventDefault();
+        const file = item.getAsFile();
+        if (!file) continue;
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          const src = ev.target.result;
+          const img = new Image();
+          img.onload = () => {
+            const aspect = (img.naturalWidth || 1) / (img.naturalHeight || 1);
+            const w = Math.min(0.6, Math.max(0.2, 0.35));
+            const h = (w / aspect) * (16 / 9);
+            const x = Math.max(0.05, Math.min(1 - w, (1 - w) / 2));
+            const y = Math.max(0.05, Math.min(1 - h, (1 - h) / 2));
+            const id = 'img-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+            own.images = own.images || [];
+            const it = { id, src, x: Math.round(x * 10000) / 10000, y: Math.round(y * 10000) / 10000, w: Math.round(w * 10000) / 10000, h: Math.round(h * 10000) / 10000 };
+            own.images.push(it);
+            emit({ t: 'image', item: it });
+            paintPaper();
+            compose();
+            toast('Immagine incollata sulla lavagna', 'ok');
+          };
+          img.src = src;
+        };
+        reader.readAsDataURL(file);
+        break;
+      }
+    }
+  };
+  window.addEventListener('paste', onPaste);
   const filePanel = () => h('div.board-menu',
     h('button', { type: 'button', onclick: () => { openPop = null; paintBar(); saveToGroup(); } }, icon('floppy-disk'), own.saved ? `Salva «${own.saved.name}»…` : 'Salva in un gruppo…'),
     h('button', { type: 'button', onclick: () => { openPop = null; paintBar(); openSaved(); } }, icon('folder-open'), 'Lavagne salvate…'),
+    h('button', { type: 'button', onclick: copyBoardToClipboard }, icon('copy'), 'Copia negli appunti'),
     h('hr'),
     h('div.cp-title', 'Esporta'),
     h('button', { type: 'button', onclick: () => exportAs('png') }, icon('file-image'), 'Immagine PNG'),
@@ -440,6 +507,11 @@ export async function renderBoard(host, params, app) {
       h('select.input.board-size', { title: 'Grandezza del testo', 'aria-label': 'Grandezza del testo', onchange: (e) => setTextStyle({ size: Number(e.target.value) / TEXT_REF }) },
         TEXT_SIZES.map((s) => h('option', { value: s, selected: s === px }, `${s} pt`)), TEXT_SIZES.includes(px) ? null : h('option', { value: px, selected: true }, `${px} pt`)),
       h('div.board-seg', ['left', 'center', 'right'].map((a) => h('button' + (t.align === a ? '.on' : ''), { type: 'button', title: { left: 'Allinea a sinistra', center: 'Centra', right: 'Allinea a destra' }[a], 'aria-label': { left: 'Allinea a sinistra', center: 'Centra', right: 'Allinea a destra' }[a], onmousedown: (e) => e.preventDefault(), onclick: () => setTextStyle({ align: a }) }, icon('align-' + a)))),
+      h('div.board-seg', [
+        ['top', 'Allinea in alto', 'arrow-up'],
+        ['middle', 'Allinea al centro', 'arrows-up-down'],
+        ['bottom', 'Allinea in basso', 'arrow-down']
+      ].map(([v, label, ico]) => h('button' + ((t.vAlign || 'middle') === v ? '.on' : ''), { type: 'button', title: label, 'aria-label': label, onmousedown: (e) => e.preventDefault(), onclick: () => setTextStyle({ vAlign: v }) }, icon(ico)))),
       editing ? h('button.btn.btn-sm.btn-icon', { type: 'button', title: 'Elimina il riquadro di testo', 'aria-label': 'Elimina il riquadro di testo', onmousedown: (e) => e.preventDefault(), onclick: deleteEditing }, icon('trash-can')) : null,
     ];
   };
@@ -491,7 +563,7 @@ export async function renderBoard(host, params, app) {
       title: 'Mostra la barra degli strumenti'
     }, icon('chevron-down')),
     h('button.btn.btn-sm.btn-icon', {
-      onclick: exit,
+      onclick: () => exit(),
       title: 'Chiudi'
     }, icon('xmark'))
   );
@@ -522,13 +594,17 @@ export async function renderBoard(host, params, app) {
       h('div.spacer'),
       ...(net ? [moreMenu(watching)] : []),
       h('button.btn.btn-sm.btn-icon', {
+        onclick: toggleFullScreen,
+        title: isFullScreen ? 'Esci da schermo intero' : 'Schermo intero'
+      }, icon(isFullScreen ? 'compress' : 'expand')),
+      h('button.btn.btn-sm.btn-icon', {
         onclick: () => {
           bar.style.display = 'none';
           floatBtn.style.display = 'flex';
         },
         title: 'Nascondi la barra degli strumenti'
       }, icon('chevron-up')),
-      h('button.btn.btn-sm.btn-icon', { onclick: exit, title: 'Chiudi' }, icon('xmark'))].filter(Boolean));
+      h('button.btn.btn-sm.btn-icon', { onclick: () => exit(), title: 'Chiudi' }, icon('xmark'))].filter(Boolean));
   };
   let swallow = false;
   const onDocDown = (e) => { if (openPop && !e.target.closest('.bpop') && !e.target.closest('.modal-backdrop')) { openPop = null; swallow = e.target === canvas; paintBar(); } };
@@ -668,8 +744,6 @@ export async function renderBoard(host, params, app) {
   }
 
   // ---- full screen + ESC
-  let leaving = false;
-  const exit = () => { if (!leaving) app.navigate('home'); };
   const onKey = (e) => {
     if (document.querySelector('.modal-backdrop')) return;
     if (e.key === 'Escape') {
@@ -681,6 +755,7 @@ export async function renderBoard(host, params, app) {
     }
     if (editing || /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement && document.activeElement.tagName)) return;
     if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === 'z') { e.preventDefault(); undo(); }
+    if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === 'c') { e.preventDefault(); copyBoardToClipboard(); }
   };
   document.addEventListener('keydown', onKey);
 
@@ -722,6 +797,7 @@ export async function renderBoard(host, params, app) {
     document.removeEventListener('fullscreenchange', onFs);
     document.removeEventListener('pointerdown', onDocDown, true);
     window.removeEventListener('resize', resize);
+    window.removeEventListener('paste', onPaste);
     ro.disconnect();
     offs.forEach((f) => f());
     document.body.classList.remove('focus-mode');

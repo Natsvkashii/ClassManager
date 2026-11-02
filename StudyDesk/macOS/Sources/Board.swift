@@ -52,6 +52,7 @@ public struct BoardTextStyle: Codable, Hashable {
     public var size = 32.0 / 1600
     public var bold = false, italic = false, underline = false
     public var align = "left"
+    public var vAlign = "middle"
 }
 
 public struct SavedBoardRef: Hashable { public var id: String; public var groupId: String; public var name: String }
@@ -65,6 +66,7 @@ public final class BoardModel {
 
     public var strokes: [BoardStroke] = []
     public var texts: [BoardText] = []
+    public var images: [BoardImage] = []
     public var grid: BoardGrid? = nil
     public var background = "#ffffff"
     public var date: String? = nil                  // day the board was saved (nil: today)
@@ -113,8 +115,8 @@ public final class BoardModel {
 
     init() { loadPrefs() }
 
-    var content: BoardContent { BoardContent(strokes: strokes, texts: texts, background: background, grid: grid) }
-    public var isEmpty: Bool { strokes.isEmpty && texts.isEmpty }
+    var content: BoardContent { BoardContent(strokes: strokes, texts: texts, images: images, background: background, grid: grid) }
+    public var isEmpty: Bool { strokes.isEmpty && texts.isEmpty && images.isEmpty }
     func changed() { revision &+= 1; canvas?.needsDisplay = true }
 
     // MARK: Preferences
@@ -163,7 +165,7 @@ public final class BoardModel {
     public var sharedWithNames: [String] { hubClient?.connectedPeers.map(\.name) ?? [] }
 
     func snapshotMessage() -> [String: Any] {
-        ["t": "snapshot", "strokes": jsonObject(strokes), "texts": jsonObject(texts), "background": background, "grid": grid.map { jsonObject($0) } ?? NSNull()]
+        ["t": "snapshot", "strokes": jsonObject(strokes), "texts": jsonObject(texts), "images": jsonObject(images), "background": background, "grid": grid.map { jsonObject($0) } ?? NSNull()]
     }
     /// On board open and when a device joins: everything on the board goes to the connected devices.
     public func sendSnapshot() {
@@ -184,6 +186,7 @@ public final class BoardModel {
                 }
             }
             for t in decodeJSON([BoardText].self, m["texts"]) ?? [] { upsert(t) }
+            for img in decodeJSON([BoardImage].self, m["images"]) ?? [] { upsert(img) }
             if wasEmpty, !bgTouched, let bg = m["background"] as? String { background = bg }
             if wasEmpty, !gridTouched, m.keys.contains("grid") { grid = decodeJSON(BoardGrid.self, m["grid"]) }
             changed()
@@ -204,12 +207,20 @@ public final class BoardModel {
         case "textdel":
             if let id = m["id"] as? String, editing?.id == id { editing = nil; canvas?.syncEditor() }
             apply(m)
+        case "image":
+            if let img = decodeJSON(BoardImage.self, m["item"]) { upsert(img); changed() }
+        case "imagedel":
+            if let id = m["id"] as? String { images.removeAll { $0.id == id }; changed() }
         default: apply(m)
         }
     }
 
     func upsert(_ t: BoardText) {
         if let i = texts.firstIndex(where: { $0.id == t.id }) { if t.v >= texts[i].v { texts[i] = t } } else { texts.append(t) }
+    }
+
+    func upsert(_ img: BoardImage) {
+        if let i = images.firstIndex(where: { $0.id == img.id }) { images[i] = img } else { images.append(img) }
     }
 
     /// Removes the last stroke or text box added by `device` (by id counter); nil: the last stroke, or the last text when newer.
@@ -224,7 +235,7 @@ public final class BoardModel {
 
     public func returnToOwn() {
         disconnect()
-        if let o = savedOwn { strokes = o.strokes; texts = o.texts; grid = o.grid; background = o.background }
+        if let o = savedOwn { strokes = o.strokes; texts = o.texts; images = o.images; grid = o.grid; background = o.background }
         savedOwn = nil; changed(); sendSnapshot()
     }
 
@@ -268,7 +279,7 @@ public final class BoardModel {
     }
     public func clear() {
         editing = nil; canvas?.syncEditor()
-        strokes.removeAll(); texts.removeAll(); date = nil; saved = nil
+        strokes.removeAll(); texts.removeAll(); images.removeAll(); date = nil; saved = nil
         send(["t": "clear"]); changed()
     }
     func setBackground(_ c: String) {
@@ -288,7 +299,7 @@ public final class BoardModel {
 
     func newText(at pt: BoardPoint, boardRect r: CGRect) -> BoardText {
         var t = BoardText(id: newStrokeId())
-        t.color = color; t.size = textStyle.size; t.bold = textStyle.bold; t.italic = textStyle.italic; t.underline = textStyle.underline; t.align = textStyle.align
+        t.color = color; t.size = textStyle.size; t.bold = textStyle.bold; t.italic = textStyle.italic; t.underline = textStyle.underline; t.align = textStyle.align; t.vAlign = textStyle.vAlign
         t.v = 0
         if let c = BoardKit.findCell(strokes, grid: grid, pt) {
             t.x = c.x; t.y = c.y; t.w = c.w; t.h = c.h; t.cell = true
@@ -331,7 +342,7 @@ public final class BoardModel {
     func setTextStyle(_ f: (inout BoardTextStyle) -> Void) {
         f(&textStyle); savePrefs()
         if var t = editing {
-            t.size = textStyle.size; t.bold = textStyle.bold; t.italic = textStyle.italic; t.underline = textStyle.underline; t.align = textStyle.align
+            t.size = textStyle.size; t.bold = textStyle.bold; t.italic = textStyle.italic; t.underline = textStyle.underline; t.align = textStyle.align; t.vAlign = textStyle.vAlign
             editing = t; pushEditing(); canvas?.syncEditor()
         }
     }
@@ -345,13 +356,13 @@ public final class BoardModel {
     // MARK: Saved boards and export
 
     var savedData: SavedBoardData {
-        var d = SavedBoardData(); d.strokes = strokes; d.texts = texts; d.background = background; d.grid = grid; d.date = date ?? BoardKit.localDay()
+        var d = SavedBoardData(); d.strokes = strokes; d.texts = texts; d.images = images; d.background = background; d.grid = grid; d.date = date ?? BoardKit.localDay()
         return d
     }
     func load(_ rec: SavedBoard) {
         editing = nil; canvas?.syncEditor()
         send(["t": "clear"])
-        strokes = rec.board.strokes; texts = rec.board.texts; background = rec.board.background; grid = rec.board.grid
+        strokes = rec.board.strokes; texts = rec.board.texts; images = rec.board.images; background = rec.board.background; grid = rec.board.grid
         date = rec.board.date; saved = SavedBoardRef(id: rec.id, groupId: rec.groupId, name: rec.name)
         bgTouched = true; gridTouched = true
         send(["t": "background", "color": background]); send(["t": "grid", "grid": grid.map { jsonObject($0) } ?? NSNull()])
@@ -411,7 +422,7 @@ public final class BoardModel {
         c.start(queue: queue)
     }
 
-    private func send(_ msg: [String: Any]) {
+    func send(_ msg: [String: Any]) {
         for c in clients { write(msg, to: c) }                 // old view-only sharing (26.10)
         if let remote { write(msg, to: remote) }              // send to remote peer
         if hubShared { hubClient?.sendBoard(msg) }             // HubDesk: shared automatically
@@ -458,7 +469,7 @@ public final class BoardModel {
         c.start(queue: queue)
         remote = c
         if savedOwn == nil { savedOwn = content }
-        strokes = []; texts = []; grid = nil; background = "#ffffff"; editing = nil
+        strokes = []; texts = []; images = []; grid = nil; background = "#ffffff"; editing = nil
         changed()
         receive(c)
     }
@@ -496,7 +507,8 @@ public final class BoardModel {
         case "snapshot":
             if let s = decodeJSON([BoardStroke].self, m["strokes"]) { strokes = s }
             texts = decodeJSON([BoardText].self, m["texts"]) ?? []
-            if let bg = m["background"] as? String { background = bg }
+            images = decodeJSON([BoardImage].self, m["images"]) ?? []
+            if let bg = m["background"] as? String ?? m["color"] as? String { background = bg }
             if m.keys.contains("grid") { grid = decodeJSON(BoardGrid.self, m["grid"]) }
         case "begin":
             strokes.append(BoardStroke(id: m["id"] as? String ?? UUID().uuidString, color: m["color"] as? String ?? "#000000",
@@ -506,7 +518,7 @@ public final class BoardModel {
             let id = m["id"] as? String
             if let i = strokes.lastIndex(where: { $0.id == id }) { strokes[i].points.append(BoardPoint(x: num("x"), y: num("y"), p: m["p"] == nil ? 0.5 : num("p"))) }
         case "undo": undo(of: nil)
-        case "clear": strokes.removeAll(); texts.removeAll()
+        case "clear": strokes.removeAll(); texts.removeAll(); images.removeAll()
         case "background":
             if let bg = m["color"] as? String {
                 if BoardKit.isDark(bg) != BoardKit.isDark(background) { // recommended inks switch family, so what is written stays readable
@@ -517,6 +529,8 @@ public final class BoardModel {
             }
         case "text": if let t = decodeJSON(BoardText.self, m["item"]) { upsert(t) }
         case "textdel": if let id = m["id"] as? String { texts.removeAll { $0.id == id } }
+        case "image": if let img = decodeJSON(BoardImage.self, m["item"]) { upsert(img) }
+        case "imagedel": if let id = m["id"] as? String { images.removeAll { $0.id == id } }
         case "grid": grid = decodeJSON(BoardGrid.self, m["grid"])
         default: return
         }
@@ -572,6 +586,96 @@ final class BoardCanvasView: NSView, NSTextViewDelegate {
         addTrackingArea(t); tracking = t
     }
     override func resetCursorRects() { addCursorRect(bounds, cursor: MainActor.assumeIsolated { model.mode } == .text ? .iBeam : .crosshair) }
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        if window != nil {
+            registerForDraggedTypes([.fileURL, .png, .tiff])
+        }
+    }
+
+    override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        if event.modifierFlags.contains(.command) {
+            let chars = event.charactersIgnoringModifiers?.lowercased()
+            if chars == "v" && editor == nil {
+                if pasteImageFromClipboard() { return true }
+            } else if chars == "c" && editor == nil {
+                copyBoardToClipboard()
+                return true
+            }
+        }
+        return super.performKeyEquivalent(with: event)
+    }
+
+    @discardableResult
+    func pasteImageFromClipboard() -> Bool {
+        let pb = NSPasteboard.general
+        if let data = pb.data(forType: .png) ?? pb.data(forType: .tiff),
+           let img = NSImage(data: data),
+           let tiff = img.tiffRepresentation,
+           let rep = NSBitmapImageRep(data: tiff),
+           let png = rep.representation(using: .png, properties: [:]) {
+            let base64 = "data:image/png;base64," + png.base64EncodedString()
+            let wPx = img.size.width
+            let hPx = img.size.height
+            let aspect = hPx > 0 ? (wPx / hPx) : 1.0
+            let targetW = 0.35
+            let targetH = targetW / aspect * BoardModel.aspect
+            let x = max(0.05, (1.0 - targetW) / 2.0)
+            let y = max(0.05, (1.0 - targetH) / 2.0)
+            let bImg = BoardImage(id: model.newStrokeId(), src: base64, x: x, y: y, w: targetW, h: targetH)
+            MainActor.assumeIsolated {
+                model.images.append(bImg)
+                model.send(["t": "image", "item": jsonObject(bImg)])
+                model.changed()
+            }
+            return true
+        }
+        return false
+    }
+
+    func copyBoardToClipboard() {
+        guard let rep = BoardRenderer.bitmap(model.content, width: 2560, height: 1440, date: model.dateText),
+              let png = rep.representation(using: .png, properties: [:]) else { return }
+        let pb = NSPasteboard.general
+        pb.clearContents()
+        pb.setData(png, forType: .png)
+    }
+
+    override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
+        return .copy
+    }
+
+    override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
+        let pb = sender.draggingPasteboard
+        if let urls = pb.readObjects(forClasses: [NSURL.self], options: nil) as? [URL], let url = urls.first {
+            if let img = NSImage(contentsOf: url),
+               let tiff = img.tiffRepresentation,
+               let rep = NSBitmapImageRep(data: tiff),
+               let png = rep.representation(using: .png, properties: [:]) {
+                let base64 = "data:image/png;base64," + png.base64EncodedString()
+                let dropPoint = convert(sender.draggingLocation, from: nil)
+                let r = boardRect
+                let wPx = img.size.width
+                let hPx = img.size.height
+                let aspect = hPx > 0 ? (wPx / hPx) : 1.0
+                let targetW = 0.35
+                let targetH = targetW / aspect * BoardModel.aspect
+                let cx = Double((dropPoint.x - r.minX) / r.width)
+                let cy = Double((dropPoint.y - r.minY) / r.height)
+                let x = min(max(0, cx - targetW / 2), 1 - targetW)
+                let y = min(max(0, cy - targetH / 2), 1 - targetH)
+                let bImg = BoardImage(id: model.newStrokeId(), src: base64, x: x, y: y, w: targetW, h: targetH)
+                MainActor.assumeIsolated {
+                    model.images.append(bImg)
+                    model.send(["t": "image", "item": jsonObject(bImg)])
+                    model.changed()
+                }
+                return true
+            }
+        }
+        return pasteImageFromClipboard()
+    }
 
     override func mouseDown(with e: NSEvent) {
         guard !readOnly else { return }
@@ -695,7 +799,19 @@ final class BoardCanvasView: NSView, NSTextViewDelegate {
         ed.typingAttributes = attrs
         ed.textStorage?.setAttributes(attrs, range: NSRange(location: 0, length: (ed.string as NSString).length))
         ed.insertionPointColor = NSColor(hex: t.color)
-        let top = t.cell ? max(L.pad, (L.rect.height - L.contentH) / 2) : L.pad
+        let top: CGFloat
+        if t.cell {
+            top = max(L.pad, (L.rect.height - L.contentH) / 2)
+        } else {
+            switch t.vAlign {
+            case "top":
+                top = L.pad
+            case "bottom":
+                top = max(L.pad, L.rect.height - L.pad - L.contentH)
+            default: // "middle"
+                top = max(L.pad, (L.rect.height - L.contentH) / 2)
+            }
+        }
         ed.textContainerInset = NSSize(width: L.pad, height: top)
         ed.textContainer?.containerSize = NSSize(width: max(4, L.rect.width - L.pad * 2), height: .greatestFiniteMagnitude)
         ed.textContainer?.widthTracksTextView = false
@@ -904,28 +1020,32 @@ struct BoardView: View {
         HStack(spacing: 7) {
             Label("Lavagna", systemImage: "pencil.and.scribble").font(.headline).labelStyle(.titleAndIcon).fixedSize()
             Divider().frame(height: 22)
-            toolPicker
-            colorButton
-            ViewThatFits(in: .horizontal) {
-                HStack(spacing: 7) { quickSwatches; modeControls }
-                modeControls
-            }
-            Divider().frame(height: 22)
-            gridButton
-            Toggle(isOn: Binding(get: { model.polar }, set: { model.polar = $0; if $0 && model.mode != .pen { model.mode = .pen } })) { Image(systemName: "angle") }
-                .toggleStyle(.button).help(model.polar ? "Puntamento polare attivo: linee dritte ogni 15°" : "Puntamento polare: linee dritte per schemi e tabelle")
-            bgButton
-            Button { model.undo() } label: { Image(systemName: "arrow.uturn.backward") }.help("Annulla (⌘Z)").keyboardShortcut("z").disabled(model.editing != nil)
-            Button { if model.isEmpty { store.showToast("La lavagna è già vuota") } else { confirmClear = true } } label: { Image(systemName: "trash") }.help("Cancella la lavagna")
-            fileMenu
-            sharedIndicator
-            if watching {
-                HStack(spacing: 4) {
-                    Label(model.status, systemImage: "dot.radiowaves.left.and.right").foregroundStyle(Theme.ok).lineLimit(1).font(.caption)
-                    Button("Torna alla mia lavagna") { model.returnToOwn() }.controlSize(.small)
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 7) {
+                    toolPicker
+                    colorButton
+                    ViewThatFits(in: .horizontal) {
+                        HStack(spacing: 7) { quickSwatches; modeControls }
+                        modeControls
+                    }
+                    Divider().frame(height: 22)
+                    gridButton
+                    Toggle(isOn: Binding(get: { model.polar }, set: { model.polar = $0; if $0 && model.mode != .pen { model.mode = .pen } })) { Image(systemName: "angle") }
+                        .toggleStyle(.button).help(model.polar ? "Puntamento polare attivo: linee dritte ogni 15°" : "Puntamento polare: linee dritte per schemi e tabelle")
+                    bgButton
+                    Button { model.undo() } label: { Image(systemName: "arrow.uturn.backward") }.help("Annulla (⌘Z)").keyboardShortcut("z").disabled(model.editing != nil)
+                    Button { if model.isEmpty { store.showToast("La lavagna è già vuota") } else { confirmClear = true } } label: { Image(systemName: "trash") }.help("Cancella la lavagna")
+                    fileMenu
+                    sharedIndicator
+                    if watching {
+                        HStack(spacing: 4) {
+                            Label(model.status, systemImage: "dot.radiowaves.left.and.right").foregroundStyle(Theme.ok).lineLimit(1).font(.caption)
+                            Button("Torna alla mia lavagna") { model.returnToOwn() }.controlSize(.small)
+                        }
+                    }
                 }
             }
-            Spacer(minLength: 4)
+            Divider().frame(height: 22)
             Menu {
                 if !watching {
                     Toggle(isOn: Binding(get: { model.sharing }, set: { $0 ? model.startSharing() : model.stopSharing() })) {
@@ -1003,7 +1123,7 @@ struct BoardView: View {
     }
 
     private var textControls: some View {
-        let t = model.editing.map { BoardTextStyle(size: $0.size, bold: $0.bold, italic: $0.italic, underline: $0.underline, align: $0.align) } ?? model.textStyle
+        let t = model.editing.map { BoardTextStyle(size: $0.size, bold: $0.bold, italic: $0.italic, underline: $0.underline, align: $0.align, vAlign: $0.vAlign) } ?? model.textStyle
         let px = Int((t.size * BoardKit.textRef).rounded())
         return HStack(spacing: 6) {
             ControlGroup {
@@ -1021,6 +1141,12 @@ struct BoardView: View {
                 Image(systemName: "text.alignleft").help("Allinea a sinistra").tag("left")
                 Image(systemName: "text.aligncenter").help("Centra").tag("center")
                 Image(systemName: "text.alignright").help("Allinea a destra").tag("right")
+            }
+            .pickerStyle(.segmented).labelsHidden().fixedSize()
+            Picker("", selection: Binding(get: { t.vAlign }, set: { v in model.setTextStyle { $0 = t; $0.vAlign = v } })) {
+                Image(systemName: "align.vertical.top").help("Allinea in alto").tag("top")
+                Image(systemName: "align.vertical.center").help("Allinea al centro").tag("middle")
+                Image(systemName: "align.vertical.bottom").help("Allinea in basso").tag("bottom")
             }
             .pickerStyle(.segmented).labelsHidden().fixedSize()
             if model.editing != nil {
@@ -1090,6 +1216,11 @@ struct BoardView: View {
             Button(model.saved.map { "Salva «\($0.name)»…" } ?? "Salva in un gruppo…") { if model.editing != nil { model.commitEditing() }; showSave = true }
             Button("Lavagne salvate…") { showSaved = true }
             Divider()
+            Button("Copia negli appunti") { copyBoardToClipboard() }
+                .keyboardShortcut("c", modifiers: [.command])
+            Button("Incolla immagine") { pasteImage() }
+                .keyboardShortcut("v", modifiers: [.command])
+            Divider()
             Section("Esporta") {
                 Button("Immagine PNG…") { export("png") }
                 Button("Immagine JPEG…") { export("jpeg") }
@@ -1097,6 +1228,20 @@ struct BoardView: View {
             }
         } label: { Image(systemName: "square.and.arrow.down") }
         .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize().help("Salva ed esporta")
+    }
+
+    private func copyBoardToClipboard() {
+        if model.editing != nil { model.commitEditing() }
+        model.canvas?.copyBoardToClipboard()
+        store.showToast("Lavagna copiata negli appunti")
+    }
+
+    private func pasteImage() {
+        if model.canvas?.pasteImageFromClipboard() == true {
+            store.showToast("Immagine incollata")
+        } else {
+            store.showToast("Nessuna immagine negli appunti")
+        }
     }
 
     private func export(_ fmt: String) {

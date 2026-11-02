@@ -1,5 +1,13 @@
 # Changelog
 
+## v26.11.0-008 (Unstable) – 1 novembre 2026
+- Lavagna – Appunti e Immagini: supporto completo per incollare immagini da app esterne (Cmd+V / Ctrl+V e trascinamento file) e per copiare l'intera lavagna negli appunti come immagine PNG senza doverla prima esportare su file.
+- Lavagna – Allineamento verticale del testo: nuovo controllo per allineare le caselle di testo in alto, al centro o in basso.
+- Lavagna – Layout barre degli strumenti: risolto il troncamento dei pulsanti su finestre strette in macOS tramite scorrimento orizzontale dei controlli mantenendo sempre visibili titolo e azioni rapide.
+- Windows – Correzione avvio Lavagna: risolto l'errore «Cannot access 'exit' before initialization» all'apertura della lavagna su Windows.
+- Sincronizzazione: inclusione dei libri della libreria, dei progressi per gruppo e dei progressi personali dell'insegnante nella sincronizzazione continua tra dispositivi tramite HubDesk.
+- Interfaccia macOS: corretta la disposizione delle colonne in uscita dalla lavagna e nella visualizzazione gruppi; rimossa la versione dal piè di pagina della barra laterale.
+
 ## v26.11.0-007 (Unstable) – 1 novembre 2026
 - Lavagna: visualizzazione integrata all'interno della finestra dell'applicazione senza forzare lo schermo intero né alterare la disposizione delle colonne.
 - Lavagna: pulsante di chiusura essenziale con icona «X» in macOS e Windows/Web.

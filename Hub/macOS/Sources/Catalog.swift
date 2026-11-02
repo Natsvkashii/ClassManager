@@ -32,7 +32,10 @@ public enum SuiteApp: String, CaseIterable, Identifiable {
     }
     public var symbol: String { ["classdesk": "graduationcap.fill", "studydesk": "book.fill", "hubdesk": "point.3.connected.trianglepath.dotted"][rawValue]! }
     /// The single suite installer (from 26.11.0-004 the only macOS file of a release).
-    public static func isSuitePkg(_ n: String) -> Bool { n.hasPrefix("ClassDesk-Suite-") && n.hasSuffix("-Installer.pkg") }
+    public static func isSuitePkg(_ n: String) -> Bool {
+        (n.hasPrefix("ClassDesk-Suite-") && n.hasSuffix("-Installer.pkg")) ||
+        (n.hasPrefix("Classroom-Tools-") && n.hasSuffix(".pkg"))
+    }
     /// Name of the macOS zip asset in a release.
     public func isMacAsset(_ n: String) -> Bool {
         switch self {

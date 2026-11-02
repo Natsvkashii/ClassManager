@@ -47,7 +47,7 @@ function inkFor(color, background) {
   return color;
 }
 
-const emptyState = () => ({ strokes: [], texts: [], background: '#ffffff', grid: null });
+const emptyState = () => ({ strokes: [], texts: [], images: [], background: '#ffffff', grid: null });
 
 const cleanStroke = (s) => {
   const o = { id: s.id, color: s.color || '#000000', w: s.w || 0.004, eraser: !!s.eraser, points: (s.points || []).map((p) => ({ x: p.x, y: p.y, p: p.p == null ? 0.5 : p.p })) };
@@ -55,13 +55,15 @@ const cleanStroke = (s) => {
   return o;
 };
 
-/** Applies a protocol message to { strokes, texts, background, grid } (mutates and returns it). Text boxes and the grid are kept
+/** Applies a protocol message to { strokes, texts, images, background, grid } (mutates and returns it). Text boxes, images and the grid are kept
  *  as they come (the renderer cleans them, boardlogic.js). */
 function applyMessage(state, m) {
+  if (!Array.isArray(state.images)) state.images = [];
   switch (m && m.t) {
     case 'snapshot':
       state.strokes = (Array.isArray(m.strokes) ? m.strokes : []).map(cleanStroke);
       state.texts = Array.isArray(m.texts) ? m.texts : [];
+      state.images = Array.isArray(m.images) ? m.images : [];
       if (typeof m.background === 'string') state.background = m.background;
       if ('grid' in m) state.grid = m.grid || null;
       break;
@@ -74,9 +76,11 @@ function applyMessage(state, m) {
       break;
     }
     case 'undo': state.strokes.pop(); break;
-    case 'clear': state.strokes = []; state.texts = []; break;
+    case 'clear': state.strokes = []; state.texts = []; state.images = []; break;
     case 'text': if (m.item) { const i = state.texts.findIndex((t) => t.id === m.item.id); if (i < 0) state.texts.push(m.item); else state.texts[i] = m.item; } break;
     case 'textdel': state.texts = state.texts.filter((t) => t.id !== m.id); break;
+    case 'image': if (m.item) { const i = state.images.findIndex((img) => img.id === m.item.id); if (i < 0) state.images.push(m.item); else state.images[i] = m.item; } break;
+    case 'imagedel': state.images = state.images.filter((img) => img.id !== m.id); break;
     case 'grid': state.grid = m.grid || null; break;
     case 'background':
       if (typeof m.color === 'string') {
@@ -92,6 +96,6 @@ function applyMessage(state, m) {
   return state;
 }
 
-const snapshotMessage = (state) => ({ t: 'snapshot', strokes: state.strokes, texts: state.texts || [], background: state.background, grid: state.grid || null });
+const snapshotMessage = (state) => ({ t: 'snapshot', strokes: state.strokes, texts: state.texts || [], images: state.images || [], background: state.background, grid: state.grid || null });
 
 module.exports = { ASPECT, encode, decodeLines, emptyState, applyMessage, snapshotMessage };

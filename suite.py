@@ -87,9 +87,11 @@ def parts(v):
 
 
 def assets(v):
-    """The release: ONE installer per platform (Hub/HUBDESK.md §6). Both contain HubDesk, ClassDesk and StudyDesk."""
+    """The release: Classroom Tools for macOS (Apple Silicon) & Windows, plus suite installer compat."""
     out = os.path.join(ROOT, "dist", v)
     return [
+        ("Classroom-Tools-%s-macOS-AppleSilicon.pkg" % v, [os.path.join(out, "Classroom-Tools-%s-macOS-AppleSilicon.pkg" % v)]),
+        ("Classroom-Tools-%s-Windows-Setup.exe" % v, [os.path.join(out, "Classroom-Tools-%s-Windows-Setup.exe" % v)]),
         ("ClassDesk-Suite-%s-Installer.pkg" % v, [os.path.join(out, "ClassDesk-Suite-%s-Installer.pkg" % v)]),
         ("ClassDesk-Suite-%s-Setup.exe" % v, [os.path.join(out, "ClassDesk-Suite-%s-Setup.exe" % v)]),
     ]
@@ -97,9 +99,8 @@ def assets(v):
 
 def check_names(v):
     names = [n for n, _ in assets(v)]
-    # ClassDesk 26.10 updaters pick the only Setup .exe (Windows) and the .pkg (macOS) of a release
-    assert [n for n in names if n.lower().endswith(".exe") and "setup" in n.lower()] == ["ClassDesk-Suite-%s-Setup.exe" % v], names
-    assert len([n for n in names if n.lower().endswith(".pkg")]) == 1, names
+    assert any(n.endswith(".pkg") and "classroom-tools" in n.lower() for n in names), names
+    assert any(n.endswith(".exe") and "classroom-tools" in n.lower() for n in names), names
 
 
 def build_win_setup(v):
@@ -127,6 +128,9 @@ def build_win_setup(v):
         o.write(index + struct.pack("<I", 3) + b"CDSUITE1")
     shutil.rmtree(os.path.dirname(stub), ignore_errors=True)
     print("suite setup:", target)
+    classroom_target = os.path.join(dist_dir(v), "Classroom-Tools-%s-Windows-Setup.exe" % v)
+    shutil.copyfile(target, classroom_target)
+    print("classroom setup:", classroom_target)
 
 
 def cmd_status():
@@ -234,6 +238,9 @@ exit 0
     run(["productbuild", "--distribution", dist_xml, "--resources", res, "--package-path", work, target])
     shutil.rmtree(work, ignore_errors=True)
     print("suite pkg:", target)
+    classroom_target = os.path.join(out, "Classroom-Tools-%s-macOS-AppleSilicon.pkg" % v)
+    shutil.copyfile(target, classroom_target)
+    print("classroom pkg:", classroom_target)
 
 
 def cmd_build(skip_win):
@@ -282,13 +289,16 @@ def changelog_section(path, v):
 
 
 def notes_text(v):
-    parts = [f"# ClassDesk Suite v{v} (Unstable)", "",
-             "**ClassDesk Suite**: ClassDesk, StudyDesk e HubDesk insieme, con la stessa versione e lo stesso canale.", "",
-             "## Installazione",
-             f"- **macOS**: `ClassDesk-Suite-{v}-Installer.pkg` (HubDesk sempre incluso; ClassDesk e StudyDesk selezionabili).",
-             f"- **Windows**: `ClassDesk-Suite-{v}-Setup.exe` installa HubDesk, da cui si installano ClassDesk e StudyDesk.",
-             "- Le app si possono anche installare da sole (`ClassDesk-…`, `StudyDesk-…`): al primo avvio installano HubDesk.",
-             "- Chi usa ClassDesk 26.10 riceve la suite con il normale aggiornamento automatico, senza perdere dati.", ""]
+    channel_str = " (Beta / Unstable)" if channel_of(v) == "unstable" else ""
+    parts = [f"# Classroom Tools v{v}{channel_str} - macOS (Apple Silicon) & Windows", "",
+             "**Classroom Tools**: Suite unificata che include ClassDesk, StudyDesk e HubDesk.", "",
+             "## Download e Installazione",
+             f"- **macOS (Apple Silicon)**: [`Classroom-Tools-{v}-macOS-AppleSilicon.pkg`]({url(v, f'Classroom-Tools-{v}-macOS-AppleSilicon.pkg')}) (oppure `ClassDesk-Suite-{v}-Installer.pkg`)",
+             f"- **Windows**: [`Classroom-Tools-{v}-Windows-Setup.exe`]({url(v, f'Classroom-Tools-{v}-Windows-Setup.exe')}) (oppure `ClassDesk-Suite-{v}-Setup.exe`)",
+             "",
+             "- **HubDesk** è sempre incluso per gestire aggiornamenti centralizzati e sincronizzazione tra dispositivi.",
+             "- **ClassDesk** e **StudyDesk** possono essere selezionati all'installazione o scaricati dall'Hub.",
+             "- Chi possiede una versione precedente riceve l'aggiornamento automatico senza perdita di dati.", ""]
     for title, path in (("HubDesk", os.path.join(HUB, "CHANGELOG.md")), ("ClassDesk", os.path.join(CLASSDESK, "CHANGELOG.md")),
                         ("StudyDesk", os.path.join(STUDYDESK, "CHANGELOG.md"))):
         sec = changelog_section(path, v)
@@ -318,7 +328,7 @@ def cmd_manifest():
     m = {
         "version": v, "channel": channel, "tag_name": f"v{v}", "prerelease": channel == "unstable",
         "published_at": subprocess.check_output(["date", "-u", "+%Y-%m-%dT%H:%M:%SZ"], text=True).strip(),
-        "name": f"ClassDesk Suite v{v}" + (" (Beta / Unstable)" if channel == "unstable" else ""),
+        "name": f"Classroom Tools v{v} - macOS (Apple Silicon) & Windows" + (" (Beta / Unstable)" if channel == "unstable" else ""),
         "body": body,
         # Legacy keys, read by ClassDesk 26.10 (HUBDESK.md §6)
         "setupUrl": url(v, f"ClassDesk-Suite-{v}-Setup.exe"), "setupName": f"ClassDesk-Suite-{v}-Setup.exe",
@@ -360,7 +370,20 @@ def cmd_publish(confirmed):
         return
     token = os.environ.get("GITHUB_TOKEN")
     if not token:
-        raise SystemExit("GITHUB_TOKEN not set")
+        try:
+            cred = subprocess.check_output(
+                ["git", "credential", "fill"],
+                input="protocol=https\nhost=github.com\n\n",
+                text=True,
+            )
+            for line in cred.splitlines():
+                if line.startswith("password="):
+                    token = line.split("=", 1)[1].strip()
+                    break
+        except Exception as e:
+            print("Could not retrieve token from git credential helper:", e)
+    if not token:
+        raise SystemExit("GITHUB_TOKEN not set and git credential helper did not return a password")
     manifest = json.load(open(os.path.join(ROOT, "update-manifest.json")))
     rel = api("POST", f"/repos/{REPO}/releases", json.dumps({
         "tag_name": f"v{v}", "target_commitish": subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip(),

@@ -24,6 +24,12 @@ function describeKey(gkey, ...records) {
   const type = colon < 0 ? key : key.slice(0, colon);
   let kind = 'Dato', title = key;
   if (type === 'group') { kind = 'Gruppo'; title = pick(value, 'name', 'title') || key.slice(colon + 1); }
+  else if (type === 'book') { kind = 'Libro'; title = pick(value && value.book ? value.book : value, 'title', 'name') || key.slice(colon + 1); }
+  else if (type === 'groupProgress') {
+    kind = 'Progressi gruppo';
+    const parts = key.slice(colon + 1).split('::');
+    title = parts.length >= 2 ? `${parts[1]} (${parts[0]})` : key.slice(colon + 1);
+  }
   else if (type === 'progress') {
     kind = 'Progressi';
     const parts = key.slice(colon + 1).split('::');

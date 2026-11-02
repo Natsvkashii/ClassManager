@@ -103,8 +103,7 @@ function buildShell() {
     h('nav.nav.scroll', navItems().map(([label, items]) => h('div.nav-group', h('div.sb-label', label), items.map(([r, t, i]) =>
       h('button.nav-btn', { 'data-route': r, title: t, onclick: () => app.navigate(r) }, h('span.ico', icon(i)), h('span.sb-text', t))))))),
     h('div.sb-bottom',
-      h('button.btn.btn-sm', { onclick: feedback, title: 'Invia feedback via email all\'autore' }, icon('envelope'), h('span.sb-text', 'Invia feedback')),
-      h('div.sb-footer-card', h('span#versionBadge', `StudyDesk v${APP_VERSION} (${channelLabel()})`))));
+      h('button.btn.btn-sm', { onclick: feedback, title: 'Invia feedback via email all\'autore' }, icon('envelope'), h('span.sb-text', 'Invia feedback'))));
   app.backdrop = h('div.backdrop', { onclick: closeSidebar });
   app.titleEl = h('h1');
   app.crumbsEl = h('div.crumbs');

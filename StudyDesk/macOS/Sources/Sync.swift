@@ -139,9 +139,29 @@ public final class SyncEngine {
         for g in store.state.groups {
             if let d = try? enc.encode(g), let o = try? JSONSerialization.jsonObject(with: d) { out["group:\(g.id)"] = o }
         }
+        for b in store.books {
+            if let d = try? enc.encode(b), let o = try? JSONSerialization.jsonObject(with: d) { out["book:\(b.id)"] = o }
+        }
         for (mkey, parts) in store.state.progress {
             for (pid, r) in parts {
                 if let d = try? enc.encode(r), let o = try? JSONSerialization.jsonObject(with: d) { out["progress:\(mkey)::\(pid)"] = o }
+            }
+        }
+        for g in store.state.groups {
+            for (email, rep) in store.reports(for: g.id) {
+                let key = "\(g.id)::\(email)"
+                let reportFile = store.reportsDir.appendingPathComponent(g.id).appendingPathComponent("\(email).sdprogress.json")
+                if let data = try? Data(contentsOf: reportFile),
+                   let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                    out["groupProgress:\(key)"] = [
+                        "key": key,
+                        "groupId": g.id,
+                        "studentId": email,
+                        "exportedAt": rep.exportedAt,
+                        "importedAt": AppDateFormatters.iso.string(from: Date()),
+                        "doc": json
+                    ]
+                }
             }
         }
         for (k, v) in store.state.syncTombstones { out["deleted:\(k)"] = ["deletedAt": v] }
@@ -155,6 +175,24 @@ public final class SyncEngine {
             guard let d = try? JSONSerialization.data(withJSONObject: value) else { continue }
             if key.hasPrefix("group:"), let g = try? dec.decode(StudyGroup.self, from: d) {
                 if let i = store.state.groups.firstIndex(where: { $0.id == g.id }) { store.state.groups[i] = g } else { store.state.groups.append(g) }
+            } else if key.hasPrefix("book:"), let b = try? dec.decode(StudyBook.self, from: d) {
+                store.saveBook(b, reload: true)
+            } else if key.hasPrefix("groupProgress:") {
+                let rest = String(key.dropFirst("groupProgress:".count))
+                if let dict = value as? [String: Any],
+                   let doc = dict["doc"] as? [String: Any],
+                   let docData = try? JSONSerialization.data(withJSONObject: doc),
+                   let rep = ReceivedReport.parse(docData) {
+                    let parts = rest.components(separatedBy: "::")
+                    let gid = parts.first ?? (dict["groupId"] as? String ?? "")
+                    let email = parts.count > 1 ? parts[1] : (dict["studentId"] as? String ?? rep.email)
+                    if !gid.isEmpty && !email.isEmpty {
+                        let dest = store.reportsDir.appendingPathComponent(gid).appendingPathComponent("\(email).sdprogress.json")
+                        try? FileManager.default.createDirectory(at: store.reportsDir.appendingPathComponent(gid), withIntermediateDirectories: true)
+                        try? docData.write(to: dest, options: .atomic)
+                        store.reportsVersion += 1
+                    }
+                }
             } else if key.hasPrefix("progress:"), let r = try? dec.decode(PartResult.self, from: d) {
                 let rest = String(key.dropFirst("progress:".count))
                 guard let sep = rest.range(of: "::", options: .backwards) else { continue }
@@ -171,6 +209,20 @@ public final class SyncEngine {
     func delete(_ key: String) {
         guard let store else { return }
         if key.hasPrefix("group:") { store.state.groups.removeAll { "group:\($0.id)" == key } }
+        else if key.hasPrefix("book:") {
+            let id = String(key.dropFirst("book:".count))
+            store.deleteBook(id, withChapters: false)
+        }
+        else if key.hasPrefix("groupProgress:") {
+            let rest = String(key.dropFirst("groupProgress:".count))
+            let parts = rest.components(separatedBy: "::")
+            if parts.count >= 2 {
+                let gid = parts[0], email = parts[1]
+                let dest = store.reportsDir.appendingPathComponent(gid).appendingPathComponent("\(email).sdprogress.json")
+                try? FileManager.default.removeItem(at: dest)
+                store.reportsVersion += 1
+            }
+        }
         else if key.hasPrefix("progress:") {
             let rest = String(key.dropFirst("progress:".count))
             if let sep = rest.range(of: "::", options: .backwards) { store.state.progress[String(rest[..<sep.lowerBound])]?[String(rest[sep.upperBound...])] = nil }

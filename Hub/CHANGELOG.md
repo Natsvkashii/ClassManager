@@ -1,5 +1,12 @@
 # HubDesk – Changelog
 
+## 26.11.0-008 (Unstable)
+- Classroom Tools Release: pacchetti di installazione unificati rilasciati come Classroom Tools con indicazione esplicita per macOS (Apple Silicon) e Windows.
+- Impostazioni e canali: commutazione del canale di aggiornamento («Stabile» e «Instabile (Beta)») configurabile unicamente dalle Impostazioni di HubDesk; corretta la localizzazione italiana.
+- Windows: risolto il problema della finestra vuota/trasparente quando HubDesk viene aperto o richiamato dalla barra delle applicazioni di Windows.
+- Sincronizzazione suite: supporto completo per la sincronizzazione dei libri e dei relativi progressi studio tra i nodi della classe.
+- Interfaccia: rimosso il selettore del canale dalla schermata App e il numero di versione dal piè di pagina della barra laterale, mantenendolo centralizzato nei Crediti e nelle Informazioni.
+
 ## 26.11.0-007 (Unstable)
 - Riapertura automatica: al termine di ogni aggiornamento, le applicazioni aperte (ClassDesk, StudyDesk e HubDesk stesso) si riaprono automaticamente conservando la sessione.
 - Rimozione degli attributi di quarantena su macOS per garantire l'apertura immediata post-aggiornamento.
