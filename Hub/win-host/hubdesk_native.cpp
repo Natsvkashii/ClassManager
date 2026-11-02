@@ -686,6 +686,7 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int) {
         }
         return out + "]";
     });
+    w.bind("__hd_data_dir", [](std::string) -> std::string { return Q(U(KnownDir(CSIDL_APPDATA) + L"\\DeskHub")); });
     w.bind("__hd_hostname", [](std::string) -> std::string { wchar_t n[256]; DWORD len = 256; GetComputerNameW(n, &len); return Q(U(n)); });
     w.bind("__hd_notify", [](std::string r) -> std::string {
         NOTIFYICONDATAW n = g_tray; n.uFlags = NIF_INFO; n.dwInfoFlags = NIIF_INFO;

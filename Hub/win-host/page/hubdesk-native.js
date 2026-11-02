@@ -120,12 +120,14 @@
   const fire = (k, v) => subs[k].forEach((f) => { try { f(v); } catch (e) { console.error(e); } });
   let appState = { welcomeDone: false, autoUpdate: true, openAtLogin: true, notice: '' };
   // same fields as Electron's publicApp() (main.js)
-  const publicApp = () => ({ ...appState, version: SELF_VERSION, platform: 'win32', dataDir: '', demo: false, firstRun: !appState.welcomeDone });
+  let dataDir = ''; // %APPDATA%\DeskHub, shown in Impostazioni › Informazioni
+  const publicApp = () => ({ ...appState, version: SELF_VERSION, platform: 'win32', dataDir, demo: false, firstRun: !appState.welcomeDone });
   let engine = null; // page/hub-engine.js (port of net/hub-net.js on the native sockets and mDNS)
   const engineState = () => engine.getState();
   let manager = null;
   const ready = (async () => {
     programsDir = await PROGRAMS();
+    dataDir = await window.__hd_data_dir().catch(() => '');
     TMP = await window.__hd_temp();
     appState = { ...appState, ...(JSON.parse((await window.__hd_state_read()) || '{}')) };
     const settings = JSON.parse((await window.__hd_settings_read()) || '{}');

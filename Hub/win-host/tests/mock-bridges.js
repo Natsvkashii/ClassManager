@@ -18,7 +18,7 @@
     __hd_http_get: async (url) => JSON.stringify(url.includes('api.github.com') ? [{ tag_name: 'v26.11.0-005', prerelease: true, draft: false, body: 'note', assets: [{ name: 'ClassDesk-Suite-26.11.0-005-Setup.exe', browser_download_url: 'https://github.com/x/s.exe', size: 1 }, { name: 'ClassDesk-Suite-26.11.0-005-Installer.pkg', browser_download_url: 'https://github.com/x/p.pkg', size: 1 }] }] : {}),
     __hd_download: async (u, f, id) => { log('download', [u, f]); window.__hd_progress(id, 1); return true; },
     __hd_rm: async () => true, __hd_quit: async () => true, __hd_autostart: async () => true, __hd_notify: async () => true,
-    __hd_hostname: async () => 'SURFACE',
+    __hd_hostname: async () => 'SURFACE', __hd_data_dir: async () => 'C:\\Users\\t\\AppData\\Roaming\\DeskHub',
   });
   let st = null;
   window.__hd_state_read = async () => st; window.__hd_state_write = async (t) => { st = t; return true; };
