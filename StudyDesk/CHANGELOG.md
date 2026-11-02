@@ -1,5 +1,13 @@
 # Changelog
 
+## v26.11.0-010 (Stabile) – 1 novembre 2026
+- Release Stabile per Classroom Tools: promossa la versione 26.11 al canale Stabile con tutte le funzionalità consolidate.
+- Lavagna – Zoom e Pan a due dita: supporto completo per pinch-to-zoom a due dita (touchscreen e trackpad) e spostamento panoramico nell'area della lavagna sia su Windows che su macOS.
+- Lavagna – Schermo intero reale a livello di sistema operativo: ripristinata la modalità a schermo intero nativa a tutto monitor su Windows e macOS tramite apposito pulsante e scorciatoie.
+- Lavagna – Correzione dimensioni finestra Windows: risolto il problema della lavagna visualizzata «piccola piccola» su Windows espandendo l'area della lavagna al 100% dell'altezza e larghezza disponibili.
+- Interfaccia macOS: rimossa la modalità di sovrapposizione laterale e garantita la corretta dimensione minima per evitare tagli o sovrapposizioni visive tra barra laterale e sezioni Gruppi e Lavagna.
+- Scorciatoie zoom: pulsante rapido di indicazione percentuale e ripristino zoom (100%), scorciatoie da tastiera Ctrl/Cmd + / - / 0 e trascinamento panoramico con barra spaziatrice.
+
 ## v26.11.0-009 (Unstable) – 1 novembre 2026
 - Lavagna – Zoom e Pan a due dita: supporto completo per pinch-to-zoom a due dita (touchscreen e trackpad) e spostamento panoramico nell'area della lavagna sia su Windows che su macOS.
 - Lavagna – Schermo intero reale a livello di sistema operativo: ripristinata la modalità a schermo intero nativa a tutto monitor su Windows e macOS tramite apposito pulsante e scorciatoie.

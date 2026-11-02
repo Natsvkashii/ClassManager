@@ -61,6 +61,11 @@ def versions():
 
 def channel_of(v):
     try:
+        w = open(os.path.join(STUDYDESK, "app", "js", "core", "version.js"), encoding="utf-8").read()
+        if "APP_CHANNEL = 'stable'" in w:
+            return "stable"
+        if "APP_CHANNEL = 'beta'" in w:
+            return "unstable"
         return json.load(open(os.path.join(ROOT, "update-manifest.json"))).get("channel", "unstable")
     except Exception:
         return "unstable"
@@ -87,13 +92,11 @@ def parts(v):
 
 
 def assets(v):
-    """The release: Classroom Tools for macOS (Apple Silicon) & Windows, plus suite installer compat."""
+    """The release: exactly one installer for macOS (Apple Silicon) and one for Windows."""
     out = os.path.join(ROOT, "dist", v)
     return [
         ("Classroom-Tools-%s-macOS-AppleSilicon.pkg" % v, [os.path.join(out, "Classroom-Tools-%s-macOS-AppleSilicon.pkg" % v)]),
         ("Classroom-Tools-%s-Windows-Setup.exe" % v, [os.path.join(out, "Classroom-Tools-%s-Windows-Setup.exe" % v)]),
-        ("ClassDesk-Suite-%s-Installer.pkg" % v, [os.path.join(out, "ClassDesk-Suite-%s-Installer.pkg" % v)]),
-        ("ClassDesk-Suite-%s-Setup.exe" % v, [os.path.join(out, "ClassDesk-Suite-%s-Setup.exe" % v)]),
     ]
 
 
@@ -293,8 +296,8 @@ def notes_text(v):
     parts = [f"# Classroom Tools v{v}{channel_str} - macOS (Apple Silicon) & Windows", "",
              "**Classroom Tools**: Suite unificata che include ClassDesk, StudyDesk e HubDesk.", "",
              "## Download e Installazione",
-             f"- **macOS (Apple Silicon)**: [`Classroom-Tools-{v}-macOS-AppleSilicon.pkg`]({url(v, f'Classroom-Tools-{v}-macOS-AppleSilicon.pkg')}) (oppure `ClassDesk-Suite-{v}-Installer.pkg`)",
-             f"- **Windows**: [`Classroom-Tools-{v}-Windows-Setup.exe`]({url(v, f'Classroom-Tools-{v}-Windows-Setup.exe')}) (oppure `ClassDesk-Suite-{v}-Setup.exe`)",
+             f"- **macOS (Apple Silicon)**: [`Classroom-Tools-{v}-macOS-AppleSilicon.pkg`]({url(v, f'Classroom-Tools-{v}-macOS-AppleSilicon.pkg')})",
+             f"- **Windows**: [`Classroom-Tools-{v}-Windows-Setup.exe`]({url(v, f'Classroom-Tools-{v}-Windows-Setup.exe')})",
              "",
              "- **HubDesk** è sempre incluso per gestire aggiornamenti centralizzati e sincronizzazione tra dispositivi.",
              "- **ClassDesk** e **StudyDesk** possono essere selezionati all'installazione o scaricati dall'Hub.",
@@ -317,8 +320,7 @@ def cmd_notes():
 
 def cmd_manifest():
     v = suite_version()
-    channel = "unstable" if "unstable" in open(os.path.join(STUDYDESK, "app", "js", "core", "version.js"), encoding="utf-8").read().lower() \
-        or channel_of(v) == "unstable" else "stable"
+    channel = channel_of(v)
     body = notes_text(v)
     def entry(mac=None, win=None):
         e = {}
@@ -330,15 +332,15 @@ def cmd_manifest():
         "published_at": subprocess.check_output(["date", "-u", "+%Y-%m-%dT%H:%M:%SZ"], text=True).strip(),
         "name": f"Classroom Tools v{v} - macOS (Apple Silicon) & Windows" + (" (Beta / Unstable)" if channel == "unstable" else ""),
         "body": body,
-        # Legacy keys, read by ClassDesk 26.10 (HUBDESK.md §6)
-        "setupUrl": url(v, f"ClassDesk-Suite-{v}-Setup.exe"), "setupName": f"ClassDesk-Suite-{v}-Setup.exe",
-        "macPkgUrl": url(v, f"ClassDesk-Suite-{v}-Installer.pkg"), "macPkgName": f"ClassDesk-Suite-{v}-Installer.pkg",
+        # Unified installers: 1 for Windows, 1 for macOS
+        "setupUrl": url(v, f"Classroom-Tools-{v}-Windows-Setup.exe"), "setupName": f"Classroom-Tools-{v}-Windows-Setup.exe",
+        "macPkgUrl": url(v, f"Classroom-Tools-{v}-macOS-AppleSilicon.pkg"), "macPkgName": f"Classroom-Tools-{v}-macOS-AppleSilicon.pkg",
         "suite": {"version": v, "apps": {
-            # every app comes from the same two installers; HubDesk takes out the one it needs
-            "hubdesk": entry(f"ClassDesk-Suite-{v}-Installer.pkg", f"ClassDesk-Suite-{v}-Setup.exe"),
-            "classdesk": entry(f"ClassDesk-Suite-{v}-Installer.pkg", f"ClassDesk-Suite-{v}-Setup.exe"),
-            "studydesk": entry(f"ClassDesk-Suite-{v}-Installer.pkg", f"ClassDesk-Suite-{v}-Setup.exe"),
-        }, "pkg": {"name": f"ClassDesk-Suite-{v}-Installer.pkg", "url": url(v, f"ClassDesk-Suite-{v}-Installer.pkg")}},
+            # every app comes from the same single installer per platform
+            "hubdesk": entry(f"Classroom-Tools-{v}-macOS-AppleSilicon.pkg", f"Classroom-Tools-{v}-Windows-Setup.exe"),
+            "classdesk": entry(f"Classroom-Tools-{v}-macOS-AppleSilicon.pkg", f"Classroom-Tools-{v}-Windows-Setup.exe"),
+            "studydesk": entry(f"Classroom-Tools-{v}-macOS-AppleSilicon.pkg", f"Classroom-Tools-{v}-Windows-Setup.exe"),
+        }, "pkg": {"name": f"Classroom-Tools-{v}-macOS-AppleSilicon.pkg", "url": url(v, f"Classroom-Tools-{v}-macOS-AppleSilicon.pkg")}},
     }
     for p in (os.path.join(ROOT, "update-manifest.json"), os.path.join(CLASSDESK, "update-manifest.json")):
         json.dump(m, open(p, "w", encoding="utf-8"), indent=2, ensure_ascii=False)

@@ -1,5 +1,9 @@
 # HubDesk – Changelog
 
+## 26.11.0-010 (Stabile)
+- Rilascio sul canale Stabile della suite Classroom Tools 26.11.
+- Gestione centralizzata della sincronizzazione, avanzamento libri e aggiornamenti per la suite.
+
 ## 26.11.0-009 (Unstable)
 - Allineamento alla release Classroom Tools 26.11.0-009.
 - Gestione centralizzata della sincronizzazione lavagne e avanzamento libri per la suite.

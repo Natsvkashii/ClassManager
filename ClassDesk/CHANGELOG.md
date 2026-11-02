@@ -5,6 +5,10 @@ Il formato è basato su [Keep a Changelog](https://keepachangelog.com/it/1.0.0/)
 
 ---
 
+## [26.11.0-010] — 2026-11-01 (Stabile)
+- Rilascio sul canale Stabile della suite Classroom Tools 26.11.
+- Consolidamento delle funzionalità di sincronizzazione continua e fatturazione automatica.
+
 ## [26.11.0-009] — 2026-11-01 (Unstable)
 - Allineamento suite Classroom Tools 26.11.0-009.
 - Miglioramenti di stabilità e sincronizzazione centralizzata con StudyDesk e HubDesk.
