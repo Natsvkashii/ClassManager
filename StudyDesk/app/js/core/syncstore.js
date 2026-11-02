@@ -14,6 +14,7 @@
 import { db, kv } from './db.js';
 import { uid } from './ui.js';
 import { getTombstones, addTombstone, clearTombstone } from './tombstones.js';
+import { bookMetaOf } from './booktransferlogic.js';
 import { listModules, exportSdmod, importSdmod } from './modules.js';
 import { platform, electronApi } from './platform.js';
 import {
@@ -33,7 +34,8 @@ export const saveSyncConfig = (c) => kv.set('syncConfig', c);
 export async function localRecords() {
   const out = {};
   for (const g of await db.all('groups')) out[groupKey(g.id)] = groupToRecord(g);
-  for (const b of await db.all('books')) out[`book:${b.id}`] = { id: b.id, book: b.book, source: b.source, importedAt: b.importedAt };
+  // book:<id> = the flat book.json (same as macOS); the chapters travel as a file (core/booktransfer.js)
+  for (const b of await db.all('books')) if (b.book && b.book.title) out[`book:${b.id}`] = { ...b.book, id: b.id };
   for (const gp of await db.all('groupProgress')) out[`groupProgress:${gp.key}`] = { key: gp.key, groupId: gp.groupId, studentId: gp.studentId, exportedAt: gp.exportedAt, importedAt: gp.importedAt, doc: gp.doc };
   for (const r of await db.all('progress')) { const v = progressToRecord(r); if (v) out[progressRecordKey(r)] = v; }
   for (const [k, at] of Object.entries(await getTombstones())) out[`deleted:${k}`] = { deletedAt: at };
@@ -60,11 +62,12 @@ export async function applyRecords(records) {
     else if (key.startsWith('progress:')) {
       const p = parseProgressKey(key);
       if (p) await db.put('progress', recordToProgress(key, value, await db.get('progress', p.storeKey)));
-    } else if (key.startsWith('book:') && value.id) {
-      const existing = await db.get('books', value.id);
+    } else if (key.startsWith('book:') && bookMetaOf(value)) {
+      const meta = bookMetaOf(value);
+      const existing = await db.get('books', meta.id);
       await db.put('books', {
-        id: value.id,
-        book: value.book || {},
+        id: meta.id,
+        book: meta,
         source: value.source || existing?.source || 'sync',
         importedAt: value.importedAt || existing?.importedAt || new Date().toISOString(),
         coverBlob: existing?.coverBlob || null,

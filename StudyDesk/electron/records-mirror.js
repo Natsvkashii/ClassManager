@@ -62,7 +62,8 @@ function createMirror({ records, store, deviceId, stateFile = null, log = () => 
     const local = await store.records();
     const tombs = new Set(Object.keys(local).filter((k) => k.startsWith(DELETED)).map((k) => k.slice(DELETED.length)));
     const live = Object.fromEntries(Object.entries(local).filter(([k]) => !k.startsWith(DELETED)));
-    const hub = records.all();
+    // bookfile:/bookchunk: records carry book files between the native apps and are never mirrored
+    const hub = Object.fromEntries(Object.entries(records.all()).filter(([k]) => !/^book(file|chunk):/.test(k)));
     const keys = new Set([...Object.keys(live), ...Object.keys(hub), ...tombs]);
     const toApply = {}, toRemoveLocal = [];
     const out = { exported: 0, imported: 0, removedHub: 0, removedLocal: 0 };

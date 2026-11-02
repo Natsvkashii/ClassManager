@@ -259,52 +259,8 @@ extension AppStore {
 
     @discardableResult
     public func importBook(from url: URL) -> StudyBook? {
-        let fm = FileManager.default
-        let tmp = fm.temporaryDirectory.appendingPathComponent("sdbook_\(UUID().uuidString)")
-        defer { try? fm.removeItem(at: tmp) }
         do {
-            try fm.createDirectory(at: tmp, withIntermediateDirectories: true)
-            try Shell.run("/usr/bin/ditto", ["-x", "-k", url.path, tmp.path])
-            var root = tmp
-            if !fm.fileExists(atPath: tmp.appendingPathComponent("book.json").path),
-               let sub = try fm.contentsOfDirectory(at: tmp, includingPropertiesForKeys: nil).first(where: { fm.fileExists(atPath: $0.appendingPathComponent("book.json").path) }) {
-                root = sub
-            }
-            var book = try JSONDecoder().decode(StudyBook.self, from: Data(contentsOf: root.appendingPathComponent("book.json")))
-            guard book.format == "studydesk-book" else { throw StoreError.message("Il file non è un libro StudyDesk.") }
-            let chaptersDir = root.appendingPathComponent("chapters")
-            let folders = (try? fm.contentsOfDirectory(at: chaptersDir, includingPropertiesForKeys: nil)) ?? []
-            // Read every chapter first: a chapter this version cannot read is skipped and reported, never half-installed.
-            var readable: [(URL, StudyModule)] = []
-            var unreadable: [String] = []
-            for folder in folders where fm.fileExists(atPath: folder.appendingPathComponent("module.json").path) {
-                do { readable.append((folder, try JSONDecoder().decode(StudyModule.self, from: Data(contentsOf: folder.appendingPathComponent("module.json"))))) }
-                catch { unreadable.append(folder.lastPathComponent) }
-            }
-            for (i, item) in readable.enumerated() {
-                let folder = item.0
-                var mod = item.1
-                let idx = book.chapters.firstIndex { $0.moduleId == mod.id }
-                if idx == nil { book.chapters.append(BookChapter(moduleId: mod.id, number: mod.book?.chapter, title: mod.title)) }
-                if mod.book == nil {
-                    mod.book = BookRef(id: book.id, title: book.title, chapter: idx.flatMap { book.chapters[$0].number }, order: (idx ?? i) + 1)
-                }
-                let dest = moduleDir(mod.id)
-                if fm.fileExists(atPath: dest.path) { try fm.removeItem(at: dest) }
-                try fm.moveItem(at: folder, to: dest)
-                let enc = JSONEncoder(); enc.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
-                try enc.encode(mod).write(to: dest.appendingPathComponent("module.json"), options: .atomic)
-            }
-            let bdir = bookDir(book.id)
-            try? fm.createDirectory(at: bdir, withIntermediateDirectories: true)
-            if let c = book.cover, fm.fileExists(atPath: root.appendingPathComponent(c).path) {
-                let target = bdir.appendingPathComponent(c)
-                try? fm.createDirectory(at: target.deletingLastPathComponent(), withIntermediateDirectories: true)
-                try? fm.removeItem(at: target)
-                try fm.copyItem(at: root.appendingPathComponent(c), to: target)
-            }
-            saveBook(book, reload: false)
-            reloadModules()
+            let (book, unreadable) = try importBookFile(from: url)
             showToast("Libro «\(book.title)» importato (\(chapters(of: book).count) capitoli)")
             if !unreadable.isEmpty {
                 alert("Alcuni capitoli non sono stati importati",
@@ -317,32 +273,84 @@ extension AppStore {
         }
     }
 
+    /// Installs a .sdbook (no UI). Returns the book and the chapter folders this version cannot read.
+    public func importBookFile(from url: URL) throws -> (StudyBook, [String]) {
+        let fm = FileManager.default
+        let tmp = fm.temporaryDirectory.appendingPathComponent("sdbook_\(UUID().uuidString)")
+        defer { try? fm.removeItem(at: tmp) }
+        try fm.createDirectory(at: tmp, withIntermediateDirectories: true)
+        try Shell.run("/usr/bin/ditto", ["-x", "-k", url.path, tmp.path])
+        var root = tmp
+        if !fm.fileExists(atPath: tmp.appendingPathComponent("book.json").path),
+           let sub = try fm.contentsOfDirectory(at: tmp, includingPropertiesForKeys: nil).first(where: { fm.fileExists(atPath: $0.appendingPathComponent("book.json").path) }) {
+            root = sub
+        }
+        var book = try JSONDecoder().decode(StudyBook.self, from: Data(contentsOf: root.appendingPathComponent("book.json")))
+        guard book.format == "studydesk-book" else { throw StoreError.message("Il file non è un libro StudyDesk.") }
+        let chaptersDir = root.appendingPathComponent("chapters")
+        let folders = (try? fm.contentsOfDirectory(at: chaptersDir, includingPropertiesForKeys: nil)) ?? []
+        // Read every chapter first: a chapter this version cannot read is skipped and reported, never half-installed.
+        var readable: [(URL, StudyModule)] = []
+        var unreadable: [String] = []
+        for folder in folders where fm.fileExists(atPath: folder.appendingPathComponent("module.json").path) {
+            do { readable.append((folder, try JSONDecoder().decode(StudyModule.self, from: Data(contentsOf: folder.appendingPathComponent("module.json"))))) }
+            catch { unreadable.append(folder.lastPathComponent) }
+        }
+        for (i, item) in readable.enumerated() {
+            let folder = item.0
+            var mod = item.1
+            let idx = book.chapters.firstIndex { $0.moduleId == mod.id }
+            if idx == nil { book.chapters.append(BookChapter(moduleId: mod.id, number: mod.book?.chapter, title: mod.title)) }
+            if mod.book == nil {
+                mod.book = BookRef(id: book.id, title: book.title, chapter: idx.flatMap { book.chapters[$0].number }, order: (idx ?? i) + 1)
+            }
+            let dest = moduleDir(mod.id)
+            if fm.fileExists(atPath: dest.path) { try fm.removeItem(at: dest) }
+            try fm.moveItem(at: folder, to: dest)
+            let enc = JSONEncoder(); enc.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
+            try enc.encode(mod).write(to: dest.appendingPathComponent("module.json"), options: .atomic)
+        }
+        let bdir = bookDir(book.id)
+        try? fm.createDirectory(at: bdir, withIntermediateDirectories: true)
+        if let c = book.cover, fm.fileExists(atPath: root.appendingPathComponent(c).path) {
+            let target = bdir.appendingPathComponent(c)
+            try? fm.createDirectory(at: target.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try? fm.removeItem(at: target)
+            try fm.copyItem(at: root.appendingPathComponent(c), to: target)
+        }
+        saveBook(book, reload: false)
+        reloadModules()
+        return (book, unreadable)
+    }
+
     public func exportBook(_ id: String) {
         guard let b = book(id) else { return }
         let panel = NSSavePanel()
         panel.nameFieldStringValue = "\(b.title.replacingOccurrences(of: "/", with: "-")).sdbook"
         panel.allowedContentTypes = [.studyDeskBook]
         guard panel.runModal() == .OK, let url = panel.url else { return }
-        let fm = FileManager.default
-        let tmp = fm.temporaryDirectory.appendingPathComponent("sdbook_out_\(UUID().uuidString)")
-        defer { try? fm.removeItem(at: tmp) }
         do {
-            var out = b
-            out.chapters = chapters(of: b).map { m in BookChapter(moduleId: m.id, number: chapterNumber(m, in: b), title: m.title) }
-            try fm.createDirectory(at: tmp.appendingPathComponent("chapters"), withIntermediateDirectories: true)
-            for m in chapters(of: b) { try fm.copyItem(at: moduleDir(m.id), to: tmp.appendingPathComponent("chapters/\(m.id)")) }
-            if let c = b.cover, fm.fileExists(atPath: bookDir(b.id).appendingPathComponent(c).path) {
-                try fm.createDirectory(at: tmp.appendingPathComponent(c).deletingLastPathComponent(), withIntermediateDirectories: true)
-                try fm.copyItem(at: bookDir(b.id).appendingPathComponent(c), to: tmp.appendingPathComponent(c))
-            }
-            let enc = JSONEncoder(); enc.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
-            try enc.encode(out).write(to: tmp.appendingPathComponent("book.json"))
-            try? fm.removeItem(at: url)
-            try Shell.run("/usr/bin/ditto", ["-c", "-k", "--norsrc", "--noextattr", tmp.path, url.path])
+            try exportBookFile(id, to: url)
             showToast("Libro esportato: \(url.lastPathComponent)")
         } catch {
             alert("Esportazione del libro non riuscita", error.localizedDescription)
         }
+    }
+
+    /// What a .sdbook of the book is made of, read on the main actor; `BookPackage.write` builds the file anywhere.
+    public func bookPackage(_ id: String) -> BookPackage? {
+        guard let b = book(id) else { return nil }
+        var out = b
+        out.chapters = chapters(of: b).map { m in BookChapter(moduleId: m.id, number: chapterNumber(m, in: b), title: m.title) }
+        let enc = JSONEncoder(); enc.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
+        guard let json = try? enc.encode(out) else { return nil }
+        let cover = b.cover.flatMap { c in FileManager.default.fileExists(atPath: bookDir(b.id).appendingPathComponent(c).path) ? (c, bookDir(b.id).appendingPathComponent(c)) : nil }
+        return BookPackage(bookJSON: json, chapters: chapters(of: b).map { ($0.id, moduleDir($0.id)) }, cover: cover)
+    }
+
+    public func exportBookFile(_ id: String, to url: URL) throws {
+        guard let p = bookPackage(id) else { throw StoreError.message("Libro non trovato.") }
+        try p.write(to: url)
     }
 
     public func deleteBook(_ id: String, withChapters: Bool) {
@@ -506,5 +514,27 @@ extension AppStore {
         var list = g.bookIds.compactMap { book($0) }.flatMap { chapters(of: $0) }
         list += g.moduleIds.compactMap { module($0) }.filter { !list.contains($0) }
         return list
+    }
+}
+
+/// Files of a .sdbook (book.json, chapters/<moduleId>, cover); `write` needs no main actor.
+public struct BookPackage: @unchecked Sendable {
+    public var bookJSON: Data
+    public var chapters: [(String, URL)]
+    public var cover: (String, URL)?
+
+    public func write(to url: URL) throws {
+        let fm = FileManager.default
+        let tmp = fm.temporaryDirectory.appendingPathComponent("sdbook_out_\(UUID().uuidString)")
+        defer { try? fm.removeItem(at: tmp) }
+        try fm.createDirectory(at: tmp.appendingPathComponent("chapters"), withIntermediateDirectories: true)
+        for (id, dir) in chapters { try fm.copyItem(at: dir, to: tmp.appendingPathComponent("chapters/\(id)")) }
+        if let (rel, src) = cover {
+            try fm.createDirectory(at: tmp.appendingPathComponent(rel).deletingLastPathComponent(), withIntermediateDirectories: true)
+            try fm.copyItem(at: src, to: tmp.appendingPathComponent(rel))
+        }
+        try bookJSON.write(to: tmp.appendingPathComponent("book.json"))
+        try? fm.removeItem(at: url)
+        try Shell.run("/usr/bin/ditto", ["-c", "-k", "--norsrc", "--noextattr", tmp.path, url.path])
     }
 }

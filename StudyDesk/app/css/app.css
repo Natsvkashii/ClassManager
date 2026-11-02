@@ -757,3 +757,21 @@ body.focus-mode .board-root { position: fixed !important; inset: 0 !important; z
 .empty .ico { animation: pop .45s var(--ease-spring) both; }
 .toast { animation: slide .26s var(--ease-spring); }
 @media (prefers-reduced-motion: reduce) { .view > *, .view .grid > *, .modal, .bpop-panel { animation: none !important; } .btn:hover, .module-card:hover { transform: none; } }
+
+/* ---------- Book sync panel (core/booktransfer.js) ---------- */
+.booksync { position: fixed; left: 1rem; bottom: 1rem; z-index: 140; display: flex; flex-direction: column; gap: .5rem; width: min(24rem, calc(100vw - 2rem)); }
+.booksync[hidden] { display: none; }
+.booksync-card { background: var(--surface); border: 1px solid var(--border-strong); border-radius: .9rem; padding: .75rem .9rem; box-shadow: var(--shadow-lg); animation: slide .2s; }
+.booksync-card.err { border-color: var(--bad); }
+.booksync-head { display: flex; gap: .65rem; align-items: flex-start; }
+.booksync-head > i { color: var(--accent); margin-top: .2rem; }
+.booksync-card.err .booksync-head > i { color: var(--bad); }
+.booksync-head strong { display: block; font-size: .9rem; }
+.booksync-head small { color: var(--text-2); font-size: .78rem; }
+.booksync-bar { margin-top: .55rem; height: .45rem; border-radius: 99px; background: var(--accent-soft); overflow: hidden; }
+.booksync-bar > span { display: block; height: 100%; background: var(--accent); border-radius: inherit; transition: width .3s ease; }
+.booksync-bar.indeterminate > span { width: 35% !important; animation: booksync-slide 1.2s ease-in-out infinite; }
+@keyframes booksync-slide { from { transform: translateX(-100%); } to { transform: translateX(290%); } }
+.booksync-msg { margin: .45rem 0 0; font-size: .8rem; line-height: 1.4; }
+.booksync-actions { display: flex; flex-wrap: wrap; gap: .4rem; margin-top: .6rem; }
+@media (prefers-reduced-motion: reduce) { .booksync-bar > span, .booksync-card { transition: none; animation: none; } }

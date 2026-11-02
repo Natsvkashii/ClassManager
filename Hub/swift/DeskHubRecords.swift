@@ -104,10 +104,15 @@ public final class DeskHubRecords {
 
     public func get(_ key: String) -> [String: Any]? { DeskHubPaths.readJSON(url(for: key)) as? [String: Any] }
 
-    /// All records of this app (tombstones included), by key.
-    public func all() -> [String: [String: Any]] {
+    /// Record file names in the folder (no reading).
+    public func fileNames() -> [String] {
+        ((try? FileManager.default.contentsOfDirectory(atPath: folder.path)) ?? []).filter { $0.hasSuffix(".json") }
+    }
+
+    /// All records of this app (tombstones included), by key. `skipFile` leaves out files by name without reading them.
+    public func all(skipFile: (String) -> Bool = { _ in false }) -> [String: [String: Any]] {
         var out: [String: [String: Any]] = [:]
-        for f in (try? FileManager.default.contentsOfDirectory(at: folder, includingPropertiesForKeys: nil)) ?? [] where f.pathExtension == "json" {
+        for f in (try? FileManager.default.contentsOfDirectory(at: folder, includingPropertiesForKeys: nil)) ?? [] where f.pathExtension == "json" && !skipFile(f.lastPathComponent) {
             if let r = DeskHubPaths.readJSON(f) as? [String: Any], let k = r["key"] as? String { out[k] = r }
         }
         return out

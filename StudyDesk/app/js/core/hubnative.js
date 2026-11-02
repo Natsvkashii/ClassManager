@@ -15,6 +15,8 @@
 // and the local channel. It installs window.studydesk.hubdesk with the same API as the Electron preload, so core/hubdesk.js
 // does not change. Same records and rules as Hub/HUBDESK.md §1, §4, §5.
 import { localRecords, applyRecords } from './syncstore.js';
+import { bookTransferStep, setTransferDevice } from './booktransfer.js';
+import { isTransferFile } from './booktransferlogic.js';
 
 const native = typeof window !== 'undefined' && window.studydesk && window.studydesk.native && typeof window.__sd_hub_read === 'function';
 const DELETED = 'deleted:';
@@ -95,7 +97,7 @@ async function runtime() {
 async function hubRecords() {
   const out = {};
   for (const f of (await window.__sd_hub_list(FOLDER)) || []) {
-    if (!f.n.endsWith('.json')) continue;
+    if (!f.n.endsWith('.json') || isTransferFile(f.n)) continue;  // book files travel apart (core/booktransfer.js)
     const r = await readJSON(`${FOLDER}/${f.n}`);
     if (r && r.key) out[r.key] = r;
   }
@@ -159,6 +161,15 @@ function createService() {
     if (toRemoveLocal.length) await applyRecords(Object.fromEntries(toRemoveLocal.map((k) => [DELETED + k, { deletedAt: new Date().toISOString() }])));
     if (changed) window.dispatchEvent(new CustomEvent('studydesk:data-changed'));
     await writeJSON('mirror-studydesk.json', known);
+    const s = await settings();
+    setTransferDevice(s.deviceName);
+    await bookTransferStep({
+      list: () => window.__sd_hub_list(FOLDER),
+      get: (key) => readJSON(`${FOLDER}/${encodeKey(key)}`),
+      put: (key, value, deleted = false) => writeJSON(`${FOLDER}/${encodeKey(key)}`, { key, app: 'studydesk', updatedAt: new Date().toISOString(), device: me, deleted, value: deleted ? null : value }),
+      deviceName: s.deviceName || '',
+      connected: state.connected,
+    });
   }
   /** One reconcile at a time; a call during a run schedules a single follow-up. */
   function reconcile() {

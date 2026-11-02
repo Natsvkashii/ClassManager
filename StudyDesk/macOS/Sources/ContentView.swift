@@ -84,6 +84,7 @@ struct ContentView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                     .background(colorScheme == .dark ? Theme.canvasDark : Theme.canvasLight)
                     .animation(reduceMotion ? nil : .easeOut(duration: 0.25), value: store.currentTab)
+                    .overlay(alignment: .bottomLeading) { BookTransferPanel() }
                     .overlay(alignment: .bottomTrailing) {
                         if let toast = store.toastMessage {
                             HStack(spacing: 10) {

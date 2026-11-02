@@ -13,7 +13,7 @@
 // App shell: bootstrap, sidebar, topbar, router, update banner.
 import './core/hubnative.js'; // native Windows app: HubDesk link in the page (before core/hubdesk.js starts)
 import { kv } from './core/db.js';
-import { h, icon, clear, toast, modal } from './core/ui.js';
+import { h, icon, clear, toast, modal, debounce } from './core/ui.js';
 import { loadSettings, saveSettings, settings } from './core/settings.js';
 import { APP_VERSION, APP_CHANNEL, channelLabel, APP_EMAIL } from './core/version.js';
 import { platform, openExternal, onOpenFile, takePendingFiles } from './core/platform.js';
@@ -162,6 +162,12 @@ async function start() {
   buildShell();
   watchUpdates();
   window.addEventListener('hashchange', route);
+  // data received by sync: redraw the list pages (never a page being worked on: module, editor, board, settings)
+  const refreshSynced = debounce(() => {
+    const name = location.hash.replace(/^#\//, '').split('/')[0] || 'home';
+    if (['home', 'library', 'progress', 'groups'].includes(name) && !document.querySelector('.modal-backdrop, .modal')) route();
+  }, 800);
+  window.addEventListener('studydesk:data-changed', refreshSynced);
   // drag & drop import anywhere
   window.addEventListener('dragover', (e) => e.preventDefault());
   window.addEventListener('drop', (e) => {

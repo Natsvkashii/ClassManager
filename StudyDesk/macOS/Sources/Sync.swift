@@ -139,8 +139,10 @@ public final class SyncEngine {
         for g in store.state.groups {
             if let d = try? enc.encode(g), let o = try? JSONSerialization.jsonObject(with: d) { out["group:\(g.id)"] = o }
         }
+        // book:<id> = book.json as stored (kept byte-for-byte so other devices see the same value); chapters travel apart (BookTransfer.swift)
         for b in store.books {
-            if let d = try? enc.encode(b), let o = try? JSONSerialization.jsonObject(with: d) { out["book:\(b.id)"] = o }
+            let raw = (try? Data(contentsOf: store.bookDir(b.id).appendingPathComponent("book.json"))).flatMap { try? JSONSerialization.jsonObject(with: $0) }
+            if let o = raw ?? (try? enc.encode(b)).flatMap({ try? JSONSerialization.jsonObject(with: $0) }) { out["book:\(b.id)"] = o }
         }
         for (mkey, parts) in store.state.progress {
             for (pid, r) in parts {
@@ -176,7 +178,12 @@ public final class SyncEngine {
             if key.hasPrefix("group:"), let g = try? dec.decode(StudyGroup.self, from: d) {
                 if let i = store.state.groups.firstIndex(where: { $0.id == g.id }) { store.state.groups[i] = g } else { store.state.groups.append(g) }
             } else if key.hasPrefix("book:"), let b = try? dec.decode(StudyBook.self, from: d) {
-                store.saveBook(b, reload: true)
+                // the value as received (not re-encoded), so this device exports exactly the same record back
+                let dir = store.bookDir(b.id)
+                try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+                let pretty = (try? JSONSerialization.data(withJSONObject: value, options: [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes])) ?? d
+                try? pretty.write(to: dir.appendingPathComponent("book.json"), options: .atomic)
+                store.reloadBooks()
             } else if key.hasPrefix("groupProgress:") {
                 let rest = String(key.dropFirst("groupProgress:".count))
                 if let dict = value as? [String: Any],

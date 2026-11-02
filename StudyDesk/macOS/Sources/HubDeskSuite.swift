@@ -139,6 +139,7 @@ public final class HubDeskClient {
         hubInstalled = DeskHubBootstrap.isHubInstalled || hubRunning
         if !linkConnected { peers = DeskHubPaths.peers().map(HubPeer.init) }
         if let c = DeskHubPaths.readJSON(DeskHubPaths.file("conflicts.json")) as? [Any] { conflictCount = c.count } else { conflictCount = 0 }
+        if started, let store { BookTransfer.shared.store = store; BookTransfer.shared.step(store: store, connected: linkConnected) }
     }
 
     private func linkChanged(_ up: Bool) {
@@ -202,7 +203,7 @@ public final class HubDeskClient {
         let local = engine.localRecords()
         var tombs = Set<String>(), live: [String: Any] = [:]
         for (k, v) in local { if k.hasPrefix("deleted:") { tombs.insert(String(k.dropFirst(8))) } else { live[k] = v } }
-        let hubAll = full ? recs.all() : [:]
+        let hubAll = full ? recs.all(skipFile: BookTransferLogic.isTransferFile) : [:]   // book files travel apart (BookTransfer.swift)
         var keys: Set<String>
         if full { keys = Set(live.keys).union(hubAll.keys).union(tombs) }
         else {
@@ -212,7 +213,7 @@ public final class HubDeskClient {
         }
         var toApply: [String: Any] = [:]
         var out = (exported: 0, imported: 0, removed: 0)
-        for key in keys {
+        for key in keys where !BookTransferLogic.isTransferKey(key) {
             let h = full ? hubAll[key] : recs.get(key)
             let d = RecordsMirror.decide(local: live[key], hasTomb: tombs.contains(key), hub: h, known: known[key], me: me)
             switch d.act {
@@ -231,6 +232,7 @@ public final class HubDeskClient {
             lastRecordsLog = "Record: inviati \(out.exported), ricevuti \(out.imported), eliminati \(out.removed)"
             store.sync.addLog(lastRecordsLog)
         }
+        if full { BookTransfer.shared.store = store; BookTransfer.shared.step(store: store, connected: linkConnected) }
         return out
     }
 }
