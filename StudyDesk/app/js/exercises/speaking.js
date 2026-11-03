@@ -10,12 +10,42 @@
 // Removing, obfuscating, or altering these credits violates the author's attribution rights.
 // =====================================================================================
 
-// speaking: instructions/content, optional voice recording (MediaRecorder) and notes.
+// speaking: instructions/content, optional voice recording (MediaRecorder), speaking timer, and notes with word counter.
 import { h, icon, toast } from '../core/ui.js';
 import { md } from '../core/markdown.js';
+import { countWords, detectCandidate } from './open.js';
+
+function playChime() {
+  try {
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtx) return;
+    const actx = new AudioCtx();
+    const osc = actx.createOscillator();
+    const gain = actx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(587.33, actx.currentTime); // D5
+    osc.frequency.exponentialRampToValueAtTime(880, actx.currentTime + 0.3); // A5
+    gain.gain.setValueAtTime(0.2, actx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, actx.currentTime + 0.6);
+    osc.connect(gain);
+    gain.connect(actx.destination);
+    osc.start();
+    osc.stop(actx.currentTime + 0.6);
+  } catch {
+    // audio not allowed without prior interaction or unsupported
+  }
+}
 
 export function create(part, ctx) {
-  const ta = h('textarea.input.open-answer', { rows: 3, oninput: () => ctx.changed(), placeholder: 'Appunti o trascrizione (facoltativo)…' });
+  const ta = h('textarea.input.open-answer', { rows: 3, placeholder: 'Appunti o trascrizione (facoltativo)…' });
+  const wc = h('div.word-counter.faint', '0 parole');
+
+  function updateWc() {
+    const n = countWords(ta.value);
+    wc.textContent = `${n} ${n === 1 ? 'parola' : 'parole'}`;
+  }
+  ta.oninput = () => { updateWc(); ctx.changed(); };
+
   let recording = null; // data URL
   let recName = null;
   let mr = null, chunks = [], stream = null;
@@ -24,6 +54,110 @@ export function create(part, ctx) {
   const recBtn = h('button.btn', { type: 'button', onclick: toggle }, icon('microphone'), 'Registra');
   const delBtn = h('button.btn.btn-ghost.btn-danger.hidden', { type: 'button', onclick: () => { setRec(null); ctx.changed(); } }, icon('trash'), 'Elimina');
   const sample = part.sample ? h('div.sample.hidden', h('b', 'Soluzione modello'), h('div', part.sample)) : null;
+
+  // ---------- Speaking Timer (Timer del parlato) ----------
+  const defaultSeconds = typeof part.timer === 'number' ? part.timer : 120;
+  let timerPreset = defaultSeconds; // 60, 120, 180, 0 (stopwatch)
+  let timerSeconds = defaultSeconds;
+  let timerActive = false;
+  let timerInterval = null;
+
+  const timerDigits = h('div.speaking-timer-digits', formatTime(timerSeconds));
+  const timerStartBtn = h('button.speaking-timer-btn', { type: 'button', onclick: toggleTimer }, icon('play'), ' Avvia');
+  const timerResetBtn = h('button.speaking-timer-btn', { type: 'button', onclick: resetTimer }, icon('rotate-left'), ' Azzera');
+  const timerAlert = h('div.speaking-timer-alert.hidden', icon('bell'), ' Tempo del parlato concluso!');
+
+  const presets = [
+    { label: '1 min', sec: 60 },
+    { label: '2 min', sec: 120 },
+    { label: '3 min', sec: 180 },
+    { label: 'Cronometro', sec: 0 }
+  ];
+
+  const presetBtns = presets.map((p) => h('button.speaking-timer-btn', {
+    type: 'button',
+    class: p.sec === timerPreset ? 'active' : '',
+    onclick: () => selectPreset(p.sec)
+  }, p.label));
+
+  function formatTime(s) {
+    const m = Math.floor(s / 60);
+    const sec = s % 60;
+    return `${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
+  }
+
+  function selectPreset(sec) {
+    stopTimer();
+    timerPreset = sec;
+    timerSeconds = sec;
+    timerDigits.textContent = formatTime(timerSeconds);
+    timerDigits.className = 'speaking-timer-digits';
+    timerAlert.classList.add('hidden');
+    presetBtns.forEach((btn, idx) => btn.classList.toggle('active', presets[idx].sec === sec));
+  }
+
+  function startTimer() {
+    if (timerActive) return;
+    timerActive = true;
+    timerDigits.classList.add('running');
+    timerStartBtn.replaceChildren(icon('pause'), ' Pausa');
+    timerAlert.classList.add('hidden');
+    timerInterval = setInterval(() => {
+      if (timerPreset === 0) {
+        timerSeconds += 1;
+        timerDigits.textContent = formatTime(timerSeconds);
+      } else {
+        if (timerSeconds > 0) {
+          timerSeconds -= 1;
+          timerDigits.textContent = formatTime(timerSeconds);
+          if (timerSeconds === 0) {
+            stopTimer();
+            timerDigits.className = 'speaking-timer-digits expired';
+            timerAlert.classList.remove('hidden');
+            playChime();
+          }
+        }
+      }
+    }, 1000);
+  }
+
+  function stopTimer() {
+    timerActive = false;
+    clearInterval(timerInterval);
+    timerInterval = null;
+    timerDigits.classList.remove('running');
+    timerStartBtn.replaceChildren(icon('play'), ' Riprendi');
+  }
+
+  function toggleTimer() {
+    if (timerActive) stopTimer(); else startTimer();
+  }
+
+  function resetTimer() {
+    stopTimer();
+    timerSeconds = timerPreset;
+    timerDigits.textContent = formatTime(timerSeconds);
+    timerDigits.className = 'speaking-timer-digits';
+    timerAlert.classList.add('hidden');
+    timerStartBtn.replaceChildren(icon('play'), ' Avvia');
+  }
+
+  const timerBox = h('div.speaking-timer-box',
+    h('div.speaking-timer-header',
+      h('div.speaking-timer-title', icon('clock'), 'Timer del parlato'),
+      h('div.speaking-timer-presets', presetBtns)
+    ),
+    h('div.speaking-timer-main',
+      h('div.speaking-timer-display-group',
+        timerDigits,
+        timerAlert
+      ),
+      h('div.speaking-timer-actions',
+        timerStartBtn,
+        timerResetBtn
+      )
+    )
+  );
 
   function setRec(dataUrl, name) {
     recording = dataUrl || null;
@@ -34,7 +168,11 @@ export function create(part, ctx) {
   }
 
   async function toggle() {
-    if (mr && mr.state === 'recording') { mr.stop(); return; }
+    if (mr && mr.state === 'recording') {
+      mr.stop();
+      if (timerActive) stopTimer();
+      return;
+    }
     if (!navigator.mediaDevices || !window.MediaRecorder) { toast('Registrazione non supportata su questo dispositivo.', 'bad'); return; }
     try {
       stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -54,15 +192,29 @@ export function create(part, ctx) {
     mr.start();
     recBtn.replaceChildren(icon('stop'), 'Ferma');
     status.replaceChildren(h('span.rec-dot'), ' In registrazione…');
+    if (!timerActive && timerSeconds > 0) startTimer();
   }
 
-  const el = h('div', part.content ? h('div.prose', { html: md(part.content) }) : null,
+  // Candidate Role detection
+  const cand = detectCandidate(part);
+  const candBadge = cand ? h('div.candidate-badge', { class: cand === 'B' ? 'b' : '' }, icon('user'), `Candidato ${cand}`) : null;
+
+  const el = h('div',
+    candBadge,
+    timerBox,
+    part.content ? h('div.prose', { html: md(part.content, ctx?.url) }) : null,
     part.record ? h('div.recorder', recBtn, status, player, delBtn) : null,
-    h('div.open-answer', ta), sample);
+    h('div.open-answer', ta, wc),
+    sample
+  );
+
   return {
     el,
     get: () => ({ text: ta.value, recording: recName }),
-    set(a) { ta.value = a?.text ?? ''; },
+    set(a) {
+      ta.value = a?.text ?? '';
+      updateWc();
+    },
     extra: () => recording,
     setExtra: (d) => setRec(d),
     mark() {},

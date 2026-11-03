@@ -128,7 +128,7 @@ export function renderPart(opts) {
     pill, hint);
 
   return h('section.card.part', { 'data-part': part.id },
-    h('div.part-head', part.label ? h('span.part-label', part.label) : null, part.instructions ? h('span.part-instr', { html: inline(part.instructions) }) : null),
+    h('div.part-head', part.label ? h('span.part-label', part.label) : null, part.instructions ? h('span.part-instr', { html: inline(part.instructions, url) }) : null),
     h('div.part-body', part.media ? renderMedia(part.media, ctx) : null, ex.el),
     foot);
 }

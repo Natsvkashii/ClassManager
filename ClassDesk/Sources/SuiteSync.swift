@@ -321,7 +321,7 @@ public final class SuiteSync {
         let nowValues = localValues()
         let nowHashes = hashes(nowValues)
         for k in touched { known[k] = nowHashes[k] }
-        store.showToast(store.t("suiteAppliedToast"))
+        // Do not display automatic success toast on background synchronization (only report sync errors).
         return touched
     }
 
@@ -343,6 +343,10 @@ public final class SuiteSync {
         if hubRunning != newRunning { hubRunning = newRunning }
         if hubInstalled != newInstalled { hubInstalled = newInstalled }
         if peerItems != newPeerItems { peerItems = newPeerItems }
+        if newConflicts > 0 && conflictCount == 0 {
+            // Automatically open conflicts page in HubDesk so user can resolve them immediately
+            openHub(page: "conflicts")
+        }
         if conflictCount != newConflicts { conflictCount = newConflicts }
         if studyDeskInstalled != newStudyDesk { studyDeskInstalled = newStudyDesk }
     }

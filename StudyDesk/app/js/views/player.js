@@ -21,11 +21,15 @@ import { kv } from '../core/db.js';
 import { settings, saveSettings } from '../core/settings.js';
 import { renderPart } from './part.js';
 import { renderMedia } from '../exercises/media.js';
+import { renderGroupPill } from './group-pill.js';
 
 export async function renderPlayer(host, params, app) {
   const id = params[0];
   const rec = await getModule(id);
-  if (!rec) { host.append(h('div.empty', icon('circle-question', 'ico'), h('p', 'Modulo non trovato.'), h('button.btn.btn-primary', { onclick: () => app.navigate('library') }, 'Vai alla libreria'))); return; }
+  if (!rec) {
+    host.append(h('div.empty', icon('circle-question', 'ico'), h('p', 'Modulo non trovato.'), h('button.btn.btn-primary', { onclick: () => app.navigate('library') }, 'Vai alla libreria')));
+    return;
+  }
   const mod = rec.module;
   await loadAssetUrls(id);
   const url = (p) => assetUrl(id, p);
@@ -37,10 +41,30 @@ export async function renderPlayer(host, params, app) {
   kv.set('lastModule', id);
   document.documentElement.style.setProperty('--module', mod.color || '#0ea5e9');
   app.setTitle(mod.title, [mod.book?.title ? `${mod.book.title}${mod.book.chapter ? ' · cap. ' + mod.book.chapter : ''}` : mod.course, mod.level].filter(Boolean).join(' · '));
-  const nav = h('nav.card.mod-nav.scroll');
+
   const main = h('div');
-  const layout = h('div.mod-layout' + (settings().outlineHidden ? '.outline-off' : ''), nav, main);
+  const layout = h('div.mod-layout', main);
   host.append(layout);
+
+  // Activities index popover menu
+  const nav = h('nav.act-popover.scroll');
+  const navBtn = h('button.btn.btn-sm', {
+    type: 'button',
+    'aria-haspopup': 'true',
+    title: 'Indice (passa con il mouse o clicca)',
+    onclick: (e) => {
+      e.stopPropagation();
+      nav.classList.toggle('open');
+    },
+  }, icon('list-ul'), ' Indice', h('i.fa.fa-chevron-down', { style: { fontSize: '.65rem', marginLeft: '.35rem', opacity: .7 } }));
+  const navAnchor = h('div.act-popover-anchor', navBtn, nav);
+  navAnchor.onmouseenter = () => nav.classList.add('open');
+  navAnchor.onmouseleave = () => nav.classList.remove('open');
+
+  const onDocClick = (e) => {
+    if (!navAnchor.contains(e.target)) nav.classList.remove('open');
+  };
+  document.addEventListener('click', onDocClick);
 
   const PARTS = [['main', 'Capitolo', 'book-open'], ['exercises', 'Esercizi', 'pen'], ['video', 'Videocorso', 'video']];
   const partOf = (s) => (s.part === 'exercises' || s.part === 'video' ? s.part : 'main');
@@ -55,30 +79,52 @@ export async function renderPlayer(host, params, app) {
     const parts = a.parts.filter((p) => p.type !== 'info');
     return parts.length > 0 && parts.every((p) => results.get(p.id)?.status);
   };
+
   function drawNav() {
     clear(nav);
+    // Header summary in the popover
+    const allParts = acts.flatMap((x) => x.a.parts || []).filter((p) => p.type !== 'info');
+    const doneCount = allParts.filter((p) => results.get(p.id)?.status).length;
+    const totalCount = allParts.length;
+    const pct = totalCount > 0 ? Math.round((doneCount / totalCount) * 100) : 0;
+    nav.append(h('div.act-popover-head',
+      h('strong', mod.title),
+      h('small', `${doneCount} di ${totalCount} parti · ${pct}% completato`),
+      h('div.act-popover-progress', h('span', { style: { width: `${pct}%` } }))));
+
     const cp = currentPart();
     if (presentParts.length > 1) {
       nav.append(h('div.part-tabs', { role: 'tablist' }, presentParts.map(([k, label, ic]) => h('button.part-tab' + (k === cp ? '.active' : ''),
-        { type: 'button', role: 'tab', 'aria-selected': String(k === cp), 'data-part-tab': k, onclick: () => openPart(k) }, icon(ic), h('span', label)))));
+        {
+          type: 'button', role: 'tab', 'aria-selected': String(k === cp), 'data-part-tab': k,
+          onclick: () => { openPart(k); nav.classList.remove('open'); },
+        }, icon(ic), h('span', label)))));
     }
     if (cp === 'main' && (mod.objectives?.length || mod.description)) {
-      nav.append(h('button.act-link' + (current === '__intro' ? '.active' : ''), { onclick: () => go('__intro') }, h('span.num', icon('flag')), 'Introduzione'));
+      nav.append(h('button.act-link' + (current === '__intro' ? '.active' : ''), {
+        onclick: () => { go('__intro'); nav.classList.remove('open'); },
+      }, h('span.num', icon('flag')), 'Introduzione'));
     }
     for (const s of mod.sections.filter((x) => partOf(x) === cp)) {
       nav.append(h('div.sec', h('div.sec-title', icon(s.icon || 'book-open'), s.title),
-        (s.activities || []).map((a) => h('button.act-link' + (a.id === current ? '.active' : ''), { onclick: () => go(a.id), title: a.title },
-          h('span.num', a.number ?? ''), h('span', { style: { flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' } }, a.title),
-          h('span.state' + (done(a) ? '.done' : ''), done(a) ? icon('circle-check') : null)))));
+        (s.activities || []).map((a) => h('button.act-link' + (a.id === current ? '.active' : ''), {
+          onclick: () => { go(a.id); nav.classList.remove('open'); },
+          title: a.title,
+        },
+        h('span.num', a.number ?? ''), h('span', { style: { flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' } }, a.title),
+        h('span.state' + (done(a) ? '.done' : ''), done(a) ? icon('circle-check') : null)))));
     }
   }
+
   function go(aid) {
     current = aid;
     kv.set('last:' + id, aid);
     history.replaceState(null, '', `#/module/${encodeURIComponent(id)}/${encodeURIComponent(aid)}`);
-    drawNav(); drawActivity();
+    drawNav();
+    drawActivity();
     host.scrollTop = 0;
   }
+
   function drawActivity() {
     clear(main);
     if (current === '__intro') { main.append(intro()); return; }
@@ -88,7 +134,7 @@ export async function renderPlayer(host, params, app) {
       h('div', h('h2', a.title), h('div.row', { style: { marginTop: '.35rem' } },
         a.page ? h('span.badge.gray', icon('book'), `pag. ${a.page}`) : null,
         (a.skills || []).map((s) => h('span.badge', s))))));
-    if (a.instructions) main.append(h('p.muted', { html: inline(a.instructions) }));
+    if (a.instructions) main.append(h('p.muted', { html: inline(a.instructions, url) }));
     if (a.media?.length) main.append(renderMedia(a.media, { url }));
     for (const part of a.parts) {
       main.append(renderPart({
@@ -101,6 +147,7 @@ export async function renderPlayer(host, params, app) {
       i > 0 ? h('button.btn', { onclick: () => go(acts[i - 1].a.id) }, icon('arrow-left'), 'Precedente') : h('span'),
       i < acts.length - 1 ? h('button.btn.btn-primary', { onclick: () => go(acts[i + 1].a.id) }, 'Successiva', icon('arrow-right')) : h('span')));
   }
+
   function intro() {
     const cover = mod.cover ? url(mod.cover) : '';
     return h('div.card.card-pad', cover ? h('img', { src: cover, alt: '', style: { width: '100%', maxHeight: '14rem', objectFit: 'cover', borderRadius: '.8rem', marginBottom: '1rem' } }) : null,
@@ -110,13 +157,44 @@ export async function renderPlayer(host, params, app) {
       h('button.btn.btn-primary', { style: { marginTop: '1rem' }, onclick: () => acts[0] && go(acts[0].a.id) }, 'Inizia', icon('arrow-right')));
   }
 
-  // ---- full-screen exercise mode: hides sidebar and topbar, keeps only the outline and the current exercise
+  // ---- exercise scale (4 base levels: 1 = 100%, 2 = 120%, 3 = 140%, 4 = 160%)
+  const SCALE_LABELS = { 1: '100% (Normale)', 2: '120% (Medio)', 3: '140% (Grande)', 4: '160% (Molto grande)' };
+  let currentScale = Math.min(4, Math.max(1, Number(settings().exerciseScale) || 1));
+  const scaleWidgets = [];
+  function setScale(val) {
+    currentScale = Math.min(4, Math.max(1, val));
+    layout.setAttribute('data-ex-scale', String(currentScale));
+    saveSettings({ exerciseScale: currentScale });
+    paintScale();
+  }
+  function paintScale() {
+    layout.setAttribute('data-ex-scale', String(currentScale));
+    for (const w of scaleWidgets) {
+      w.decBtn.disabled = currentScale <= 1;
+      w.incBtn.disabled = currentScale >= 4;
+      clear(w.lblBtn);
+      w.lblBtn.append(icon('magnifying-glass'), ` ${currentScale}x`);
+      w.lblBtn.title = `Dimensione elementi: ${SCALE_LABELS[currentScale]} (clicca per cambiare)`;
+    }
+  }
+  const makeScaleControl = () => {
+    const decBtn = h('button.btn.btn-sm', { type: 'button', title: 'Riduci elementi esercizio (–)', onclick: () => setScale(currentScale - 1) }, icon('minus'));
+    const lblBtn = h('button.btn.btn-sm', { type: 'button', title: `Dimensione elementi: ${SCALE_LABELS[currentScale]} (clicca per cambiare)`, onclick: () => setScale((currentScale % 4) + 1) });
+    const incBtn = h('button.btn.btn-sm', { type: 'button', title: 'Ingrandisci elementi esercizio (+)', onclick: () => setScale(currentScale + 1) }, icon('plus'));
+    const wrap = h('div.btn-group', decBtn, lblBtn, incBtn);
+    scaleWidgets.push({ decBtn, lblBtn, incBtn, wrap });
+    return wrap;
+  };
+
+  // ---- full-screen exercise mode: icon only, hides sidebar and topbar
   let focus = false;
   function setFocus(on) {
     on = !!on;
     if (on === focus) return;
     focus = on;
     document.body.classList.toggle('focus-mode', on);
+    clear(fsBtn);
+    fsBtn.append(icon(on ? 'compress' : 'expand'));
     fsBtn.classList.toggle('btn-primary', on);
     if (on) {
       const el = document.documentElement;
@@ -128,34 +206,50 @@ export async function renderPlayer(host, params, app) {
     else if (e.key === 'Escape' && focus && !document.querySelector('.modal-backdrop, .lightbox')) setFocus(false);
   };
   const onFs = () => { if (!document.fullscreenElement && focus) setFocus(false); };
-  const fsBtn = h('button.btn.btn-sm', { type: 'button', title: 'Schermo intero (Ctrl+Maiusc+F)', 'aria-label': 'Schermo intero', onclick: () => setFocus(!focus) }, icon('expand'), 'Schermo intero');
-  // ---- activity list (left) can be hidden, in and out of full screen; the choice is remembered
-  const outlineBtns = [];
-  const outlineBtn = () => { const b = h('button.btn.btn-sm', { type: 'button', onclick: () => setOutline(!layout.classList.contains('outline-off')) }); outlineBtns.push(b); return b; };
-  function paintOutline() {
-    const off = layout.classList.contains('outline-off');
-    for (const b of outlineBtns) { clear(b); b.append(icon('list-ul'), off ? 'Mostra attività' : 'Nascondi attività'); b.title = off ? 'Mostra l\'elenco delle attività' : 'Nascondi l\'elenco delle attività'; b.classList.toggle('btn-primary', off); }
-  }
-  function setOutline(off) { layout.classList.toggle('outline-off', off); saveSettings({ outlineHidden: off }); paintOutline(); }
-  const focusBar = h('div.focus-bar', outlineBtn(), h('button.btn.btn-sm', { type: 'button', title: 'Esci da schermo intero (Esc)', onclick: () => setFocus(false) }, icon('compress'), 'Esci da schermo intero'));
+  const fsBtn = h('button.btn.btn-sm', { type: 'button', title: 'Schermo intero (Ctrl+Maiusc+F)', 'aria-label': 'Schermo intero', onclick: () => setFocus(!focus) }, icon('expand'));
+
+  const focusBar = h('div.focus-bar', makeScaleControl(), h('button.btn.btn-sm', { type: 'button', title: 'Esci da schermo intero (Esc)', onclick: () => setFocus(false) }, icon('compress')));
   document.body.append(focusBar);
   document.addEventListener('keydown', onKey);
   document.addEventListener('fullscreenchange', onFs);
 
-  const total = countableParts(mod).length;
-  const ctxLabel = contextLabelFor(id);
+  // Group switcher pill if inside a book
+  let groupPill = null;
+  if (mod.book?.id) {
+    groupPill = await renderGroupPill({
+      bookId: mod.book.id,
+      bookTitle: mod.book.title,
+      moduleIds: [id],
+      onContextChange: async () => {
+        const fresh = await getResults(id);
+        results.clear();
+        for (const r of fresh) results.set(r.partId, r);
+        drawNav();
+        drawActivity();
+      },
+    });
+  }
+
+  // Topbar actions: Outline popover on the left (next to sidebar toggle), zoom control, group pill, fullscreen icon on the right
+  app.setLeadingActions(navAnchor);
   app.setActions(
-    outlineBtn(),
-    ctxLabel ? h('span.badge.violet', { id: 'sd-ctx-badge', title: 'Contesto di progresso del libro' }, icon(getContext().context === BLANK_CONTEXT ? 'file' : 'people-group'), ctxLabel) : null,
-    fsBtn,
-    mod.book?.id ? h('button.btn.btn-sm', { onclick: () => app.navigate('home/' + encodeURIComponent(mod.book.id)) }, icon('book-open'), mod.book.title || 'Libro') : null, h('span.badge', { id: 'sd-mod-badge' }, `${total} parti`));
-  paintOutline();
-  drawNav(); drawActivity();
+    makeScaleControl(),
+    groupPill,
+    fsBtn
+  );
+
+  paintScale();
+  drawNav();
+  drawActivity();
+
   return () => {
     setFocus(false);
     focusBar.remove();
+    app.setLeadingActions();
     document.removeEventListener('keydown', onKey);
     document.removeEventListener('fullscreenchange', onFs);
-    revoke(id); document.documentElement.style.removeProperty('--module');
+    document.removeEventListener('click', onDocClick);
+    revoke(id);
+    document.documentElement.style.removeProperty('--module');
   };
 }

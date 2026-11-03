@@ -216,11 +216,158 @@ export async function renderBoard(host, params, app) {
   const trails = new Map(); // id -> [{x, y, t}]
   let hoverCell = null;
   let overlayRaf = 0;
+  let selectedImageId = null;
+  let isCroppingImage = false;
+
+  const imageActionsEl = h('div.board-image-actions', {
+    style: {
+      position: 'absolute',
+      display: 'none',
+      zIndex: '45',
+      background: 'var(--surface-1, rgba(255,255,255,0.95))',
+      backdropFilter: 'blur(10px)',
+      borderRadius: '20px',
+      padding: '4px 10px',
+      boxShadow: '0 4px 14px rgba(0,0,0,0.18)',
+      border: '1px solid var(--border, rgba(0,0,0,0.15))',
+      alignItems: 'center',
+      gap: '8px',
+      userSelect: 'none',
+    }
+  });
+  stage.append(imageActionsEl);
+
+  const updateImageBar = () => {
+    if (!selectedImageId) {
+      imageActionsEl.style.display = 'none';
+      paintOverlay();
+      return;
+    }
+    const it = (own.images || []).find((x) => x.id === selectedImageId);
+    if (!it) {
+      selectedImageId = null;
+      isCroppingImage = false;
+      imageActionsEl.style.display = 'none';
+      paintOverlay();
+      return;
+    }
+    const r = rect();
+    const bx = r.x + it.x * r.w;
+    const by = r.y + it.y * r.h;
+    const bw = it.w * r.w;
+    imageActionsEl.style.display = 'flex';
+    const barTop = by - 40 >= r.y ? by - 40 : by + it.h * r.h + 10;
+    imageActionsEl.style.top = Math.max(10, barTop) + 'px';
+    imageActionsEl.style.left = Math.max(10, Math.min(W - 220, bx + bw / 2 - 100)) + 'px';
+
+    imageActionsEl.replaceChildren(
+      h('button.btn.btn-sm' + (isCroppingImage ? '.btn-primary' : ''), {
+        type: 'button',
+        onclick: (e) => {
+          e.stopPropagation();
+          isCroppingImage = !isCroppingImage;
+          updateImageBar();
+          paintOverlay();
+        }
+      }, icon('crop'), isCroppingImage ? ' Fine' : ' Ritaglia'),
+      h('button.btn.btn-sm.btn-danger', {
+        type: 'button',
+        title: 'Elimina immagine',
+        onclick: (e) => {
+          e.stopPropagation();
+          own.images = (own.images || []).filter((x) => x.id !== selectedImageId);
+          emit({ t: 'imagedel', id: selectedImageId });
+          selectedImageId = null;
+          isCroppingImage = false;
+          updateImageBar();
+          paintPaper();
+          compose();
+        }
+      }, icon('trash')),
+      h('button.btn.btn-sm.btn-icon', {
+        type: 'button',
+        title: 'Chiudi',
+        onclick: (e) => {
+          e.stopPropagation();
+          selectedImageId = null;
+          isCroppingImage = false;
+          updateImageBar();
+          paintOverlay();
+        }
+      }, icon('xmark'))
+    );
+    paintOverlay();
+  };
+
+  const hitImage = (pt) => {
+    for (let i = (own.images || []).length - 1; i >= 0; i--) {
+      const it = own.images[i];
+      if (pt.x >= it.x && pt.x <= (it.x + it.w) && pt.y >= it.y && pt.y <= (it.y + it.h)) return it;
+    }
+    return null;
+  };
+
+  const hitImageCorner = (it, clientX, clientY) => {
+    const r = rect(), b = canvas.getBoundingClientRect();
+    const cx = clientX - b.left, cy = clientY - b.top;
+    const bx = r.x + it.x * r.w, by = r.y + it.y * r.h;
+    const bw = it.w * r.w, bh = it.h * r.h;
+    const corners = [
+      { corner: 'tl', x: bx, y: by },
+      { corner: 'tr', x: bx + bw, y: by },
+      { corner: 'bl', x: bx, y: by + bh },
+      { corner: 'br', x: bx + bw, y: by + bh }
+    ];
+    for (const c of corners) {
+      if (Math.hypot(cx - c.x, cy - c.y) <= 14) return c.corner;
+    }
+    return null;
+  };
+
   function paintOverlay() {
     octx.setTransform(1, 0, 0, 1, 0, 0); octx.clearRect(0, 0, overlay.width, overlay.height);
     octx.setTransform(dpr, 0, 0, dpr, 0, 0);
     const r = rect(), now = performance.now();
     const X = (p) => r.x + p.x * r.w, Y = (p) => r.y + p.y * r.h;
+    if (selectedImageId && !remote) {
+      const it = (own.images || []).find((x) => x.id === selectedImageId);
+      if (it) {
+        const bx = r.x + it.x * r.w;
+        const by = r.y + it.y * r.h;
+        const bw = it.w * r.w;
+        const bh = it.h * r.h;
+        octx.save();
+        if (isCroppingImage) {
+          octx.strokeStyle = '#f97316';
+          octx.lineWidth = 2;
+          octx.setLineDash([6, 4]);
+          octx.strokeRect(bx, by, bw, bh);
+        } else {
+          octx.strokeStyle = '#0ea5e9';
+          octx.lineWidth = 2;
+          octx.setLineDash([]);
+          octx.strokeRect(bx, by, bw, bh);
+        }
+
+        const corners = [
+          [bx, by],
+          [bx + bw, by],
+          [bx, by + bh],
+          [bx + bw, by + bh]
+        ];
+        for (const [cx, cy] of corners) {
+          octx.beginPath();
+          octx.arc(cx, cy, 6, 0, Math.PI * 2);
+          octx.fillStyle = '#ffffff';
+          octx.fill();
+          octx.lineWidth = 2;
+          octx.strokeStyle = isCroppingImage ? '#f97316' : '#0ea5e9';
+          octx.setLineDash([]);
+          octx.stroke();
+        }
+        octx.restore();
+      }
+    }
     if (tool.mode === 'text' && !remote) {
       octx.save(); octx.setLineDash([5, 4]); octx.lineWidth = 1;
       octx.strokeStyle = isDarkColor(own.background) ? 'rgba(255,255,255,.35)' : 'rgba(15,23,42,.3)';
@@ -411,6 +558,38 @@ export async function renderBoard(host, params, app) {
     const pt = round(toPoint(e));
     const eraser = tool.mode === 'eraser' || isEraserEvent(e);
     try { canvas.setPointerCapture(e.pointerId); } catch { /* not capturable */ }
+
+    if (selectedImageId) {
+      const selImg = (own.images || []).find((x) => x.id === selectedImageId);
+      if (selImg) {
+        const corner = hitImageCorner(selImg, e.clientX, e.clientY);
+        if (corner) {
+          if (isCroppingImage) {
+            drawing = { imageCrop: selImg.id, corner, startPt: pt, origCrop: [...(selImg.crop || [0, 0, 1, 1])], origImg: { ...selImg }, pointerId: e.pointerId };
+          } else {
+            drawing = { imageResize: selImg.id, corner, startPt: pt, origImg: { ...selImg }, pointerId: e.pointerId };
+          }
+          return;
+        }
+        if (pt.x >= selImg.x && pt.x <= (selImg.x + selImg.w) && pt.y >= selImg.y && pt.y <= (selImg.y + selImg.h)) {
+          drawing = { imageMove: selImg.id, startPt: pt, ox: selImg.x, oy: selImg.y, moved: false, pointerId: e.pointerId };
+          return;
+        }
+        selectedImageId = null;
+        isCroppingImage = false;
+        updateImageBar();
+      }
+    }
+
+    const clickedImg = hitImage(pt);
+    if (clickedImg && (tool.mode === 'text' || (e.pointerType === 'mouse' && e.detail >= 2) || hitImageCorner(clickedImg, e.clientX, e.clientY))) {
+      selectedImageId = clickedImg.id;
+      isCroppingImage = false;
+      updateImageBar();
+      drawing = { imageMove: clickedImg.id, startPt: pt, ox: clickedImg.x, oy: clickedImg.y, moved: false, pointerId: e.pointerId };
+      return;
+    }
+
     if (!eraser && tool.mode === 'text') {
       if (editing) { commitEditor(); return; }
       const hit = hitText(pt);
@@ -483,6 +662,108 @@ export async function renderBoard(host, params, app) {
     }
     if (e.pointerId !== drawing.pointerId) return;
     e.preventDefault();
+    if (drawing.imageMove) {
+      const it = (own.images || []).find((x) => x.id === drawing.imageMove);
+      if (it) {
+        const pt = round(toPoint(e));
+        it.x = Math.max(0, Math.min(1 - it.w, drawing.ox + (pt.x - drawing.startPt.x)));
+        it.y = Math.max(0, Math.min(1 - it.h, drawing.oy + (pt.y - drawing.startPt.y)));
+        drawing.moved = true;
+        paintPaper(); compose(); paintOverlay(); updateImageBar();
+      }
+      return;
+    }
+    if (drawing.imageResize) {
+      const it = (own.images || []).find((x) => x.id === drawing.imageResize);
+      if (it) {
+        const pt = round(toPoint(e));
+        const dx = pt.x - drawing.startPt.x;
+        const dy = pt.y - drawing.startPt.y;
+        const orig = drawing.origImg;
+        let newX = orig.x, newY = orig.y, newW = orig.w, newH = orig.h;
+        switch (drawing.corner) {
+          case 'br':
+            newW = Math.max(0.05, Math.min(1 - orig.x, orig.w + dx));
+            newH = Math.max(0.05, Math.min(1 - orig.y, orig.h + dy));
+            break;
+          case 'bl': {
+            const right = orig.x + orig.w;
+            newX = Math.max(0, Math.min(right - 0.05, orig.x + dx));
+            newW = right - newX;
+            newH = Math.max(0.05, Math.min(1 - orig.y, orig.h + dy));
+            break;
+          }
+          case 'tr': {
+            const bottom = orig.y + orig.h;
+            newW = Math.max(0.05, Math.min(1 - orig.x, orig.w + dx));
+            newY = Math.max(0, min(bottom - 0.05, orig.y + dy));
+            newH = bottom - newY;
+            break;
+          }
+          case 'tl': {
+            const r2 = orig.x + orig.w;
+            const b2 = orig.y + orig.h;
+            newX = Math.max(0, Math.min(r2 - 0.05, orig.x + dx));
+            newW = r2 - newX;
+            newY = Math.max(0, Math.min(b2 - 0.05, orig.y + dy));
+            newH = b2 - newY;
+            break;
+          }
+        }
+        it.x = Math.round(newX * 10000) / 10000;
+        it.y = Math.round(newY * 10000) / 10000;
+        it.w = Math.round(newW * 10000) / 10000;
+        it.h = Math.round(newH * 10000) / 10000;
+        paintPaper(); compose(); paintOverlay(); updateImageBar();
+      }
+      return;
+    }
+    if (drawing.imageCrop) {
+      const it = (own.images || []).find((x) => x.id === drawing.imageCrop);
+      if (it) {
+        const pt = round(toPoint(e));
+        const origCrop = drawing.origCrop;
+        const crop = [...origCrop];
+        const relDx = (pt.x - drawing.startPt.x) / drawing.origImg.w;
+        const relDy = (pt.y - drawing.startPt.y) / drawing.origImg.h;
+        switch (drawing.corner) {
+          case 'br':
+            crop[2] = Math.max(0.1, Math.min(1 - crop[0], origCrop[2] + relDx));
+            crop[3] = Math.max(0.1, Math.min(1 - crop[1], origCrop[3] + relDy));
+            break;
+          case 'bl': {
+            const right = origCrop[0] + origCrop[2];
+            const newCropX = Math.max(0, Math.min(right - 0.1, origCrop[0] + relDx));
+            crop[0] = newCropX;
+            crop[2] = right - newCropX;
+            crop[3] = Math.max(0.1, Math.min(1 - crop[1], origCrop[3] + relDy));
+            break;
+          }
+          case 'tr': {
+            const bottom = origCrop[1] + origCrop[3];
+            crop[2] = Math.max(0.1, Math.min(1 - crop[0], origCrop[2] + relDx));
+            const newCropY = Math.max(0, Math.min(bottom - 0.1, origCrop[1] + relDy));
+            crop[1] = newCropY;
+            crop[3] = bottom - newCropY;
+            break;
+          }
+          case 'tl': {
+            const r2 = origCrop[0] + origCrop[2];
+            const b2 = origCrop[1] + origCrop[3];
+            const ncX = Math.max(0, Math.min(r2 - 0.1, origCrop[0] + relDx));
+            const ncY = Math.max(0, Math.min(b2 - 0.1, origCrop[1] + relDy));
+            crop[0] = ncX;
+            crop[2] = r2 - ncX;
+            crop[1] = ncY;
+            crop[3] = b2 - ncY;
+            break;
+          }
+        }
+        it.crop = crop.map((v) => Math.round(v * 10000) / 10000);
+        paintPaper(); compose(); paintOverlay();
+      }
+      return;
+    }
     if (drawing.move) {
       const pt = toPoint(e), r = rect(), d = drawing;
       if (!d.moved && Math.hypot((pt.x - d.start.x) * r.w, (pt.y - d.start.y) * r.h) < 5) return;
@@ -501,6 +782,21 @@ export async function renderBoard(host, params, app) {
     const d = drawing;
     if (!d) return;
     drawing = null;
+    if (d.imageMove) {
+      const it = (own.images || []).find((x) => x.id === d.imageMove);
+      if (it && d.moved) emit({ t: 'image', item: it });
+      return;
+    }
+    if (d.imageResize) {
+      const it = (own.images || []).find((x) => x.id === d.imageResize);
+      if (it) emit({ t: 'image', item: it });
+      return;
+    }
+    if (d.imageCrop) {
+      const it = (own.images || []).find((x) => x.id === d.imageCrop);
+      if (it) emit({ t: 'image', item: it });
+      return;
+    }
     if (d.move) { if (d.moved) pushText(d.move); else openEditor(d.move, false); return; }
     if (d.laser) return;
     if (d.line) {
@@ -644,12 +940,13 @@ export async function renderBoard(host, params, app) {
     openPop = null; paintBar();
     if (editing) commitEditor();
     try {
-      canvas.toBlob(async (blob) => {
+      const c = renderImage(3840, 2160);
+      c.toBlob(async (blob) => {
         if (!blob) return toast('Impossibile copiare la lavagna', 'bad');
         if (navigator.clipboard && navigator.clipboard.write) {
           try {
             await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
-            toast('Lavagna copiata negli appunti!', 'ok');
+            toast('Lavagna copiata negli appunti in alta risoluzione (4K)!', 'ok');
             return;
           } catch (e) { /* fallback */ }
         }
@@ -683,8 +980,11 @@ export async function renderBoard(host, params, app) {
             const it = { id, src, x: Math.round(x * 10000) / 10000, y: Math.round(y * 10000) / 10000, w: Math.round(w * 10000) / 10000, h: Math.round(h * 10000) / 10000 };
             own.images.push(it);
             emit({ t: 'image', item: it });
+            selectedImageId = it.id;
+            isCroppingImage = false;
             paintPaper();
             compose();
+            updateImageBar();
             toast('Immagine incollata sulla lavagna', 'ok');
           };
           img.src = src;
@@ -695,7 +995,29 @@ export async function renderBoard(host, params, app) {
     }
   };
   window.addEventListener('paste', onPaste);
+
+  const askNewBoard = async () => {
+    openPop = null; paintBar();
+    if (editing) commitEditor();
+    if (!isEmptyBoard(own)) {
+      const ok = await confirmDialog('Creare una nuova lavagna?', `I tratti, testi e immagini correnti verranno rimossi${isSharing() ? ' anche sui dispositivi collegati' : ''}. Se ti serve, salvalo prima.`, 'Nuova lavagna', true);
+      if (!ok) return;
+    }
+    finishPointer();
+    selectedImageId = null;
+    isCroppingImage = false;
+    updateImageBar();
+    own.strokes.length = 0; own.texts = []; own.images = []; own.date = null; own.saved = null;
+    resetZoom();
+    emit({ t: 'clear' });
+    sendSnapshot();
+    redraw(); paintBar();
+    toast('Nuova lavagna creata', 'ok');
+  };
+
   const filePanel = () => h('div.board-menu',
+    h('button', { type: 'button', onclick: askNewBoard }, icon('plus'), 'Nuova lavagna'),
+    h('hr'),
     h('button', { type: 'button', onclick: () => { openPop = null; paintBar(); saveToGroup(); } }, icon('floppy-disk'), own.saved ? `Salva «${own.saved.name}»…` : 'Salva in un gruppo…'),
     h('button', { type: 'button', onclick: () => { openPop = null; paintBar(); openSaved(); } }, icon('folder-open'), 'Lavagne salvate…'),
     h('button', { type: 'button', onclick: copyBoardToClipboard }, icon('copy'), 'Copia negli appunti'),
@@ -867,7 +1189,7 @@ export async function renderBoard(host, params, app) {
     if (editing) commitEditor();
     const base = (own.saved && !remote ? own.saved.name : `Lavagna ${stamp()}`).replace(/[\\/:*?"<>|]+/g, '-');
     try {
-      const c = renderImage(2560, 1440);
+      const c = renderImage(3840, 2160);
       let blob, name;
       if (fmt === 'png') { blob = await toBlob(c, 'image/png'); name = `${base}.png`; }
       else if (fmt === 'jpeg') { blob = await toBlob(c, 'image/jpeg', 0.92); name = `${base}.jpg`; }

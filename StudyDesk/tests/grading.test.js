@@ -18,7 +18,7 @@ import {
   normalize, compareGap, parseGaps, gradePart, correctAnswer, summarize, statusOf,
 } from '../app/js/core/grading.js';
 import { AppVersion, pickUpdate, shouldCheck, manifestToRelease } from '../app/js/core/version.js';
-import { md } from '../app/js/core/markdown.js';
+import { md, inline } from '../app/js/core/markdown.js';
 
 const require = createRequire(import.meta.url);
 
@@ -157,6 +157,7 @@ test('electron updater mirrors the browser comparator', () => {
 test('markdown is escaped', () => {
   assert.equal(md('**a** <b>'), '<p><strong>a</strong> &lt;b&gt;</p>');
   assert.equal(md('- x\n- y'), '<ul><li>x</li><li>y</li></ul>');
+  assert.ok(inline('Guarda ![foto](pic.jpg)').includes('<img class="inline-instr-img" src="pic.jpg"'));
 });
 
 // ---------- crossword + parts ----------

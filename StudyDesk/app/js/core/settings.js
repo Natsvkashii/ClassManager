@@ -16,6 +16,7 @@ import { kv } from './db.js';
 export const DEFAULTS = {
   theme: 'system', includeBeta: false, checkFrequency: 'startup', lastUpdateCheck: 0,
   teacherEmail: '', teacherUrl: '', sidebarMini: false, navHidden: false, outlineHidden: false,
+  exerciseScale: 1,
   boardDate: false, boardRecent: [], boardTool: null,
 };
 let cache = { ...DEFAULTS };

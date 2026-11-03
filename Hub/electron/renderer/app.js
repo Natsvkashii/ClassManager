@@ -33,11 +33,18 @@
   let toastTimer = null;
   function toast(msg) { const t = $('#toast'); t.textContent = msg; t.classList.remove('hidden'); clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.add('hidden'), 4000); }
 
+  function channelBadge(buildType) {
+    const bt = (buildType || 'internal').toLowerCase();
+    if (bt === 'stable') return '<span class="channel-dot badge-s" title="Versione stabile (S)">S</span>';
+    if (bt === 'beta') return '<span class="channel-dot badge-beta" title="Versione beta (β)">β</span>';
+    return '<span class="channel-dot badge-i" title="Versione interna instabile (I)">I</span>';
+  }
+
   // ------------------------------------------------------------ chrome
   function renderNav() {
     const cur = page(), n = S.engine ? S.engine.conflicts.length : 0;
     $('#nav').innerHTML = PAGES.map(([id, label]) => `<button class="nav-btn ${cur === id ? 'active' : ''}" data-nav="${id}">${ICONS[id]}<span>${label}</span>${id === 'conflicts' && n ? `<span class="badge">${n}</span>` : ''}</button>`).join('');
-    const sb = $('#sbVersion'); if (sb) sb.textContent = S.app ? `HubDesk ${S.app.version}` : '';
+    const sb = $('#sbVersion'); if (sb) sb.innerHTML = S.app ? `${channelBadge(S.app.buildType || 'internal')}HubDesk ${esc(S.app.version)}` : '';
     const t = PAGES.find((p) => p[0] === cur);
     $('#title').textContent = t[1];
     $('#crumb').textContent = 'Suite ClassDesk';
@@ -48,8 +55,10 @@
   function appCard(a) {
     const busy = a.busy, avail = a.available;
     const inst = a.installed ? a.installed.version : null;
-    const ver = inst && avail && a.status === 'update' ? `<span class="pill">${esc(inst)}</span><span class="arrow">→</span><span class="pill ok">${esc(avail.version)}</span>`
-      : inst ? `<span class="pill ${a.status === 'ready' ? 'ok' : ''}">${esc(inst)}</span><span class="faint">${a.status === 'ready' ? 'Aggiornata' : ''}</span>`
+    const bType = (a.installed && a.installed.buildType) || (a.id === 'hubdesk' ? (S.app && S.app.buildType) || 'internal' : 'internal');
+    const badge = a.installed ? channelBadge(bType) : '';
+    const ver = inst && avail && a.status === 'update' ? `${badge}<span class="pill">${esc(inst)}</span><span class="arrow">→</span><span class="pill ok">${esc(avail.version)}</span>`
+      : inst ? `${badge}<span class="pill ${a.status === 'ready' ? 'ok' : ''}">${esc(inst)}</span><span class="faint">${a.status === 'ready' ? 'Aggiornata' : ''}</span>`
         : avail ? `<span class="faint">Disponibile</span><span class="pill">${esc(avail.version)}</span>` : '<span class="faint">Nessuna versione per questo canale</span>';
     const pct = busy === 'download' ? Math.round(a.progress * 100) : busy ? 100 : 0;
     const label = busy === 'download' ? `Download… ${pct}%` : busy === 'install' ? 'Installazione…' : busy === 'uninstall' ? 'Rimozione…' : '';
@@ -140,7 +149,7 @@
         </div>
       </div>
       <div class="card card-pad"><h2>Informazioni</h2>
-        <div class="setting"><div><b>Versione</b></div><span class="mono">${esc(a.version)}</span></div>
+        <div class="setting"><div><b>Versione</b></div><span class="mono">${channelBadge(a.buildType || 'internal')} ${esc(a.version)}</span></div>
         <div class="setting"><div><b>Cartella dati</b></div><span class="mono">${esc(a.dataDir)}</span></div>
         <div class="setting"><div><b>Identificativo dispositivo</b></div><span class="mono">${esc(S.engine.self.deviceId)}</span></div></div>
       <div class="card card-pad"><h2>Crediti</h2>
@@ -155,7 +164,7 @@
   function welcome() {
     const apps = S.apps.apps.filter((a) => a.id !== 'hubdesk');
     modal(`<h2>Benvenuto in HubDesk</h2><p class="muted nomargin">HubDesk installa e aggiorna ClassDesk e StudyDesk e tiene allineati i dati dei tuoi computer.</p>
-      ${apps.map((a) => `<label class="check"><input type="checkbox" data-w="${a.id}" ${a.installed ? 'disabled' : 'checked'}><img src="assets/${a.id}.png" alt=""><div><b>${esc(a.name)}</b><div class="small muted">${a.installed ? `Già installata (${esc(a.installed.version)})` : esc(a.description)}</div></div></label>`).join('')}
+      ${apps.map((a) => `<label class="check"><input type="checkbox" data-w="${a.id}" ${a.installed ? 'disabled' : 'checked'}><img src="assets/${a.id}.png" alt=""><div><b>${esc(a.name)}</b><div class="small muted">${a.installed ? `${channelBadge(a.installed.buildType || 'internal')} Già installata (${esc(a.installed.version)})` : esc(a.description)}</div></div></label>`).join('')}
       <div><b>Codice della suite</b><div class="small muted mb">Usa lo stesso codice su tutti i tuoi computer per sincronizzarli. Puoi anche farlo dopo.</div>
         <div class="row"><input class="input mono grow" id="wCode" placeholder="es. 7F3A-91BC" autocomplete="off" spellcheck="false"><button class="btn" data-act="w-gen">Genera</button></div></div>
       <div class="row end"><button class="btn" data-act="w-skip">Più tardi</button><button class="btn btn-primary" data-act="w-go">Inizia</button></div>`);

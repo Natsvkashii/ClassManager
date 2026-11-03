@@ -26,9 +26,10 @@ public struct BoardImage: Codable, Hashable, Identifiable {
     public var y: Double
     public var w: Double
     public var h: Double
+    public var crop: [Double]?
 
-    public init(id: String = UUID().uuidString, src: String, x: Double, y: Double, w: Double, h: Double) {
-        self.id = id; self.src = src; self.x = x; self.y = y; self.w = w; self.h = h
+    public init(id: String = UUID().uuidString, src: String, x: Double, y: Double, w: Double, h: Double, crop: [Double]? = nil) {
+        self.id = id; self.src = src; self.x = x; self.y = y; self.w = w; self.h = h; self.crop = crop
     }
 }
 
@@ -327,6 +328,16 @@ enum BoardRenderer {
                                 y: r.minY + CGFloat(img.y) * r.height,
                                 width: CGFloat(img.w) * r.width,
                                 height: CGFloat(img.h) * r.height)
+        if let c = img.crop, c.count == 4, let cg = nsImage.cgImage(forProposedRect: nil, context: nil, hints: nil) {
+            let origW = Double(cg.width)
+            let origH = Double(cg.height)
+            let cutRect = CGRect(x: c[0] * origW, y: c[1] * origH, width: c[2] * origW, height: c[3] * origH).integral
+            if cutRect.width > 2 && cutRect.height > 2, let cut = cg.cropping(to: cutRect) {
+                let cutImg = NSImage(cgImage: cut, size: targetRect.size)
+                cutImg.draw(in: targetRect)
+                return
+            }
+        }
         nsImage.draw(in: targetRect)
     }
 
@@ -398,10 +409,14 @@ enum BoardRenderer {
         guard let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: width, pixelsHigh: height, bitsPerSample: 8, samplesPerPixel: 4,
                                          hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0),
               let ctx = NSGraphicsContext(bitmapImageRep: rep) else { return nil }
+        rep.size = NSSize(width: width / 2, height: height / 2)
         NSGraphicsContext.saveGraphicsState()
         let flipped = NSGraphicsContext(cgContext: ctx.cgContext, flipped: true)
         NSGraphicsContext.current = flipped
         let cg = flipped.cgContext
+        cg.setAllowsAntialiasing(true)
+        cg.setShouldAntialias(true)
+        cg.interpolationQuality = .high
         cg.translateBy(x: 0, y: CGFloat(height)); cg.scaleBy(x: 1, y: -1)
         let r = CGRect(x: 0, y: 0, width: width, height: height)
         drawPaper(c, in: r, date: date)

@@ -64,13 +64,15 @@ def current_channel():
 def set_version(version, channel):
     if not VERSION_RE.match(version):
         sys.exit(f"[!] Versione non valida: {version} (formato YY.MM.R-BBB, es. 26.11.0-002)")
-    if channel not in ("stable", "unstable"):
+    if channel not in ("stable", "unstable", "beta", "internal"):
         sys.exit("[!] --channel deve essere stable o unstable")
+    b_type = "internal" if channel in ("unstable", "internal") else ("beta" if channel == "beta" else "stable")
     s = read(INFO_SWIFT)
     s = re.sub(r'(appVersion\s*=\s*")[^"]+(")', rf"\g<1>{version}\g<2>", s)
-    s = re.sub(r"(isUnstableBuild:\s*Int\s*=\s*)\d", rf"\g<1>{1 if channel == 'unstable' else 0}", s)
+    s = re.sub(r"(isUnstableBuild:\s*Int\s*=\s*)\d", rf"\g<1>{1 if channel in ('unstable', 'internal', 'beta') else 0}", s)
+    s = re.sub(r'(buildType\s*:\s*String\s*=\s*")[^"]+(")', rf'\g<1>{b_type}\g<2>', s)
     write(INFO_SWIFT, s)
-    print(f"OK HubInfo.swift -> {version} ({channel})")
+    print(f"OK HubInfo.swift -> {version} ({channel}, {b_type})")
 
 
 def info_plist(version):
@@ -87,6 +89,7 @@ def info_plist(version):
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>CFBundleShortVersionString</key><string>{short}</string>
   <key>CFBundleVersion</key><string>{version}</string>
+  <key>AppBuildType</key><string>internal</string>
   <key>LSMinimumSystemVersion</key><string>14.0</string>
   <key>LSApplicationCategoryType</key><string>public.app-category.utilities</string>
   <key>NSHighResolutionCapable</key><true/>

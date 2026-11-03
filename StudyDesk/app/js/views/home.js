@@ -23,35 +23,16 @@ const stat = (ico, tint, num, lbl) => h('div.card.stat', h(`div.ico.${tint}`, ic
 
 export async function renderHome(host, params, app) {
   if (!params[0] || getContext().bookId !== params[0]) clearContext(); // a book keeps its context only while it stays open
-  const profile = (await kv.get('profile')) || {};
   const shelf = await loadShelf();
-  const mods = [...shelf.books.flatMap((b) => b.chapters), ...shelf.standalone];
-  let done = 0, total = 0, score = 0, max = 0, pending = 0;
-  const per = [];
-  for (const r of mods) {
-    const s = summarize(r.module, await getResults(r.id, null));
-    done += s.completedParts; total += s.totalParts; score += s.score; max += s.maxScore; pending += s.pendingReview;
-    per.push({ r, s });
-  }
   const urls = [];
-  const lastId = await kv.get('lastModule');
-  const cont = per.find((x) => x.r.id === lastId) || per.find((x) => x.s.completedParts > 0 && x.s.completedParts < x.s.totalParts) || per[0];
   const bookshelf = await createShelf({ entries: shelf.books, app, urls, scroller: host });
   const empty = !shelf.books.length && !shelf.standalone.length;
   const closed = h('div.stage-closed',
-    h('p.page-sub', mods.length ? 'Ecco a che punto sei con i tuoi libri e moduli.' : 'Importa il tuo primo libro o modulo dalla Libreria per cominciare.'),
-    h('div.grid.grid-4', { style: { marginTop: '1.25rem' } },
-      stat('book-open', 'tint-sky', mods.length, 'Moduli'),
-      stat('circle-check', 'tint-ok', `${done}/${total}`, 'Parti completate'),
-      stat('star', 'tint-warn', `${score}/${max}`, 'Punteggio'),
-      stat('hourglass-half', 'tint-violet', pending, 'Da valutare')),
-    cont ? [h('div.section-title', 'Continua da dove eri rimasto'), h('div.grid.grid-3', await moduleCard(cont.r, app, urls, { actions: false }))] : null,
-    shelf.books.length ? [h('div.section-title', 'Libri'), bookshelf.grid] : null,
-    shelf.standalone.length ? [h('div.section-title', 'Moduli singoli'), h('div.grid.grid-3', await Promise.all(shelf.standalone.map((r) => moduleCard(r, app, urls, { actions: false }))))] : null,
+    shelf.books.length ? bookshelf.grid : null,
     empty ? h('div.empty', icon('inbox', 'ico'), h('button.btn.btn-primary', { onclick: () => app.navigate('library') }, icon('file-import'), 'Vai alla libreria')) : null);
   const stage = h('div.book-stage');
   bookshelf.mount(stage, closed);
-  host.append(h('div.view-inner', h('h2.page-title', `Ciao, ${profile.firstName || 'studente'}!`), stage));
+  host.append(h('div.view-inner', stage));
   if (params[0]) await bookshelf.open(params[0], { animate: false });
   return () => urls.forEach(URL.revokeObjectURL);
 }

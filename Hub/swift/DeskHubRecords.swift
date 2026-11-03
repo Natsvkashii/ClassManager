@@ -184,7 +184,7 @@ public final class DeskHubLink: @unchecked Sendable {
     public init(app: String) { self.app = app }
 
     public func start() {
-        q.async {
+        q.async { [self] in
             guard self.timer == nil else { return }
             let t = DispatchSource.makeTimerSource(queue: self.q)
             t.schedule(deadline: .now(), repeating: 10)

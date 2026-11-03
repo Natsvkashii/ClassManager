@@ -48,6 +48,7 @@ export const app = {
   navigate(path) { location.hash = '#/' + path; },
   setTitle(title, crumbs = '') { app.titleEl.textContent = title; app.crumbsEl.textContent = crumbs; document.title = `${title} · StudyDesk`; },
   setActions(...nodes) { clear(app.actionsEl).append(...nodes.filter(Boolean)); },
+  setLeadingActions(...nodes) { if (app.navLeadingEl) clear(app.navLeadingEl).append(...nodes.filter(Boolean)); },
   refresh() { return route(); },
 };
 
@@ -65,6 +66,7 @@ async function route() {
   highlight();
   app.setTitle(TITLES[name]);
   app.setActions();
+  app.setLeadingActions();
   const host = clear(app.view);
   host.scrollTop = 0;
   closeSidebar();
@@ -101,20 +103,35 @@ function buildShell() {
         onclick: () => { const m = app.sidebar.classList.toggle('mini'); saveSettings({ sidebarMini: m }); },
       }, icon('bars-staggered'))),
     h('nav.nav.scroll', navItems().map(([label, items]) => h('div.nav-group', h('div.sb-label', label), items.map(([r, t, i]) =>
-      h('button.nav-btn', { 'data-route': r, title: t, onclick: () => app.navigate(r) }, h('span.ico', icon(i)), h('span.sb-text', t))))))),
+      h('button.nav-btn', {
+        'data-route': r, title: t,
+        onclick: () => {
+          if (r === 'home') {
+            if (location.hash === '#/home') {
+              route();
+            } else {
+              location.hash = '#/home';
+            }
+            return;
+          }
+          app.navigate(r);
+        }
+      }, h('span.ico', icon(i)), h('span.sb-text', t))))))),
     h('div.sb-bottom',
       h('button.btn.btn-sm', { onclick: feedback, title: 'Invia feedback via email all\'autore' }, icon('envelope'), h('span.sb-text', 'Invia feedback'))));
   app.backdrop = h('div.backdrop', { onclick: closeSidebar });
   app.titleEl = h('h1');
   app.crumbsEl = h('div.crumbs');
+  app.navLeadingEl = h('div.row.topbar-leading', { style: { display: 'flex', alignItems: 'center', gap: '.4rem' } });
   app.actionsEl = h('div.row');
   app.banner = h('div.banner.hidden');
   app.view = h('main.view.scroll');
   const main = h('div.main',
     h('header.topbar',
-      h('button.btn.btn-ghost.btn-icon.menu-toggle', { title: 'Mostra o nascondi la barra di navigazione', 'aria-label': 'Barra di navigazione', onclick: toggleNav }, icon('table-columns')),
-      h('div', { style: { minWidth: 0 } }, app.titleEl, app.crumbsEl), h('div.spacer'), app.actionsEl,
-      h('button.btn.btn-ghost.btn-icon', { title: 'Informazioni e licenza', 'aria-label': 'Informazioni', onclick: () => modal({ title: 'Informazioni su StudyDesk', body: creditsBody() }) }, icon('circle-info'))),
+      h('div.row', { style: { alignItems: 'center', gap: '.6rem', minWidth: 0 } },
+        app.navLeadingEl,
+        h('div', { style: { minWidth: 0 } }, app.titleEl, app.crumbsEl)),
+      h('div.spacer'), app.actionsEl),
     app.banner, app.view);
   root.append(h('div.shell', app.sidebar, app.backdrop, main));
 }

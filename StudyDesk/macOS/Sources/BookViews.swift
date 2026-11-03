@@ -59,30 +59,162 @@ struct BookShelfCard: View {
     @Environment(AppStore.self) private var store
     let book: StudyBook
     let namespace: Namespace.ID
+    let onEdit: (StudyBook) -> Void
+    let onManageGroups: (StudyBook) -> Void
     @State private var hover = false
+    @State private var showDeleteConfirm = false
 
     var body: some View {
-        let s = store.bookStats(book)
-        VStack(alignment: .leading, spacing: 10) {
+        ZStack(alignment: .bottomTrailing) {
             BookCoverArt(book: book)
                 .matchedGeometryEffect(id: "cover-\(book.id)", in: namespace)
-                .frame(width: 168, height: 224)
-                .rotation3DEffect(.degrees(hover ? -8 : 0), axis: (x: 0, y: 1, z: 0), anchor: .leading)
+                .frame(width: 172, height: 236)
+                .rotation3DEffect(.degrees(hover ? -6 : 0), axis: (x: 0, y: 1, z: 0), anchor: .leading)
                 .scaleEffect(hover ? 1.03 : 1)
-            VStack(alignment: .leading, spacing: 4) {
-                Text(book.title).font(.headline).lineLimit(2)
-                HStack(spacing: 6) {
-                    if let l = book.level { Pill(text: l, color: book.accent) }
-                    Text("\(store.chapters(of: book).count) capitoli").font(.caption).foregroundStyle(.secondary)
+                .onTapGesture { store.requestOpenBook(book.id) }
+
+            // 3-dots button at bottom right corner
+            Menu {
+                Button {
+                    store.openBook(book.id, context: AppStore.blankContext)
+                } label: {
+                    Label("Apri vuoto temporaneamente", systemImage: "doc")
                 }
-                ProgressView(value: s.fraction).tint(book.accent).frame(width: 168)
+
+                Button {
+                    onEdit(book)
+                } label: {
+                    Label("Modifica libro", systemImage: "pencil")
+                }
+
+                if store.state.isTeacher {
+                    Button {
+                        onManageGroups(book)
+                    } label: {
+                        Label("Cambia gruppi associati", systemImage: "person.3")
+                    }
+                }
+
+                Divider()
+
+                Button(role: .destructive) {
+                    showDeleteConfirm = true
+                } label: {
+                    Label("Elimina libro", systemImage: "trash")
+                }
+            } label: {
+                Image(systemName: "ellipsis")
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundStyle(.white)
+                    .frame(width: 28, height: 28)
+                    .background(Circle().fill(Color.black.opacity(0.65)))
+                    .padding(8)
             }
-            .frame(width: 168, alignment: .leading)
+            .menuStyle(.borderlessButton)
+            .contentShape(Circle())
         }
+        .frame(width: 172, height: 236)
         .contentShape(Rectangle())
         .onHover { h in withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) { hover = h } }
-        .onTapGesture { store.requestOpenBook(book.id) }
-        .help("Apri il libro")
+        .help("Apri «\(book.title)»")
+        .confirmationDialog("Sei sicuro di voler eliminare «\(book.title)»?", isPresented: $showDeleteConfirm) {
+            Button("Elimina libro", role: .destructive) {
+                store.deleteBook(book.id, withChapters: true)
+            }
+        }
+    }
+}
+
+struct GroupSelectorPill: View {
+    @Environment(AppStore.self) private var store
+    let book: StudyBook?
+
+    var body: some View {
+        let groups = store.groupsForBook(book?.id)
+        if store.state.isTeacher, !groups.isEmpty {
+            let activeGroup = groups.first { $0.id == store.activeContext }
+            let badge = activeGroup?.level ?? book?.level ?? "A1"
+            let groupName = activeGroup?.name ?? (store.activeContext == AppStore.blankContext ? "Pagine pulite" : "Il mio libro")
+
+            HStack(spacing: 6) {
+                // Left badge (● A1)
+                HStack(spacing: 5) {
+                    Circle()
+                        .fill(Color.white)
+                        .frame(width: 6, height: 6)
+                    Text(badge)
+                        .font(.system(size: 11, weight: .heavy))
+                        .foregroundStyle(.white)
+                        .lineLimit(1)
+                }
+                .padding(.horizontal, 8)
+                .padding(.vertical, 3)
+                .background(RoundedRectangle(cornerRadius: 7).fill(book?.accent ?? Theme.accent))
+
+                // Group dropdown Menu
+                Menu {
+                    ForEach(groups) { g in
+                        Button {
+                            store.activeContext = g.id
+                        } label: {
+                            HStack {
+                                Text(g.name)
+                                if store.activeContext == g.id {
+                                    Image(systemName: "checkmark")
+                                }
+                            }
+                        }
+                    }
+                    Divider()
+                    Button {
+                        store.activeContext = nil
+                    } label: {
+                        HStack {
+                            Text("Il mio libro (Personale)")
+                            if store.activeContext == nil {
+                                Image(systemName: "checkmark")
+                            }
+                        }
+                    }
+                } label: {
+                    HStack(spacing: 4) {
+                        Text(groupName)
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundStyle(book?.accent ?? Theme.accent)
+                            .lineLimit(1)
+                        Image(systemName: "chevron.up.chevron.down")
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundStyle(book?.accent ?? Theme.accent)
+                    }
+                    .padding(.horizontal, 4)
+                }
+                .menuStyle(.borderlessButton)
+                .fixedSize()
+
+                // Edit button (pencil)
+                Button {
+                    if let activeGroup {
+                        store.openGroupId = activeGroup.id
+                        store.currentTab = .groups
+                    }
+                } label: {
+                    Image(systemName: "pencil")
+                        .font(.system(size: 11, weight: .bold))
+                        .padding(5)
+                        .background(RoundedRectangle(cornerRadius: 6).fill((book?.accent ?? Theme.accent).opacity(0.15)))
+                        .foregroundStyle(book?.accent ?? Theme.accent)
+                }
+                .buttonStyle(.plain)
+                .help("Modifica gruppo")
+            }
+            .padding(.horizontal, 8)
+            .frame(height: 34)
+            .background(
+                RoundedRectangle(cornerRadius: 10)
+                    .fill((book?.accent ?? Theme.accent).opacity(0.09))
+                    .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder((book?.accent ?? Theme.accent).opacity(0.28)))
+            )
+        }
     }
 }
 
@@ -112,6 +244,7 @@ struct OpenBookView: View {
                     ProgressView(value: s.fraction).tint(book.accent).frame(maxWidth: 360)
                 }
                 Spacer()
+                GroupSelectorPill(book: book)
                 Button {
                     withAnimation(.spring(response: 0.3)) { rowVisible = false }
                     withAnimation(.spring(response: 0.6, dampingFraction: 0.86).delay(0.12)) { store.openBookId = nil }
@@ -185,34 +318,153 @@ struct ChapterCard: View {
     }
 }
 
-/// Home content: either the shelf of books (+ standalone modules) or one open book.
+/// Home content: either the shelf of books or one open book.
 struct BookShelfSection: View {
     @Environment(AppStore.self) private var store
     @Namespace private var ns
+    @State private var editingBook: StudyBook? = nil
+    @State private var managingGroupsBook: StudyBook? = nil
+    @State private var draggedBookId: String? = nil
 
     var body: some View {
         if let b = store.book(store.openBookId) {
             OpenBookView(book: b, namespace: ns)
         } else {
-            VStack(alignment: .leading, spacing: 14) {
-                if !store.books.isEmpty {
-                    Text("I MIEI LIBRI").font(.system(size: 11, weight: .heavy)).foregroundStyle(.secondary)
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(alignment: .top, spacing: 28) {
-                            ForEach(store.books) { BookShelfCard(book: $0, namespace: ns) }
+            VStack(alignment: .leading, spacing: 18) {
+                if !store.orderedBooks.isEmpty {
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 172, maximum: 200), spacing: 24)], alignment: .leading, spacing: 24) {
+                        ForEach(store.orderedBooks) { book in
+                            BookShelfCard(book: book, namespace: ns, onEdit: { editingBook = $0 }, onManageGroups: { managingGroupsBook = $0 })
+                                .onDrag {
+                                    draggedBookId = book.id
+                                    return NSItemProvider(object: book.id as NSString)
+                                }
+                                .onDrop(of: [.text], isTargeted: nil) { _ in
+                                    guard let dragged = draggedBookId, dragged != book.id else { return false }
+                                    withAnimation(.easeInOut(duration: 0.2)) {
+                                        store.reorderBooks(from: dragged, to: book.id)
+                                    }
+                                    draggedBookId = nil
+                                    return true
+                                }
                         }
-                        .padding(.vertical, 8).padding(.horizontal, 4)
                     }
-                }
-                let singles = store.standaloneModules
-                if !singles.isEmpty {
-                    Text(store.books.isEmpty ? "I MIEI MODULI" : "MODULI SINGOLI").font(.system(size: 11, weight: .heavy)).foregroundStyle(.secondary)
-                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 230), spacing: 16)], spacing: 16) {
-                        ForEach(singles) { ModuleCard(module: $0) }
-                    }
+                    .padding(.vertical, 8)
                 }
                 if store.modules.isEmpty && store.books.isEmpty { EmptyLibrary() }
             }
+            .sheet(item: $editingBook) { book in
+                EditBookSheet(book: book)
+            }
+            .sheet(item: $managingGroupsBook) { book in
+                ManageBookGroupsSheet(book: book)
+            }
         }
+    }
+}
+
+struct EditBookSheet: View {
+    @Environment(AppStore.self) private var store
+    @Environment(\.dismiss) private var dismiss
+    let book: StudyBook
+    @State private var title: String = ""
+    @State private var subtitle: String = ""
+    @State private var level: String = ""
+
+    init(book: StudyBook) {
+        self.book = book
+        _title = State(initialValue: book.title)
+        _subtitle = State(initialValue: book.subtitle ?? "")
+        _level = State(initialValue: book.level ?? "")
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Modifica libro").font(.title2.bold())
+            Form {
+                TextField("Titolo", text: $title)
+                TextField("Sottotitolo", text: $subtitle)
+                TextField("Livello (es. A1)", text: $level)
+            }
+            HStack {
+                Button("Cambia copertina…") {
+                    let panel = NSOpenPanel()
+                    panel.allowedContentTypes = [.image]
+                    panel.allowsMultipleSelection = false
+                    if panel.runModal() == .OK, let url = panel.url {
+                        store.setBookCover(book.id, from: url)
+                    }
+                }
+                Spacer()
+                Button("Annulla") { dismiss() }.keyboardShortcut(.cancelAction)
+                Button("Salva") {
+                    var b = book
+                    let t = title.trimmingCharacters(in: .whitespaces)
+                    if !t.isEmpty { b.title = t }
+                    b.subtitle = subtitle.isEmpty ? nil : subtitle.trimmingCharacters(in: .whitespaces)
+                    b.level = level.isEmpty ? nil : level.trimmingCharacters(in: .whitespaces)
+                    store.saveBook(b)
+                    dismiss()
+                }
+                .buttonStyle(.borderedProminent)
+            }
+        }
+        .padding(22)
+        .frame(width: 440)
+    }
+}
+
+struct ManageBookGroupsSheet: View {
+    @Environment(AppStore.self) private var store
+    @Environment(\.dismiss) private var dismiss
+    let book: StudyBook
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("Gruppi associati a «\(book.title)»").font(.title3.bold())
+            Text("Seleziona i gruppi che lavorano con questo libro.").font(.subheadline).foregroundStyle(.secondary)
+            Divider()
+            let groups = store.state.groups.filter { $0.archived != true }
+            if groups.isEmpty {
+                Text("Nessun gruppo disponibile. Crea un gruppo dalla sezione Gruppi.").foregroundStyle(.secondary)
+            } else {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 10) {
+                        ForEach(groups) { g in
+                            let isAssigned = g.bookIds.contains(book.id)
+                            Toggle(isOn: Binding(
+                                get: { isAssigned },
+                                set: { on in
+                                    var updated = g
+                                    if on {
+                                        if !updated.bookIds.contains(book.id) { updated.bookIds.append(book.id) }
+                                    } else {
+                                        updated.bookIds.removeAll { $0 == book.id }
+                                    }
+                                    store.upsertGroup(updated)
+                                }
+                            )) {
+                                HStack {
+                                    Text(g.name).font(.headline)
+                                    if !g.level.isEmpty {
+                                        Text("(\(g.level))").font(.subheadline).foregroundStyle(.secondary)
+                                    }
+                                }
+                            }
+                            .padding(.vertical, 4)
+                        }
+                    }
+                }
+                .frame(maxHeight: 280)
+            }
+            Divider()
+            HStack {
+                Spacer()
+                Button("Fine") { dismiss() }
+                    .buttonStyle(.borderedProminent)
+            }
+        }
+        .padding(22)
+        .frame(width: 440)
     }
 }

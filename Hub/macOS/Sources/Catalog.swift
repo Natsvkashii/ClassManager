@@ -130,6 +130,18 @@ public enum Catalog {
         return info["CFBundleShortVersionString"] as? String
     }
 
+    /// Read dynamic build type ("stable", "beta", "internal") from the app's bundle.
+    public static func installedBuildType(at url: URL) -> String {
+        guard let info = Bundle(url: url)?.infoDictionary else { return "internal" }
+        if let bt = info["AppBuildType"] as? String, !bt.isEmpty { return bt }
+        if let ch = info["AppChannel"] as? String {
+            if ch == "stable" { return "stable" }
+            if ch == "beta" { return "beta" }
+            return "internal"
+        }
+        return "internal"
+    }
+
     public static func running(_ app: SuiteApp) -> [NSRunningApplication] {
         NSRunningApplication.runningApplications(withBundleIdentifier: app.bundleId)
     }

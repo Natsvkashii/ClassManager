@@ -18,7 +18,7 @@ const MAX_LINE = 128 * 1024 * 1024;
 const BATCH = 100;
 // big records (StudyDesk book pieces, ~1.4 MB each) go a few at a time so no message nears MAX_LINE
 const BIG_KEY = /\/book(chunk|file):/;
-const BIG_BATCH = 8;
+const BIG_BATCH = 4;   // ~6 MB per reply: under the 8 MB line of HubDesk 012's native reader too
 const PUT_BYTES = 12 * 1024 * 1024;
 /** Keys in request groups: small records BATCH at a time, big ones BIG_BATCH at a time. */
 function keyBatches(keys) {

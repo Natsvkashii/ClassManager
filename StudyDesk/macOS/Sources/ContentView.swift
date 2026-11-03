@@ -253,8 +253,15 @@ struct SidebarView: View {
     }
 
     private func sidebarButton(_ tab: NavigationTab, _ icon: String, _ title: String) -> some View {
-        let sel = store.currentTab == tab
-        return Button { store.currentTab = tab } label: {
+        let sel = store.currentTab == tab && (tab != .home || store.openBookId == nil)
+        return Button {
+            if tab == .home {
+                withAnimation(.spring(response: 0.4, dampingFraction: 0.86)) {
+                    store.openBookId = nil
+                }
+            }
+            store.currentTab = tab
+        } label: {
             HStack(spacing: 10) {
                 Image(systemName: icon).font(.system(size: 13, weight: .semibold)).frame(width: 24, height: 24)
                     .background(RoundedRectangle(cornerRadius: 7).fill(sel ? Color.white.opacity(0.22) : Theme.accent.opacity(0.12)))
@@ -481,7 +488,7 @@ struct BookContextSheet: View {
                 }
             }
             Divider()
-            option(icon: "doc", color: .secondary, title: "Libro non completato", subtitle: "Pagine pulite: le risposte non vengono salvate") {
+            option(icon: "doc", color: .secondary, title: "Pagine pulite", subtitle: "Pagine pulite: le risposte non vengono salvate") {
                 store.openBook(bookId, context: AppStore.blankContext)
             }
             option(icon: "person.fill", color: Theme.accent, title: "Il mio libro", subtitle: "Le tue risposte personali") {

@@ -128,11 +128,17 @@ function createService() {
       peers: list, connectedPeers: list.filter((p) => p.connected), conflicts: Array.isArray(conflicts) ? conflicts.length : 0,
     };
   }
+  let lastConflictsCount = 0;
   async function emit(force) {
     const s = await status();
     const j = JSON.stringify(s);
     if (!force && j === state.lastJson) return s;
     state.lastJson = j;
+    if (s.conflicts > 0 && lastConflictsCount === 0) {
+      if (window.__sd_hub_send) window.__sd_hub_send(JSON.stringify({ t: 'open', app: 'hubdesk', page: 'conflicts' }));
+      else if (window.studydesk?.openExternal) window.studydesk.openExternal('hubdesk://conflicts');
+    }
+    lastConflictsCount = s.conflicts;
     fire(subs.state, s);
     return s;
   }

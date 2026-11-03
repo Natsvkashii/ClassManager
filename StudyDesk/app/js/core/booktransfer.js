@@ -157,7 +157,6 @@ async function assemble(io, e, m, missing) {
     const still = missing.filter((id) => (m.chapters || []).includes(id) && !mods.has(id));
     if (still.length) throw new Error(`Importati ${res.count} capitoli ma ne mancano ancora ${still.length}.`);
     e.status = 'done'; e.done = e.total; log(e, `Importato: ${res.count} capitoli`);
-    toast(`Libro «${e.title}» sincronizzato`, 'ok');
     window.dispatchEvent(new CustomEvent('studydesk:data-changed'));
     setTimeout(() => { if (entries.get(e.id) === e && e.status === 'done') { entries.delete(e.id); render(); } }, 4000);
   } catch (err) {
@@ -178,6 +177,33 @@ function mailto(e) {
   return reportMailto({ version: platform.version, platform: `Windows (app nativa) · WebView2 ${(navigator.userAgent.match(/Edg\/[\d.]+/) || navigator.userAgent.match(/Chrome\/[\d.]+/) || [''])[0]}`, device: deviceName, book: e, error: e.error, log: e.log });
 }
 
+const domCards = new Map(); // id -> { el, status, subEl, barEl, barSpan }
+
+function updateCard(c, e) {
+  const pct = e.status === 'done' ? 100 : percent(e.done, e.total);
+  const sub = e.status === 'waiting' ? 'In attesa che l\'altro computer invii il libro…'
+    : e.status === 'importing' ? 'Verifica e importazione…'
+      : e.status === 'done' ? 'Sincronizzato'
+        : e.status === 'error' ? 'Sincronizzazione non riuscita'
+          : `${e.from ? 'Da ' + e.from + ' · ' : ''}${pct}% · ${e.done} / ${e.total} pezzi`;
+
+  if (c.status !== e.status && (c.status === 'error' || e.status === 'error')) {
+    const newEl = card(e);
+    c.el.replaceWith(newEl.el);
+    domCards.set(e.id, newEl);
+    return;
+  }
+  c.status = e.status;
+  if (c.subEl) c.subEl.textContent = sub;
+  if (c.barEl) {
+    c.barEl.setAttribute('aria-valuenow', pct);
+    c.barEl.classList.toggle('indeterminate', e.status === 'waiting' || e.status === 'importing');
+  }
+  if (c.barSpan) {
+    c.barSpan.style.width = `${pct}%`;
+  }
+}
+
 function card(e) {
   const pct = e.status === 'done' ? 100 : percent(e.done, e.total);
   const sub = e.status === 'waiting' ? 'In attesa che l\'altro computer invii il libro…'
@@ -185,13 +211,17 @@ function card(e) {
       : e.status === 'done' ? 'Sincronizzato'
         : e.status === 'error' ? 'Sincronizzazione non riuscita'
           : `${e.from ? 'Da ' + e.from + ' · ' : ''}${pct}% · ${e.done} / ${e.total} pezzi`;
+  const subEl = h('small', sub);
   const el = h(`div.booksync-card${e.status === 'error' ? '.err' : ''}`, { role: 'status', 'aria-live': 'polite' },
     h('div.booksync-head', icon(e.status === 'error' ? 'triangle-exclamation' : e.status === 'done' ? 'circle-check' : 'book'),
-      h('div', h('strong', e.title), h('small', sub))));
+      h('div', h('strong', e.title), subEl)));
+  let barEl = null, barSpan = null;
   if (e.status !== 'error') {
-    el.append(h(`div.booksync-bar${e.status === 'waiting' || e.status === 'importing' ? '.indeterminate' : ''}`,
-      { role: 'progressbar', 'aria-valuemin': 0, 'aria-valuemax': 100, 'aria-valuenow': pct }, h('span', { style: `width:${pct}%` })));
-    return el;
+    barSpan = h('span', { style: `width:${pct}%` });
+    barEl = h(`div.booksync-bar${e.status === 'waiting' || e.status === 'importing' ? '.indeterminate' : ''}`,
+      { role: 'progressbar', 'aria-valuemin': 0, 'aria-valuemax': 100, 'aria-valuenow': pct }, barSpan);
+    el.append(barEl);
+    return { el, status: e.status, subEl, barEl, barSpan };
   }
   el.append(
     h('p.booksync-msg', e.error),
@@ -201,14 +231,28 @@ function card(e) {
       h('a.btn.btn-primary.btn-sm', { href: mailto(e), target: '_blank', rel: 'noopener', onclick: (ev) => { if (window.studydesk?.openExternal) { ev.preventDefault(); window.studydesk.openExternal(mailto(e)); } } }, icon('envelope'), ' Invia segnalazione'),
       h('button.btn.btn-sm', { onclick: () => { e.status = 'waiting'; e.error = ''; e.t = null; log(e, 'Nuovo tentativo'); render(); } }, 'Riprova'),
       h('button.btn.btn-ghost.btn-sm', { onclick: async () => { const d = await dismissed(); d[e.id] = e.tid || 'none'; await kv.set('bookTransferDismissed', d); entries.delete(e.id); render(); } }, 'Chiudi')));
-  return el;
+  return { el, status: e.status, subEl, barEl: null, barSpan: null };
 }
 
 function render() {
   if (typeof document === 'undefined') return;
   if (!host) { host = h('div.booksync', { 'aria-label': 'Libri in sincronizzazione' }); document.body.append(host); }
-  clear(host);
-  for (const e of entries.values()) host.append(card(e));
+  for (const [id, c] of domCards.entries()) {
+    if (!entries.has(id)) {
+      c.el.remove();
+      domCards.delete(id);
+    }
+  }
+  for (const e of entries.values()) {
+    const existing = domCards.get(e.id);
+    if (!existing) {
+      const c = card(e);
+      domCards.set(e.id, c);
+      host.append(c.el);
+    } else {
+      updateCard(existing, e);
+    }
+  }
   host.hidden = !entries.size;
 }
 

@@ -128,16 +128,18 @@ struct AppCardView: View {
 
     @ViewBuilder private func versionLine(_ c: AppCard) -> some View {
         HStack(spacing: 6) {
-            Image(systemName: "number").foregroundStyle(.secondary)
             if let i = c.installedVersion {
+                VersionBadge(c.buildType)
                 Text(i).font(.system(.callout, design: .monospaced))
                 if let a = c.available, c.needsUpdate {
                     Image(systemName: "arrow.right").font(.caption).foregroundStyle(.secondary)
                     Text(a.version).font(.system(.callout, design: .monospaced).bold()).foregroundStyle(Theme.warn)
                 }
             } else if let a = c.available {
+                Image(systemName: "number").foregroundStyle(.secondary)
                 Text("Non installata · disponibile \(a.version)").font(.callout).foregroundStyle(.secondary)
             } else {
+                Image(systemName: "number").foregroundStyle(.secondary)
                 Text("Non installata").font(.callout).foregroundStyle(.secondary)
             }
         }

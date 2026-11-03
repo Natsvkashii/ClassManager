@@ -661,7 +661,7 @@ public final class UpdateManager: NSObject, URLSessionDownloadDelegate {
             ?? "ClassDesk-Update.pkg"
         let fileName = rawName.isEmpty ? "ClassDesk-Update.pkg" : rawName
         let tempTargetDir = FileManager.default.temporaryDirectory
-        var destinationUrl = tempTargetDir.appendingPathComponent("ClassDesk_DL_\(UUID().uuidString)_\(fileName)")
+        let destinationUrl = tempTargetDir.appendingPathComponent("ClassDesk_DL_\(UUID().uuidString)_\(fileName)")
 
         var copyError: Error? = nil
         do {

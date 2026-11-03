@@ -948,21 +948,6 @@ public struct QuickLessonActionPopover: View {
         }
     }
 
-    private func saveQuickChangesIfNeeded() -> String {
-        guard !course.archived else { return slotKey }
-        let newDateIso = AppStore.isoDateFormatter.string(from: selectedDate)
-        let oldDateIso = store.extractDate(from: slotKey)
-        let les = store.findLesson(in: course, sectionId: module.id, slotKey: slotKey)
-        let oldStart = les?.time ?? module.startTime
-        let oldEnd = les?.endTime ?? module.endTime
-        let cleanStart = startTimeStr.trimmingCharacters(in: .whitespacesAndNewlines)
-        let cleanEnd = endTimeStr.trimmingCharacters(in: .whitespacesAndNewlines)
-        if newDateIso != oldDateIso || cleanStart != oldStart || cleanEnd != oldEnd {
-            return saveQuickChanges()
-        }
-        return slotKey
-    }
-
     private func saveQuickChanges() -> String {
         guard !course.archived else { return slotKey }
         let newDateIso = AppStore.isoDateFormatter.string(from: selectedDate)
@@ -1018,6 +1003,7 @@ public struct AttendanceView: View {
                             Text("Ore Totali Modulo: \(String(format: "%.1fh", store.moduleTotalHours(course: course, module: mod)))")
                                 .bold()
                         }
+                        paidHoursBadge(course: course, mod: mod)
                         if !mod.description.isEmpty {
                             Text("• \(mod.description)").foregroundStyle(.secondary)
                         }
@@ -1356,6 +1342,61 @@ public struct AttendanceView: View {
             }
             .padding(20)
         )
+    }
+
+    @ViewBuilder
+    private func paidHoursBadge(course: Course, mod: CourseModule) -> some View {
+        let b = mod.billing ?? ModuleBilling()
+        let totalModH = store.moduleTotalHours(course: course, module: mod)
+        let paidH = b.paidHours
+        let missingH = b.missingHours(scheduledHours: totalModH)
+        Group {
+            if paidH > 0 {
+                Text("•").foregroundStyle(.secondary)
+                HStack(spacing: 3) {
+                    Image(systemName: "banknote.fill")
+                        .font(.system(size: 10))
+                        .foregroundStyle(.green)
+                    Text("Ore Pagate: \(String(format: "%.1fh", paidH))")
+                        .bold()
+                        .foregroundStyle(.green)
+                }
+                Text("•").foregroundStyle(.secondary)
+                if missingH > 0 {
+                    HStack(spacing: 3) {
+                        Image(systemName: "hourglass.badge.plus")
+                            .font(.system(size: 10))
+                            .foregroundStyle(.orange)
+                        Text("Mancano: \(String(format: "%.1fh", missingH))")
+                            .bold()
+                            .foregroundStyle(.orange)
+                    }
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 1)
+                    .background(RoundedRectangle(cornerRadius: 4).fill(Color.orange.opacity(0.12)))
+                } else {
+                    HStack(spacing: 3) {
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.system(size: 10))
+                            .foregroundStyle(.green)
+                        Text("Ore Pagate Coperte")
+                            .bold()
+                            .foregroundStyle(.green)
+                    }
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 1)
+                    .background(RoundedRectangle(cornerRadius: 4).fill(Color.green.opacity(0.12)))
+                }
+            } else {
+                Text("•").foregroundStyle(.secondary)
+                HStack(spacing: 3) {
+                    Image(systemName: "info.circle")
+                        .font(.system(size: 10))
+                    Text("Ore Pagate: 0.0h")
+                        .foregroundStyle(.secondary)
+                }
+            }
+        }
     }
 
     private func attendanceColor(for val: String) -> Color {
@@ -2343,9 +2384,8 @@ public struct ModuleCalendarView: View {
             VStack(alignment: .leading, spacing: 14) {
                 // Top Header: summary on its own line (never squeezed), actions on the line below
                 VStack(alignment: .leading, spacing: 10) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Label("\(store.t("totalLabel")): \(store.count(slots.count, one: "lessonOneLower", many: "lessonsLower")) • \(posterWeeks.count) \(posterWeeks.count == 1 ? store.t("weekSingular") : store.t("weekPlural")) • Ore Totali Modulo: \(String(format: "%.1fh", store.moduleTotalHours(course: course, module: mod)))", systemImage: "calendar.badge.clock")
-                            .font(.subheadline.bold())
+                    VStack(alignment: .leading, spacing: 4) {
+                        calendarSummaryView(course: course, mod: mod, slotsCount: slots.count, weeksCount: posterWeeks.count)
                         Text(store.t("dragLessonHint"))
                             .font(.caption)
                             .foregroundStyle(.secondary)
@@ -2353,6 +2393,23 @@ public struct ModuleCalendarView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
 
                     HStack(spacing: 10) {
+                    if !course.archived {
+                        Button {
+                            activeSheet = .lessonPlan(courseId: course.id, sectionId: mod.id, slotKey: nil)
+                        } label: {
+                            Label("Nuova Lezione", systemImage: "plus.circle.fill")
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(pal.color)
+
+                        Button {
+                            activeSheet = .recurringGenerator
+                        } label: {
+                            Label(store.t("recurringBtn"), systemImage: "repeat")
+                        }
+                        .buttonStyle(.bordered)
+                    }
+
                     // Copy Formatted Text with Emojis for WhatsApp
                     Button {
                         copyWhatsAppScheduleText(course: course, module: mod, slots: slots)
@@ -2498,6 +2555,20 @@ public struct ModuleCalendarView: View {
                                                                     }
 
                                                                     Spacer()
+
+                                                                    if !course.archived {
+                                                                        Button {
+                                                                            activeSheet = .lessonPlan(courseId: course.id, sectionId: mod.id, slotKey: "new:\(day.iso)")
+                                                                        } label: {
+                                                                            Image(systemName: "plus")
+                                                                                .font(.system(size: 9, weight: .bold))
+                                                                                .foregroundStyle(pal.color)
+                                                                                .frame(width: 17, height: 17)
+                                                                                .background(Circle().fill(pal.color.opacity(0.12)))
+                                                                        }
+                                                                        .buttonStyle(.plain)
+                                                                        .help("Crea lezione il \(day.dayNum) \(day.monthShort)")
+                                                                    }
 
                                                                     if isHovered {
                                                                         Label(store.t("dragDropHereToMove"), systemImage: "arrow.down.circle.fill")
@@ -2746,6 +2817,57 @@ public struct ModuleCalendarView: View {
                 ScanGoogleCalendarEventsSheet(course: course, module: mod)
             }
         )
+    }
+
+    @ViewBuilder
+    private func calendarSummaryView(course: Course, mod: CourseModule, slotsCount: Int, weeksCount: Int) -> some View {
+        let b = mod.billing ?? ModuleBilling()
+        let totalModH = store.moduleTotalHours(course: course, module: mod)
+        let paidH = b.paidHours
+        let missingH = b.missingHours(scheduledHours: totalModH)
+        HStack(spacing: 8) {
+            Label("\(store.t("totalLabel")): \(store.count(slotsCount, one: "lessonOneLower", many: "lessonsLower")) • \(weeksCount) \(weeksCount == 1 ? store.t("weekSingular") : store.t("weekPlural"))", systemImage: "calendar.badge.clock")
+                .font(.subheadline.bold())
+            Text("•").foregroundStyle(.secondary)
+            HStack(spacing: 3) {
+                Image(systemName: "clock.fill").font(.system(size: 11))
+                Text("Ore Totali Modulo: \(String(format: "%.1fh", totalModH))").bold()
+            }
+            if paidH > 0 {
+                Text("•").foregroundStyle(.secondary)
+                HStack(spacing: 3) {
+                    Image(systemName: "banknote.fill").font(.system(size: 11)).foregroundStyle(.green)
+                    Text("Ore Pagate: \(String(format: "%.1fh", paidH))").bold().foregroundStyle(.green)
+                }
+                Text("•").foregroundStyle(.secondary)
+                if missingH > 0 {
+                    HStack(spacing: 3) {
+                        Image(systemName: "hourglass.badge.plus").font(.system(size: 11)).foregroundStyle(.orange)
+                        Text("Mancano da aggiungere: \(String(format: "%.1fh", missingH))")
+                            .bold()
+                            .foregroundStyle(.orange)
+                    }
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(RoundedRectangle(cornerRadius: 6).fill(Color.orange.opacity(0.12)))
+                } else {
+                    HStack(spacing: 3) {
+                        Image(systemName: "checkmark.circle.fill").font(.system(size: 11)).foregroundStyle(.green)
+                        Text("Ore Pagate Completate").bold().foregroundStyle(.green)
+                    }
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(RoundedRectangle(cornerRadius: 6).fill(Color.green.opacity(0.12)))
+                }
+            } else {
+                Text("•").foregroundStyle(.secondary)
+                HStack(spacing: 3) {
+                    Image(systemName: "info.circle").font(.system(size: 10))
+                    Text("Ore Pagate: 0.0h (modifica in Fatturazione)").foregroundStyle(.secondary)
+                }
+            }
+        }
+        .font(.subheadline)
     }
 
     @ViewBuilder

@@ -69,7 +69,14 @@ export async function renderSettings(host, params, app) {
       ? card('Ricezione risultati', field('URL di ricezione (POST JSON)', f.teacherUrl, 'Viene scritto negli inviti ai gruppi: gli studenti inviano qui i loro progressi.'))
       : card('Insegnante', field('Email dell\'insegnante', f.teacherEmail), field('URL di consegna (POST JSON)', f.teacherUrl, 'Riceve il file dei progressi quando premi «Invia all\'insegnante».')),
     h('div.row', { style: { marginBottom: '1.25rem' } }, h('button.btn.btn-primary', { onclick: saveAll }, icon('floppy-disk'), 'Salva profilo')),
-    card('Aspetto', field('Tema', select(s.theme, [['system', 'Sistema'], ['light', 'Chiaro'], ['dark', 'Scuro']], (v) => saveSettings({ theme: v })))),
+    card('Aspetto',
+      field('Tema', select(s.theme, [['system', 'Sistema'], ['light', 'Chiaro'], ['dark', 'Scuro']], (v) => saveSettings({ theme: v }))),
+      field('Dimensione elementi esercizi', select(String(s.exerciseScale || 1), [
+        ['1', '1 - Normale (100%)'],
+        ['2', '2 - Medio (120%)'],
+        ['3', '3 - Grande (140%)'],
+        ['4', '4 - Molto grande (160%)'],
+      ], (v) => saveSettings({ exerciseScale: Number(v) })), 'Ingrandisce testo, bottoni, opzioni e campi degli esercizi.')),
     card('Lavagna',
       h('label.switch', h('input', { type: 'checkbox', checked: !!s.boardDate, onchange: (e) => saveSettings({ boardDate: e.target.checked }) }), 'Inserisci automaticamente la data sulla lavagna'),
       h('div.help', 'La data di oggi compare in alto a destra e resta nelle immagini e nei PDF esportati; una lavagna salvata mantiene la data del giorno in cui è stata salvata.')),

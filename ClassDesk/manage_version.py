@@ -38,7 +38,7 @@ REPO_OWNER = "Natsvkashii"
 REPO_NAME = "ClassManager"
 
 
-def sync_channel_flags(is_unstable: int):
+def sync_channel_flags(is_unstable: int, build_type: str = None):
     """
     Centralized Boolean channel controller:
     0 = Stable, 1 = Unstable / Beta.
@@ -46,6 +46,8 @@ def sync_channel_flags(is_unstable: int):
     so all interface texts, badges, updater behavior, and colors update autonomously.
     """
     flag_val = 1 if is_unstable else 0
+    # A published beta takes prereleases like an internal build but shows β, not I.
+    b_type = build_type or ("internal" if flag_val == 1 else "stable")
     # 1. Update Sources/Models.swift
     if os.path.exists(MODELS_SWIFT):
         with open(MODELS_SWIFT, "r", encoding="utf-8") as f:
@@ -55,9 +57,14 @@ def sync_channel_flags(is_unstable: int):
             f'\\g<1>{flag_val}',
             content
         )
+        new_content = re.sub(
+            r'(public\s+static\s+let\s+buildType\s*:\s*String\s*=\s*)"[^"]+"',
+            f'\\g<1>"{b_type}"',
+            new_content
+        )
         with open(MODELS_SWIFT, "w", encoding="utf-8") as f:
             f.write(new_content)
-        print(f"✓ Updated Sources/Models.swift -> isUnstableBuild = {flag_val} ({'unstable/beta' if flag_val == 1 else 'stable'})")
+        print(f"✓ Updated Sources/Models.swift -> isUnstableBuild = {flag_val}, buildType = {b_type}")
 
     # 2. Update Windows-Version/src/index.html
     if os.path.exists(INDEX_HTML):
@@ -68,9 +75,14 @@ def sync_channel_flags(is_unstable: int):
             f'\\g<1>{flag_val};',
             content
         )
+        new_content = re.sub(
+            r'(const\s+BUILD_TYPE\s*=\s*)"[^"]+";',
+            f'\\g<1>"{b_type}";',
+            new_content
+        )
         with open(INDEX_HTML, "w", encoding="utf-8") as f:
             f.write(new_content)
-        print(f"✓ Updated Windows-Version/src/index.html -> IS_UNSTABLE_BUILD = {flag_val}")
+        print(f"✓ Updated Windows-Version/src/index.html -> IS_UNSTABLE_BUILD = {flag_val}, BUILD_TYPE = {b_type}")
 
 
 def get_git_branch():
@@ -166,6 +178,8 @@ def update_plist_version(version: str):
         plist = plistlib.load(f)
     plist["CFBundleShortVersionString"] = version
     plist["CFBundleVersion"] = version
+    m = re.search(r'buildType\s*:\s*String\s*=\s*"([^"]+)"', open(MODELS_SWIFT, encoding="utf-8").read()) if os.path.exists(MODELS_SWIFT) else None
+    plist["AppBuildType"] = m.group(1) if m else ("internal" if get_swift_channel() == "unstable" else "stable")
     with open(INFO_PLIST, "wb") as f:
         plistlib.dump(plist, f)
     print(f"✓ Updated Info.plist -> {version}")
@@ -225,7 +239,8 @@ def set_version(version: str):
     update_plist_version(version)
     update_manifest_version(version)
     is_unstable = 1 if is_version_unstable(version) else 0
-    sync_channel_flags(is_unstable)
+    cur = re.search(r'buildType\s*:\s*String\s*=\s*"([^"]+)"', open(MODELS_SWIFT, encoding="utf-8").read()) if os.path.exists(MODELS_SWIFT) else None
+    sync_channel_flags(is_unstable, "beta" if is_unstable and cur and cur.group(1) == "beta" else None)  # keep a published beta
     print(f"\n[OK] Version synchronized to {version} (isUnstableBuild = {is_unstable})")
 
 
@@ -626,7 +641,7 @@ if __name__ == "__main__":
             sys.exit(1)
         val = sys.argv[2].lower()
         flag = 1 if val in ("1", "unstable", "beta", "true") else 0
-        sync_channel_flags(flag)
+        sync_channel_flags(flag, "beta" if val == "beta" else None)
     elif cmd == "bump-beta":
         bump_beta()
     elif cmd == "switch-branch":

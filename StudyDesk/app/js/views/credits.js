@@ -12,14 +12,14 @@
 
 // Credits: authorship, GPL-3.0 summary, version and channel.
 import { h, icon } from '../core/ui.js';
-import { APP_VERSION, APP_AUTHOR, APP_EMAIL, channelLabel, REPO_OWNER, REPO_NAME } from '../core/version.js';
+import { APP_VERSION, APP_AUTHOR, APP_EMAIL, channelLabel, channelDot, REPO_OWNER, REPO_NAME } from '../core/version.js';
 import { platform, openExternal } from '../core/platform.js';
 
 export function creditsBody() {
   const link = (url, text) => h('a', { href: url, onclick: (e) => { e.preventDefault(); openExternal(url); } }, text);
   return h('div.stack',
     h('div.row', h('div.brand-logo', icon('graduation-cap')), h('div', h('h2', { style: { fontSize: '1.2rem' } }, 'StudyDesk'),
-      h('div.faint', `Versione ${APP_VERSION} · Canale ${channelLabel()} · ${platform.name}`))),
+      h('div.faint', { html: `${channelDot()}Versione ${APP_VERSION} · Canale ${channelLabel()} · ${platform.name}` }))),
     h('p', { style: { margin: 0 } }, `Concepito e sviluppato da ${APP_AUTHOR} – `, link(`mailto:${APP_EMAIL}`, APP_EMAIL)),
     h('div.card.card-pad', { style: { background: 'var(--surface-2)' } },
       h('b', 'Licenza GNU GPL-3.0'),

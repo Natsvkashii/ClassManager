@@ -106,7 +106,10 @@ struct SettingsPage: View {
                 Card {
                     VStack(alignment: .leading, spacing: 6) {
                         SectionLabel("Informazioni")
-                        Text("HubDesk \(HubInfo.appVersion) · canale \(HubInfo.channelName)").font(.callout)
+                        HStack(spacing: 6) {
+                            VersionBadge(HubInfo.buildType)
+                            Text("HubDesk \(HubInfo.appVersion) · canale \(HubInfo.channelName)").font(.callout)
+                        }
                         Text("Cartella dati: \(DeskHubPaths.base.path)").font(.caption).foregroundStyle(.secondary).textSelection(.enabled)
                     }
                     .padding(16).frame(maxWidth: .infinity, alignment: .leading)
@@ -155,7 +158,10 @@ struct WelcomeSheet: View {
                     AppIconView(app: app, installed: c.installedURL, size: 40)
                     VStack(alignment: .leading) {
                         Text(app.name).font(.headline)
-                        Text(c.isInstalled ? "Già installata (\(c.installedVersion ?? ""))" : app.summary).font(.caption).foregroundStyle(.secondary)
+                        HStack(spacing: 4) {
+                            if c.isInstalled { VersionBadge(c.buildType) }
+                            Text(c.isInstalled ? "Già installata (\(c.installedVersion ?? ""))" : app.summary).font(.caption).foregroundStyle(.secondary)
+                        }
                     }
                     Spacer()
                     if let p = c.progress { ProgressView(value: p).frame(width: 90) }

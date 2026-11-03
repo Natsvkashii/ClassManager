@@ -32,6 +32,10 @@ import tempfile
 import urllib.request
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
+LOCAL_BIN = os.path.expanduser("~/.local/bin")
+if os.path.exists(LOCAL_BIN) and LOCAL_BIN not in os.environ.get("PATH", ""):
+    os.environ["PATH"] = LOCAL_BIN + ":" + os.environ.get("PATH", "")
+
 REPO = "Natsvkashii/ClassManager"
 CLASSDESK = os.path.join(ROOT, "ClassDesk")
 STUDYDESK = os.path.join(ROOT, "StudyDesk")
@@ -57,6 +61,14 @@ def versions():
     m = re.search(r"CFBundleShortVersionString</key>\s*<string>([^<]+)", open(plist, encoding="utf-8").read()) if os.path.exists(plist) else None
     out["classdesk"] = m.group(1) if m else "?"
     return out
+
+
+def release_label(v):
+    """" (Beta)" for a published beta, " (Interna)" for an internal prerelease, "" for stable."""
+    if channel_of(v) != "unstable":
+        return ""
+    w = open(os.path.join(STUDYDESK, "app", "js", "core", "version.js"), encoding="utf-8").read()
+    return " (Beta)" if "APP_BUILD_TYPE = 'beta'" in w else " (Interna)"
 
 
 def channel_of(v):
@@ -292,7 +304,7 @@ def changelog_section(path, v):
 
 
 def notes_text(v):
-    channel_str = " (Beta / Unstable)" if channel_of(v) == "unstable" else ""
+    channel_str = release_label(v)
     parts = [f"# Classroom Tools v{v}{channel_str} - macOS (Apple Silicon) & Windows", "",
              "**Classroom Tools**: Suite unificata che include ClassDesk, StudyDesk e HubDesk.", "",
              "## Download e Installazione",
@@ -330,7 +342,7 @@ def cmd_manifest():
     m = {
         "version": v, "channel": channel, "tag_name": f"v{v}", "prerelease": channel == "unstable",
         "published_at": subprocess.check_output(["date", "-u", "+%Y-%m-%dT%H:%M:%SZ"], text=True).strip(),
-        "name": f"Classroom Tools v{v} - macOS (Apple Silicon) & Windows" + (" (Beta / Unstable)" if channel == "unstable" else ""),
+        "name": f"Classroom Tools v{v} - macOS (Apple Silicon) & Windows" + release_label(v),
         "body": body,
         # Unified installers: 1 for Windows, 1 for macOS
         "setupUrl": url(v, f"Classroom-Tools-{v}-Windows-Setup.exe"), "setupName": f"Classroom-Tools-{v}-Windows-Setup.exe",

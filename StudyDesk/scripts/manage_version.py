@@ -75,13 +75,15 @@ def current_channel():
 def set_version(version, channel):
     if not VERSION_RE.match(version):
         sys.exit(f"[!] Versione non valida: {version} (formato YY.MM.R-BBB, es. 26.10.0-002)")
-    flag = 1 if channel == "unstable" else 0
+    flag = 1 if channel in ("unstable", "beta") else 0  # a beta is a prerelease too, shown as β
+    b_type = "internal" if channel == "unstable" else ("beta" if channel == "beta" else "stable")
 
     s = read(MODELS_SWIFT)
     s = re.sub(r'(appVersion\s*=\s*")[^"]+(")', rf"\g<1>{version}\g<2>", s)
     s = re.sub(r"(isUnstableBuild:\s*Int\s*=\s*)\d", rf"\g<1>{flag}", s)
+    s = re.sub(r'(buildType\s*:\s*String\s*=\s*")[^"]+(")', rf'\g<1>{b_type}\g<2>', s)
     write(MODELS_SWIFT, s)
-    print(f"✓ macOS/Sources/Models.swift -> {version} ({channel})")
+    print(f"✓ macOS/Sources/Models.swift -> {version} ({channel}, {b_type})")
 
     pkg = json.loads(read(PACKAGE_JSON))
     pkg["version"] = version
@@ -92,8 +94,9 @@ def set_version(version, channel):
     w = read(WEB_VERSION_JS)
     w = re.sub(r"(export const APP_VERSION = ')[^']+(')", rf"\g<1>{version}\g<2>", w)
     w = re.sub(r"(export const APP_CHANNEL = ')[a-z]+(')", rf"\g<1>{'beta' if flag else 'stable'}\g<2>", w)
+    w = re.sub(r"(export const APP_BUILD_TYPE = ')[a-z]+(')", rf"\g<1>{b_type}\g<2>", w)
     write(WEB_VERSION_JS, w)
-    print(f"✓ app/js/core/version.js -> {version} ({'beta' if flag else 'stable'})")
+    print(f"✓ app/js/core/version.js -> {version} ({b_type})")
 
     sw = os.path.join(ROOT, "app", "sw.js")
     if os.path.exists(sw):
@@ -136,6 +139,7 @@ def info_plist(version):
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>CFBundleShortVersionString</key><string>{short}</string>
   <key>CFBundleVersion</key><string>{version}</string>
+  <key>AppBuildType</key><string>internal</string>
   <key>LSMinimumSystemVersion</key><string>14.0</string>
   <key>LSApplicationCategoryType</key><string>public.app-category.education</string>
   <key>NSHighResolutionCapable</key><true/>

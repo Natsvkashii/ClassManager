@@ -109,7 +109,8 @@ export function cleanText(t) {
 }
 export const cleanImage = (img) => ({
   id: String(img && img.id || ''), src: String(img && img.src || ''),
-  x: num(img && img.x, 0), y: num(img && img.y, 0), w: num(img && img.w, 0.35), h: num(img && img.h, 0.35)
+  x: num(img && img.x, 0), y: num(img && img.y, 0), w: num(img && img.w, 0.35), h: num(img && img.h, 0.35),
+  crop: Array.isArray(img && img.crop) && img.crop.length === 4 ? img.crop.map(Number) : null,
 });
 const cleanGrid = (g) => (g && typeof g.g === 'number' && g.g > 0 ? { g: g.g, cm: num(g.cm, 1) } : null);
 const ensure = (board) => {
@@ -401,7 +402,19 @@ function drawImageItem(ctx, img, r) {
     imgCache.set(img.src, el);
   }
   if (el.complete && el.naturalWidth) {
-    ctx.drawImage(el, r.x + img.x * r.w, r.y + img.y * r.h, img.w * r.w, img.h * r.h);
+    const destX = r.x + img.x * r.w;
+    const destY = r.y + img.y * r.h;
+    const destW = img.w * r.w;
+    const destH = img.h * r.h;
+    if (img.crop && img.crop.length === 4) {
+      const sx = img.crop[0] * el.naturalWidth;
+      const sy = img.crop[1] * el.naturalHeight;
+      const sw = img.crop[2] * el.naturalWidth;
+      const sh = img.crop[3] * el.naturalHeight;
+      ctx.drawImage(el, sx, sy, sw, sh, destX, destY, destW, destH);
+    } else {
+      ctx.drawImage(el, destX, destY, destW, destH);
+    }
   }
 }
 

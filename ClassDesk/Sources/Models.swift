@@ -18,10 +18,12 @@ public enum AuthorAttribution {
     public static let authorName = "Guaira Jaramillo Nitoglia"
     public static let authorEmail = "guaira.jaramillo.nitoglia@gmail.com"
     public static let appName = "ClassDesk"
-    public static let appVersion = "26.11.0-012"
+    public static let appVersion = "26.11.1-008"
 
     /// Centralized channel indicator: 0 = Stable, 1 = Unstable / Beta
     public static let isUnstableBuild: Int = 1
+    /// Dynamic build type: "stable", "beta", or "internal"
+    public static let buildType: String = "beta"
 
     public static var isBeta: Bool {
         return isUnstableBuild == 1
@@ -40,6 +42,28 @@ public enum AuthorAttribution {
     }
 
     public static let licenseName = "GNU General Public License v3.0 (GPL-3.0)"
+}
+
+public struct VersionBadge: View {
+    public let buildType: String
+    public init(_ buildType: String = AuthorAttribution.buildType) { self.buildType = buildType }
+
+    public var body: some View {
+        let (bg, letter): (Color, String) = switch buildType.lowercased() {
+        case "stable": (Color.green, "S")
+        case "beta": (Color.yellow, "β")
+        default: (Color.red, "I")
+        }
+        ZStack {
+            Circle()
+                .fill(bg)
+                .frame(width: 14, height: 14)
+            Text(letter)
+                .font(.system(size: 8.5, weight: .black, design: .rounded))
+                .foregroundStyle(buildType.lowercased() == "beta" ? Color.black : Color.white)
+        }
+        .help(buildType.lowercased() == "stable" ? "Versione stabile (S)" : (buildType.lowercased() == "beta" ? "Versione beta (β)" : "Versione interna instabile (I)"))
+    }
 }
 
 // MARK: - Thread-Safe Cached Date & Time Formatters (High-Performance Optimization)
@@ -802,10 +826,11 @@ public struct ModuleBilling: Codable, Equatable {
     public var discountType: String = "percent"
     public var discountTarget: String = "total"
     public var discountValue: Double = 0.0
+    public var studentPaidAmount: Double = 0.0
     public var lessonOverrides: [String: LessonBillingItem] = [:]
 
     enum CodingKeys: String, CodingKey {
-        case hourlyRateNet, lessonDurationHours, vatPercent, discountType, discountTarget, discountValue, lessonOverrides
+        case hourlyRateNet, lessonDurationHours, vatPercent, discountType, discountTarget, discountValue, studentPaidAmount, paidAmount, lessonOverrides
     }
 
     public init(hourlyRateNet: Double = 10.0,
@@ -814,6 +839,7 @@ public struct ModuleBilling: Codable, Equatable {
                 discountType: String = "percent",
                 discountTarget: String = "total",
                 discountValue: Double = 0.0,
+                studentPaidAmount: Double = 0.0,
                 lessonOverrides: [String: LessonBillingItem] = [:]) {
         self.hourlyRateNet = hourlyRateNet
         self.lessonDurationHours = lessonDurationHours
@@ -821,6 +847,7 @@ public struct ModuleBilling: Codable, Equatable {
         self.discountType = discountType
         self.discountTarget = discountTarget
         self.discountValue = discountValue
+        self.studentPaidAmount = studentPaidAmount
         self.lessonOverrides = lessonOverrides
     }
 
@@ -832,7 +859,23 @@ public struct ModuleBilling: Codable, Equatable {
         discountType = c.flexString(.discountType, default: "percent")
         discountTarget = c.flexString(.discountTarget, default: "total")
         discountValue = c.flexDouble(.discountValue, default: 0.0)
+        let sPaid = c.flexDouble(.studentPaidAmount, default: 0.0)
+        let pAmt = c.flexDouble(.paidAmount, default: 0.0)
+        studentPaidAmount = sPaid > 0 ? sPaid : pAmt
         lessonOverrides = (try? c.decodeIfPresent([String: LessonBillingItem].self, forKey: .lessonOverrides)) ?? [:]
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(hourlyRateNet, forKey: .hourlyRateNet)
+        try c.encode(lessonDurationHours, forKey: .lessonDurationHours)
+        try c.encode(vatPercent, forKey: .vatPercent)
+        try c.encode(discountType, forKey: .discountType)
+        try c.encode(discountTarget, forKey: .discountTarget)
+        try c.encode(discountValue, forKey: .discountValue)
+        try c.encode(studentPaidAmount, forKey: .studentPaidAmount)
+        try c.encode(studentPaidAmount, forKey: .paidAmount)
+        try c.encode(lessonOverrides, forKey: .lessonOverrides)
     }
 
     public init(dict: [String: Any]) {
@@ -842,6 +885,9 @@ public struct ModuleBilling: Codable, Equatable {
         discountType = JSONDictHelper.str(dict["discountType"], default: "percent")
         discountTarget = JSONDictHelper.str(dict["discountTarget"], default: "total")
         discountValue = JSONDictHelper.dbl(dict["discountValue"], default: 0.0)
+        let sPaid = JSONDictHelper.dbl(dict["studentPaidAmount"], default: 0.0)
+        let pAmt = JSONDictHelper.dbl(dict["paidAmount"], default: 0.0)
+        studentPaidAmount = sPaid > 0 ? sPaid : pAmt
         var ov: [String: LessonBillingItem] = [:]
         if let rawOv = dict["lessonOverrides"] as? [String: Any] {
             for (k, v) in rawOv {
@@ -851,6 +897,16 @@ public struct ModuleBilling: Codable, Equatable {
             }
         }
         lessonOverrides = ov
+    }
+
+    public var paidHours: Double {
+        guard hourlyRateNet > 0, studentPaidAmount > 0 else { return 0.0 }
+        return studentPaidAmount / hourlyRateNet
+    }
+
+    public func missingHours(scheduledHours: Double) -> Double {
+        guard paidHours > 0 else { return 0.0 }
+        return max(0.0, paidHours - scheduledHours)
     }
 
     public func lessonNetPrice(for slotKey: String, durationHours: Double? = nil) -> Double {
@@ -1722,10 +1778,9 @@ public struct AppState: Codable, Equatable {
         settings = (try? c.decodeIfPresent(AppSettings.self, forKey: .settings)) ?? AppSettings()
         rubrics = (try? c.decodeIfPresent([Rubric].self, forKey: .rubrics)) ?? AppState.defaultRubrics
         studentsDirectory = (try? c.decodeIfPresent([Student].self, forKey: .studentsDirectory)) ?? []
-        var decodedContacts = (try? c.decodeIfPresent([BillingContact].self, forKey: .billingContacts)) ?? []
+        billingContacts = (try? c.decodeIfPresent([BillingContact].self, forKey: .billingContacts)) ?? []
         courses = (try? c.decodeIfPresent([Course].self, forKey: .courses)) ?? []
         deletedItems = (try? c.decodeIfPresent([DeletedBinItem].self, forKey: .deletedItems)) ?? []
-        billingContacts = decodedContacts
     }
 
     public func encode(to encoder: Encoder) throws {

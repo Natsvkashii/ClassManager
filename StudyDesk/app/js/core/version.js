@@ -12,14 +12,22 @@
 
 // Version handling: YY.MM.R-BBB comparator (port of ClassDesk AppVersion) and release selection.
 export const APP_NAME = 'StudyDesk';
-export const APP_VERSION = '26.11.0-012';
+export const APP_VERSION = '26.11.1-008';
 export const APP_CHANNEL = 'beta'; // 'beta' | 'stable'
+export const APP_BUILD_TYPE = 'beta'; // 'stable' | 'beta' | 'internal'
 export const APP_AUTHOR = 'Guaira Jaramillo Nitoglia';
 export const APP_EMAIL = 'guaira.jaramillo.nitoglia@gmail.com';
 export const REPO_OWNER = 'Natsvkashii';
 export const REPO_NAME = 'ClassManager'; // the suite repo: StudyDesk's own assets are picked by name prefix
 export const RELEASES_API = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/releases`;
 export const MANIFEST_URL = `https://raw.githubusercontent.com/${REPO_OWNER}/${REPO_NAME}/stable/update-manifest.json`;
+
+export function channelDot(buildType = APP_BUILD_TYPE) {
+  const b = (buildType || 'internal').toLowerCase();
+  const cls = b === 'stable' ? 'badge-s' : (b === 'beta' ? 'badge-beta' : 'badge-i');
+  const letter = b === 'stable' ? 'S' : (b === 'beta' ? 'β' : 'I');
+  return `<span class="channel-dot ${cls}" title="${b === 'stable' ? 'Versione stabile (S)' : (b === 'beta' ? 'Versione beta (β)' : 'Versione interna instabile (I)')}">${letter}</span>`;
+}
 
 export class AppVersion {
   constructor(string, channel) {

@@ -256,9 +256,12 @@ if (!DEMO && !app.requestSingleInstanceLock()) {
     engine.on('state', () => { push('engine', engine.getState()); updateTray(); });
     manager.on('state', (s) => { push('apps', s); updateTray(); });
     engine.on('conflicts-new', (list) => {
-      if (!Notification.isSupported()) return;
-      const n = new Notification({ title: 'HubDesk – conflitto di sincronizzazione', body: list.length === 1 ? `${list[0].title} è stato modificato su due dispositivi.` : `${list.length} elementi sono stati modificati su due dispositivi.` });
-      n.on('click', () => showWindow('conflicts')); n.show();
+      if (Notification.isSupported()) {
+        const n = new Notification({ title: 'HubDesk – conflitto di sincronizzazione', body: list.length === 1 ? `${list[0].title} è stato modificato su due dispositivi.` : `${list.length} elementi sono stati modificati su due dispositivi.` });
+        n.on('click', () => showWindow('conflicts'));
+        n.show();
+      }
+      showWindow('conflicts');
     });
     engine.on('open', (id) => { if (manager.state[id] && manager.state[id].installed) manager.open(id); });
     await engine.start();

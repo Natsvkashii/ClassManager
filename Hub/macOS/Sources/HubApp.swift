@@ -83,8 +83,19 @@ final class HubDelegate: NSObject, NSApplicationDelegate {
             if name == "hubdesk" { model.onShowWindow?() }
             else if let app = SuiteApp(rawValue: name) { model.apps.open(app) }
         }
-        model.engine.onNewConflicts = { n in Self.notify(n) }
+        model.engine.onNewConflicts = { [weak model] n in
+            Self.notify(n)
+            DispatchQueue.main.async {
+                guard let model else { return }
+                model.page = .conflicts
+                model.onShowWindow?()
+                NSApp.activate(ignoringOtherApps: true)
+            }
+        }
         model.engine.start()
+        if !model.engine.conflicts.isEmpty {
+            model.page = .conflicts
+        }
         model.apps.startPeriodic()
 
         if Bundle.main.bundleIdentifier == HubInfo.bundleId {

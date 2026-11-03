@@ -26,7 +26,7 @@ test('progressKey: personal, group and blank contexts', () => {
 
 test('contextLabel', () => {
   assert.equal(contextLabel(null), '');
-  assert.equal(contextLabel(BLANK_CONTEXT), 'Libro non completato');
+  assert.equal(contextLabel(BLANK_CONTEXT), '');
   assert.equal(contextLabel('g1', { name: 'A1 sera' }), 'Gruppo: A1 sera');
 });
 

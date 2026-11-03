@@ -120,44 +120,11 @@ struct HomeView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
-                PageHeader("Ciao, \(store.state.profile?.firstName ?? "")!", store.state.isTeacher ? "Libri e moduli installati. Gruppi ed editor sono nella barra laterale." : "Riprendi da dove avevi lasciato o apri un libro.") {
-                    Button { store.importModuleWithPanel() } label: { Label("Importa modulo", systemImage: "square.and.arrow.down") }
-                        .buttonStyle(.borderedProminent)
-                }
-                let t = store.totals
-                HStack(spacing: 14) {
-                    StatTile(icon: "books.vertical.fill", value: store.books.isEmpty ? "\(t.modules)" : "\(store.books.count)", label: store.books.isEmpty ? "Moduli" : "Libri", color: Theme.accent)
-                    StatTile(icon: "checkmark.circle.fill", value: "\(t.completed)/\(t.total)", label: "Parti completate", color: Theme.ok)
-                    StatTile(icon: "target", value: "\(t.percent)%", label: "Risposte corrette", color: Theme.warn)
-                    StatTile(icon: "tray.full.fill", value: "\(t.pending)", label: "Da valutare", color: Theme.violet)
-                }
-                if store.openBookId == nil, let m = continueModule {
-                    let act = m.sections.flatMap(\.activities).first { $0.id == store.state.lastOpened[m.id] }
-                    Card {
-                        HStack(spacing: 14) {
-                            Image(systemName: "play.fill").font(.title2).foregroundStyle(.white).frame(width: 52, height: 52)
-                                .background(RoundedRectangle(cornerRadius: 14).fill(m.accent))
-                            VStack(alignment: .leading, spacing: 3) {
-                                Text("CONTINUA").font(.system(size: 10, weight: .heavy)).foregroundStyle(.secondary)
-                                Text(m.title).font(.headline)
-                                if let a = act, a.title != m.title { Text("\(a.number.flatMap { $0.isEmpty ? nil : "\($0) · " } ?? "")\(a.title)").font(.subheadline).foregroundStyle(.secondary) }
-                            }
-                            Spacer()
-                            Button("Riprendi") { store.openModule(m.id) }.buttonStyle(.borderedProminent).tint(m.accent)
-                        }
-                        .padding(16)
-                    }
-                }
                 BookShelfSection()
             }
             .padding(24)
-            .frame(maxWidth: 1150)
-            .frame(maxWidth: .infinity)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
-    }
-
-    private var continueModule: StudyModule? {
-        store.modules.first { store.state.lastOpened[$0.id] != nil && store.stats($0).fraction < 1 }
     }
 }
 
@@ -260,8 +227,18 @@ struct ModulePlayerView: View {
     @Environment(AppStore.self) private var store
     @Environment(\.colorScheme) private var scheme
     let module: StudyModule
-    /// The activity list on the left can be hidden (remembered); the exercise then takes the whole width.
-    @AppStorage("studydesk.outlineHidden") private var outlineHidden = false
+    @State private var showOutlinePopover = false
+    /// Exercise scale level (1: 100%, 2: 120%, 3: 140%, 4: 160%).
+    @AppStorage("studydesk.exerciseScale") private var exerciseScale = 1
+
+    private var scaleFactor: CGFloat {
+        switch exerciseScale {
+        case 2: return 1.2
+        case 3: return 1.4
+        case 4: return 1.6
+        default: return 1.0
+        }
+    }
 
     private var activities: [Activity] { module.sections.flatMap(\.activities) }
     private var parts: [ChapterPart] { ChapterPart.allCases.filter { p in module.sections.contains { $0.chapterPart == p && !$0.activities.isEmpty } } }
@@ -273,17 +250,10 @@ struct ModulePlayerView: View {
 
     var body: some View {
         HStack(spacing: 0) {
-            if !outlineHidden {
-                outline
-                    .frame(width: 270)
-                    .background(scheme == .dark ? Color(nsColor: .windowBackgroundColor).opacity(0.6) : Color.white.opacity(0.7))
-                    .transition(.move(edge: .leading).combined(with: .opacity))
-                Divider()
-            }
             if let a = current {
                 ScrollViewReader { proxy in
                     ScrollView {
-                        VStack(alignment: .leading, spacing: 16) {
+                        VStack(alignment: .leading, spacing: 16 * scaleFactor) {
                             activityHeader(a).id("top")
                             if let i = a.instructions { RichText(i).italic() }
                             if let m = a.media, !m.isEmpty { MediaList(moduleId: module.id, media: m) }
@@ -292,7 +262,7 @@ struct ModulePlayerView: View {
                         }
                         // Full screen uses the whole width; otherwise lines stay readable.
                         .padding(store.focusMode ? 32 : 24)
-                        .frame(maxWidth: store.focusMode ? .infinity : (outlineHidden ? 1240 : 980))
+                        .frame(maxWidth: store.focusMode ? .infinity : 1080)
                         .frame(maxWidth: .infinity)
                     }
                     .onChange(of: a.id) { _, _ in proxy.scrollTo("top", anchor: .top) }
@@ -303,26 +273,65 @@ struct ModulePlayerView: View {
             }
         }
         .navigationTitle(module.title)
-        .navigationSubtitle(store.activeContextLabel.isEmpty ? (module.subtitle ?? "") : store.activeContextLabel)
+        .navigationSubtitle(store.activeContextLabel)
         .onExitCommand { if store.focusMode { store.focusMode = false } }
         .background {
             if store.focusMode { Button("") { store.focusMode = false }.keyboardShortcut(.cancelAction).opacity(0) }
         }
         .toolbar {
-            ToolbarItemGroup {
-                Button { withAnimation(.easeInOut(duration: 0.22)) { outlineHidden.toggle() } } label: {
-                    Label(outlineHidden ? "Mostra attività" : "Nascondi attività", systemImage: "list.bullet.rectangle")
+            ToolbarItem(placement: .navigation) {
+                Button {
+                    showOutlinePopover.toggle()
+                } label: {
+                    HStack(spacing: 5) {
+                        Image(systemName: "list.bullet")
+                            .symbolRenderingMode(.monochrome)
+                        Text("Indice").font(.system(size: 13, weight: .semibold))
+                        Image(systemName: "chevron.down").font(.system(size: 9, weight: .bold))
+                    }
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(RoundedRectangle(cornerRadius: 8).fill(module.accent.opacity(0.12)))
+                    .foregroundStyle(module.accent)
                 }
-                .help(outlineHidden ? "Mostra l'elenco delle attività" : "Nascondi l'elenco delle attività")
-                .keyboardShortcut("l", modifiers: [.command, .option])
+                .buttonStyle(.plain)
+                .help("Indice del capitolo")
+                .onHover { h in
+                    if h { showOutlinePopover = true }
+                }
+                .popover(isPresented: $showOutlinePopover, arrowEdge: .bottom) {
+                    outline
+                        .frame(width: 320, height: 490)
+                }
+            }
+
+            ToolbarItemGroup(placement: .automatic) {
+                if let b = store.book(module.book?.id) {
+                    GroupSelectorPill(book: b)
+                }
+
+                Menu {
+                    Picker("Dimensione elementi", selection: $exerciseScale) {
+                        Text("Livello 1 (100% Normale)").tag(1)
+                        Text("Livello 2 (120% Medio)").tag(2)
+                        Text("Livello 3 (140% Grande)").tag(3)
+                        Text("Livello 4 (160% Molto grande)").tag(4)
+                    }
+                } label: {
+                    Image(systemName: "textformat.size")
+                }
+                .help("Ingrandisci o rimpicciolisci testo ed elementi degli esercizi (1-4)")
+
                 Button { store.focusMode.toggle() } label: {
-                    Label(store.focusMode ? "Esci da schermo intero" : "Schermo intero", systemImage: store.focusMode ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right")
+                    Image(systemName: store.focusMode ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right")
                 }
-                .help(store.focusMode ? "Esci da schermo intero (ESC)" : "Schermo intero: nasconde la barra di navigazione e usa tutto lo schermo (ESC per uscire)")
+                .help(store.focusMode ? "Esci da schermo intero (ESC)" : "Schermo intero")
                 .keyboardShortcut("f", modifiers: [.command, .control])
-                Button { store.saveReportWithPanel() } label: { Label("Esporta progressi", systemImage: "square.and.arrow.up") }.help("Esporta i progressi")
+
+                Button { store.saveReportWithPanel() } label: { Image(systemName: "square.and.arrow.up") }.help("Esporta i progressi")
+
                 if store.state.isTeacher {
-                    Button { store.editingModuleId = module.id; store.currentTab = .editor } label: { Label("Modifica", systemImage: "square.and.pencil") }.help("Apri nell'editor")
+                    Button { store.editingModuleId = module.id; store.currentTab = .editor } label: { Image(systemName: "square.and.pencil") }.help("Apri nell'editor")
                 }
             }
         }
@@ -401,7 +410,10 @@ struct ModulePlayerView: View {
     private func activityRow(_ a: Activity) -> some View {
         let sel = current?.id == a.id
         let done = store.activityDone(module, a)
-        return Button { store.openActivityId = a.id } label: {
+        return Button {
+            store.openActivityId = a.id
+            showOutlinePopover = false
+        } label: {
             HStack(spacing: 8) {
                 Text(a.number?.isEmpty == false ? a.number! : "•").font(.system(size: 11, weight: .heavy)).frame(minWidth: 24, minHeight: 24)
                     .background(RoundedRectangle(cornerRadius: 6).fill(sel ? Color.white.opacity(0.25) : Color.primary.opacity(0.06)))
@@ -672,11 +684,6 @@ struct CreditsView: View {
                         Text("Dettagli applicazione, note di rilascio e crediti").font(.subheadline).foregroundStyle(.secondary)
                     }
                     Spacer()
-                    Button { showInfo = true } label: {
-                        Image(systemName: "info.circle").font(.system(size: 20, weight: .semibold)).foregroundStyle(.blue)
-                            .padding(8).background(Circle().fill(Color.blue.opacity(0.12)))
-                    }
-                    .buttonStyle(.plain).help("Informazioni sull'applicazione e crediti")
                 }
 
                 Card {
@@ -686,6 +693,7 @@ struct CreditsView: View {
                             VStack(alignment: .leading, spacing: 4) {
                                 HStack(spacing: 8) {
                                     Text("StudyDesk").font(.title3.bold())
+                                    VersionBadge()
                                     Pill(text: "v\(AuthorAttribution.appVersion)", color: .blue)
                                     Pill(text: AuthorAttribution.channelDisplayName, color: AuthorAttribution.channelBadgeColor)
                                     Text("Versione installata").font(.caption2.bold()).foregroundStyle(.secondary)
@@ -734,7 +742,10 @@ struct CreditsView: View {
             VStack(spacing: 12) {
                 AppLogoView(size: 64)
                 Text("StudyDesk").font(.title.bold())
-                Text("v\(AuthorAttribution.appVersion) · \(AuthorAttribution.channelDisplayName)").foregroundStyle(.secondary)
+                HStack(spacing: 6) {
+                    VersionBadge()
+                    Text("v\(AuthorAttribution.appVersion) · \(AuthorAttribution.channelDisplayName)").foregroundStyle(.secondary)
+                }
                 Text("Piattaforma modulare di esercizi interattivi per corsi di lingua. Compagna di ClassDesk.").multilineTextAlignment(.center)
                 Divider()
                 Text("Concepito e sviluppato da \(AuthorAttribution.authorName)").bold()

@@ -266,8 +266,15 @@ static void TcpReader(int id) {
                 std::string ready = carry.substr(0, nl + 1);
                 carry.erase(0, nl + 1);
                 TcpEvent("{\"ev\":\"data\",\"id\":" + std::to_string(id) + ",\"text\":" + Q(ready) + "}");
-            } else if (carry.size() > (8 << 20)) {
-                break;
+            } else if (carry.size() > (1 << 20)) {
+                // a long line (book pieces): hand it on in parts, the page joins them up to the newline (MAX_LINE there);
+                // cut before a non-ASCII byte so no UTF-8 character is split
+                size_t cut = carry.size();
+                while (cut > 0 && (unsigned char)carry[cut - 1] >= 0x80) cut--;
+                if (cut > 0) {
+                    TcpEvent("{\"ev\":\"data\",\"id\":" + std::to_string(id) + ",\"text\":" + Q(carry.substr(0, cut)) + "}");
+                    carry.erase(0, cut);
+                }
             }
         }
         if (!carry.empty()) {

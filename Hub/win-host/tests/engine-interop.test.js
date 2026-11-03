@@ -105,10 +105,10 @@ test('book pieces (~1.4 MB records): a few per request both ways, all of them ar
     assert.ok(await until(() => count(dirW, 'mac') === 20 && count(dirM, 'win') === 20, 30000), 'all pieces arrived on both sides');
     const lines = sent.join('').split('\n').filter(Boolean).map((l) => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean);
     const gets = lines.filter((m) => m.t === 'get');
-    assert.ok(gets.length >= 1 && gets.every((m) => m.keys.length <= 8), `get requests of at most 8 pieces (${gets.map((m) => m.keys.length)})`);
-    // its own requests and sends stay small (replies are as big as the peer asks: the macOS engine asks 8 pieces at a time)
+    assert.ok(gets.length >= 1 && gets.every((m) => m.keys.length <= 4), `get requests of at most 4 pieces (${gets.map((m) => m.keys.length)})`);
+    // its own requests and sends stay small (replies are as big as the peer asks: the macOS engine asks 4 pieces at a time)
     const own = sent.join('').split('\n').filter((l) => /^\{"t":"(put|get)"/.test(l) || /"t":"(put|get)"/.test(l.slice(0, 200)));
-    assert.ok(own.length && own.every((l) => l.length < 14 * 1024 * 1024), `no request near the line limit (${own.map((l) => Math.round(l.length / 1048576))} MB)`);
+    assert.ok(own.length && own.every((l) => l.length < 8 * 1024 * 1024), `no request near the line limit (${own.map((l) => Math.round(l.length / 1048576))} MB)`);
   } finally {
     await mac.stop(); await win.stop(); window._closeAll();
     fs.rmSync(dirW, { recursive: true, force: true }); fs.rmSync(dirM, { recursive: true, force: true });

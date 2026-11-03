@@ -1249,6 +1249,7 @@ public struct BillingView: View {
     @State private var batchVatPercent: Double = 15.0
     @State private var batchDiscountType: String = "percent"
     @State private var batchDiscountValue: Double = 0.0
+    @State private var batchPaidAmount: Double = 0.0
 
     // Specific lesson editing values
     @State private var editNetPrice: Double = 0.0
@@ -1840,6 +1841,33 @@ public struct BillingView: View {
                                     Text("Valore Sconto").font(.caption.bold())
                                     TextField("0", value: $batchDiscountValue, format: .number).textFieldStyle(.roundedBorder)
                                 }
+                                VStack(alignment: .leading, spacing: 3) {
+                                    HStack(spacing: 4) {
+                                        Text("Importo Pagato (\(store.state.settings.currency))").font(.caption.bold())
+                                        if currentModule.billing?.studentPaidAmount == batchPaidAmount && batchPaidAmount > 0 {
+                                            Image(systemName: "checkmark.circle.fill")
+                                                .font(.system(size: 10))
+                                                .foregroundStyle(.green)
+                                                .help("Valore salvato nel modulo")
+                                        }
+                                    }
+                                    HStack(spacing: 4) {
+                                        TextField("0", value: $batchPaidAmount, format: .number)
+                                            .textFieldStyle(.roundedBorder)
+                                            .onSubmit {
+                                                savePaidAmountToModule(courseId: course.id, moduleId: currentModule.id, amount: batchPaidAmount)
+                                                store.showToast("Importo pagato salvato: \(String(format: "%.2f", batchPaidAmount)) \(store.state.settings.currency)")
+                                            }
+                                        Button {
+                                            savePaidAmountToModule(courseId: course.id, moduleId: currentModule.id, amount: batchPaidAmount)
+                                            store.showToast("Importo pagato salvato: \(String(format: "%.2f", batchPaidAmount)) \(store.state.settings.currency)")
+                                        } label: {
+                                            Image(systemName: "checkmark")
+                                        }
+                                        .buttonStyle(.bordered)
+                                        .help("Salva subito l'importo pagato per questo modulo")
+                                    }
+                                }
                                 VStack {
                                     Spacer()
                                     Button {
@@ -1854,6 +1882,44 @@ public struct BillingView: View {
                                     .tint(pal.color)
                                 }
                             }
+
+                            // Dynamic hours calculation badge: paid hours vs scheduled hours
+                            let curPaidH = (batchHourlyRate > 0 && batchPaidAmount > 0) ? (batchPaidAmount / batchHourlyRate) : 0.0
+                            let curMissingH = max(0.0, curPaidH - curModuleHours)
+                            HStack(spacing: 14) {
+                                HStack(spacing: 5) {
+                                    Image(systemName: "banknote.fill")
+                                        .font(.system(size: 11))
+                                        .foregroundStyle(.green)
+                                    Text("Ore Pagate:")
+                                        .font(.caption.bold())
+                                    Text(String(format: "%.1fh", curPaidH))
+                                        .font(.caption.bold())
+                                        .foregroundStyle(.green)
+                                }
+                                HStack(spacing: 5) {
+                                    Image(systemName: "calendar.badge.clock")
+                                        .font(.system(size: 11))
+                                        .foregroundStyle(pal.color)
+                                    Text("Ore Modulo:")
+                                        .font(.caption.bold())
+                                    Text(String(format: "%.1fh", curModuleHours))
+                                        .font(.caption.bold())
+                                }
+                                if curPaidH > 0 {
+                                    HStack(spacing: 5) {
+                                        Image(systemName: curMissingH > 0 ? "hourglass.badge.plus" : "checkmark.circle.fill")
+                                            .font(.system(size: 11))
+                                            .foregroundStyle(curMissingH > 0 ? .orange : .green)
+                                        Text(curMissingH > 0 ? "Mancano da Aggiungere:" : "Stato:")
+                                            .font(.caption.bold())
+                                        Text(curMissingH > 0 ? String(format: "%.1fh", curMissingH) : "Ore Pagate Completate")
+                                            .font(.caption.bold())
+                                            .foregroundStyle(curMissingH > 0 ? .orange : .green)
+                                    }
+                                }
+                            }
+                            .padding(.top, 4)
                         }
                         .padding(14)
                         .background(RoundedRectangle(cornerRadius: 12).fill(Color.secondary.opacity(0.05)))
@@ -1997,6 +2063,9 @@ public struct BillingView: View {
             .onAppear {
                 syncGlobalToolbar(for: curBilling)
             }
+            .onChange(of: batchPaidAmount) { _, newVal in
+                savePaidAmountToModule(courseId: course.id, moduleId: currentModule.id, amount: newVal)
+            }
         } else {
             Text(store.t("noActiveCoursesTitle"))
                 .foregroundStyle(.secondary)
@@ -2060,6 +2129,25 @@ public struct BillingView: View {
         batchVatPercent = b.vatPercent
         batchDiscountType = b.discountType
         batchDiscountValue = b.discountValue
+        batchPaidAmount = b.studentPaidAmount
+    }
+
+    private func savePaidAmountToModule(courseId: String, moduleId: String, amount: Double) {
+        guard let cIdx = store.state.courses.firstIndex(where: { $0.id == courseId }) else { return }
+        for li in store.state.courses[cIdx].levels.indices {
+            for mi in store.state.courses[cIdx].levels[li].modules.indices {
+                if store.state.courses[cIdx].levels[li].modules[mi].id == moduleId {
+                    if store.state.courses[cIdx].levels[li].modules[mi].billing == nil {
+                        store.state.courses[cIdx].levels[li].modules[mi].billing = ModuleBilling()
+                    }
+                    if store.state.courses[cIdx].levels[li].modules[mi].billing?.studentPaidAmount != amount {
+                        store.state.courses[cIdx].levels[li].modules[mi].billing?.studentPaidAmount = amount
+                        store.persist()
+                    }
+                    return
+                }
+            }
+        }
     }
 
     private func applyBatchToModule(courseId: String, moduleId: String) {
@@ -2073,6 +2161,7 @@ public struct BillingView: View {
                     b.vatPercent = batchVatPercent
                     b.discountType = batchDiscountType
                     b.discountValue = batchDiscountValue
+                    b.studentPaidAmount = batchPaidAmount
                     // Reset individual overrides so everything is harmonized to the global setting
                     b.lessonOverrides = [:]
                     store.state.courses[cIdx].levels[li].modules[mi].billing = b
@@ -3717,6 +3806,7 @@ public struct CreditsView: View {
                             HStack(spacing: 8) {
                                 Text(store.t("appTitle"))
                                     .font(.title3.bold())
+                                VersionBadge()
                                 Text("v\(AuthorAttribution.appVersion)")
                                     .font(.caption.bold())
                                     .padding(.horizontal, 8)
@@ -3810,6 +3900,7 @@ public struct AppInfoAndCreditsSheet: View {
                         VStack(alignment: .leading, spacing: 3) {
                             HStack(spacing: 8) {
                                 Text(store.t("appTitle")).font(.title2.bold())
+                                VersionBadge()
                                 Text("v\(AuthorAttribution.appVersion)")
                                     .font(.caption.bold())
                                     .padding(.horizontal, 8)

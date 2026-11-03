@@ -1016,9 +1016,12 @@ private struct StartupUpdatePromptSheet: View {
                                 .background(Capsule().fill(rel.prerelease ? Color.orange.opacity(0.2) : Color.green.opacity(0.2)))
                                 .foregroundStyle(rel.prerelease ? .orange : .green)
                         }
-                        Text("Versione installata: \(AuthorAttribution.appVersion)")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+                        HStack(spacing: 6) {
+                            VersionBadge()
+                            Text("Versione installata: \(AuthorAttribution.appVersion)")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
                     }
                     Spacer()
                 }

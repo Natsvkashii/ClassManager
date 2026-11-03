@@ -1,5 +1,29 @@
 # Changelog
 
+## v26.11.1-008 (Beta) – 3 novembre 2026
+- Trascrizioni audio sincronizzate in tempo reale: con i tempi delle parole calcolati da `scripts/align_audio.py` (allineamento WhisperX) la trascrizione e la vista a schermo intero seguono l'audio parola per parola; senza tempi resta la stima precedente.
+- Lettore web/Windows: corretto un errore che poteva bloccare la trascrizione sincronizzata (`clear` non importato).
+- Editor del libro (macOS): «Modifica» apre davvero il capitolo nell'Editor; il pulsante ⊖, che toglieva il capitolo dal libro con un solo clic, è sostituito da un menu «⋯» con conferma.
+
+## v26.11.1-007 (Unstable) – 2 novembre 2026
+- Allineamento alla release interna instabile Classroom Tools 26.11.1-007 (correzione avvio ClassDesk su Windows).
+
+## v26.11.1-006 (Unstable) – 2 novembre 2026
+- Windows – Visualizzazione Indice: risolto il problema di sovrapposizione e troncamento del popover dell'indice delle attività portando l'indice di livello superiore a z-index 1000, impostando lo sfondo opaco a contrasto elevato con ombra pronunciata e posizionamento relativo della barra superiore per evitare conflitti di sovrapposizione con le schede degli esercizi.
+- Windows – Barra superiore: rimosso il pulsante ridondante accanto all'indice per nascondere la barra laterale, mantenendo un'interfaccia pulita e priva di duplicati.
+- Indice Attività: migliorata la testata del popover con riepilogo del modulo, percentuale di completamento ed elegante barra di avanzamento grafica.
+
+## v26.11.1-005 (Unstable) – 2 novembre 2026
+- Sincronizzazione Libri – Risolto bug importazione capitoli: corretta la decodifica JSON in Swift per la proprietà `labels` degli esercizi (supporto trasparente sia come array `[String]` che come stringa singola) e per `rows`, risolvendo il fallimento dell'importazione di capitoli nei libri sincronizzati tramite HubDesk (es. *Nuovo Espresso Plus 1*, dove 8 capitoli su 14 fallivano la decodifica).
+- Log decodifica moduli: aggiunto tracciamento esplicito degli errori in `reloadModules` e `importBookFile` per evitare fallimenti silenziosi durante l'importazione.
+
+## v26.11.1-001 (Unstable) – 2 novembre 2026
+- Esercizi – Ingrandimento a 4 livelli: nuovo controllo per ingrandire e rimpicciolire testo, pulsanti, opzioni e campi degli esercizi su 4 livelli base (1: 100% Normale, 2: 120% Medio, 3: 140% Grande, 4: 160% Molto grande) sia nella barra delle azioni che in modalità schermo intero e nelle Impostazioni; adattamento flessibile di righe, colonne e altezze di riga.
+- Trasferimento libri: risolto il problema di sfarfallio (comparsa e scomparsa ripetuta) della notifica di stato del trasferimento libri durante lo scambio tra computer.
+- Sincronizzazione: silenziate le notifiche toast di sincronizzazione automatica completata con successo in background; le notifiche vengono mostrate esclusivamente se si verifica un errore.
+- Risoluzione conflitti: apertura automatica della pagina dei conflitti in caso di modifiche concorrenti non risolte per consentirne la risoluzione tempestiva.
+- Indicatori versione: aggiunto l'indicatore dinamico a pallino (S per stabile, β per beta, I per interna instabile) prima del numero di versione.
+
 ## v26.11.0-010 (Stabile) – 1 novembre 2026
 - Release Stabile per Classroom Tools: promossa la versione 26.11 al canale Stabile con tutte le funzionalità consolidate.
 - Lavagna – Zoom e Pan a due dita: supporto completo per pinch-to-zoom a due dita (touchscreen e trackpad) e spostamento panoramico nell'area della lavagna sia su Windows che su macOS.

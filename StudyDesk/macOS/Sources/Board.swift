@@ -72,6 +72,8 @@ public final class BoardModel {
     public var date: String? = nil                  // day the board was saved (nil: today)
     public var saved: SavedBoardRef? = nil
     public var editing: BoardText? = nil            // text box being written
+    public var selectedImageId: String? = nil       // image currently selected for move/resize/crop
+    public var isCroppingImage = false
     public var revision = 0                         // grows at every change: the canvas redraws
     public var zoomScale: CGFloat = 1.0
     public var panOffset: CGPoint = .zero
@@ -79,6 +81,21 @@ public final class BoardModel {
     public func resetZoom() {
         zoomScale = 1.0
         panOffset = .zero
+        changed()
+    }
+
+    public func newBoard() {
+        if editing != nil { commitEditing() }
+        selectedImageId = nil
+        isCroppingImage = false
+        strokes.removeAll()
+        texts.removeAll()
+        images.removeAll()
+        saved = nil
+        date = nil
+        resetZoom()
+        send(["t": "clear"])
+        sendSnapshot()
         changed()
     }
 
@@ -554,7 +571,17 @@ final class BoardCanvasView: NSView, NSTextViewDelegate {
     override var isFlipped: Bool { true }
     override var acceptsFirstResponder: Bool { true }
 
-    private enum Drag { case stroke, line(BoardPoint, BoardPoint?), laser(String), move(String, BoardPoint, Double, Double, Bool) }
+    private enum Drag {
+        case stroke
+        case line(BoardPoint, BoardPoint?)
+        case laser(String)
+        case move(String, BoardPoint, Double, Double, Bool)
+        case moveImage(String, BoardPoint, Double, Double, Bool)
+        case resizeImage(String, ImageCorner, BoardPoint, BoardImage)
+        case cropImage(String, ImageCorner, BoardPoint, BoardImage)
+    }
+    private enum ImageCorner { case tl, tr, bl, br }
+    private enum ImageActionBtn { case crop, delete, close }
     private var drag: Drag? = nil
     private var hoverCell: BoardCell? = nil
     private var editor: NSTextView? = nil
@@ -713,6 +740,8 @@ final class BoardCanvasView: NSView, NSTextViewDelegate {
             let bImg = BoardImage(id: model.newStrokeId(), src: base64, x: x, y: y, w: targetW, h: targetH)
             MainActor.assumeIsolated {
                 model.images.append(bImg)
+                model.selectedImageId = bImg.id
+                model.isCroppingImage = false
                 model.send(["t": "image", "item": jsonObject(bImg)])
                 model.changed()
             }
@@ -722,11 +751,15 @@ final class BoardCanvasView: NSView, NSTextViewDelegate {
     }
 
     func copyBoardToClipboard() {
-        guard let rep = BoardRenderer.bitmap(model.content, width: 2560, height: 1440, date: model.dateText),
-              let png = rep.representation(using: .png, properties: [:]) else { return }
+        guard let rep = BoardRenderer.bitmap(model.content, width: 3840, height: 2160, date: model.dateText) else { return }
         let pb = NSPasteboard.general
         pb.clearContents()
-        pb.setData(png, forType: .png)
+        if let png = rep.representation(using: .png, properties: [:]) {
+            pb.setData(png, forType: .png)
+        }
+        if let tiff = rep.tiffRepresentation {
+            pb.setData(tiff, forType: .tiff)
+        }
     }
 
     override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
@@ -755,6 +788,8 @@ final class BoardCanvasView: NSView, NSTextViewDelegate {
                 let bImg = BoardImage(id: model.newStrokeId(), src: base64, x: x, y: y, w: targetW, h: targetH)
                 MainActor.assumeIsolated {
                     model.images.append(bImg)
+                    model.selectedImageId = bImg.id
+                    model.isCroppingImage = false
                     model.send(["t": "image", "item": jsonObject(bImg)])
                     model.changed()
                 }
@@ -764,12 +799,162 @@ final class BoardCanvasView: NSView, NSTextViewDelegate {
         return pasteImageFromClipboard()
     }
 
+    private func imageScreenRect(_ img: BoardImage) -> CGRect {
+        let r = boardRect
+        return CGRect(x: r.minX + CGFloat(img.x) * r.width,
+                      y: r.minY + CGFloat(img.y) * r.height,
+                      width: CGFloat(img.w) * r.width,
+                      height: CGFloat(img.h) * r.height)
+    }
+
+    private func hitImageCorner(_ img: BoardImage, at point: CGPoint) -> ImageCorner? {
+        let rect = imageScreenRect(img)
+        let corners: [(ImageCorner, CGPoint)] = [
+            (.tl, CGPoint(x: rect.minX, y: rect.minY)),
+            (.tr, CGPoint(x: rect.maxX, y: rect.minY)),
+            (.bl, CGPoint(x: rect.minX, y: rect.maxY)),
+            (.br, CGPoint(x: rect.maxX, y: rect.maxY))
+        ]
+        for (corner, pt) in corners {
+            if hypot(point.x - pt.x, point.y - pt.y) <= 14 {
+                return corner
+            }
+        }
+        return nil
+    }
+
+    private func imageActionPillRect(_ img: BoardImage) -> CGRect {
+        let r = boardRect
+        let rect = imageScreenRect(img)
+        let pillW: CGFloat = 210
+        let pillH: CGFloat = 28
+        let pillX = max(r.minX + 8, min(r.maxX - pillW - 8, rect.midX - pillW / 2))
+        let pillY = rect.minY - pillH - 8 >= r.minY ? rect.minY - pillH - 8 : rect.maxY + 8
+        return CGRect(x: pillX, y: pillY, width: pillW, height: pillH)
+    }
+
+    private func hitImageActionBtn(_ img: BoardImage, at point: CGPoint) -> ImageActionBtn? {
+        let pillRect = imageActionPillRect(img)
+        guard pillRect.contains(point) else { return nil }
+        if point.x <= pillRect.minX + 96 { return .crop }
+        if point.x <= pillRect.minX + 172 { return .delete }
+        return .close
+    }
+
+    private func hitImage(_ pt: BoardPoint) -> BoardImage? {
+        return MainActor.assumeIsolated {
+            model.images.last { img in
+                pt.x >= img.x && pt.x <= (img.x + img.w) && pt.y >= img.y && pt.y <= (img.y + img.h)
+            }
+        }
+    }
+
+    private func hitImageBorder(_ img: BoardImage, at point: CGPoint) -> Bool {
+        let rect = imageScreenRect(img)
+        let outer = rect.insetBy(dx: -10, dy: -10)
+        let inner = rect.insetBy(dx: 10, dy: 10)
+        return outer.contains(point) && !inner.contains(point)
+    }
+
+    override func menu(for event: NSEvent) -> NSMenu? {
+        let pt = point(event)
+        if let img = hitImage(pt) {
+            let m = NSMenu()
+            model.selectedImageId = img.id
+            model.changed()
+            m.addItem(withTitle: model.isCroppingImage ? "Concludi ritaglio" : "Ritaglia immagine", action: #selector(toggleCropAction), keyEquivalent: "")
+            m.addItem(withTitle: "Elimina immagine", action: #selector(deleteSelectedImageAction), keyEquivalent: "")
+            m.addItem(withTitle: "Porta in primo piano", action: #selector(bringImageToFrontAction), keyEquivalent: "")
+            return m
+        }
+        return super.menu(for: event)
+    }
+
+    @objc private func toggleCropAction() {
+        MainActor.assumeIsolated {
+            model.isCroppingImage.toggle()
+            model.changed()
+        }
+    }
+
+    @objc private func deleteSelectedImageAction() {
+        MainActor.assumeIsolated {
+            guard let id = model.selectedImageId else { return }
+            model.images.removeAll { $0.id == id }
+            model.selectedImageId = nil
+            model.isCroppingImage = false
+            model.send(["t": "imagedel", "id": id])
+            model.changed()
+        }
+    }
+
+    @objc private func bringImageToFrontAction() {
+        MainActor.assumeIsolated {
+            guard let id = model.selectedImageId, let i = model.images.firstIndex(where: { $0.id == id }) else { return }
+            let img = model.images.remove(at: i)
+            model.images.append(img)
+            model.changed()
+        }
+    }
+
     override func mouseDown(with e: NSEvent) {
         guard !readOnly else { return }
         window?.makeFirstResponder(self)
         MainActor.assumeIsolated {
+            let p = convert(e.locationInWindow, from: nil)
             let pt = point(e)
             if model.editing != nil { model.commitEditing(); if model.mode == .text { return } }
+
+            if let selId = model.selectedImageId, let selImg = model.images.first(where: { $0.id == selId }) {
+                if let btn = hitImageActionBtn(selImg, at: p) {
+                    switch btn {
+                    case .crop:
+                        model.isCroppingImage.toggle()
+                        model.changed()
+                    case .delete:
+                        model.images.removeAll { $0.id == selId }
+                        model.selectedImageId = nil
+                        model.isCroppingImage = false
+                        model.send(["t": "imagedel", "id": selId])
+                        model.changed()
+                    case .close:
+                        model.selectedImageId = nil
+                        model.isCroppingImage = false
+                        model.changed()
+                    }
+                    return
+                }
+                if model.isCroppingImage {
+                    if let corner = hitImageCorner(selImg, at: p) {
+                        drag = .cropImage(selId, corner, pt, selImg)
+                        return
+                    }
+                } else {
+                    if let corner = hitImageCorner(selImg, at: p) {
+                        drag = .resizeImage(selId, corner, pt, selImg)
+                        return
+                    }
+                }
+                let rect = imageScreenRect(selImg)
+                if rect.contains(p) {
+                    drag = .moveImage(selId, pt, selImg.x, selImg.y, false)
+                    return
+                }
+                model.selectedImageId = nil
+                model.isCroppingImage = false
+                model.changed()
+            }
+
+            if let hitImg = hitImage(pt) {
+                if model.mode == .text || hitImageBorder(hitImg, at: p) || e.clickCount >= 2 {
+                    model.selectedImageId = hitImg.id
+                    model.isCroppingImage = false
+                    drag = .moveImage(hitImg.id, pt, hitImg.x, hitImg.y, false)
+                    model.changed()
+                    return
+                }
+            }
+
             switch model.mode {
             case .text:
                 if let t = hitText(pt) { drag = .move(t.id, pt, t.x, t.y, false); return }
@@ -798,6 +983,84 @@ final class BoardCanvasView: NSView, NSTextViewDelegate {
                 if !moved && hypot(CGFloat(pt.x - start.x) * r.width, CGFloat(pt.y - start.y) * r.height) < 5 { return }
                 drag = .move(id, start, ox, oy, true)
                 model.moveText(id, x: ox + pt.x - start.x, y: oy + pt.y - start.y, final: false)
+            case .moveImage(let id, let start, let ox, let oy, let moved):
+                guard let idx = model.images.firstIndex(where: { $0.id == id }) else { return }
+                let r = boardRect
+                if !moved && hypot(CGFloat(pt.x - start.x) * r.width, CGFloat(pt.y - start.y) * r.height) < 4 { return }
+                drag = .moveImage(id, start, ox, oy, true)
+                let newX = max(0, min(1.0 - model.images[idx].w, ox + pt.x - start.x))
+                let newY = max(0, min(1.0 - model.images[idx].h, oy + pt.y - start.y))
+                model.images[idx].x = BoardKit.r4(newX)
+                model.images[idx].y = BoardKit.r4(newY)
+                model.changed()
+            case .resizeImage(let id, let corner, let start, let orig):
+                guard let idx = model.images.firstIndex(where: { $0.id == id }) else { return }
+                let dx = pt.x - start.x
+                let dy = pt.y - start.y
+                var newX = orig.x
+                var newY = orig.y
+                var newW = orig.w
+                var newH = orig.h
+                switch corner {
+                case .br:
+                    newW = max(0.05, min(1.0 - orig.x, orig.w + dx))
+                    newH = max(0.05, min(1.0 - orig.y, orig.h + dy))
+                case .bl:
+                    let right = orig.x + orig.w
+                    newX = max(0, min(right - 0.05, orig.x + dx))
+                    newW = right - newX
+                    newH = max(0.05, min(1.0 - orig.y, orig.h + dy))
+                case .tr:
+                    let bottom = orig.y + orig.h
+                    newW = max(0.05, min(1.0 - orig.x, orig.w + dx))
+                    newY = max(0, min(bottom - 0.05, orig.y + dy))
+                    newH = bottom - newY
+                case .tl:
+                    let right = orig.x + orig.w
+                    let bottom = orig.y + orig.h
+                    newX = max(0, min(right - 0.05, orig.x + dx))
+                    newW = right - newX
+                    newY = max(0, min(bottom - 0.05, orig.y + dy))
+                    newH = bottom - newY
+                }
+                model.images[idx].x = BoardKit.r4(newX)
+                model.images[idx].y = BoardKit.r4(newY)
+                model.images[idx].w = BoardKit.r4(newW)
+                model.images[idx].h = BoardKit.r4(newH)
+                model.changed()
+            case .cropImage(let id, let corner, let start, let orig):
+                guard let idx = model.images.firstIndex(where: { $0.id == id }) else { return }
+                var crop = orig.crop ?? [0.0, 0.0, 1.0, 1.0]
+                let relDx = (pt.x - start.x) / orig.w
+                let relDy = (pt.y - start.y) / orig.h
+                switch corner {
+                case .br:
+                    crop[2] = max(0.1, min(1.0 - crop[0], (orig.crop?[2] ?? 1.0) + relDx))
+                    crop[3] = max(0.1, min(1.0 - crop[1], (orig.crop?[3] ?? 1.0) + relDy))
+                case .bl:
+                    let right = (orig.crop?[0] ?? 0.0) + (orig.crop?[2] ?? 1.0)
+                    let newCropX = max(0.0, min(right - 0.1, (orig.crop?[0] ?? 0.0) + relDx))
+                    crop[0] = newCropX
+                    crop[2] = right - newCropX
+                    crop[3] = max(0.1, min(1.0 - crop[1], (orig.crop?[3] ?? 1.0) + relDy))
+                case .tr:
+                    let bottom = (orig.crop?[1] ?? 0.0) + (orig.crop?[3] ?? 1.0)
+                    crop[2] = max(0.1, min(1.0 - crop[0], (orig.crop?[2] ?? 1.0) + relDx))
+                    let newCropY = max(0.0, min(bottom - 0.1, (orig.crop?[1] ?? 0.0) + relDy))
+                    crop[1] = newCropY
+                    crop[3] = bottom - newCropY
+                case .tl:
+                    let right = (orig.crop?[0] ?? 0.0) + (orig.crop?[2] ?? 1.0)
+                    let bottom = (orig.crop?[1] ?? 0.0) + (orig.crop?[3] ?? 1.0)
+                    let newCropX = max(0.0, min(right - 0.1, (orig.crop?[0] ?? 0.0) + relDx))
+                    let newCropY = max(0.0, min(bottom - 0.1, (orig.crop?[1] ?? 0.0) + relDy))
+                    crop[0] = newCropX
+                    crop[2] = right - newCropX
+                    crop[1] = newCropY
+                    crop[3] = bottom - newCropY
+                }
+                model.images[idx].crop = crop.map { BoardKit.r4($0) }
+                model.changed()
             }
         }
         needsDisplay = true
@@ -816,6 +1079,18 @@ final class BoardCanvasView: NSView, NSTextViewDelegate {
             case .move(let id, _, _, _, let moved):
                 if moved, let t = model.texts.first(where: { $0.id == id }) { model.moveText(id, x: t.x, y: t.y, final: true) }
                 else if let t = model.texts.first(where: { $0.id == id }) { model.beginEditing(t) }
+            case .moveImage(let id, _, _, _, let moved):
+                if moved, let img = model.images.first(where: { $0.id == id }) {
+                    model.send(["t": "image", "item": jsonObject(img)])
+                }
+            case .resizeImage(let id, _, _, _):
+                if let img = model.images.first(where: { $0.id == id }) {
+                    model.send(["t": "image", "item": jsonObject(img)])
+                }
+            case .cropImage(let id, _, _, _):
+                if let img = model.images.first(where: { $0.id == id }) {
+                    model.send(["t": "image", "item": jsonObject(img)])
+                }
             }
         }
         needsDisplay = true
@@ -981,6 +1256,66 @@ final class BoardCanvasView: NSView, NSTextViewDelegate {
             }
             cg.restoreGState()
         }
+
+        // selected image overlay: border, handles, action pill
+        let (selImageId, isCropping) = MainActor.assumeIsolated { (model.selectedImageId, model.isCroppingImage) }
+        if let selImageId, let selImg = content.images.first(where: { $0.id == selImageId }) {
+            let imgRect = imageScreenRect(selImg)
+            cg.saveGState()
+            if isCropping {
+                cg.setStrokeColor(NSColor.systemOrange.cgColor)
+                cg.setLineWidth(2)
+                cg.setLineDash(phase: 0, lengths: [6, 4])
+                cg.stroke(imgRect)
+            } else {
+                cg.setStrokeColor(NSColor.controlAccentColor.cgColor)
+                cg.setLineWidth(2)
+                cg.setLineDash(phase: 0, lengths: [])
+                cg.stroke(imgRect)
+            }
+
+            // corner handles
+            let corners = [
+                CGPoint(x: imgRect.minX, y: imgRect.minY),
+                CGPoint(x: imgRect.maxX, y: imgRect.minY),
+                CGPoint(x: imgRect.minX, y: imgRect.maxY),
+                CGPoint(x: imgRect.maxX, y: imgRect.maxY)
+            ]
+            let hSize: CGFloat = 8
+            for pt in corners {
+                let hRect = CGRect(x: pt.x - hSize / 2, y: pt.y - hSize / 2, width: hSize, height: hSize)
+                cg.setFillColor(NSColor.white.cgColor)
+                cg.fillEllipse(in: hRect)
+                cg.setStrokeColor(isCropping ? NSColor.systemOrange.cgColor : NSColor.controlAccentColor.cgColor)
+                cg.setLineWidth(2)
+                cg.strokeEllipse(in: hRect)
+            }
+
+            // action pill
+            let pillRect = imageActionPillRect(selImg)
+            let pillPath = CGPath(roundedRect: pillRect, cornerWidth: 14, cornerHeight: 14, transform: nil)
+            cg.setShadow(offset: CGSize(width: 0, height: 2), blur: 6, color: NSColor.black.withAlphaComponent(0.2).cgColor)
+            cg.setFillColor(NSColor.windowBackgroundColor.cgColor)
+            cg.addPath(pillPath)
+            cg.fillPath()
+
+            cg.setShadow(offset: .zero, blur: 0, color: nil)
+            cg.setStrokeColor(NSColor.separatorColor.cgColor)
+            cg.setLineWidth(1)
+            cg.addPath(pillPath)
+            cg.strokePath()
+
+            // action pill labels
+            let font = NSFont.systemFont(ofSize: 11, weight: .semibold)
+            let cropText = (isCropping ? "✓ Fatto" : "✂ Ritaglia") as NSString
+            let delText = "🗑 Elimina" as NSString
+            let closeText = "✕" as NSString
+
+            cropText.draw(at: CGPoint(x: pillRect.minX + 12, y: pillRect.minY + 6), withAttributes: [.font: font, .foregroundColor: isCropping ? NSColor.systemOrange : NSColor.labelColor])
+            delText.draw(at: CGPoint(x: pillRect.minX + 104, y: pillRect.minY + 6), withAttributes: [.font: font, .foregroundColor: NSColor.systemRed])
+            closeText.draw(at: CGPoint(x: pillRect.maxX - 24, y: pillRect.minY + 6), withAttributes: [.font: font, .foregroundColor: NSColor.secondaryLabelColor])
+            cg.restoreGState()
+        }
     }
 
     override func setFrameSize(_ s: NSSize) {
@@ -1022,6 +1357,7 @@ struct BoardView: View {
     @State private var model = BoardModel.shared
     @State private var openPanel: String? = nil      // colour | grid | bg
     @State private var confirmClear = false
+    @State private var confirmNewBoard = false
     @State private var confirmOpen: SavedBoard? = nil
     @State private var showSave = false
     @State private var showSaved = false
@@ -1093,6 +1429,15 @@ struct BoardView: View {
         } message: {
             let names = model.hubShared ? model.sharedWithNames : []
             Text("Tratti e testi verranno eliminati\(names.isEmpty ? "" : " anche su \(names.joined(separator: ", "))"). Il colore della lavagna e la griglia restano. Non si può annullare.")
+        }
+        .alert("Creare una nuova lavagna?", isPresented: $confirmNewBoard) {
+            Button("Annulla", role: .cancel) {}
+            Button("Nuova lavagna", role: .destructive) {
+                model.newBoard()
+                store.showToast("Nuova lavagna creata")
+            }
+        } message: {
+            Text("I tratti, testi e immagini correnti verranno rimossi\(model.hubShared ? " anche sui dispositivi collegati" : ""). Assicurati di salvare se desideri conservarli.")
         }
         .alert("Aprire la lavagna salvata?", isPresented: Binding(get: { confirmOpen != nil }, set: { if !$0 { confirmOpen = nil } })) {
             Button("Annulla", role: .cancel) { confirmOpen = nil }
@@ -1322,6 +1667,16 @@ struct BoardView: View {
 
     private var fileMenu: some View {
         Menu {
+            Button("Nuova lavagna") {
+                if model.isEmpty {
+                    model.newBoard()
+                    store.showToast("Nuova lavagna creata")
+                } else {
+                    confirmNewBoard = true
+                }
+            }
+            .keyboardShortcut("n", modifiers: [.command])
+            Divider()
             Button(model.saved.map { "Salva «\($0.name)»…" } ?? "Salva in un gruppo…") { if model.editing != nil { model.commitEditing() }; showSave = true }
             Button("Lavagne salvate…") { showSaved = true }
             Divider()
@@ -1355,7 +1710,7 @@ struct BoardView: View {
 
     private func export(_ fmt: String) {
         if model.editing != nil { model.commitEditing() }
-        guard let rep = BoardRenderer.bitmap(model.content, width: 2560, height: 1440, date: model.dateText) else { return }
+        guard let rep = BoardRenderer.bitmap(model.content, width: 3840, height: 2160, date: model.dateText) else { return }
         let stamp: String = { let f = DateFormatter(); f.dateFormat = "yyyy-MM-dd HH.mm"; return f.string(from: Date()) }()
         let base = (model.saved?.name ?? "Lavagna \(stamp)").replacingOccurrences(of: "/", with: "-").replacingOccurrences(of: ":", with: "-")
         let (data, ext, type): (Data?, String, UTType) = fmt == "png" ? (rep.representation(using: .png, properties: [:]), "png", .png)

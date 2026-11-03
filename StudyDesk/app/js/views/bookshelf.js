@@ -13,7 +13,7 @@
 // Book shelf: book covers grid + in-page "open book" view (cover -> header, chapters as spines that expand).
 // Animations use transform/opacity (FLIP via Web Animations API) and a width transition on a handful of chapter nodes;
 // everything is skipped when the user prefers reduced motion.
-import { h, icon, clear, modal } from '../core/ui.js';
+import { h, icon, clear, modal, confirmDialog, toast } from '../core/ui.js';
 import { db } from '../core/db.js';
 import { getResults, setContext, clearContext, getContext } from '../core/progress.js';
 import { listGroups } from '../core/groups.js';
@@ -21,6 +21,9 @@ import { isTeacher } from '../core/role.js';
 import { BLANK_CONTEXT } from '../core/context.js';
 import { summarize } from '../core/grading.js';
 import { chapterNumber } from '../core/booklogic.js';
+import { settings, saveSettings } from '../core/settings.js';
+import { getBookRec, saveBookRec, deleteBook } from '../core/books.js';
+import { renderGroupPill, manageBookGroupsDialog } from './group-pill.js';
 
 const reduced = () => typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches;
 const pctOf = (s) => (s.totalParts ? Math.round((s.completedParts / s.totalParts) * 100) : 0);
@@ -64,49 +67,253 @@ export function bookCoverNode(data, cls = '') {
     data.cover ? h('img', { src: data.cover, alt: '', draggable: false }) : fallbackCover(m.color, m.title));
 }
 
-/** Teacher dialog: which copy of the book to open. Resolves {context, group} or null when cancelled. */
-function pickContext(entry, groups) {
-  return new Promise((resolve) => {
-    let done = false;
-    const fin = (v) => { if (!done) { done = true; resolve(v); } m.close(); };
-    const opt = (ico, title, sub, onclick) => h('button.btn.ctx-opt', { type: 'button', onclick },
-      h('span.ico', icon(ico)), h('span.grow', h('b', title), h('span.faint', sub)), icon('chevron-right'));
-    const body = h('div.stack',
-      h('p.muted', { style: { margin: 0 } }, 'Ogni gruppo ha la sua copia del libro con le risposte date in classe.'),
-      groups.map((g) => opt('people-group', g.name, `${g.level ? g.level + ' · ' : ''}${(g.students || []).length} student${(g.students || []).length === 1 ? 'e' : 'i'}`, () => fin({ context: g.id, group: g }))),
-      h('hr'),
-      opt('file', 'Libro non completato', 'Pagine pulite: le risposte non vengono salvate', () => fin({ context: BLANK_CONTEXT, group: null })),
-      opt('user', 'Il mio libro', 'Le tue risposte personali', () => fin({ context: null, group: null })));
-    const m = modal({ title: `Apri «${entry.meta.title}»`, body, onClose: () => fin(null) });
+async function editBookModal(bookId, onSaved) {
+  const rec = await getBookRec(bookId);
+  if (!rec) return;
+  const b = rec.book || {};
+  const titleInput = h('input.input', { type: 'text', value: b.title || '' });
+  const subInput = h('input.input', { type: 'text', value: b.subtitle || '' });
+  const levelInput = h('input.input', { type: 'text', value: b.level || '' });
+  const colorInput = h('input.input', { type: 'color', value: b.color || '#0ea5e9' });
+  const descInput = h('textarea.input', { rows: 3 }, b.description || '');
+
+  const form = h('div.stack', { style: { gap: '.8rem' } },
+    h('label.stack', { style: { gap: '.25rem' } }, h('b', 'Titolo libro'), titleInput),
+    h('label.stack', { style: { gap: '.25rem' } }, h('b', 'Sottotitolo'), subInput),
+    h('div.row', { style: { gap: '1rem' } },
+      h('label.stack', { style: { gap: '.25rem', flex: 1 } }, h('b', 'Livello'), levelInput),
+      h('label.stack', { style: { gap: '.25rem', width: '6rem' } }, h('b', 'Colore'), colorInput)
+    ),
+    h('label.stack', { style: { gap: '.25rem' } }, h('b', 'Descrizione'), descInput)
+  );
+
+  modal({
+    title: 'Modifica libro',
+    body: form,
+    buttons: [
+      { label: 'Annulla' },
+      {
+        label: 'Salva modifiche',
+        primary: true,
+        onClick: async () => {
+          rec.book = rec.book || {};
+          rec.book.title = titleInput.value.trim() || rec.book.title;
+          rec.book.subtitle = subInput.value.trim();
+          rec.book.level = levelInput.value.trim();
+          rec.book.color = colorInput.value;
+          rec.book.description = descInput.value.trim();
+          await saveBookRec(rec);
+          toast('Libro aggiornato.', 'ok');
+          onSaved && onSaved();
+        },
+      },
+    ],
   });
 }
 
 export async function createShelf({ entries, app, urls, scroller, onChange }) {
+  // Sort entries based on stored bookOrder
+  const savedOrder = settings().bookOrder || [];
+  const orderedEntries = [];
+  for (const id of savedOrder) {
+    const found = entries.find((e) => e.id === id);
+    if (found) orderedEntries.push(found);
+  }
+  for (const e of entries) {
+    if (!orderedEntries.some((x) => x.id === e.id)) orderedEntries.push(e);
+  }
+
   const datas = [];
-  for (const e of entries) datas.push(await loadBookData(e, urls));
+  for (const e of orderedEntries) datas.push(await loadBookData(e, urls));
   const byId = new Map(datas.map((d) => [d.entry.id, d]));
   let closedView = null, stage = null, current = null, busy = false, savedScroll = 0;
   const cards = new Map();
   const panel = h('section.book-open.hidden', { 'aria-live': 'polite' });
 
-  const grid = h('div.book-grid', datas.map((d) => {
+  function makeBookCard(d) {
     const m = d.entry.meta;
-    const card = h('button.book-card', { type: 'button', style: { '--bk': m.color || '#0ea5e9' }, 'aria-label': `Apri il libro ${m.title}`, onclick: () => open(d.entry.id) },
-      bookCoverNode(d),
-      h('div.book-meta', h('b', m.title), m.subtitle ? h('span.faint', m.subtitle) : null,
-        h('div.row', { style: { gap: '.4rem' } }, m.level ? h('span.badge', m.level) : null, h('span.faint', `${d.chapters.length} capitol${d.chapters.length === 1 ? 'o' : 'i'}`)),
-        h('div.progress', h('span', { style: { width: d.pct + '%' } })), h('span.faint', `${d.pct}% completato`)));
+    const card = h('div.book-card', {
+      role: 'button',
+      tabindex: 0,
+      style: { '--bk': m.color || '#0ea5e9' },
+      'aria-label': `Apri il libro ${m.title}`,
+      onclick: (e) => {
+        if (e.target.closest('.macos-menu') || e.target.closest('.book-dots-btn')) return;
+        open(d.entry.id);
+      },
+      onkeydown: (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          if (!e.target.closest('.macos-menu') && !e.target.closest('.book-dots-btn')) {
+            e.preventDefault();
+            open(d.entry.id);
+          }
+        }
+      },
+    });
+
+    // Drag-and-drop mouse reordering
+    card.draggable = true;
+    card.addEventListener('dragstart', (e) => {
+      card.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', d.entry.id);
+    });
+    card.addEventListener('dragend', () => {
+      card.classList.remove('dragging');
+      grid.querySelectorAll('.book-card').forEach((c) => c.classList.remove('drag-over'));
+    });
+    card.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      card.classList.add('drag-over');
+    });
+    card.addEventListener('dragleave', () => {
+      card.classList.remove('drag-over');
+    });
+    card.addEventListener('drop', async (e) => {
+      e.preventDefault();
+      card.classList.remove('drag-over');
+      const srcId = e.dataTransfer.getData('text/plain');
+      const tgtId = d.entry.id;
+      if (!srcId || srcId === tgtId) return;
+      const currentOrder = datas.map((x) => x.entry.id);
+      const fromIdx = currentOrder.indexOf(srcId);
+      const toIdx = currentOrder.indexOf(tgtId);
+      if (fromIdx !== -1 && toIdx !== -1) {
+        const [moved] = datas.splice(fromIdx, 1);
+        datas.splice(toIdx, 0, moved);
+        const newOrder = datas.map((x) => x.entry.id);
+        await saveSettings({ bookOrder: newOrder });
+        renderGrid();
+      }
+    });
+
+    const coverNode = bookCoverNode(d);
+
+    // 3-dots button and macOS-style context menu
+    let menuEl = null;
+    const closeMenu = () => {
+      if (menuEl) {
+        menuEl.remove();
+        menuEl = null;
+        document.removeEventListener('click', onDocClick);
+        document.removeEventListener('keydown', onDocKey);
+      }
+    };
+    const onDocClick = (e) => {
+      if (!card.contains(e.target)) closeMenu();
+    };
+    const onDocKey = (e) => {
+      if (e.key === 'Escape') closeMenu();
+    };
+
+    const dotsBtn = h('button.book-dots-btn', {
+      type: 'button',
+      'aria-label': 'Opzioni libro',
+      title: 'Opzioni libro',
+      onclick: (e) => {
+        e.stopPropagation();
+        if (menuEl) { closeMenu(); return; }
+        document.querySelectorAll('.macos-menu').forEach((mNode) => mNode.remove());
+
+        menuEl = h('div.macos-menu',
+          h('button.macos-menu-item', {
+            type: 'button',
+            onclick: (ev) => {
+              ev.stopPropagation();
+              closeMenu();
+              open(d.entry.id, { forceBlank: true });
+            },
+          }, icon('file'), 'Apri vuoto temporaneamente'),
+          h('button.macos-menu-item', {
+            type: 'button',
+            onclick: (ev) => {
+              ev.stopPropagation();
+              closeMenu();
+              editBookModal(d.entry.id, async () => {
+                byId.set(d.entry.id, await loadBookData(d.entry, urls));
+                renderGrid();
+              });
+            },
+          }, icon('pen'), 'Modifica libro'),
+          h('button.macos-menu-item', {
+            type: 'button',
+            onclick: (ev) => {
+              ev.stopPropagation();
+              closeMenu();
+              manageBookGroupsDialog(d.entry.id, m.title, () => {});
+            },
+          }, icon('people-group'), 'Cambia gruppi associati'),
+          h('div.macos-menu-divider'),
+          h('button.macos-menu-item.danger', {
+            type: 'button',
+            onclick: async (ev) => {
+              ev.stopPropagation();
+              closeMenu();
+              if (await confirmDialog('Eliminare il libro?', `«${m.title}»: i capitoli restano in libreria come moduli singoli.`, 'Elimina libro', true)) {
+                await deleteBook(d.entry.id);
+                toast('Libro eliminato.', 'ok');
+                app.refresh();
+              }
+            },
+          }, icon('trash'), 'Elimina libro')
+        );
+
+        card.append(menuEl);
+        setTimeout(() => {
+          document.addEventListener('click', onDocClick);
+          document.addEventListener('keydown', onDocKey);
+        }, 0);
+      },
+    }, icon('ellipsis-vertical'));
+
+    card.append(coverNode, dotsBtn);
     cards.set(d.entry.id, card);
     return card;
-  }));
+  }
 
-  function buildPanel(d) {
+  const grid = h('div.book-grid');
+  function renderGrid() {
+    clear(grid);
+    cards.clear();
+    for (const d of datas) grid.append(makeBookCard(d));
+  }
+  renderGrid();
+
+  async function buildPanel(d) {
     const m = d.entry.meta;
     clear(panel);
     const coverEl = h('div.bo-cover', bookCoverNode(d));
+
+    const pill = await renderGroupPill({
+      bookId: d.entry.id,
+      bookTitle: m.title,
+      moduleIds: d.chapters.map((c) => c.rec.id),
+      onContextChange: async () => {
+        byId.set(d.entry.id, await loadBookData(byId.get(d.entry.id).entry, urls, true));
+        const fresh = byId.get(d.entry.id);
+        fresh.chapters.forEach((c, idx) => {
+          const chEl = chEls[idx];
+          if (chEl) {
+            const progBar = chEl.querySelector('.progress span');
+            if (progBar) progBar.style.width = c.pct + '%';
+            const pctEl = chEl.querySelector('.ch-pct');
+            if (pctEl) pctEl.textContent = `${c.s.completedParts}/${c.s.totalParts} parti · ${c.pct}%`;
+          }
+        });
+        const topProgBar = info.querySelector('.bo-prog .progress span');
+        if (topProgBar) topProgBar.style.width = fresh.pct + '%';
+        const topProgText = info.querySelector('.bo-prog span.faint');
+        if (topProgText) topProgText.textContent = `${fresh.stats.completedParts}/${fresh.stats.totalParts} parti · ${fresh.pct}%`;
+      },
+    });
+
     const info = h('div.bo-info',
-      h('div.row', { style: { gap: '.4rem' } }, m.level ? h('span.badge', m.level) : null, m.publisher ? h('span.badge.gray', m.publisher) : null,
-        getContext().label ? h('span.badge.violet', { 'data-ctx': '' }, icon(getContext().context === BLANK_CONTEXT ? 'file' : 'people-group'), getContext().label) : null),
+      h('div.row', { style: { gap: '.6rem', alignItems: 'center', flexWrap: 'wrap', marginBottom: '.4rem' } },
+        m.level ? h('span.badge', m.level) : null,
+        m.publisher ? h('span.badge.gray', m.publisher) : null,
+        pill
+      ),
       h('h2', m.title), m.subtitle ? h('div.muted', m.subtitle) : null,
       m.description ? h('p.bo-desc', m.description.replace(/[*_`#>]/g, '')) : null,
       h('div.bo-prog', h('div.progress', h('span', { style: { width: d.pct + '%' } })), h('span.faint', `${d.stats.completedParts}/${d.stats.totalParts} parti · ${d.pct}%`)));
@@ -142,25 +349,28 @@ export async function createShelf({ entries, app, urls, scroller, onChange }) {
     return { coverEl, info, closeBtn, row, chEls, setFocus };
   }
 
-  async function open(id, { animate = true } = {}) {
+  async function open(id, { animate = true, forceBlank = false } = {}) {
     if (busy || current || !byId.has(id)) return;
     busy = true;
-    // progress context: teachers choose a group / blank / personal copy when the book is assigned to groups; students use their own
-    if (getContext().bookId !== id) {
+    if (getContext().bookId !== id || forceBlank) {
       const moduleIds = byId.get(id).chapters.map((c) => c.rec.id);
       const groups = isTeacher() ? (await listGroups()).filter((g) => (g.bookIds || []).includes(id)) : [];
-      let pick = { context: null, group: null };
-      if (groups.length) { pick = await pickContext(byId.get(id).entry, groups); if (!pick) { busy = false; return; } }
-      setContext(id, pick.context, moduleIds, pick.group);
+      if (forceBlank) {
+        setContext(id, BLANK_CONTEXT, moduleIds, null);
+      } else if (groups.length > 0) {
+        setContext(id, groups[0].id, moduleIds, groups[0]);
+      } else {
+        setContext(id, null, moduleIds, null);
+      }
     }
-    byId.set(id, await loadBookData(byId.get(id).entry, urls, true)); // stats follow the active context
+    byId.set(id, await loadBookData(byId.get(id).entry, urls, true));
     current = id;
     const d = byId.get(id);
     const anim = animate && !reduced();
     const fromEl = cards.get(id)?.querySelector('.book-face');
     const first = fromEl && fromEl.getBoundingClientRect();
     savedScroll = scroller ? scroller.scrollTop : 0;
-    const ui = buildPanel(d);
+    const ui = await buildPanel(d);
     if (!anim) panel.classList.add('no-anim');
     closedView.classList.add('leaving');
     panel.classList.remove('hidden');
@@ -199,7 +409,6 @@ export async function createShelf({ entries, app, urls, scroller, onChange }) {
     const ui = { coverEl: panel.querySelector('.bo-cover'), info: panel.querySelector('.bo-info'), chEls: [...panel.querySelectorAll('.chapter')], closeBtn: panel.querySelector('.bo-close') };
     const anim = !reduced() && !panel.classList.contains('no-anim');
     const from = ui.coverEl.getBoundingClientRect();
-    // bring the closed view back (behind the panel), restore scroll, then measure where the cover has to land
     panel.classList.add('closing');
     closedView.classList.remove('gone');
     if (scroller) scroller.scrollTop = savedScroll;

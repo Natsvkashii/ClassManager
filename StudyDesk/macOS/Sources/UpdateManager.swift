@@ -564,16 +564,14 @@ public final class UpdateManager: NSObject, URLSessionDownloadDelegate {
 
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-        if let data = try? Optional(store.backupData()) {
-            do {
-                try data.write(to: backupUrl, options: .atomic)
-                store.showToast("💾 Backup automatico salvato in Documenti/StudyDesk_Backups")
-                return true
-            } catch {
-                return false
-            }
+        let data = store.backupData()
+        do {
+            try data.write(to: backupUrl, options: .atomic)
+            store.showToast("💾 Backup automatico salvato in Documenti/StudyDesk_Backups")
+            return true
+        } catch {
+            return false
         }
-        return false
     }
 
     /// Downloads the `.zip` (for silent 1-click update) or `.pkg` installer from the release assets, performs an automatic backup, and installs the update.
@@ -664,7 +662,7 @@ public final class UpdateManager: NSObject, URLSessionDownloadDelegate {
             ?? "StudyDesk-Update.pkg"
         let fileName = rawName.isEmpty ? "StudyDesk-Update.pkg" : rawName
         let tempTargetDir = FileManager.default.temporaryDirectory
-        var destinationUrl = tempTargetDir.appendingPathComponent("StudyDesk_DL_\(UUID().uuidString)_\(fileName)")
+        let destinationUrl = tempTargetDir.appendingPathComponent("StudyDesk_DL_\(UUID().uuidString)_\(fileName)")
 
         var copyError: Error? = nil
         do {

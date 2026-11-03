@@ -1498,14 +1498,19 @@ public enum CoursePDFGenerator {
         let totalGross = store.moduleTotalGross(course: course, module: module)
         let b = module.billing ?? ModuleBilling()
 
+        var stripItems: [(String, String)] = [
+            ("Livello QCER", lvlName),
+            ("Modulo", module.name),
+            ("Ore Totali", String(format: "%.1fh", totalHrs)),
+            ("Tariffa Oraria Netta", store.formatMoney(b.hourlyRateNet)),
+            ("Totale Modulo Lordo", store.formatMoney(totalGross))
+        ]
+        if b.paidHours > 0 {
+            stripItems.append(("Ore Pagate", String(format: "%.1fh", b.paidHours)))
+        }
+
         drawInfoStrip(
-            items: [
-                ("Livello QCER", lvlName),
-                ("Modulo", module.name),
-                ("Orario Standard", "\(store.formatTimeDisplay(module.startTime)) - \(store.formatTimeDisplay(module.endTime))"),
-                ("Tariffa Oraria Netta", store.formatMoney(b.hourlyRateNet)),
-                ("Totale Modulo Lordo", store.formatMoney(totalGross))
-            ],
+            items: stripItems,
             softNS: softNS,
             textAccentNS: textAccentNS,
             cursorY: &context.cursorY

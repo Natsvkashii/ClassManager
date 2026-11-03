@@ -160,7 +160,10 @@
     let lastConflicts = engine.getState().conflicts.length;
     engine.on('state', (st) => {
       const n = st.conflicts.length;
-      if (n > lastConflicts) window.__hd_notify('HubDesk – conflitto di sincronizzazione', n - lastConflicts === 1 ? `${st.conflicts[n - 1].title} è stato modificato su due dispositivi.` : `${n - lastConflicts} elementi sono stati modificati su due dispositivi.`).catch(() => {});
+      if (n > lastConflicts) {
+        window.__hd_notify('HubDesk – conflitto di sincronizzazione', n - lastConflicts === 1 ? `${st.conflicts[n - 1].title} è stato modificato su due dispositivi.` : `${n - lastConflicts} elementi sono stati modificati su due dispositivi.`).catch(() => {});
+        fire('nav', 'conflicts');
+      }
       lastConflicts = n;
     });
     setInterval(() => manager.refreshInstalled().catch(() => {}), 15000);

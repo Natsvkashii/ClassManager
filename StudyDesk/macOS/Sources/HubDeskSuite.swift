@@ -58,7 +58,7 @@ public enum RecordsMirror {
         let foreign = H != nil && hDevice != me
         let newer = foreign && stamp(H?["updatedAt"] as? String) > localStamp(L)
         if let lh {
-            guard let H else { return (.put, lh) }
+            guard H != nil else { return (.put, lh) }
             if hDeleted {
                 let del = foreign && (k == nil ? newer : lh == k)
                 return del ? (.deleteLocal, "") : (.put, lh)
@@ -67,7 +67,7 @@ public enum RecordsMirror {
             let hubWins = foreign && (k == nil ? newer : (hh != k && (lh == k || newer)))
             return hubWins ? (.applyLocal, hh!) : (.put, lh)
         }
-        guard let H, !hDeleted else { return (.none, "") }
+        guard H != nil, !hDeleted else { return (.none, "") }
         if hasTomb { return (hh == k || hDevice == me) ? (.remove, "") : (.applyLocal, hh!) }
         if let k, !k.isEmpty, hh == k { return (.remove, "") }   // removed locally without a tombstone
         return (.applyLocal, hh!)
@@ -107,11 +107,11 @@ public final class HubDeskClient {
         guard !started else { return }
         started = true
         BoardModel.shared.hubClient = self
-        link.onState = { [weak self] up in MainActor.assumeIsolated { self?.linkChanged(up) } }
-        link.onMessage = { [weak self] m in MainActor.assumeIsolated { self?.handle(m) } }
+        link.onState = { [weak self] up in _ = MainActor.assumeIsolated { self?.linkChanged(up) } }
+        link.onMessage = { [weak self] m in _ = MainActor.assumeIsolated { self?.handle(m) } }
         link.start()
-        watcher = DeskHubRecords(app: "studydesk").watch { [weak self] in MainActor.assumeIsolated { self?.reconcile(full: true) } }
-        timer = Timer.scheduledTimer(withTimeInterval: 5, repeats: true) { [weak self] _ in MainActor.assumeIsolated { self?.refreshStatus() } }
+        watcher = DeskHubRecords(app: "studydesk").watch { [weak self] in _ = MainActor.assumeIsolated { self?.reconcile(full: true) } }
+        timer = Timer.scheduledTimer(withTimeInterval: 5, repeats: true) { [weak self] _ in _ = MainActor.assumeIsolated { self?.refreshStatus() } }
         refreshStatus()
         reconcile(full: true)
     }
@@ -138,7 +138,11 @@ public final class HubDeskClient {
         hubRunning = DeskHubPaths.runtime() != nil
         hubInstalled = DeskHubBootstrap.isHubInstalled || hubRunning
         if !linkConnected { peers = DeskHubPaths.peers().map(HubPeer.init) }
-        if let c = DeskHubPaths.readJSON(DeskHubPaths.file("conflicts.json")) as? [Any] { conflictCount = c.count } else { conflictCount = 0 }
+        let newConflicts = (DeskHubPaths.readJSON(DeskHubPaths.file("conflicts.json")) as? [Any])?.count ?? 0
+        if newConflicts > 0 && conflictCount == 0 && hubInstalled {
+            DeskHubBootstrap.openHub(page: "conflicts")
+        }
+        conflictCount = newConflicts
         if started, let store { BookTransfer.shared.store = store; BookTransfer.shared.step(store: store, connected: linkConnected) }
     }
 
@@ -182,7 +186,7 @@ public final class HubDeskClient {
     public func scheduleExport() {
         guard started else { return }
         pendingExport?.cancel()
-        let w = DispatchWorkItem { [weak self] in MainActor.assumeIsolated { self?.reconcile(full: false) } }
+        let w = DispatchWorkItem { [weak self] in _ = MainActor.assumeIsolated { self?.reconcile(full: false) } }
         pendingExport = w
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.4, execute: w)
     }

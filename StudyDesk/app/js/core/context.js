@@ -23,6 +23,6 @@ export function progressKey(moduleId, context) {
 /** Label shown in the module header; '' for the personal context. */
 export function contextLabel(context, group) {
   if (!context) return '';
-  if (context === BLANK_CONTEXT) return 'Libro non completato';
+  if (context === BLANK_CONTEXT) return '';
   return `Gruppo: ${group?.name || context}`;
 }

@@ -26,6 +26,28 @@ public enum Theme {
     public static let violet = Color(red: 0.545, green: 0.361, blue: 0.965)
 }
 
+public struct VersionBadge: View {
+    public let buildType: String
+    public init(_ buildType: String = HubInfo.buildType) { self.buildType = buildType }
+
+    public var body: some View {
+        let (bg, letter): (Color, String) = switch buildType.lowercased() {
+        case "stable": (Theme.ok, "S")
+        case "beta": (Color.yellow, "β")
+        default: (Theme.bad, "I")
+        }
+        ZStack {
+            Circle()
+                .fill(bg)
+                .frame(width: 14, height: 14)
+            Text(letter)
+                .font(.system(size: 8.5, weight: .black, design: .rounded))
+                .foregroundStyle(buildType.lowercased() == "beta" ? Color.black : Color.white)
+        }
+        .help(buildType.lowercased() == "stable" ? "Versione stabile (S)" : (buildType.lowercased() == "beta" ? "Versione beta (β)" : "Versione interna instabile (I)"))
+    }
+}
+
 struct Card<Content: View>: View {
     @Environment(\.colorScheme) private var scheme
     let content: Content

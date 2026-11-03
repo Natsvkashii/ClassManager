@@ -19,6 +19,7 @@ import Observation
 public struct AppCard {
     public var installedVersion: String?
     public var installedURL: URL?
+    public var buildType: String = "internal"
     public var available: Available?
     public var progress: Double?
     public var busy: String?
@@ -193,11 +194,13 @@ public final class AppManager {
             if a == .hubdesk {
                 c.installedVersion = HubInfo.appVersion
                 c.installedURL = Catalog.installedURL(.hubdesk)
+                c.buildType = HubInfo.buildType
                 c.isRunning = true
             } else {
                 let url = Catalog.installedURL(a)
                 c.installedURL = url
                 c.installedVersion = url.flatMap { Catalog.installedVersion(at: $0) }
+                c.buildType = url.map { Catalog.installedBuildType(at: $0) } ?? "internal"
                 c.isRunning = !Catalog.running(a).isEmpty
             }
             cards[a] = c

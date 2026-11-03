@@ -5,6 +5,26 @@ Il formato è basato su [Keep a Changelog](https://keepachangelog.com/it/1.0.0/)
 
 ---
 
+## [26.11.1-008] — 2026-11-03 (Beta)
+- Pulizia del progetto: rimossi file di build obsoleti e copie duplicate del logo; nessun cambiamento di funzionamento.
+
+## [26.11.1-007] — 2026-11-02 (Unstable)
+- Windows: risolto l'errore di sintassi all'avvio in WebView2 dovuto a una virgola residua dopo la definizione di metodo nella classe JavaScript, che bloccava l'inizializzazione dell'interfaccia e causava l'apertura su schermata vuota.
+
+## [26.11.1-006] — 2026-11-02 (Unstable)
+- Fatturazione Modulo: salvataggio immediato e persistente dell'importo pagato dallo studente (`studentPaidAmount`) con conferma esplicita al cambio valore, svincolato dal reset delle tariffe batch.
+- Presenze e Piano Lezioni: visualizzazione in tempo reale e sempre visibile delle ore pagate dallo studente (`Ore Pagate: X.Xh`) e calcolo automatico delle ore mancanti da pianificare (`Mancano da fare: X.Xh` o `Ore Pagate Coperte`).
+- Creazione Lezioni dal Piano Lezioni: aggiunto il pulsante «Nuova Lezione» nella barra degli strumenti del calendario del modulo e un pulsante rapido «+» su ogni singola cella giornaliera per pianificare lezioni direttamente dal calendario.
+
+## [26.11.1-005] — 2026-11-02 (Unstable)
+- Allineamento alla release interna instabile della suite Classroom Tools 26.11.1-005 con correzione della sincronizzazione libri tra dispositivi tramite HubDesk.
+
+## [26.11.1-001] — 2026-11-02 (Unstable)
+- Allineamento alla release interna instabile della suite Classroom Tools 26.11.1-001.
+- Indicatori versione: aggiunto l'indicatore dinamico a pallino prima del numero di versione (S verde per stabile, β giallo per beta, I rosso per interna instabile) nei Crediti, nelle Informazioni e nella barra laterale.
+- Sincronizzazione: rimossa la notifica toast di avvenuta ricezione dati da un altro computer in background; le notifiche appaiono esclusivamente in presenza di errori.
+- Conflitti: richiesta automatica di apertura della pagina dei conflitti in HubDesk quando vengono rilevati elementi modificati su due dispositivi.
+
 ## [26.11.0-010] — 2026-11-01 (Stabile)
 - Rilascio sul canale Stabile della suite Classroom Tools 26.11.
 - Consolidamento delle funzionalità di sincronizzazione continua e fatturazione automatica.

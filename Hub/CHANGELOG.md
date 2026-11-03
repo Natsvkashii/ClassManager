@@ -1,5 +1,23 @@
 # HubDesk – Changelog
 
+## 26.11.1-008 (Beta)
+- Allineamento alla beta Classroom Tools 26.11.1-008 (trascrizioni sincronizzate parola per parola in StudyDesk).
+
+## 26.11.1-007 (Unstable)
+- Allineamento alla release interna instabile Classroom Tools 26.11.1-007 con risoluzione della schermata vuota all'avvio di ClassDesk su Windows.
+
+## 26.11.1-006 (Unstable)
+- Allineamento alla release interna instabile Classroom Tools 26.11.1-006 con perfezionamento dell'indice attività di StudyDesk su Windows e pianificazione lezioni con monitoraggio ore pagate in ClassDesk.
+
+## 26.11.1-005 (Unstable)
+- Allineamento alla release interna instabile della suite Classroom Tools 26.11.1-005 con correzione dell'importazione dei libri trasferiti.
+
+## 26.11.1-001 (Unstable)
+- Indicatori dinamici del tipo di versione: visualizzazione di un pallino colorato prima del numero di versione (verde con «S» per stabile, giallo con «β» per beta, rosso con «I» per interna) nell'Hub, nelle schede app e nelle informazioni, collegato alle variabili native di ciascuna applicazione.
+- Gestione automatica conflitti: apertura immediata della pagina dei conflitti al rilevamento di dati modificati contemporaneamente su più dispositivi.
+- Sincronizzazione: silenziati gli avvisi di sincronizzazione riuscita in background; segnalazione solo in caso di errore.
+- Allineamento alla release Classroom Tools 26.11.1-001 (versione interna instabile).
+
 ## 26.11.0-010 (Stabile)
 - Rilascio sul canale Stabile della suite Classroom Tools 26.11.
 - Gestione centralizzata della sincronizzazione, avanzamento libri e aggiornamenti per la suite.

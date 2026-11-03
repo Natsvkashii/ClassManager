@@ -152,3 +152,7 @@ h1, h2, h3 { margin: 0; line-height: 1.25; }
 .between { justify-content: space-between; } .end { justify-content: flex-end; } .grow { flex: 1; } .nomargin { margin: 0; } .mt { margin-top: .8rem; } .mb { margin-bottom: .4rem; }
 .w16 { width: 16rem; } .w12 { width: 12rem; }
 .setting .row { flex-wrap: nowrap; } .setting > div:first-child { min-width: 0; }
+.channel-dot { display: inline-grid; place-items: center; width: 15px; height: 15px; border-radius: 50%; font-size: 9.5px; font-weight: 900; vertical-align: middle; line-height: 1; margin-right: 5px; flex-shrink: 0; }
+.channel-dot.badge-s { background: #10b981; color: #fff; }
+.channel-dot.badge-beta { background: #f59e0b; color: #000; }
+.channel-dot.badge-i { background: #ef4444; color: #fff; }

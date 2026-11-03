@@ -125,7 +125,12 @@ public final class AppStore {
         let dirs = (try? fm.contentsOfDirectory(at: modulesDir, includingPropertiesForKeys: nil)) ?? []
         modules = dirs.compactMap { d in
             guard let data = try? Data(contentsOf: d.appendingPathComponent("module.json")) else { return nil }
-            return try? JSONDecoder().decode(StudyModule.self, from: data)
+            do {
+                return try JSONDecoder().decode(StudyModule.self, from: data)
+            } catch {
+                NSLog("StudyDesk: Errore caricamento modulo %@: %@", d.lastPathComponent, String(describing: error))
+                return nil
+            }
         }.sorted { ($0.course ?? "", $0.title) < ($1.course ?? "", $1.title) }
         reloadBooks()
     }
@@ -272,19 +277,53 @@ public final class AppStore {
     public var activeContextLabel: String {
         switch activeContext {
         case nil: return state.isTeacher ? "Il mio libro" : ""
-        case Self.blankContext?: return "Libro non completato"
+        case Self.blankContext?: return ""
         case let id?: return "Gruppo: \(group(id)?.name ?? "?")"
         }
     }
 
-    /// Opens a book: a teacher whose book is assigned to groups chooses the context first.
+    public func groupsForBook(_ id: String?) -> [StudyGroup] {
+        guard let id else { return [] }
+        return state.groups.filter { $0.bookIds.contains(id) && $0.archived != true }
+    }
+
+    public var orderedBooks: [StudyBook] {
+        if state.bookOrder.isEmpty { return books }
+        var list: [StudyBook] = []
+        for bid in state.bookOrder {
+            if let b = books.first(where: { $0.id == bid }) { list.append(b) }
+        }
+        for b in books {
+            if !list.contains(where: { $0.id == b.id }) { list.append(b) }
+        }
+        return list
+    }
+
+    public func reorderBooks(from sourceId: String, to targetId: String) {
+        var ids = orderedBooks.map(\.id)
+        guard let fromIdx = ids.firstIndex(of: sourceId), let toIdx = ids.firstIndex(of: targetId), fromIdx != toIdx else { return }
+        let moved = ids.remove(at: fromIdx)
+        ids.insert(moved, at: toIdx)
+        state.bookOrder = ids
+        persist()
+    }
+
+    /// Opens a book directly using the associated group context (or personal copy).
     public func requestOpenBook(_ id: String) {
         currentTab = .home
-        if state.isTeacher && state.groups.contains(where: { $0.bookIds.contains(id) && $0.archived != true }) {
-            pendingBookForContext = id
+        let groups = groupsForBook(id)
+        if state.isTeacher && !groups.isEmpty {
+            if let cur = activeContext, groups.contains(where: { $0.id == cur }) {
+                // Keep active context
+            } else {
+                activeContext = groups.first?.id
+            }
         } else {
-            withAnimation(.spring(response: 0.6, dampingFraction: 0.86)) { openBookId = id }
+            activeContext = nil
         }
+        scratchProgress = [:]
+        pendingBookForContext = nil
+        withAnimation(.spring(response: 0.6, dampingFraction: 0.86)) { openBookId = id }
     }
 
     public func openBook(_ id: String, context: String?) {

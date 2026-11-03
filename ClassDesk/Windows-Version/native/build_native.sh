@@ -33,6 +33,8 @@ python3 "$SCRIPT_DIR/generate_assets.py"
 ZIG_BIN=""
 if command -v zig &>/dev/null; then
     ZIG_BIN="zig"
+elif [ -f "$HOME/.local/bin/zig" ]; then
+    ZIG_BIN="$HOME/.local/bin/zig"
 elif [ -f "/tmp/zig/zig" ]; then
     ZIG_BIN="/tmp/zig/zig"
 else

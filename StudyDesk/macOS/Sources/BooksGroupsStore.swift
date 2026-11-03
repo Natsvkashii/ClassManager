@@ -293,8 +293,13 @@ extension AppStore {
         var readable: [(URL, StudyModule)] = []
         var unreadable: [String] = []
         for folder in folders where fm.fileExists(atPath: folder.appendingPathComponent("module.json").path) {
-            do { readable.append((folder, try JSONDecoder().decode(StudyModule.self, from: Data(contentsOf: folder.appendingPathComponent("module.json"))))) }
-            catch { unreadable.append(folder.lastPathComponent) }
+            do {
+                let mod = try JSONDecoder().decode(StudyModule.self, from: Data(contentsOf: folder.appendingPathComponent("module.json")))
+                readable.append((folder, mod))
+            } catch {
+                NSLog("StudyDesk: Errore decodifica capitolo %@: %@", folder.lastPathComponent, String(describing: error))
+                unreadable.append(folder.lastPathComponent)
+            }
         }
         for (i, item) in readable.enumerated() {
             let folder = item.0
