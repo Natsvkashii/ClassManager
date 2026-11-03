@@ -14,32 +14,129 @@ import SwiftUI
 import AppKit
 import AVKit
 import AVFoundation
+import Combine
 
 // MARK: - Shared building blocks
 
 struct RichText: View {
+    @AppStorage("studydesk.exerciseScale") private var exerciseScale = 1
     let text: String
-    var font: Font = .body
-    init(_ text: String, font: Font = .body) { self.text = text; self.font = font }
+    var baseSize: CGFloat = 14
+    var font: Font? = nil
+    var isItalic: Bool = false
+    var moduleId: String? = nil
+
+    private var scaleFactor: CGFloat {
+        switch exerciseScale {
+        case 2: return 1.2
+        case 3: return 1.4
+        case 4: return 1.6
+        default: return 1.0
+        }
+    }
+
+    init(_ text: String, font: Font? = nil, baseSize: CGFloat = 14, isItalic: Bool = false, moduleId: String? = nil) {
+        self.text = text
+        self.font = font
+        self.baseSize = baseSize
+        self.isItalic = isItalic
+        self.moduleId = moduleId
+    }
+
+    public func italic(_ val: Bool = true) -> RichText {
+        var copy = self
+        copy.isItalic = val
+        return copy
+    }
 
     var body: some View {
         let paragraphs = text.replacingOccurrences(of: "__", with: "**").components(separatedBy: "\n")
-        VStack(alignment: .leading, spacing: 4) {
+        let effectiveFont: Font = if let font {
+            font
+        } else {
+            isItalic ? .system(size: baseSize * scaleFactor).italic() : .system(size: baseSize * scaleFactor)
+        }
+        VStack(alignment: .leading, spacing: 6 * scaleFactor) {
             ForEach(Array(paragraphs.enumerated()), id: \.offset) { _, p in
                 if p.trimmingCharacters(in: .whitespaces).isEmpty {
-                    Spacer().frame(height: 4)
+                    Spacer().frame(height: 4 * scaleFactor)
+                } else if p.contains("![") && p.contains("](") {
+                    renderParagraphWithImages(p, effectiveFont: effectiveFont)
                 } else if p.hasPrefix("- ") {
-                    HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    HStack(alignment: .firstTextBaseline, spacing: 6 * scaleFactor) {
                         Text("•").foregroundStyle(.secondary)
-                        Text(md(String(p.dropFirst(2)))).font(font)
+                        Text(md(String(p.dropFirst(2)))).font(effectiveFont)
                     }
                 } else {
-                    Text(md(p)).font(font)
+                    Text(md(p)).font(effectiveFont)
                 }
             }
         }
         .textSelection(.enabled)
         .fixedSize(horizontal: false, vertical: true)
+    }
+
+    private struct RichSegment: Identifiable {
+        let id: Int
+        let text: String?
+        let image: (alt: String, path: String)?
+    }
+
+    private func parseSegments(_ p: String) -> [RichSegment] {
+        var segs: [RichSegment] = []
+        let pattern = #"!\[(.*?)\]\((.*?)\)"#
+        guard let regex = try? NSRegularExpression(pattern: pattern) else {
+            return [RichSegment(id: 0, text: p, image: nil)]
+        }
+        let nsString = p as NSString
+        let matches = regex.matches(in: p, range: NSRange(location: 0, length: nsString.length))
+        guard !matches.isEmpty else {
+            return [RichSegment(id: 0, text: p, image: nil)]
+        }
+        var lastIndex = 0
+        var counter = 0
+        for match in matches {
+            let textBefore = nsString.substring(with: NSRange(location: lastIndex, length: match.range.location - lastIndex))
+            if !textBefore.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                counter += 1
+                segs.append(RichSegment(id: counter, text: textBefore, image: nil))
+            }
+            let alt = nsString.substring(with: match.range(at: 1))
+            let imgPath = nsString.substring(with: match.range(at: 2))
+            counter += 1
+            segs.append(RichSegment(id: counter, text: nil, image: (alt: alt, path: imgPath)))
+            lastIndex = match.range.location + match.range.length
+        }
+        if lastIndex < nsString.length {
+            let textAfter = nsString.substring(from: lastIndex)
+            if !textAfter.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                counter += 1
+                segs.append(RichSegment(id: counter, text: textAfter, image: nil))
+            }
+        }
+        return segs
+    }
+
+    @ViewBuilder
+    private func renderParagraphWithImages(_ p: String, effectiveFont: Font) -> some View {
+        let segs = parseSegments(p)
+        VStack(alignment: .leading, spacing: 6) {
+            ForEach(segs) { seg in
+                if let t = seg.text {
+                    Text(md(t)).font(effectiveFont)
+                } else if let img = seg.image {
+                    VStack(alignment: .leading, spacing: 3) {
+                        if let modId = moduleId, !modId.isEmpty {
+                            ModuleImage(moduleId: modId, path: img.path, maxHeight: 220)
+                        }
+                        if !img.alt.isEmpty {
+                            Text(img.alt).font(.caption).foregroundStyle(.secondary)
+                        }
+                    }
+                    .padding(.vertical, 4)
+                }
+            }
+        }
     }
 
     private func md(_ s: String) -> AttributedString {
@@ -155,6 +252,7 @@ struct ModuleImage: View {
 
 struct AudioPlayerView: View {
     @Environment(AppStore.self) private var store
+    @AppStorage("studydesk.exerciseScale") private var exerciseScale = 1
     let moduleId: String
     let media: Media
     @State private var player: AVPlayer? = nil
@@ -163,41 +261,152 @@ struct AudioPlayerView: View {
     @State private var duration: Double = 0
     @State private var rate: Float = 1
     @State private var showTranscript = false
-    private let tick = Timer.publish(every: 0.25, on: .main, in: .common).autoconnect()
+    @State private var showFullScreenLyrics = false
+    @State private var activeTimeline: [Double] = []
+    private let tick = Timer.publish(every: 0.05, on: .main, in: .common).autoconnect()
+
+    nonisolated static func extractActiveTimes(from url: URL) -> [Double] {
+        guard let file = try? AVAudioFile(forReading: url) else { return [] }
+        let format = file.processingFormat
+        let frameCount = AVAudioFrameCount(file.length)
+        guard frameCount > 0, let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: frameCount) else { return [] }
+        try? file.read(into: buffer)
+        guard let channelData = buffer.floatChannelData?[0] else { return [] }
+
+        let sr = format.sampleRate
+        guard sr > 0 else { return [] }
+        let win = Int(sr * 0.05) // 50ms window
+        guard win > 0 else { return [] }
+
+        var maxRms: Float = 0
+        var rmsList: [(Double, Float)] = []
+        for i in stride(from: 0, to: Int(frameCount), by: win) {
+            let count = min(win, Int(frameCount) - i)
+            var sum: Float = 0
+            for j in 0..<count {
+                let s = channelData[i + j]
+                sum += s * s
+            }
+            let rms = sqrt(sum / Float(count))
+            if rms > maxRms { maxRms = rms }
+            rmsList.append((Double(i) / sr, rms))
+        }
+        let thresh = max(0.015, maxRms * 0.08)
+        var active = rmsList.filter { $0.1 >= thresh }.map { $0.0 }
+        if active.count > 5, active[0] < 2.5 {
+            for i in 0..<min(40, active.count - 1) {
+                if active[i + 1] - active[i] > 0.7 {
+                    active = Array(active.suffix(from: i + 1))
+                    break
+                }
+            }
+        }
+        return active
+    }
+
+    private var scaleFactor: CGFloat {
+        switch exerciseScale {
+        case 2: return 1.2
+        case 3: return 1.4
+        case 4: return 1.6
+        default: return 1.0
+        }
+    }
+
+    private func formatRate(_ r: Double) -> String {
+        if r == 1.0 { return "1×" }
+        let s = String(format: "%.2f", r)
+            .replacingOccurrences(of: "0+$", with: "", options: .regularExpression)
+            .replacingOccurrences(of: "\\.$", with: "", options: .regularExpression)
+            .replacingOccurrences(of: ".", with: ",")
+        return "\(s)×"
+    }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 10) {
-                Image(systemName: "speaker.wave.2.fill").foregroundStyle(Theme.warn)
-                Text(media.label ?? "Ascolto").font(.system(size: 12, weight: .heavy)).foregroundStyle(Theme.warn)
+        VStack(alignment: .leading, spacing: 8 * scaleFactor) {
+            HStack(spacing: 10 * scaleFactor) {
+                Image(systemName: "speaker.wave.2.fill").font(.system(size: 14 * scaleFactor)).foregroundStyle(Theme.warn)
+                Text(media.label ?? "Ascolto").font(.system(size: 12 * scaleFactor, weight: .heavy)).foregroundStyle(Theme.warn)
                 Spacer()
-                Menu("\(rate == 1 ? "1" : String(format: "%.2g", rate))×") {
-                    ForEach([0.75, 0.9, 1.0, 1.25], id: \.self) { r in Button("\(r)×") { rate = Float(r); if playing { player?.rate = rate } } }
+                if let t = media.transcript, !t.isEmpty {
+                    Button {
+                        showFullScreenLyrics = true
+                    } label: {
+                        HStack(spacing: 4 * scaleFactor) {
+                            Image(systemName: "arrow.up.left.and.arrow.down.right")
+                            Text("Schermo intero")
+                        }
+                        .font(.system(size: 11 * scaleFactor, weight: .bold))
+                        .foregroundStyle(Theme.warn)
+                        .padding(.horizontal, 8 * scaleFactor)
+                        .padding(.vertical, 3 * scaleFactor)
+                        .background(Capsule().fill(Theme.warn.opacity(0.15)))
+                    }
+                    .buttonStyle(.plain)
+                    .help("Visualizza trascrizione e audio a schermo intero stile Spotify")
                 }
+                Menu(formatRate(Double(rate))) {
+                    ForEach([0.75, 0.9, 1.0, 1.25], id: \.self) { r in
+                        Button(formatRate(r)) {
+                            rate = Float(r)
+                            if playing { player?.rate = rate }
+                        }
+                    }
+                }
+                .font(.system(size: 12 * scaleFactor, weight: .bold))
                 .menuStyle(.borderlessButton).fixedSize()
                 .help("Velocità di riproduzione")
             }
-            HStack(spacing: 10) {
+            HStack(spacing: 10 * scaleFactor) {
                 Button { toggle() } label: {
-                    Image(systemName: playing ? "pause.circle.fill" : "play.circle.fill").font(.system(size: 30))
+                    Image(systemName: playing ? "pause.circle.fill" : "play.circle.fill").font(.system(size: 30 * scaleFactor))
                 }
                 .buttonStyle(.plain).foregroundStyle(Theme.warn)
-                Button { seek(max(0, position - 5)) } label: { Image(systemName: "gobackward.5") }.buttonStyle(.plain)
+                Button { seek(max(0, position - 5)) } label: { Image(systemName: "gobackward.5").font(.system(size: 14 * scaleFactor)) }.buttonStyle(.plain)
                 Slider(value: Binding(get: { position }, set: { seek($0) }), in: 0...max(duration, 1))
-                Text("\(fmt(position)) / \(duration > 0 ? fmt(duration) : "--:--")").font(.system(size: 11, design: .monospaced)).foregroundStyle(.secondary)
+                Text("\(fmt(position)) / \(duration > 0 ? fmt(duration) : "--:--")").font(.system(size: 11 * scaleFactor, design: .monospaced)).foregroundStyle(.secondary)
             }
             if let t = media.transcript, !t.isEmpty {
                 DisclosureGroup(isExpanded: $showTranscript) {
-                    Text(t).font(.callout).textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(10).background(RoundedRectangle(cornerRadius: 8).fill(Color.primary.opacity(0.04)))
+                    SyncedTranscriptView(transcript: t, position: position, duration: max(duration, 1), activeTimeline: activeTimeline, wordTimes: media.wordTimes, isPlaying: playing, scaleFactor: scaleFactor, onSeek: { seek($0) })
+                        .padding(8)
                 } label: {
-                    Text("Trascrizione").font(.caption.bold())
+                    HStack(spacing: 6) {
+                        Image(systemName: "quote.bubble.fill")
+                        Text("Trascrizione").font(.system(size: 12 * scaleFactor, weight: .bold))
+                        if playing {
+                            Text("• In riproduzione").font(.system(size: 10 * scaleFactor, weight: .bold)).foregroundStyle(Theme.warn)
+                        }
+                    }
                 }
             }
         }
         .padding(12)
         .background(RoundedRectangle(cornerRadius: 12).fill(Theme.warn.opacity(0.10)))
         .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Theme.warn.opacity(0.3)))
+        .sheet(isPresented: $showFullScreenLyrics) {
+            if let t = media.transcript, !t.isEmpty {
+                SpotifyFullScreenLyricsView(
+                    title: media.label ?? "Traccia Audio",
+                    subtitle: store.modules.first(where: { $0.id == moduleId })?.course,
+                    transcript: t,
+                    position: position,
+                    duration: max(duration, 1),
+                    activeTimeline: activeTimeline,
+                    wordTimes: media.wordTimes,
+                    playing: playing,
+                    rate: rate,
+                    onToggle: { toggle() },
+                    onSeek: { seek($0) },
+                    onRateChange: { r in
+                        rate = r
+                        if playing { player?.rate = rate }
+                    },
+                    onClose: { showFullScreenLyrics = false }
+                )
+                .frame(minWidth: 880, idealWidth: 1100, maxWidth: .infinity, minHeight: 620, idealHeight: 800, maxHeight: .infinity)
+            }
+        }
         .onReceive(tick) { _ in
             guard let p = player else { return }
             position = p.currentTime().seconds.isFinite ? p.currentTime().seconds : 0
@@ -206,9 +415,16 @@ struct AudioPlayerView: View {
         }
         .onDisappear { player?.pause(); playing = false }
         .task {
-            guard let url = store.assetURL(moduleId, media.src ?? media.url),
-                  let d = try? await AVURLAsset(url: url).load(.duration), d.seconds.isFinite else { return }
-            duration = d.seconds
+            guard let url = store.assetURL(moduleId, media.src ?? media.url) else { return }
+            if let d = try? await AVURLAsset(url: url).load(.duration), d.seconds.isFinite {
+                duration = d.seconds
+            }
+            Task.detached(priority: .userInitiated) {
+                let times = AudioPlayerView.extractActiveTimes(from: url)
+                await MainActor.run {
+                    self.activeTimeline = times
+                }
+            }
         }
     }
 
@@ -228,6 +444,574 @@ struct AudioPlayerView: View {
     private func fmt(_ s: Double) -> String {
         let v = Int(s.isFinite ? s : 0)
         return String(format: "%d:%02d", v / 60, v % 60)
+    }
+}
+
+// MARK: - Spotify-Style Synced Transcript View
+
+struct SyncedTranscriptView: View {
+    let transcript: String
+    let position: Double
+    let duration: Double
+    let activeTimeline: [Double]
+    var wordTimes: [[Double]]? = nil   // real per-word timings from scripts/align_audio.py
+    let isPlaying: Bool
+    let scaleFactor: CGFloat
+    let onSeek: (Double) -> Void
+
+    struct WordItem: Identifiable, Equatable {
+        let id: Int
+        let text: String
+        let start: Double
+        let end: Double
+    }
+
+    struct LineItem: Identifiable, Equatable {
+        let id: Int
+        let speaker: String?
+        let isDialogueTurn: Bool
+        let words: [WordItem]
+        let start: Double
+        let end: Double
+    }
+
+    private var effectivePos: Double {
+        position + (WordTiming.matches(wordTimes, transcript) ? 0.05 : 0.18) // real timings need only a small lead
+    }
+
+    private var lines: [LineItem] {
+        let rawLines = transcript.components(separatedBy: "\n").filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
+        guard !rawLines.isEmpty else { return [] }
+
+        var totalChars = 0
+        var parsedLines: [(speaker: String?, isTurn: Bool, words: [String], charCount: Int)] = []
+
+        for raw in rawLines {
+            var line = raw.trimmingCharacters(in: .whitespaces)
+            var speaker: String? = nil
+            var isTurn = false
+            if line.hasPrefix("- ") || line.hasPrefix("– ") {
+                isTurn = true
+                line = String(line.dropFirst(2)).trimmingCharacters(in: .whitespaces)
+            }
+            if let colonIdx = line.firstIndex(of: ":") {
+                let prefix = String(line[..<colonIdx]).trimmingCharacters(in: .whitespaces)
+                if prefix.count <= 18 {
+                    speaker = prefix
+                    line = String(line[line.index(after: colonIdx)...]).trimmingCharacters(in: .whitespaces)
+                }
+            }
+            let rawWords = line.components(separatedBy: .whitespaces).filter { !$0.isEmpty && $0 != "-" && $0 != "–" }
+            let count = rawWords.reduce(0) { $0 + $1.count }
+            totalChars += max(1, count)
+            parsedLines.append((speaker, isTurn, rawWords, max(1, count)))
+        }
+
+        let dur = max(duration, 1.0)
+        let hasActive = activeTimeline.count > 5
+        let totalFrames = hasActive ? activeTimeline.count : 0
+        let wordCount = parsedLines.reduce(0) { $0 + $1.words.count }
+        let aligned = WordTiming.valid(wordTimes, count: wordCount) ? wordTimes : nil
+        var curChar = 0
+        var wordIdCounter = 0
+        var result: [LineItem] = []
+
+        for (lIdx, pLine) in parsedLines.enumerated() {
+            var lineWords: [WordItem] = []
+            let lineStartChar = curChar
+
+            for wText in pLine.words {
+                let startFrac = Double(curChar) / Double(max(1, totalChars))
+                curChar += wText.count
+                let endFrac = Double(curChar) / Double(max(1, totalChars))
+
+                var wStart: Double
+                var wEnd: Double
+                if let a = aligned {
+                    wStart = a[wordIdCounter][0]
+                    wEnd = max(a[wordIdCounter][1], wStart + 0.05)
+                } else if hasActive {
+                    let sIdx = min(totalFrames - 1, Int(startFrac * Double(totalFrames - 1)))
+                    let eIdx = min(totalFrames - 1, Int(endFrac * Double(totalFrames - 1)))
+                    wStart = activeTimeline[sIdx]
+                    wEnd = max(wStart + 0.1, activeTimeline[eIdx])
+                } else {
+                    wStart = startFrac * dur
+                    wEnd = max(wStart + 0.1, endFrac * dur)
+                }
+                lineWords.append(WordItem(id: wordIdCounter, text: wText, start: wStart, end: wEnd))
+                wordIdCounter += 1
+            }
+
+            let lStart = lineWords.first?.start ?? (Double(lineStartChar) / Double(max(1, totalChars)) * dur)
+            let lEnd = lineWords.last?.end ?? (Double(curChar) / Double(max(1, totalChars)) * dur)
+            result.append(LineItem(id: lIdx, speaker: pLine.speaker, isDialogueTurn: pLine.isTurn, words: lineWords, start: lStart, end: lEnd))
+        }
+
+        return result
+    }
+
+    private var currentLineId: Int? {
+        lines.first(where: { effectivePos >= $0.start && effectivePos <= $0.end })?.id ?? (lines.last?.id)
+    }
+
+    private var currentWordId: Int? {
+        guard isPlaying else { return nil }
+        return lines.flatMap(\.words).last(where: { $0.start <= effectivePos })?.id
+    }
+
+    var body: some View {
+        ScrollViewReader { proxy in
+            ScrollView(.vertical, showsIndicators: true) {
+                VStack(alignment: .leading, spacing: 10 * scaleFactor) {
+                    ForEach(lines) { line in
+                        VStack(alignment: .leading, spacing: 4 * scaleFactor) {
+                            HStack(spacing: 6 * scaleFactor) {
+                                if let spk = line.speaker {
+                                    Text(spk)
+                                        .font(.system(size: 11 * scaleFactor, weight: .black))
+                                        .foregroundStyle(Theme.warn)
+                                        .textCase(.uppercase)
+                                } else if line.isDialogueTurn {
+                                    Text("—")
+                                        .font(.system(size: 12 * scaleFactor, weight: .bold))
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                            FlowWordsLayout(spacing: 5 * scaleFactor) {
+                                ForEach(line.words) { word in
+                                    let isCurrent = isPlaying && currentWordId == word.id
+                                    let isPast = isPlaying && effectivePos >= word.end
+                                    let wordColor: Color = {
+                                        guard isPlaying else { return Color.primary }
+                                        if isCurrent { return Theme.warn }
+                                        if isPast { return Color.primary }
+                                        return Color.secondary.opacity(0.40)
+                                    }()
+
+                                    Button {
+                                        onSeek(max(0, word.start - 0.05))
+                                    } label: {
+                                        Text(word.text)
+                                            .font(.system(size: 13 * scaleFactor, weight: isCurrent ? .black : (isPast ? .semibold : (isPlaying ? .regular : .medium))))
+                                            .foregroundStyle(wordColor)
+                                            .padding(.horizontal, 4 * scaleFactor)
+                                            .padding(.vertical, 2 * scaleFactor)
+                                            .background(
+                                                RoundedRectangle(cornerRadius: 4)
+                                                    .fill(isCurrent ? Theme.warn.opacity(0.22) : Color.clear)
+                                            )
+                                    }
+                                    .buttonStyle(.plain)
+                                }
+                            }
+                        }
+                        .id(line.id)
+                        .padding(.vertical, 2 * scaleFactor)
+                    }
+                }
+                .padding(10)
+            }
+            .frame(maxHeight: 180 * scaleFactor)
+            .background(RoundedRectangle(cornerRadius: 8).fill(Color.primary.opacity(0.04)))
+            .onChange(of: currentLineId) { _, newId in
+                if let newId {
+                    withAnimation(.spring(response: 0.45, dampingFraction: 0.8)) {
+                        proxy.scrollTo(newId, anchor: .center)
+                    }
+                }
+            }
+        }
+    }
+}
+
+struct FlowWordsLayout: Layout {
+    var spacing: CGFloat = 5
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let width = proposal.width ?? 400
+        var height: CGFloat = 0
+        var x: CGFloat = 0
+        var rowHeight: CGFloat = 0
+
+        for view in subviews {
+            let size = view.sizeThatFits(.unspecified)
+            if x + size.width > width && x > 0 {
+                x = 0
+                height += rowHeight + spacing
+                rowHeight = 0
+            }
+            x += size.width + spacing
+            rowHeight = max(rowHeight, size.height)
+        }
+        height += rowHeight
+        return CGSize(width: width, height: height)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        var x = bounds.minX
+        var y = bounds.minY
+        var rowHeight: CGFloat = 0
+
+        for view in subviews {
+            let size = view.sizeThatFits(.unspecified)
+            if x + size.width > bounds.maxX && x > bounds.minX {
+                x = bounds.minX
+                y += rowHeight + spacing
+                rowHeight = 0
+            }
+            view.place(at: CGPoint(x: x, y: y), proposal: ProposedViewSize(size))
+            x += size.width + spacing
+            rowHeight = max(rowHeight, size.height)
+        }
+    }
+}
+
+// MARK: - Spotify-Style Full-Screen Immersive Lyrics & Audio View
+
+struct SpotifyFullScreenLyricsView: View {
+    let title: String
+    let subtitle: String?
+    let transcript: String
+    let position: Double
+    let duration: Double
+    let activeTimeline: [Double]
+    var wordTimes: [[Double]]? = nil   // real per-word timings from scripts/align_audio.py
+    let playing: Bool
+    let rate: Float
+    let onToggle: () -> Void
+    let onSeek: (Double) -> Void
+    let onRateChange: (Float) -> Void
+    let onClose: () -> Void
+
+    private var effectivePos: Double {
+        position + (WordTiming.matches(wordTimes, transcript) ? 0.05 : 0.18) // real timings need only a small lead
+    }
+
+    private var lines: [SyncedTranscriptView.LineItem] {
+        let rawLines = transcript.components(separatedBy: "\n").filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
+        guard !rawLines.isEmpty else { return [] }
+
+        var totalChars = 0
+        var parsedLines: [(speaker: String?, isTurn: Bool, words: [String], charCount: Int)] = []
+
+        for raw in rawLines {
+            var line = raw.trimmingCharacters(in: .whitespaces)
+            var speaker: String? = nil
+            var isTurn = false
+            if line.hasPrefix("- ") || line.hasPrefix("– ") {
+                isTurn = true
+                line = String(line.dropFirst(2)).trimmingCharacters(in: .whitespaces)
+            }
+            if let colonIdx = line.firstIndex(of: ":") {
+                let prefix = String(line[..<colonIdx]).trimmingCharacters(in: .whitespaces)
+                if prefix.count <= 18 {
+                    speaker = prefix
+                    line = String(line[line.index(after: colonIdx)...]).trimmingCharacters(in: .whitespaces)
+                }
+            }
+            let rawWords = line.components(separatedBy: .whitespaces).filter { !$0.isEmpty && $0 != "-" && $0 != "–" }
+            let count = rawWords.reduce(0) { $0 + $1.count }
+            totalChars += max(1, count)
+            parsedLines.append((speaker, isTurn, rawWords, max(1, count)))
+        }
+
+        let dur = max(duration, 1.0)
+        let hasActive = activeTimeline.count > 5
+        let totalFrames = hasActive ? activeTimeline.count : 0
+        let wordCount = parsedLines.reduce(0) { $0 + $1.words.count }
+        let aligned = WordTiming.valid(wordTimes, count: wordCount) ? wordTimes : nil
+        var curChar = 0
+        var wordIdCounter = 0
+        var result: [SyncedTranscriptView.LineItem] = []
+
+        for (lIdx, pLine) in parsedLines.enumerated() {
+            var lineWords: [SyncedTranscriptView.WordItem] = []
+            let lineStartChar = curChar
+
+            for wText in pLine.words {
+                let startFrac = Double(curChar) / Double(max(1, totalChars))
+                curChar += wText.count
+                let endFrac = Double(curChar) / Double(max(1, totalChars))
+
+                var wStart: Double
+                var wEnd: Double
+                if let a = aligned {
+                    wStart = a[wordIdCounter][0]
+                    wEnd = max(a[wordIdCounter][1], wStart + 0.05)
+                } else if hasActive {
+                    let sIdx = min(totalFrames - 1, Int(startFrac * Double(totalFrames - 1)))
+                    let eIdx = min(totalFrames - 1, Int(endFrac * Double(totalFrames - 1)))
+                    wStart = activeTimeline[sIdx]
+                    wEnd = max(wStart + 0.1, activeTimeline[eIdx])
+                } else {
+                    wStart = startFrac * dur
+                    wEnd = max(wStart + 0.1, endFrac * dur)
+                }
+                lineWords.append(SyncedTranscriptView.WordItem(id: wordIdCounter, text: wText, start: wStart, end: wEnd))
+                wordIdCounter += 1
+            }
+
+            let lStart = lineWords.first?.start ?? (Double(lineStartChar) / Double(max(1, totalChars)) * dur)
+            let lEnd = lineWords.last?.end ?? (Double(curChar) / Double(max(1, totalChars)) * dur)
+            result.append(SyncedTranscriptView.LineItem(id: lIdx, speaker: pLine.speaker, isDialogueTurn: pLine.isTurn, words: lineWords, start: lStart, end: lEnd))
+        }
+
+        return result
+    }
+
+    private var currentLineId: Int? {
+        lines.first(where: { effectivePos >= $0.start && effectivePos <= $0.end })?.id ?? (lines.last?.id)
+    }
+
+    private var currentWordId: Int? {
+        guard playing else { return nil }
+        return lines.flatMap(\.words).last(where: { $0.start <= effectivePos })?.id
+    }
+
+    private func fmt(_ s: Double) -> String {
+        let v = Int(s.isFinite ? s : 0)
+        return String(format: "%d:%02d", v / 60, v % 60)
+    }
+
+    private func formatRate(_ r: Double) -> String {
+        if r == 1.0 { return "1×" }
+        let s = String(format: "%.2f", r)
+            .replacingOccurrences(of: "0+$", with: "", options: .regularExpression)
+            .replacingOccurrences(of: "\\.$", with: "", options: .regularExpression)
+            .replacingOccurrences(of: ".", with: ",")
+        return "\(s)×"
+    }
+
+    var body: some View {
+        ZStack {
+            // Deep Spotify Ocean Gradient Background
+            LinearGradient(
+                colors: [
+                    Color(red: 0.05, green: 0.16, blue: 0.32),
+                    Color(red: 0.03, green: 0.10, blue: 0.22),
+                    Color(red: 0.01, green: 0.05, blue: 0.12)
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .ignoresSafeArea()
+
+            VStack(spacing: 0) {
+                // Top Header Bar
+                HStack(alignment: .center) {
+                    HStack(spacing: 12) {
+                        Image(systemName: "headphones")
+                            .font(.system(size: 20, weight: .bold))
+                            .foregroundStyle(Color.white.opacity(0.85))
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(title)
+                                .font(.system(size: 16, weight: .heavy))
+                                .foregroundStyle(.white)
+                            if let sub = subtitle, !sub.isEmpty {
+                                Text(sub)
+                                    .font(.system(size: 12, weight: .medium))
+                                    .foregroundStyle(Color.white.opacity(0.60))
+                            }
+                        }
+                    }
+                    Spacer()
+                    Button {
+                        onClose()
+                    } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: "xmark.circle.fill")
+                                .font(.system(size: 20))
+                            Text("Chiudi")
+                                .font(.system(size: 13, weight: .bold))
+                        }
+                        .foregroundStyle(Color.white.opacity(0.85))
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 8)
+                        .background(Capsule().fill(Color.white.opacity(0.14)))
+                    }
+                    .buttonStyle(.plain)
+                    .keyboardShortcut(.cancelAction)
+                }
+                .padding(.horizontal, 36)
+                .padding(.top, 24)
+                .padding(.bottom, 12)
+
+                // Large Spotify Lyrics Area with smooth spring scrolling
+                ScrollViewReader { proxy in
+                    ScrollView(.vertical, showsIndicators: false) {
+                        VStack(alignment: .leading, spacing: 28) {
+                            Color.clear.frame(height: 120)
+
+                            ForEach(lines) { line in
+                                let isLineActive = currentLineId == line.id
+                                VStack(alignment: .leading, spacing: 8) {
+                                    if let spk = line.speaker {
+                                        Text(spk)
+                                            .font(.system(size: 14, weight: .black))
+                                            .foregroundStyle(isLineActive ? Color.cyan : Color.white.opacity(0.40))
+                                            .textCase(.uppercase)
+                                            .tracking(1.2)
+                                    }
+
+                                    FlowWordsLayout(spacing: 10) {
+                                        ForEach(line.words) { word in
+                                            let isWordActive = isLineActive && currentWordId == word.id
+                                            let isWordPast = playing && effectivePos >= word.end
+
+                                            Button {
+                                                onSeek(max(0, word.start - 0.05))
+                                            } label: {
+                                                Text(word.text)
+                                                    .font(.system(size: isLineActive ? 34 : 28, weight: isWordActive ? .black : (isLineActive ? .bold : .semibold)))
+                                                    .foregroundStyle(
+                                                        isWordActive ? Color.white :
+                                                        (isLineActive ? Color.white.opacity(0.92) :
+                                                        (isWordPast ? Color.white.opacity(0.65) :
+                                                        (playing ? Color.white.opacity(0.32) : Color.white.opacity(0.85))))
+                                                    )
+                                                    .padding(.horizontal, isWordActive ? 6 : 2)
+                                                    .padding(.vertical, 2)
+                                                    .background(
+                                                        RoundedRectangle(cornerRadius: 8)
+                                                            .fill(isWordActive ? Color.white.opacity(0.20) : Color.clear)
+                                                    )
+                                                    .shadow(color: isWordActive ? Color.cyan.opacity(0.45) : Color.clear, radius: 10)
+                                            }
+                                            .buttonStyle(.plain)
+                                        }
+                                    }
+                                }
+                                .id(line.id)
+                                .opacity(isLineActive ? 1.0 : (playing ? 0.40 : 0.85))
+                                .scaleEffect(isLineActive ? 1.02 : 0.98, anchor: .leading)
+                                .animation(.spring(response: 0.45, dampingFraction: 0.8), value: isLineActive)
+                                .padding(.vertical, 4)
+                            }
+
+                            Color.clear.frame(height: 180)
+                        }
+                        .padding(.horizontal, 48)
+                    }
+                    .onChange(of: currentLineId) { _, newId in
+                        if let newId {
+                            withAnimation(.spring(response: 0.55, dampingFraction: 0.82)) {
+                                proxy.scrollTo(newId, anchor: .center)
+                            }
+                        }
+                    }
+                }
+
+                // Bottom Floating Spotify Player Bar
+                VStack(spacing: 10) {
+                    // Timeline Slider & Timestamps
+                    HStack(spacing: 14) {
+                        Text(fmt(position))
+                            .font(.system(size: 12, weight: .bold, design: .monospaced))
+                            .foregroundStyle(Color.white.opacity(0.70))
+                            .frame(width: 45, alignment: .trailing)
+
+                        Slider(
+                            value: Binding(get: { position }, set: { onSeek($0) }),
+                            in: 0...max(duration, 1)
+                        )
+                        .tint(Color.cyan)
+
+                        Text(duration > 0 ? fmt(duration) : "--:--")
+                            .font(.system(size: 12, weight: .bold, design: .monospaced))
+                            .foregroundStyle(Color.white.opacity(0.70))
+                            .frame(width: 45, alignment: .leading)
+                    }
+
+                    // Playback Controls
+                    HStack(spacing: 24) {
+                        Button {
+                            onSeek(max(0, position - 5))
+                        } label: {
+                            Image(systemName: "gobackward.5")
+                                .font(.system(size: 20, weight: .semibold))
+                                .foregroundStyle(Color.white.opacity(0.85))
+                        }
+                        .buttonStyle(.plain)
+                        .help("Riavvolgi 5 secondi")
+
+                        Button {
+                            onToggle()
+                        } label: {
+                            ZStack {
+                                Circle()
+                                    .fill(Color.white)
+                                    .frame(width: 50, height: 50)
+                                    .shadow(color: Color.black.opacity(0.35), radius: 8, y: 3)
+                                Image(systemName: playing ? "pause.fill" : "play.fill")
+                                    .font(.system(size: 22, weight: .black))
+                                    .foregroundStyle(Color(red: 0.05, green: 0.16, blue: 0.32))
+                                    .offset(x: playing ? 0 : 2)
+                            }
+                        }
+                        .buttonStyle(.plain)
+                        .keyboardShortcut(.space, modifiers: [])
+
+                        Button {
+                            onSeek(min(duration, position + 5))
+                        } label: {
+                            Image(systemName: "goforward.5")
+                                .font(.system(size: 20, weight: .semibold))
+                                .foregroundStyle(Color.white.opacity(0.85))
+                        }
+                        .buttonStyle(.plain)
+                        .help("Avanza 5 secondi")
+
+                        Spacer()
+
+                        // Speed selector
+                        Menu {
+                            ForEach([0.75, 0.9, 1.0, 1.25], id: \.self) { r in
+                                Button(formatRate(r)) {
+                                    onRateChange(Float(r))
+                                }
+                            }
+                        } label: {
+                            HStack(spacing: 4) {
+                                Image(systemName: "gauge.with.needle")
+                                Text(formatRate(Double(rate)))
+                            }
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundStyle(Color.white.opacity(0.85))
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 6)
+                            .background(Capsule().fill(Color.white.opacity(0.12)))
+                        }
+                        .menuStyle(.borderlessButton)
+                        .fixedSize()
+                        .help("Velocità di riproduzione")
+
+                        // Close Fullscreen Button
+                        Button {
+                            onClose()
+                        } label: {
+                            Image(systemName: "arrow.down.right.and.arrow.up.left")
+                                .font(.system(size: 16, weight: .bold))
+                                .foregroundStyle(Color.white.opacity(0.85))
+                                .padding(8)
+                                .background(Circle().fill(Color.white.opacity(0.12)))
+                        }
+                        .buttonStyle(.plain)
+                        .help("Esci da schermo intero")
+                    }
+                }
+                .padding(.horizontal, 36)
+                .padding(.vertical, 16)
+                .background(
+                    RoundedRectangle(cornerRadius: 24)
+                        .fill(Color.black.opacity(0.40))
+                        .background(.ultraThinMaterial)
+                        .overlay(RoundedRectangle(cornerRadius: 24).strokeBorder(Color.white.opacity(0.12)))
+                )
+                .padding(.horizontal, 24)
+                .padding(.bottom, 20)
+            }
+        }
     }
 }
 
@@ -303,6 +1087,7 @@ struct MediaList: View {
 
 struct ExercisePartView: View {
     @Environment(AppStore.self) private var store
+    @AppStorage("studydesk.exerciseScale") private var exerciseScale = 1
     let module: StudyModule
     let activity: Activity
     let part: Exercise
@@ -313,22 +1098,31 @@ struct ExercisePartView: View {
     @State private var loaded = false
 
     private var accent: Color { module.accent }
+    private var scaleFactor: CGFloat {
+        switch exerciseScale {
+        case 2: return 1.2
+        case 3: return 1.4
+        case 4: return 1.6
+        default: return 1.0
+        }
+    }
 
     var body: some View {
         Card {
             VStack(alignment: .leading, spacing: 0) {
                 if part.label != nil || part.instructions != nil {
                     HStack(alignment: .firstTextBaseline, spacing: 8) {
-                        if let l = part.label, !l.isEmpty { Text(l + ".").font(.system(size: 16, weight: .heavy)).foregroundStyle(accent) }
-                        if let i = part.instructions { RichText(i).italic() }
+                        if let l = part.label, !l.isEmpty { Text(l + ".").font(.system(size: 16 * scaleFactor, weight: .heavy)).foregroundStyle(accent) }
+                        if let i = part.instructions { RichText(i, moduleId: module.id).italic().font(.system(size: 14 * scaleFactor)) }
                         Spacer(minLength: 0)
                         typeBadge
                     }
                     .padding(.horizontal, 18).padding(.top, 16).padding(.bottom, 6)
                 }
-                VStack(alignment: .leading, spacing: 12) {
+                VStack(alignment: .leading, spacing: 12 * scaleFactor) {
                     if let m = part.media, !m.isEmpty { MediaList(moduleId: module.id, media: m) }
                     partBody
+                        .environment(\.font, .system(size: 13.5 * scaleFactor))
                 }
                 .padding(.horizontal, 18).padding(.top, part.label == nil && part.instructions == nil ? 16 : 6).padding(.bottom, 16)
 
@@ -348,7 +1142,7 @@ struct ExercisePartView: View {
     }
 
     @ViewBuilder private var partBody: some View {
-        let ctx = PartContext(moduleId: module.id, accent: accent, checked: checked, showSolutions: showSolutions)
+        let ctx = PartContext(moduleId: module.id, accent: accent, checked: checked, showSolutions: showSolutions, scaleFactor: scaleFactor)
         switch part.type {
         case "info": InfoBody(part: part, ctx: ctx)
         case "choice": ChoiceBody(part: part, ctx: ctx, answer: $answer)
@@ -441,11 +1235,13 @@ struct PartContext {
     let accent: Color
     let checked: Bool
     let showSolutions: Bool
+    var scaleFactor: CGFloat = 1.0
 }
 
 // MARK: - Option chip
 
 struct OptionChip: View {
+    @AppStorage("studydesk.exerciseScale") private var exerciseScale = 1
     let moduleId: String
     let item: FlexItem
     let selected: Bool
@@ -455,6 +1251,15 @@ struct OptionChip: View {
 
     enum ChipState { case normal, right, wrong, missed }
 
+    private var scale: CGFloat {
+        switch exerciseScale {
+        case 2: return 1.2
+        case 3: return 1.4
+        case 4: return 1.6
+        default: return 1.0
+        }
+    }
+
     var body: some View {
         let color: Color = switch state {
         case .right, .missed: Theme.ok
@@ -463,15 +1268,15 @@ struct OptionChip: View {
         }
         Button(action: action) {
             VStack(spacing: 4) {
-                if let img = item.image { ModuleImage(moduleId: moduleId, path: img, maxHeight: 150, maxWidth: 230).allowsHitTesting(false) }
+                if let img = item.image { ModuleImage(moduleId: moduleId, path: img, maxHeight: 150 * scale, maxWidth: 230 * scale).allowsHitTesting(false) }
                 if let t = item.text, !t.isEmpty {
                     HStack(spacing: 6) {
                         if selected { Image(systemName: state == .wrong ? "xmark.circle.fill" : "checkmark.circle.fill") }
-                        Text(t).font(.system(size: 13, weight: .semibold)).multilineTextAlignment(.leading)
+                        Text(t).font(.system(size: 13 * scale, weight: .semibold)).multilineTextAlignment(.leading)
                     }
                 }
             }
-            .padding(.horizontal, item.image == nil ? 12 : 6).padding(.vertical, item.image == nil ? 7 : 6)
+            .padding(.horizontal, (item.image == nil ? 12 : 6) * scale).padding(.vertical, (item.image == nil ? 7 : 6) * scale)
             .background(RoundedRectangle(cornerRadius: 10).fill(selected || state != .normal ? color.opacity(0.14) : Color.clear))
             .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(color, style: StrokeStyle(lineWidth: 1.5, dash: state == .missed ? [4] : [])))
             .foregroundStyle(state == .normal ? (selected ? accent : Color.primary) : color)
@@ -508,23 +1313,34 @@ struct InfoBody: View {
 }
 
 struct StaticTable: View {
+    @AppStorage("studydesk.exerciseScale") private var exerciseScale = 1
     let headers: [String]?
     let rows: [[String]]
     let accent: Color
+
+    private var scaleFactor: CGFloat {
+        switch exerciseScale {
+        case 2: return 1.2
+        case 3: return 1.4
+        case 4: return 1.6
+        default: return 1.0
+        }
+    }
+
     var body: some View {
         Grid(alignment: .leading, horizontalSpacing: 0, verticalSpacing: 0) {
             if let h = headers, !h.isEmpty {
                 GridRow {
                     ForEach(Array(h.enumerated()), id: \.offset) { _, c in
-                        Text(c).font(.system(size: 12, weight: .heavy)).foregroundStyle(accent)
-                            .frame(maxWidth: .infinity, alignment: .leading).padding(8).background(accent.opacity(0.10)).border(Color.secondary.opacity(0.2))
+                        Text(c).font(.system(size: 12 * scaleFactor, weight: .heavy)).foregroundStyle(accent)
+                            .frame(maxWidth: .infinity, alignment: .leading).padding(8 * scaleFactor).background(accent.opacity(0.10)).border(Color.secondary.opacity(0.2))
                     }
                 }
             }
             ForEach(Array(rows.enumerated()), id: \.offset) { _, r in
                 GridRow {
                     ForEach(Array(r.enumerated()), id: \.offset) { _, c in
-                        RichText(c).frame(maxWidth: .infinity, alignment: .leading).padding(8).border(Color.secondary.opacity(0.2))
+                        RichText(c).frame(maxWidth: .infinity, alignment: .leading).padding(8 * scaleFactor).border(Color.secondary.opacity(0.2))
                     }
                 }
             }
@@ -628,12 +1444,12 @@ struct GapLine: View {
         let lines = text.components(separatedBy: "\n")
         var offset = gapOffset
         let starts: [Int] = lines.map { l in defer { offset += Grading.gaps(l).count }; return offset }
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 6 * ctx.scaleFactor) {
             ForEach(Array(lines.enumerated()), id: \.offset) { li, line in
-                FlowLayout(spacing: 4, lineSpacing: 6) {
+                FlowLayout(spacing: 4 * ctx.scaleFactor, lineSpacing: 6 * ctx.scaleFactor) {
                     ForEach(Array(tokens(line, start: starts[li]).enumerated()), id: \.offset) { _, tok in
                         switch tok {
-                        case .word(let w): Text(attributed(w)).fixedSize()
+                        case .word(let w): Text(attributed(w)).font(.system(size: 14 * ctx.scaleFactor)).fixedSize()
                         case .gap(let idx, let answers): GapField(value: idx < values.count ? values[idx] : "", answers: answers, ctx: ctx) { onChange(idx, $0) }
                         }
                     }
@@ -674,23 +1490,24 @@ struct GapField: View {
         let color: Color = switch st {
         case .right: Theme.ok
         case .close: Theme.warn
-        case .wrong, .empty where ctx.checked && !answers.isEmpty: Theme.bad
+        case .wrong: Theme.bad
+        case .empty where ctx.checked && !answers.isEmpty: Theme.bad
         default: ctx.accent
         }
-        let width = max(70, CGFloat((answers.map(\.count).max() ?? 8) * 9 + 20))
-        HStack(spacing: 4) {
+        let width = max(70 * ctx.scaleFactor, CGFloat((answers.map(\.count).max() ?? 8) * Int(9 * ctx.scaleFactor) + Int(20 * ctx.scaleFactor)))
+        HStack(spacing: 4 * ctx.scaleFactor) {
             TextField("", text: $text)
                 .textFieldStyle(.plain)
-                .font(.system(size: 14, weight: .semibold))
+                .font(.system(size: 14 * ctx.scaleFactor, weight: .semibold))
                 .foregroundStyle(color)
-                .frame(width: min(width, 320))
-                .padding(.horizontal, 6).padding(.vertical, 3)
+                .frame(width: min(width, 360 * ctx.scaleFactor))
+                .padding(.horizontal, 6 * ctx.scaleFactor).padding(.vertical, 3 * ctx.scaleFactor)
                 .background(RoundedRectangle(cornerRadius: 5).fill(color.opacity(0.10)))
                 .overlay(alignment: .bottom) { Rectangle().fill(color).frame(height: 2) }
                 .allowsHitTesting(!ctx.checked)
                 .onChange(of: text) { _, v in if v != value { onChange(v) } }
             if (ctx.showSolutions || (ctx.checked && st == .close)) && st != .right, let a = answers.first {
-                Text(a).font(.system(size: 12, weight: .bold)).foregroundStyle(Theme.ok)
+                Text(a).font(.system(size: 12 * ctx.scaleFactor, weight: .bold)).foregroundStyle(Theme.ok)
             }
         }
         .onAppear { text = value }
@@ -762,8 +1579,8 @@ struct TableBody: View {
             if let h = part.headers, !h.isEmpty {
                 GridRow {
                     ForEach(Array(h.enumerated()), id: \.offset) { _, c in
-                        Text(c).font(.system(size: 12, weight: .heavy)).foregroundStyle(ctx.accent)
-                            .frame(maxWidth: .infinity, alignment: .leading).padding(8).background(ctx.accent.opacity(0.10)).border(Color.secondary.opacity(0.2))
+                        Text(c).font(.system(size: 12 * ctx.scaleFactor, weight: .heavy)).foregroundStyle(ctx.accent)
+                            .frame(maxWidth: .infinity, alignment: .leading).padding(8 * ctx.scaleFactor).background(ctx.accent.opacity(0.10)).border(Color.secondary.opacity(0.2))
                     }
                 }
             }
@@ -772,7 +1589,7 @@ struct TableBody: View {
                     ForEach(Array(row.enumerated()), id: \.offset) { ci, cell in
                         let offset = row.prefix(ci).reduce(0) { $0 + Grading.gaps($1).count }
                         GapLine(text: cell, ctx: ctx, values: ri < given.count ? given[ri] : [], gapOffset: offset) { gi, v in set(ri, gi, v, rows: rows) }
-                            .frame(maxWidth: .infinity, alignment: .leading).padding(6).border(Color.secondary.opacity(0.2))
+                            .frame(maxWidth: .infinity, alignment: .leading).padding(6 * ctx.scaleFactor).border(Color.secondary.opacity(0.2))
                     }
                 }
             }
@@ -947,36 +1764,211 @@ struct OpenBody: View {
     let part: Exercise
     let ctx: PartContext
     @Binding var answer: AnswerValue?
+    @Environment(AppStore.self) private var store
+
+    @State private var selectedTrackIndex: Int = 0
+    @State private var candidateRole: String = "A" // "A", "B", "both"
+    @State private var revealedPrompts: Set<Int> = []
+
+    private var prompts: [FlexItem] {
+        (part.prompts?.isEmpty == false) ? part.prompts! : [FlexItem(text: "")]
+    }
+
+    private var isTrackChoice: Bool {
+        if part.chooseTrack == true { return true }
+        guard prompts.count > 1 else { return false }
+        let instr = (part.instructions ?? "").lowercased()
+        if instr.contains("scegli una traccia") || instr.contains("scegli tra") || instr.contains("a scelta") || instr.contains("scegli una delle") {
+            return true
+        }
+        if let firstText = prompts.first?.text?.lowercased(), firstText.contains("traccia 1") || firstText.contains("opzione 1") {
+            return true
+        }
+        return false
+    }
+
+    private func detectCand(_ p: FlexItem) -> String? {
+        if let c = p.candidate, !c.isEmpty { return c.uppercased() }
+        let t = (p.text ?? "").lowercased()
+        if t.contains("studente a") || t.contains("candidato a") || t.contains("scheda a") { return "A" }
+        if t.contains("studente b") || t.contains("candidato b") || t.contains("scheda b") { return "B" }
+        return nil
+    }
+
+    private var hasCandA: Bool { prompts.contains { detectCand($0) == "A" } }
+    private var hasCandB: Bool { prompts.contains { detectCand($0) == "B" } }
+    private var isPairRole: Bool { hasCandA && hasCandB }
+
+    private func wordCount(_ text: String) -> Int {
+        text.split { $0.isWhitespace || $0.isNewline }.filter { !$0.isEmpty }.count
+    }
+
+    private var hasSubmitted: Bool { store.result(ctx.moduleId, part.id) != nil }
 
     var body: some View {
-        let prompts = (part.prompts?.isEmpty == false) ? part.prompts! : [FlexItem(text: "")]
         let given = answer?.texts ?? []
+
         VStack(alignment: .leading, spacing: 12) {
-            ForEach(Array(prompts.enumerated()), id: \.offset) { i, p in
+            // Role switcher for pair activities (Candidato A / Candidato B)
+            if isPairRole {
+                HStack(spacing: 8) {
+                    Label("Ruolo:", systemImage: "person.2.fill")
+                        .font(.caption.bold())
+                        .foregroundStyle(.secondary)
+                    Button { candidateRole = "A" } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: "person.fill")
+                            Text("Candidato A")
+                        }
+                        .font(.caption.bold())
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 4)
+                        .background(Capsule().fill(candidateRole == "A" ? Theme.accent : Color.primary.opacity(0.06)))
+                        .foregroundStyle(candidateRole == "A" ? Color.white : Color.primary)
+                    }
+                    .buttonStyle(.plain)
+
+                    Button { candidateRole = "B" } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: "person.fill")
+                            Text("Candidato B")
+                        }
+                        .font(.caption.bold())
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 4)
+                        .background(Capsule().fill(candidateRole == "B" ? Theme.violet : Color.primary.opacity(0.06)))
+                        .foregroundStyle(candidateRole == "B" ? Color.white : Color.primary)
+                    }
+                    .buttonStyle(.plain)
+
+                    Button { candidateRole = "both" } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: "eye.fill")
+                            Text("Entrambi (Docente)")
+                        }
+                        .font(.caption.bold())
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 4)
+                        .background(Capsule().fill(candidateRole == "both" ? Color.secondary.opacity(0.2) : Color.primary.opacity(0.06)))
+                        .foregroundStyle(Color.primary)
+                    }
+                    .buttonStyle(.plain)
+                }
+                .padding(.bottom, 2)
+            }
+
+            // Track choice selector (Scelta di una traccia)
+            if isTrackChoice {
                 VStack(alignment: .leading, spacing: 6) {
-                    if let m = p.media { MediaList(moduleId: ctx.moduleId, media: m) }
-                    if let img = p.image { ModuleImage(moduleId: ctx.moduleId, path: img, maxHeight: 180) }
-                    if let t = p.text, !t.isEmpty { RichText(t).fontWeight(.semibold) }
-                    TextEditor(text: Binding(get: { i < given.count ? given[i] : "" }, set: { v in
-                        var g = answer?.texts ?? []
-                        while g.count < prompts.count { g.append("") }
-                        g[i] = v
-                        answer = .strings(g)
-                    }))
-                    .font(.body)
-                    .frame(minHeight: CGFloat(max(1, p.lines ?? 2)) * 22 + 12)
-                    .scrollContentBackground(.hidden)
-                    .padding(6)
-                    .background(RoundedRectangle(cornerRadius: 8).fill(Color.primary.opacity(0.035)))
-                    .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color.secondary.opacity(0.25)))
+                    Label("Scegli una traccia da svolgere:", systemImage: "list.bullet.clipboard.fill")
+                        .font(.caption.bold())
+                        .foregroundStyle(ctx.accent)
+
+                    HStack(spacing: 8) {
+                        ForEach(Array(prompts.enumerated()), id: \.offset) { idx, p in
+                            let isSel = selectedTrackIndex == idx
+                            let title = (p.text ?? "Traccia \(idx + 1)").components(separatedBy: "\n").first?.trimmingCharacters(in: .whitespaces) ?? "Traccia \(idx + 1)"
+                            Button {
+                                selectedTrackIndex = idx
+                            } label: {
+                                HStack(spacing: 6) {
+                                    Image(systemName: isSel ? "largecircle.fill.circle" : "circle")
+                                    Text(title.prefix(45))
+                                        .lineLimit(1)
+                                }
+                                .font(.system(size: 12 * ctx.scaleFactor, weight: isSel ? .bold : .regular))
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 6)
+                                .background(RoundedRectangle(cornerRadius: 8).fill(isSel ? ctx.accent.opacity(0.14) : Color.primary.opacity(0.04)))
+                                .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(isSel ? ctx.accent : Color.secondary.opacity(0.22), lineWidth: isSel ? 1.5 : 1))
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                }
+                .padding(.bottom, 4)
+            }
+
+            // Prompts and Textareas
+            ForEach(Array(prompts.enumerated()), id: \.offset) { i, p in
+                let cand = detectCand(p)
+                let isHiddenRole = isPairRole && candidateRole != "both" && cand != nil && cand != candidateRole && !revealedPrompts.contains(i)
+                let isHiddenTrack = isTrackChoice && i != selectedTrackIndex
+
+                if !isHiddenTrack {
+                    if isHiddenRole {
+                        HStack(spacing: 10) {
+                            Image(systemName: "lock.fill").foregroundStyle(.secondary)
+                            Text("Contenuto riservato al Candidato \(cand ?? "B") (attività a coppie)")
+                                .font(.caption.bold())
+                                .foregroundStyle(.secondary)
+                            Spacer()
+                            Button("Rivela") {
+                                revealedPrompts.insert(i)
+                            }
+                            .buttonStyle(.bordered)
+                            .controlSize(.small)
+                        }
+                        .padding(12)
+                        .background(RoundedRectangle(cornerRadius: 8).fill(Color.secondary.opacity(0.06)))
+                        .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color.secondary.opacity(0.2), style: StrokeStyle(lineWidth: 1, dash: [4])))
+                    } else {
+                        VStack(alignment: .leading, spacing: 6) {
+                            if let c = cand {
+                                Label("Candidato \(c)", systemImage: "person.fill")
+                                    .font(.system(size: 10.5, weight: .bold))
+                                    .foregroundStyle(c == "B" ? Theme.violet : Theme.accent)
+                                    .padding(.horizontal, 8)
+                                    .padding(.vertical, 2)
+                                    .background(Capsule().fill((c == "B" ? Theme.violet : Theme.accent).opacity(0.12)))
+                            }
+                            if let m = p.media { MediaList(moduleId: ctx.moduleId, media: m) }
+                            if let img = p.image { ModuleImage(moduleId: ctx.moduleId, path: img, maxHeight: 180) }
+                            if let t = p.text, !t.isEmpty { RichText(t, moduleId: ctx.moduleId).fontWeight(.semibold) }
+
+                            TextEditor(text: Binding(get: { i < given.count ? given[i] : "" }, set: { v in
+                                var g = answer?.texts ?? []
+                                while g.count < prompts.count { g.append("") }
+                                g[i] = v
+                                answer = .strings(g)
+                            }))
+                            .font(.system(size: 14 * ctx.scaleFactor))
+                            .frame(minHeight: CGFloat(max(1, p.lines ?? 2)) * 22 + 14)
+                            .scrollContentBackground(.hidden)
+                            .padding(6)
+                            .background(RoundedRectangle(cornerRadius: 8).fill(Color.primary.opacity(0.035)))
+                            .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color.secondary.opacity(0.25)))
+
+                            // Word Counter (Contatore di parole)
+                            let currentText = i < given.count ? given[i] : ""
+                            let cnt = wordCount(currentText)
+                            let minW = p.minWords ?? part.minWords
+                            let maxW = p.maxWords ?? part.maxWords
+                            HStack {
+                                Spacer()
+                                if let min = minW, let max = maxW {
+                                    Text("\(cnt) / \(min)-\(max) parole")
+                                        .font(.system(size: 11 * ctx.scaleFactor, weight: (cnt >= min && cnt <= max) ? .bold : .regular))
+                                        .foregroundStyle((cnt >= min && cnt <= max) ? Theme.ok : (cnt > max ? Theme.bad : .secondary))
+                                } else if let min = minW {
+                                    Text("\(cnt) parole (min. \(min))")
+                                        .font(.system(size: 11 * ctx.scaleFactor, weight: cnt >= min ? .bold : .regular))
+                                        .foregroundStyle(cnt >= min ? Theme.ok : .secondary)
+                                } else {
+                                    Text("\(cnt) \(cnt == 1 ? "parola" : "parole")")
+                                        .font(.system(size: 11 * ctx.scaleFactor))
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                            .padding(.top, 1)
+                        }
+                    }
                 }
             }
+
             SampleView(sample: part.sample, visible: answer != nil && ctx.moduleId.isEmpty == false && hasSubmitted)
         }
     }
-
-    @Environment(AppStore.self) private var store
-    private var hasSubmitted: Bool { store.result(ctx.moduleId, part.id) != nil }
 }
 
 struct SampleView: View {
@@ -1003,14 +1995,113 @@ struct SpeakingBody: View {
     @State private var recorder: AVAudioRecorder? = nil
     @State private var player: AVAudioPlayer? = nil
     @State private var seconds = 0
+
+    // Speaking Timer (Timer del parlato)
+    @State private var timerSeconds: Int = 120
+    @State private var timerPreset: Int = 120
+    @State private var timerActive: Bool = false
+    @State private var timerExpired: Bool = false
+
     private let tick = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
 
     private var text: String { if case .speaking(let t, _) = answer { return t }; return "" }
     private var recording: String? { if case .speaking(_, let r) = answer { return r }; return nil }
 
+    private func wordCount(_ str: String) -> Int {
+        str.split { $0.isWhitespace || $0.isNewline }.filter { !$0.isEmpty }.count
+    }
+
+    private func formatTimer(_ s: Int) -> String {
+        let m = s / 60
+        let sec = s % 60
+        return String(format: "%02d:%02d", m, sec)
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            if let c = part.content { RichText(c) }
+            // Candidate Badge
+            if let cand = part.candidate, !cand.isEmpty {
+                Label("Candidato \(cand)", systemImage: "person.fill")
+                    .font(.caption.bold())
+                    .foregroundStyle(cand.uppercased() == "B" ? Theme.violet : Theme.accent)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 2)
+                    .background(Capsule().fill((cand.uppercased() == "B" ? Theme.violet : Theme.accent).opacity(0.12)))
+            }
+
+            // Speaking Timer (Timer del parlato)
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Label("Timer del parlato", systemImage: "clock.fill")
+                        .font(.caption.bold())
+                    Spacer()
+                    HStack(spacing: 4) {
+                        ForEach([("1 min", 60), ("2 min", 120), ("3 min", 180), ("Cronometro", 0)], id: \.1) { label, sec in
+                            Button {
+                                timerActive = false
+                                timerPreset = sec
+                                timerSeconds = sec
+                                timerExpired = false
+                            } label: {
+                                Text(label)
+                                    .font(.system(size: 10.5, weight: timerPreset == sec ? .bold : .medium))
+                                    .padding(.horizontal, 7)
+                                    .padding(.vertical, 3)
+                                    .background(RoundedRectangle(cornerRadius: 6).fill(timerPreset == sec ? ctx.accent.opacity(0.18) : Color.primary.opacity(0.04)))
+                                    .foregroundStyle(timerPreset == sec ? ctx.accent : Color.primary)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                }
+
+                HStack(spacing: 14) {
+                    Text(formatTimer(timerSeconds))
+                        .font(.system(size: 26, weight: .bold, design: .monospaced))
+                        .foregroundStyle(timerExpired ? Theme.bad : (timerActive ? ctx.accent : Color.primary))
+
+                    if timerExpired {
+                        Label("Tempo scaduto!", systemImage: "bell.fill")
+                            .font(.caption.bold())
+                            .foregroundStyle(Theme.bad)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(Capsule().fill(Theme.bad.opacity(0.15)))
+                    }
+
+                    Spacer()
+
+                    Button {
+                        if timerActive {
+                            timerActive = false
+                        } else {
+                            if timerSeconds == 0 && timerPreset > 0 { timerSeconds = timerPreset; timerExpired = false }
+                            timerActive = true
+                        }
+                    } label: {
+                        Label(timerActive ? "Pausa" : (timerSeconds < timerPreset && timerPreset > 0 ? "Riprendi" : "Avvia"),
+                              systemImage: timerActive ? "pause.fill" : "play.fill")
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+
+                    Button {
+                        timerActive = false
+                        timerSeconds = timerPreset
+                        timerExpired = false
+                    } label: {
+                        Label("Azzera", systemImage: "arrow.counterclockwise")
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                }
+            }
+            .padding(10)
+            .background(RoundedRectangle(cornerRadius: 10).fill(Color.primary.opacity(0.03)))
+            .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Color.secondary.opacity(0.18)))
+
+            if let c = part.content { RichText(c, moduleId: ctx.moduleId) }
+
             if part.record == true {
                 HStack(spacing: 10) {
                     if recorder != nil {
@@ -1026,16 +2117,45 @@ struct SpeakingBody: View {
                         }
                     }
                 }
-                .onReceive(tick) { _ in if recorder != nil { seconds += 1 } }
             }
+
             VStack(alignment: .leading, spacing: 4) {
                 Text("Appunti (facoltativo)").font(.caption.bold()).foregroundStyle(.secondary)
                 TextEditor(text: Binding(get: { text }, set: { answer = .speaking(text: $0, recording: recording) }))
                     .frame(minHeight: 56).scrollContentBackground(.hidden).padding(6)
                     .background(RoundedRectangle(cornerRadius: 8).fill(Color.primary.opacity(0.035)))
                     .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color.secondary.opacity(0.25)))
+
+                // Word count for notes
+                let wCount = wordCount(text)
+                HStack {
+                    Spacer()
+                    Text("\(wCount) \(wCount == 1 ? "parola" : "parole")")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
             }
             SampleView(sample: part.sample, visible: store.result(ctx.moduleId, part.id) != nil)
+        }
+        .onAppear {
+            let initSec = part.timer ?? 120
+            timerPreset = initSec
+            timerSeconds = initSec
+        }
+        .onReceive(tick) { _ in
+            if recorder != nil { seconds += 1 }
+            if timerActive {
+                if timerPreset == 0 {
+                    timerSeconds += 1
+                } else if timerSeconds > 0 {
+                    timerSeconds -= 1
+                    if timerSeconds == 0 {
+                        timerActive = false
+                        timerExpired = true
+                        NSSound.beep()
+                    }
+                }
+            }
         }
     }
 
@@ -1075,7 +2195,7 @@ struct CrosswordBody: View {
     let part: Exercise
     let ctx: PartContext
     @Binding var answer: AnswerValue?
-    private let cell: CGFloat = 34
+    private var cell: CGFloat { 34 * ctx.scaleFactor }
 
     private struct Pos: Hashable { let r: Int; let c: Int }
 
@@ -1124,11 +2244,11 @@ struct CrosswordBody: View {
             Rectangle().fill(highlighted ? Theme.warn.opacity(0.22) : (ctx.checked ? color.opacity(0.14) : Color.clear))
             TextField("", text: Binding(get: { shown }, set: { set(p, $0, entries) }))
                 .textFieldStyle(.plain).multilineTextAlignment(.center)
-                .font(.system(size: 17, weight: .bold, design: .rounded))
+                .font(.system(size: 17 * ctx.scaleFactor, weight: .bold, design: .rounded))
                 .foregroundStyle(ctx.showSolutions && val.isEmpty ? Theme.ok : (ctx.checked ? color : Color(nsColor: .textColor)))
                 .frame(width: cell, height: cell)
                 .allowsHitTesting(!ctx.checked)
-            if let n = num { Text("\(n)").font(.system(size: 8, weight: .bold)).foregroundStyle(.secondary).padding(2) }
+            if let n = num { Text("\(n)").font(.system(size: 8 * ctx.scaleFactor, weight: .bold)).foregroundStyle(.secondary).padding(2) }
         }
         .frame(width: cell, height: cell)
         .overlay(Rectangle().strokeBorder(Color.secondary.opacity(0.55), lineWidth: 1))
@@ -1181,5 +2301,31 @@ struct CrosswordBody: View {
             map[e.key] = e.cells.map { letters[Pos(r: $0[0], c: $0[1])] ?? " " }.joined()
         }
         answer = .mapping(map)
+    }
+}
+
+// Real per-word timings (`wordTimes` in the module JSON): one non-decreasing [start, end] per transcript word.
+enum WordTiming {
+    static func valid(_ t: [[Double]]?, count: Int) -> Bool {
+        guard let t, count > 0, t.count == count else { return false }
+        var prev = -Double.infinity
+        for p in t {
+            guard p.count == 2, p[1] >= p[0], p[0] >= prev else { return false }
+            prev = p[0]
+        }
+        return true
+    }
+    static func matches(_ t: [[Double]]?, _ transcript: String) -> Bool {
+        guard let t else { return false }
+        return t.count == wordCount(transcript) && valid(t, count: t.count)
+    }
+    // Same tokenisation as the transcript views: speaker prefix and turn dash are not words.
+    static func wordCount(_ transcript: String) -> Int {
+        transcript.components(separatedBy: "\n").reduce(0) { n, raw in
+            var line = raw.trimmingCharacters(in: .whitespaces)
+            if line.hasPrefix("- ") || line.hasPrefix("– ") { line = String(line.dropFirst(2)) }
+            if let c = line.firstIndex(of: ":"), line[..<c].trimmingCharacters(in: .whitespaces).count <= 18 { line = String(line[line.index(after: c)...]) }
+            return n + line.components(separatedBy: .whitespaces).filter { !$0.isEmpty && $0 != "-" && $0 != "–" }.count
+        }
     }
 }

@@ -19,10 +19,12 @@ public enum AuthorAttribution {
     public static let authorName = "Guaira Jaramillo Nitoglia"
     public static let authorEmail = "guaira.jaramillo.nitoglia@gmail.com"
     public static let appName = "StudyDesk"
-    public static let appVersion = "26.11.0-012"
+    public static let appVersion = "26.11.1-007"
 
     /// Centralized channel indicator: 0 = Stable, 1 = Unstable / Beta
     public static let isUnstableBuild: Int = 1
+    /// Dynamic build type: "stable", "beta", or "internal"
+    public static let buildType: String = "internal"
 
     public static var isBeta: Bool { isUnstableBuild == 1 }
     public static var appChannel: String { isUnstableBuild == 1 ? "unstable" : "stable" }
@@ -31,6 +33,28 @@ public enum AuthorAttribution {
 
     public static let licenseName = "GNU General Public License v3.0 (GPL-3.0)"
     public static let licenseUrl = "https://www.gnu.org/licenses/gpl-3.0.html"
+}
+
+public struct VersionBadge: View {
+    public let buildType: String
+    public init(_ buildType: String = AuthorAttribution.buildType) { self.buildType = buildType }
+
+    public var body: some View {
+        let (bg, letter): (Color, String) = switch buildType.lowercased() {
+        case "stable": (Theme.ok, "S")
+        case "beta": (Color.yellow, "β")
+        default: (Theme.bad, "I")
+        }
+        ZStack {
+            Circle()
+                .fill(bg)
+                .frame(width: 14, height: 14)
+            Text(letter)
+                .font(.system(size: 8.5, weight: .black, design: .rounded))
+                .foregroundStyle(buildType.lowercased() == "beta" ? Color.black : Color.white)
+        }
+        .help(buildType.lowercased() == "stable" ? "Versione stabile (S)" : (buildType.lowercased() == "beta" ? "Versione beta (β)" : "Versione interna instabile (I)"))
+    }
 }
 
 /// Release notes shown in Impostazioni → Aggiornamenti (same text as CHANGELOG.md).
@@ -160,9 +184,11 @@ public struct FlexItem: Codable, Hashable {
     public var media: [Media]?
     public var category: StringOrArray?
     public var lines: Int?
+    public var candidate: String?
+    public var minWords: Int?
+    public var maxWords: Int?
 
-
-    enum CodingKeys: String, CodingKey { case id, text, image, media, category, lines }
+    enum CodingKeys: String, CodingKey { case id, text, image, media, category, lines, candidate, role, minWords, maxWords }
 
     public init(from decoder: Decoder) throws {
         if let s = try? decoder.singleValueContainer().decode(String.self) {
@@ -176,10 +202,13 @@ public struct FlexItem: Codable, Hashable {
         media = try c.decodeIfPresent([Media].self, forKey: .media)
         category = try c.decodeIfPresent(StringOrArray.self, forKey: .category)
         lines = try c.decodeIfPresent(Int.self, forKey: .lines)
+        candidate = (try? c.decodeIfPresent(String.self, forKey: .candidate)) ?? (try? c.decodeIfPresent(String.self, forKey: .role))
+        minWords = try? c.decodeIfPresent(Int.self, forKey: .minWords)
+        maxWords = try? c.decodeIfPresent(Int.self, forKey: .maxWords)
     }
 
     public func encode(to encoder: Encoder) throws {
-        if id == nil, image == nil, media == nil, category == nil, lines == nil, let t = text {
+        if id == nil, image == nil, media == nil, category == nil, lines == nil, candidate == nil, minWords == nil, maxWords == nil, let t = text {
             var c = encoder.singleValueContainer()
             try c.encode(t)
             return
@@ -191,6 +220,9 @@ public struct FlexItem: Codable, Hashable {
         try c.encodeIfPresent(media, forKey: .media)
         try c.encodeIfPresent(category, forKey: .category)
         try c.encodeIfPresent(lines, forKey: .lines)
+        try c.encodeIfPresent(candidate, forKey: .candidate)
+        try c.encodeIfPresent(minWords, forKey: .minWords)
+        try c.encodeIfPresent(maxWords, forKey: .maxWords)
     }
 }
 
@@ -213,7 +245,9 @@ public struct Media: Codable, Hashable {
     public var caption: String?
     public var label: String?
     public var transcript: String?
+    public var wordTimes: [[Double]]?   // per-word [start, end] seconds, see WordTiming
     public var placeholder: Bool?
+    public var candidate: String?
 }
 
 public struct DialogueLine: Codable, Hashable {
@@ -272,6 +306,11 @@ public struct Exercise: Codable, Hashable, Identifiable {
     public var prompts: [FlexItem]?
     public var sample: String?
     public var record: Bool?
+    public var candidate: String?
+    public var chooseTrack: Bool?
+    public var minWords: Int?
+    public var maxWords: Int?
+    public var timer: Int?
     // crossword
     public var cols: Int?
     public var entries: [CrosswordEntry]?
@@ -280,6 +319,7 @@ public struct Exercise: Codable, Hashable, Identifiable {
     enum CodingKeys: String, CodingKey {
         case id, label, type, instructions, media, points, content, dialogue, table, questions, labels, statements, items, wordBank, layout
         case left, right, pairs, categories, headers, rows, prompts, sample, record, cols, entries, solutionWord
+        case candidate, role, chooseTrack, choosePrompt, minWords, maxWords, timer
     }
 
     public init(from decoder: Decoder) throws {
@@ -294,7 +334,7 @@ public struct Exercise: Codable, Hashable, Identifiable {
         dialogue = try c.decodeIfPresent([DialogueLine].self, forKey: .dialogue)
         table = try c.decodeIfPresent(InfoTable.self, forKey: .table)
         questions = try c.decodeIfPresent([Question].self, forKey: .questions)
-        labels = try c.decodeIfPresent([String].self, forKey: .labels)
+        labels = (try? c.decodeIfPresent([String].self, forKey: .labels)) ?? (try? c.decodeIfPresent(String.self, forKey: .labels)).map { [$0] }
         statements = try c.decodeIfPresent([Statement].self, forKey: .statements)
         items = try c.decodeIfPresent([FlexItem].self, forKey: .items)
         wordBank = try c.decodeIfPresent([String].self, forKey: .wordBank)
@@ -304,13 +344,18 @@ public struct Exercise: Codable, Hashable, Identifiable {
         pairs = try c.decodeIfPresent([[String]].self, forKey: .pairs)
         categories = try c.decodeIfPresent([String].self, forKey: .categories)
         headers = try c.decodeIfPresent([String].self, forKey: .headers)
-        if let n = try? c.decodeIfPresent(Int.self, forKey: .rows) { gridRows = n } else { rows = try c.decodeIfPresent([[String]].self, forKey: .rows) }
+        if let n = try? c.decodeIfPresent(Int.self, forKey: .rows) { gridRows = n } else { rows = try? c.decodeIfPresent([[String]].self, forKey: .rows) }
         prompts = try c.decodeIfPresent([FlexItem].self, forKey: .prompts)
         sample = try c.decodeIfPresent(String.self, forKey: .sample)
         record = try c.decodeIfPresent(Bool.self, forKey: .record)
         cols = try c.decodeIfPresent(Int.self, forKey: .cols)
         entries = try c.decodeIfPresent([CrosswordEntry].self, forKey: .entries)
         solutionWord = try c.decodeIfPresent(CrosswordSolution.self, forKey: .solutionWord)
+        candidate = (try? c.decodeIfPresent(String.self, forKey: .candidate)) ?? (try? c.decodeIfPresent(String.self, forKey: .role))
+        chooseTrack = (try? c.decodeIfPresent(Bool.self, forKey: .chooseTrack)) ?? (try? c.decodeIfPresent(Bool.self, forKey: .choosePrompt))
+        minWords = try? c.decodeIfPresent(Int.self, forKey: .minWords)
+        maxWords = try? c.decodeIfPresent(Int.self, forKey: .maxWords)
+        timer = try? c.decodeIfPresent(Int.self, forKey: .timer)
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -329,6 +374,11 @@ public struct Exercise: Codable, Hashable, Identifiable {
         try c.encodeIfPresent(prompts, forKey: .prompts); try c.encodeIfPresent(sample, forKey: .sample)
         try c.encodeIfPresent(record, forKey: .record); try c.encodeIfPresent(cols, forKey: .cols)
         try c.encodeIfPresent(entries, forKey: .entries); try c.encodeIfPresent(solutionWord, forKey: .solutionWord)
+        try c.encodeIfPresent(candidate, forKey: .candidate)
+        try c.encodeIfPresent(chooseTrack, forKey: .chooseTrack)
+        try c.encodeIfPresent(minWords, forKey: .minWords)
+        try c.encodeIfPresent(maxWords, forKey: .maxWords)
+        try c.encodeIfPresent(timer, forKey: .timer)
     }
 
     public var isAutoGraded: Bool { ["choice", "truefalse", "gapfill", "match", "categorize", "order", "table", "crossword"].contains(type) }
@@ -545,12 +595,13 @@ public struct AppState: Codable {
     public var syncBase: [String: [String: String]] = [:]     // remote device -> record key -> agreed hash
     public var syncPeers: [String: String] = [:]              // remote device -> name
     public var syncTombstones: [String: String] = [:]         // deleted record key -> ISO date
+    public var bookOrder: [String] = []                       // ordered book ids
 
     public var isTeacher: Bool { role == "teacher" }
 
     public init() {}
 
-    enum CodingKeys: String, CodingKey { case role, profile, settings, progress, lastOpened, groups, membership, deviceId, syncBase, syncPeers, syncTombstones }
+    enum CodingKeys: String, CodingKey { case role, profile, settings, progress, lastOpened, groups, membership, deviceId, syncBase, syncPeers, syncTombstones, bookOrder }
 
     // Tolerant decoding so older state.json files keep working when fields are added.
     public init(from decoder: Decoder) throws {
@@ -566,6 +617,7 @@ public struct AppState: Codable {
         syncBase = (try? c.decodeIfPresent([String: [String: String]].self, forKey: .syncBase)) ?? [:]
         syncPeers = (try? c.decodeIfPresent([String: String].self, forKey: .syncPeers)) ?? [:]
         syncTombstones = (try? c.decodeIfPresent([String: String].self, forKey: .syncTombstones)) ?? [:]
+        bookOrder = (try? c.decodeIfPresent([String].self, forKey: .bookOrder)) ?? []
         if role == nil && profile != nil { role = "student" }   // installs from before roles existed
     }
 }

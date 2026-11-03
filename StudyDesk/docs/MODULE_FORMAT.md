@@ -71,6 +71,21 @@ L'app mostra il capitolo diviso in queste tre parti (schede «Capitolo», «Eser
 { "type": "video", "url": "https://…", "label": "…" }   // video esterno (link)
 ```
 
+#### Tempi delle parole (`wordTimes`, facoltativo)
+
+Un audio con `transcript` può avere `"wordTimes": [[0.42, 0.81], [0.85, 1.30], …]`: una coppia `[inizio, fine]` in
+secondi per ogni parola della trascrizione, nell'ordine in cui compaiono (il nome del parlante `Nome:` e il trattino
+`- ` di inizio battuta non sono parole). Con questi tempi la trascrizione e la vista a schermo intero seguono l'audio
+parola per parola; senza, o se la trascrizione è stata modificata e il numero di parole non torna più, i tempi vengono
+stimati come prima. Non si scrivono a mano: li calcola `scripts/align_audio.py` (allineamento forzato WhisperX),
+una volta sola, su un modulo o un `.sdbook`:
+
+```bash
+python3 -m pip install --user uv && uv venv -p 3.11 ~/.cache/studydesk-align
+VIRTUAL_ENV=~/.cache/studydesk-align uv pip install whisperx      # una volta (~2 GB)
+~/.cache/studydesk-align/bin/python scripts/align_audio.py libro.sdbook   # --dry-run per vedere cosa farebbe
+```
+
 ### Exercise (una parte A/B/C di un'attività)
 
 Campi comuni: `id`, `label` (es. `"A"`), `type`, `instructions`, `media` (opzionale), `points` (opzionale).
