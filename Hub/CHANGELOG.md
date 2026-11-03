@@ -1,5 +1,8 @@
 # HubDesk – Changelog
 
+## 26.11.1-009 (Beta)
+- Allineamento alla beta Classroom Tools 26.11.1-009 (sincronizzazione delle modifiche ai libri, trascrizioni migliorate). Sostituisce la 26.11.1-008.
+
 ## 26.11.1-008 (Beta)
 - Allineamento alla beta Classroom Tools 26.11.1-008 (trascrizioni sincronizzate parola per parola in StudyDesk).
 

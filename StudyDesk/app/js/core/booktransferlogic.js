@@ -43,12 +43,17 @@ export const chapterIds = (meta) => ((meta && meta.chapters) || []).map((c) => c
 export const missingChapters = (meta, hasModule) => chapterIds(meta).filter((id) => !hasModule(id));
 /** The device holds the whole book and can send it. */
 export const canSend = (meta, hasModule) => chapterIds(meta).length > 0 && missingChapters(meta, hasModule).length === 0;
-/** A new copy is needed when there is none or the published one lacks chapters this device has. */
+/** Edit counter of a book: every edit raises it, the copy with the higher rev wins. */
+export const bookRev = (meta) => (meta && Number.isInteger(meta.rev) ? meta.rev : 0);
+/** A new copy is needed when there is none, the published one lacks chapters this device has,
+ *  or this device edited the book after it was published (higher rev). */
 export function needsPublish(manifest, meta) {
   if (!manifest) return true;
   const have = new Set(manifest.chapters || []);
-  return chapterIds(meta).some((id) => !have.has(id));
+  return chapterIds(meta).some((id) => !have.has(id)) || bookRev(meta) > (manifest.rev || 0);
 }
+/** The published copy was edited after this one: take it even if no chapter is missing. */
+export const needsUpdate = (manifest, meta) => !!manifest && (manifest.rev || 0) > bookRev(meta);
 /** The published copy brings at least one missing chapter. */
 export const manifestHelps = (manifest, missing) => !!manifest && missing.some((id) => (manifest.chapters || []).includes(id));
 

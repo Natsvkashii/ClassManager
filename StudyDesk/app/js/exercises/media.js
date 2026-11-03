@@ -163,7 +163,7 @@ function buildSyncedTranscript(transcript, audioEl, wordTimes) {
       wordNodes.forEach((item, i) => {
         item.el.className = 'synced-word ' + (idx < 0 && !isPlaying ? 'idle' : i < idx ? 'past' : i === idx ? 'active' : 'future');
       });
-      if (idx >= 0 && isPlaying) wordNodes[idx].el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
+      if (idx >= 0 && isPlaying) centerIn(container, wordNodes[idx].el);
       currentIdx = idx;
     }
     if (isPlaying) animFrameId = requestAnimationFrame(updateActiveWords);
@@ -185,6 +185,15 @@ function buildSyncedTranscript(transcript, audioEl, wordTimes) {
   });
 
   return container;
+}
+
+// Scrolls `scroller` so `el` sits in the middle, only when it moved to another row
+// (scrollIntoView would also scroll the page around the transcript).
+function centerIn(scroller, el) {
+  const top = el.getBoundingClientRect().top - scroller.getBoundingClientRect().top + scroller.scrollTop;
+  if (scroller._row !== undefined && Math.abs(scroller._row - top) < 4) return;
+  scroller._row = top;
+  scroller.scrollTo({ top: top - scroller.clientHeight / 2 + el.offsetHeight / 2, behavior: 'smooth' });
 }
 
 function formatAudioTime(s) {
@@ -210,26 +219,21 @@ function openSpotifyLyrics(title, transcript, audioEl, activeTimeline, wordTimes
   const aligned = hasAlignedTimes(parsed, wordTimes);
   const dur = Math.max(1, audioEl.duration && Number.isFinite(audioEl.duration) ? audioEl.duration : 30);
   const times = wordTimeline(parsed, { duration: audioEl.duration, activeTimeline, wordTimes });
-  const lineNodes = [];
+  const wordNodes = [];
   let wi = 0;
 
   for (const pLine of parsed.lines) {
-    const wordItems = pLine.words.map((text) => { const [start, end] = times[wi++]; return { text, start, end }; });
-    const lStart = wordItems[0]?.start ?? 0;
-    const lEnd = wordItems[wordItems.length - 1]?.end ?? lStart;
-
-    const lineEl = h('div.spotify-lyrics-line', {
-      onclick: () => {
-        audioEl.currentTime = lStart;
-        audioEl.play().catch(() => {});
-      }
-    });
+    const lineEl = h('div.spotify-lyrics-line');
     if (pLine.speaker) {
       lineEl.append(h('span', { style: { display: 'block', fontSize: '0.9rem', color: '#38bdf8', textTransform: 'uppercase', marginBottom: '.3rem', fontWeight: 900 } }, pLine.speaker));
     }
-    lineEl.append(h('span', pLine.words.join(' ')));
+    for (const text of pLine.words) {
+      const [start, end] = times[wi++];
+      const el = h('span.lyric-word', { onclick: () => { audioEl.currentTime = start; audioEl.play().catch(() => {}); } }, text);
+      lineEl.append(el, ' ');
+      wordNodes.push({ el, start, end });
+    }
     content.append(lineEl);
-    lineNodes.push({ el: lineEl, start: lStart, end: lEnd, words: wordItems });
   }
 
   // Bottom Dock
@@ -270,36 +274,28 @@ function openSpotifyLyrics(title, transcript, audioEl, activeTimeline, wordTimes
   overlay.append(topbar, scrollArea, dock);
   document.body.append(overlay);
 
-  let currentActiveLine = null;
+  let currentIdx = -2;
   let animId = null;
+  const wordTimes2 = wordNodes.map((w) => [w.start, w.end]);
 
+  // Before the track starts all words are white; then a word turns white once spoken, the rest stays dim.
   function updateLyrics() {
     const isPlaying = !audioEl.paused && !audioEl.ended;
+    const started = isPlaying || (audioEl.currentTime || 0) > 0.05;
     const pos = (audioEl.currentTime || 0) + (aligned ? 0.05 : 0.18);
     timeSlider.value = String(audioEl.currentTime || 0);
     timeDisplay.textContent = formatAudioTime(audioEl.currentTime || 0) + ' / ' + formatAudioTime(dur);
     clear(playBtn).append(icon(audioEl.paused ? 'play' : 'pause'));
 
-    let activeLine = null;
-    for (const lItem of lineNodes) {
-      if (!isPlaying) {
-        lItem.el.className = 'spotify-lyrics-line idle';
-      } else if (pos >= lItem.start && pos <= lItem.end) {
-        activeLine = lItem;
-        lItem.el.className = 'spotify-lyrics-line active';
-      } else {
-        lItem.el.className = 'spotify-lyrics-line';
-      }
+    const idx = started ? wordAt(wordTimes2, pos) : -2;
+    if (idx !== currentIdx) {
+      wordNodes.forEach((w, i) => {
+        w.el.className = 'lyric-word ' + (!started || i < idx ? 'spoken' : i === idx ? 'spoken active' : 'future');
+      });
+      if (idx >= 0) centerIn(scrollArea, wordNodes[idx].el);
+      currentIdx = idx;
     }
-
-    if (activeLine && activeLine !== currentActiveLine) {
-      currentActiveLine = activeLine;
-      activeLine.el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }
-
-    if (isPlaying) {
-      animId = requestAnimationFrame(updateLyrics);
-    }
+    if (isPlaying) animId = requestAnimationFrame(updateLyrics);
   }
 
   function onKeyDown(e) {
@@ -309,16 +305,22 @@ function openSpotifyLyrics(title, transcript, audioEl, activeTimeline, wordTimes
     else if (e.key === 'ArrowRight') { audioEl.currentTime = Math.min(dur, audioEl.currentTime + 5); }
   }
 
+  const onPlay = () => { cancelAnimationFrame(animId); animId = requestAnimationFrame(updateLyrics); };
+  const onFsChange = () => { if (!document.fullscreenElement && overlay.isConnected) { cleanup(); overlay.remove(); } };
   window.addEventListener('keydown', onKeyDown);
-  audioEl.addEventListener('play', () => { cancelAnimationFrame(animId); animId = requestAnimationFrame(updateLyrics); });
-  audioEl.addEventListener('pause', updateLyrics);
-  audioEl.addEventListener('ended', updateLyrics);
-  audioEl.addEventListener('timeupdate', updateLyrics);
+  audioEl.addEventListener('play', onPlay);
+  for (const ev of ['pause', 'ended', 'timeupdate', 'seeked']) audioEl.addEventListener(ev, updateLyrics);
   updateLyrics();
+  // A real full screen, not just a layer over the window (the layer stays as fallback).
+  overlay.requestFullscreen?.().then(() => document.addEventListener('fullscreenchange', onFsChange)).catch(() => {});
 
   function cleanup() {
     cancelAnimationFrame(animId);
     window.removeEventListener('keydown', onKeyDown);
+    document.removeEventListener('fullscreenchange', onFsChange);
+    audioEl.removeEventListener('play', onPlay);
+    for (const ev of ['pause', 'ended', 'timeupdate', 'seeked']) audioEl.removeEventListener(ev, updateLyrics);
+    if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
   }
 }
 
@@ -360,7 +362,8 @@ function mediaContent(m, ctx) {
     const fsBtn = (m.transcript && audioEl) ? h('button.btn.btn-sm.btn-ghost', {
       type: 'button', style: { alignSelf: 'flex-start', marginTop: '.4rem' },
       onclick: () => { openSpotifyLyrics(m.label || 'Audio', m.transcript, audioEl, tr._activeTimeline, m.wordTimes); },
-    }, icon('expand'), ' Schermo intero') : null;
+      title: 'Trascrizione a schermo intero', 'aria-label': 'Schermo intero',
+    }, icon('expand')) : null;
     const toggleTrBtn = tr ? h('button.btn.btn-sm.btn-ghost', {
       type: 'button', style: { alignSelf: 'flex-start', marginTop: '.4rem' },
       onclick: (e) => { const open = tr.classList.toggle('hidden'); e.currentTarget.lastChild.textContent = open ? ' Mostra trascrizione' : ' Nascondi trascrizione'; },

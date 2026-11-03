@@ -2,7 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  bookMetaOf, missingChapters, canSend, needsPublish, manifestHelps, countChunks, chunkKey, manifestKey, isTransferFile,
+  bookMetaOf, missingChapters, canSend, needsPublish, needsUpdate, bookRev, manifestHelps, countChunks, chunkKey, manifestKey, isTransferFile,
   isTransferKey, keyOfFile, track, percent, reportMailto, REPORT_TO,
 } from '../app/js/core/booktransferlogic.js';
 import { encodeKey } from '../app/js/core/hubnative.js';
@@ -61,4 +61,16 @@ test('report mailto is prefilled', () => {
   for (const s of ['SURFACE', 'Windows', 'b1', 'SHA-256', '2 / 5', 'riga 79']) assert.ok(body.includes(s), s);
   assert.ok(!body.includes('riga 10\n'));
   assert.ok(body.length <= 1802);
+});
+
+test('edits travel: the copy with the higher rev wins, an equal rev does nothing', () => {
+  const meta = { chapters: [{ moduleId: 'm1' }], rev: 3 };
+  const pub = (rev) => ({ chapters: ['m1'], ...(rev === undefined ? {} : { rev }) });
+  assert.equal(bookRev({ chapters: [] }), 0);
+  assert.equal(needsPublish(pub(2), meta), true);     // edited here after publishing
+  assert.equal(needsPublish(pub(3), meta), false);
+  assert.equal(needsPublish(pub(undefined), { chapters: [{ moduleId: 'm1' }] }), false); // old copies: no endless resends
+  assert.equal(needsUpdate(pub(4), meta), true);      // edited on the other computer
+  assert.equal(needsUpdate(pub(3), meta), false);
+  assert.equal(needsUpdate(undefined, meta), false);
 });

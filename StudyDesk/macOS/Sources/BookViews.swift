@@ -104,14 +104,21 @@ struct BookShelfCard: View {
                 }
             } label: {
                 Image(systemName: "ellipsis")
-                    .font(.system(size: 13, weight: .bold))
-                    .foregroundStyle(.white)
-                    .frame(width: 28, height: 28)
-                    .background(Circle().fill(Color.black.opacity(0.65)))
+                    .font(.system(size: 14, weight: .heavy))
+                    .foregroundStyle(Color.black.opacity(0.8))
+                    .frame(width: 32, height: 32)
+                    .background(Circle().fill(.white))
+                    .overlay(Circle().strokeBorder(Color.black.opacity(0.12)))
+                    .shadow(color: .black.opacity(0.3), radius: 4, y: 1)
                     .padding(8)
             }
-            .menuStyle(.borderlessButton)
+            // .borderlessButton drops this label and draws small dots: keep the custom round button
+            .menuStyle(.button)
+            .buttonStyle(.plain)
+            .menuIndicator(.hidden)
+            .fixedSize()
             .contentShape(Circle())
+            .help("Altre azioni sul libro")
         }
         .frame(width: 172, height: 236)
         .contentShape(Rectangle())

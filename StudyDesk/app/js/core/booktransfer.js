@@ -19,7 +19,7 @@ import { listBookRecs, getBookRec, exportSdbook, importSdbook } from './books.js
 import { toBase64, platform } from './platform.js';
 import { h, icon, clear, toast } from './ui.js';
 import {
-  CHUNK_SIZE, isTransferFile, manifestKey, chunkKey, keyOfFile, chapterIds, missingChapters, canSend, needsPublish,
+  CHUNK_SIZE, isTransferFile, manifestKey, chunkKey, keyOfFile, chapterIds, missingChapters, canSend, needsPublish, needsUpdate, bookRev,
   manifestHelps, countChunks, percent, track, reportMailto,
 } from './booktransferlogic.js';
 
@@ -89,9 +89,9 @@ async function send(io, recs, manifests, has, files) {
       const chunks = Math.max(1, Math.ceil(bytes.length / CHUNK_SIZE));
       for (let n = 0; n < chunks; n++) await io.put(chunkKey(rec.id, tid, n), { id: rec.id, tid, n, data: toBase64(bytes.subarray(n * CHUNK_SIZE, (n + 1) * CHUNK_SIZE)) });
       const old = manifests[rec.id];
-      await io.put(manifestKey(rec.id), { id: rec.id, title: meta.title || rec.id, tid, sha256: sha, size: bytes.length, chunks, chunkSize: CHUNK_SIZE, chapters: chapterIds(meta), from: io.deviceName, createdAt: new Date().toISOString() });
+      await io.put(manifestKey(rec.id), { id: rec.id, title: meta.title || rec.id, tid, sha256: sha, size: bytes.length, chunks, chunkSize: CHUNK_SIZE, chapters: chapterIds(meta), rev: bookRev(meta), from: io.deviceName, createdAt: new Date().toISOString() });
       if (old && old.tid !== tid) for (let n = 0; n < (old.chunks || 0); n++) await io.put(chunkKey(rec.id, old.tid, n), null, true);
-      manifests[rec.id] = { tid, chapters: chapterIds(meta) };
+      manifests[rec.id] = { tid, chapters: chapterIds(meta), rev: bookRev(meta) };
     } catch (e) {
       console.error('Invio libro', rec.id, e);
       sentAt.delete(rec.id);
@@ -108,8 +108,9 @@ async function receive(io, recs, manifests, has, files) {
     const meta = rec?.book && chapterIds(rec.book).length ? rec.book : { chapters: (m?.chapters || []).map((moduleId) => ({ moduleId })) };
     const missing = missingChapters(meta, has);
     const e0 = entries.get(id);
-    if (!missing.length) { if (e0 && e0.status !== 'done' && e0.status !== 'error') { entries.delete(id); } continue; }
-    if (m && !manifestHelps(m, missing)) continue;           // the published copy does not have them: wait for a newer one
+    const update = !missing.length && !!rec && m && m.device !== io.me && needsUpdate(m, rec.book);
+    if (!missing.length && !update) { if (e0 && e0.status !== 'done' && e0.status !== 'error') { entries.delete(id); } continue; }
+    if (m && !update && !manifestHelps(m, missing)) continue;           // the published copy does not have them: wait for a newer one
     if (skip[id] && skip[id] === (m ? m.tid : 'none')) continue;  // the user closed the error for this copy
     const e = entry(id, rec?.book?.title || m?.title);
     if (e.status === 'error' || e.status === 'importing') continue;

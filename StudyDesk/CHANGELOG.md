@@ -1,5 +1,12 @@
 # Changelog
 
+## v26.11.1-009 (Beta) – 3 novembre 2026
+Comprende tutte le novità della 26.11.1-008 (sostituita da questa versione), più:
+- Sincronizzazione dei libri tra computer: ora si trasmettono anche le modifiche ai capitoli già presenti sull'altro computer (prima arrivavano solo i capitoli mancanti). Vince la copia modificata per ultima.
+- Trascrizioni: ogni parola diventa bianca solo dopo essere stata pronunciata (non più l'intero paragrafo); prima dell'avvio il testo è tutto ben leggibile; lo scorrimento segue la parola pronunciata, sia nella trascrizione sia a schermo intero.
+- Schermo intero: pulsante a sola icona; la trascrizione si apre davvero a schermo intero (su macOS in uno spazio proprio, su Windows a tutto schermo) e non più in una finestra.
+- macOS: pulsante «Indice» con il colore uniforme; pulsante «⋯» delle copertine dei libri ben visibile.
+
 ## v26.11.1-008 (Beta) – 3 novembre 2026
 - Trascrizioni audio sincronizzate in tempo reale: con i tempi delle parole calcolati da `scripts/align_audio.py` (allineamento WhisperX) la trascrizione e la vista a schermo intero seguono l'audio parola per parola; senza tempi resta la stima precedente.
 - Lettore web/Windows: corretto un errore che poteva bloccare la trascrizione sincronizzata (`clear` non importato).

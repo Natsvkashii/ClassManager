@@ -230,6 +230,7 @@ public final class AppStore {
             try FileManager.default.createDirectory(at: d, withIntermediateDirectories: true)
             try enc.encode(mod).write(to: d.appendingPathComponent("module.json"), options: .atomic)
             reloadModules()
+            if let bid = mod.book?.id, let b = book(bid) { saveBook(b) }   // a chapter edit is a book edit (rev)
         } catch {
             alert("Salvataggio non riuscito", error.localizedDescription)
         }

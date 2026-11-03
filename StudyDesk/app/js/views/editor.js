@@ -21,6 +21,7 @@ import { renderMedia, framedImage } from '../exercises/media.js';
 import { normalizeView, trimsFromCrop, cropFromTrims, MAX_TRIM } from '../core/imageview.js';
 import { isoNow } from '../core/grading.js';
 import { renderBooksList, renderBookEditor, editorTabs } from './editor-books.js';
+import { touchBook } from '../core/books.js';
 
 const SKILLS = ['ascolto', 'lettura', 'scrittura', 'parlato', 'grammatica', 'lessico'];
 const ICONS = ['book-open', 'video', 'pen', 'globe', 'mug-hot', 'flag-checkered', 'spell-check', 'headphones', 'comments', 'star'];
@@ -102,7 +103,7 @@ export async function renderEditor(host, params, app) {
   let sel = { k: 'meta' };
 
   const status = h('span.faint', 'Salvato');
-  const save = debounce(async () => { rec.module = mod; await db.put('modules', rec); status.textContent = 'Salvato'; }, 500);
+  const save = debounce(async () => { rec.module = mod; await db.put('modules', rec); await touchBook(mod.book?.id); status.textContent = 'Salvato'; }, 500);
   const touch = (tree) => { status.textContent = 'Salvataggio…'; save(); if (tree) drawTree(); };
   const tree = h('aside.card.ed-tree.scroll');
   const pane = h('div');

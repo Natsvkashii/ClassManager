@@ -388,6 +388,12 @@ select.gap { padding-right: 1.2rem; }
 .spotify-lyrics-line.idle {
   color: rgba(255, 255, 255, 0.88);
 }
+.spotify-lyrics-line { cursor: default; }
+.lyric-word { cursor: pointer; border-radius: .4rem; padding: 0 .12em; transition: color .2s ease, background .2s ease; }
+.lyric-word.spoken { color: #fff; }
+.lyric-word.future { color: rgba(255, 255, 255, 0.30); }
+.lyric-word.active { background: rgba(255, 255, 255, 0.18); text-shadow: 0 0 20px rgba(56, 189, 248, 0.45); }
+.lyric-word:hover { background: rgba(255, 255, 255, 0.10); }
 .spotify-lyrics-dock {
   flex-shrink: 0; margin: 0 2rem 1.5rem; padding: 1rem 2rem;
   background: rgba(15, 23, 42, 0.65); backdrop-filter: blur(20px);

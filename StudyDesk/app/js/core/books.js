@@ -77,7 +77,18 @@ export async function exportSdbook(bookId) {
   return zip.generateAsync({ type: 'blob', mimeType: 'application/zip', compression: 'DEFLATE' });
 }
 
-export async function saveBookRec(rec) { await db.put('books', rec); return rec; }
+/** Saves an edited book: raises its rev so the other computers take this copy. */
+export async function saveBookRec(rec) {
+  if (rec.book) rec.book = { ...rec.book, rev: (Number.isInteger(rec.book.rev) ? rec.book.rev : 0) + 1 };
+  await db.put('books', rec);
+  return rec;
+}
+
+/** A chapter of the book was edited: same as editing the book. */
+export async function touchBook(bookId) {
+  const rec = bookId && await getBookRec(bookId);
+  if (rec) await saveBookRec(rec);
+}
 
 /** Replace the chapter list of a book (module ids in order); (re)writes `book` on each chapter module. */
 export async function setChapters(bookId, moduleIds) {

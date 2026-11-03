@@ -32,10 +32,15 @@ public enum BookTransferLogic {
     public static func chunkKey(_ id: String, _ tid: String, _ n: Int) -> String { "bookchunk:\(id):\(tid):\(n)" }
     public static func keyOfFile(_ n: String) -> String { (n.hasSuffix(".json") ? String(n.dropLast(5)) : n).removingPercentEncoding ?? "" }
 
-    public static func needsPublish(_ manifest: [String: Any]?, chapters: [String]) -> Bool {
+    public static func needsPublish(_ manifest: [String: Any]?, chapters: [String], rev: Int = 0) -> Bool {
         guard let m = manifest else { return true }
         let have = Set(m["chapters"] as? [String] ?? [])
-        return chapters.contains { !have.contains($0) }
+        return chapters.contains { !have.contains($0) } || rev > (m["rev"] as? Int ?? 0)
+    }
+    /// The published copy was edited after this one (higher rev): take it even if no chapter is missing.
+    public static func needsUpdate(_ manifest: [String: Any]?, rev: Int) -> Bool {
+        guard let m = manifest else { return false }
+        return (m["rev"] as? Int ?? 0) > rev
     }
     public static func helps(_ manifest: [String: Any], missing: [String]) -> Bool {
         let have = Set(manifest["chapters"] as? [String] ?? [])
@@ -146,17 +151,17 @@ public final class BookTransfer {
             let all = store.chapters(of: b).map(\.id), m = manifests[b.id]
             // publish when no copy has these chapters, or when pieces of the copy this Mac published were deleted
             let broken = m.map { ($0["device"] as? String) == me && BookTransferLogic.countChunks(files, id: b.id, tid: $0["tid"] as? String ?? "") < ($0["chunks"] as? Int ?? 0) } ?? false
-            guard BookTransferLogic.needsPublish(m, chapters: all) || broken, let pkg = store.bookPackage(b.id) else { continue }
+            guard BookTransferLogic.needsPublish(m, chapters: all, rev: b.rev ?? 0) || broken, let pkg = store.bookPackage(b.id) else { continue }
             sending.insert(b.id); sentAt[b.id] = Date()
-            let old = manifests[b.id], id = b.id, title = b.title, from = deviceName
+            let old = manifests[b.id], id = b.id, title = b.title, from = deviceName, rev = b.rev ?? 0
             Task.detached(priority: .utility) {
-                let ok = Self.publish(pkg, id: id, title: title, chapters: all, from: from, old: old)
+                let ok = Self.publish(pkg, id: id, title: title, chapters: all, rev: rev, from: from, old: old)
                 await MainActor.run { self.sending.remove(id); if !ok { self.sentAt[id] = nil } }
             }
         }
     }
 
-    nonisolated private static func publish(_ pkg: BookPackage, id: String, title: String, chapters: [String], from: String, old: [String: Any]?) -> Bool {
+    nonisolated private static func publish(_ pkg: BookPackage, id: String, title: String, chapters: [String], rev: Int, from: String, old: [String: Any]?) -> Bool {
         let fm = FileManager.default
         let file = fm.temporaryDirectory.appendingPathComponent("sdbook_sync_\(UUID().uuidString).sdbook")
         defer { try? fm.removeItem(at: file) }
@@ -173,7 +178,7 @@ public final class BookTransfer {
                 recs.put(BookTransferLogic.chunkKey(id, tid, n), ["id": id, "tid": tid, "n": n, "data": part.base64EncodedString()])
             }
             recs.put(BookTransferLogic.manifestKey(id), ["id": id, "title": title, "tid": tid, "sha256": sha, "size": data.count, "chunks": chunks,
-                                                         "chunkSize": size, "chapters": chapters, "from": from,
+                                                         "chunkSize": size, "chapters": chapters, "rev": rev, "from": from,
                                                          "createdAt": ISO8601DateFormatter().string(from: Date())])
             if let old, let otid = old["tid"] as? String, otid != tid {
                 for n in 0..<(old["chunks"] as? Int ?? 0) { recs.remove(BookTransferLogic.chunkKey(id, otid, n)) }
@@ -192,11 +197,13 @@ public final class BookTransfer {
             let b = store.book(id), m = manifests[id]
             let wanted = (b?.chapters.isEmpty == false) ? b!.chapters.map(\.moduleId) : (m?["chapters"] as? [String] ?? [])
             let missing = wanted.filter { !has.contains($0) }
-            if missing.isEmpty {
+            let update = missing.isEmpty && b != nil && (m?["device"] as? String) != DeskHubPaths.deviceId
+                && BookTransferLogic.needsUpdate(m, rev: b?.rev ?? 0)
+            if missing.isEmpty && !update {
                 if let i = index(id), entries[i].status != .done, entries[i].status != .error { entries.remove(at: i) }
                 continue
             }
-            if let m, !BookTransferLogic.helps(m, missing: missing) { continue }
+            if let m, !update, !BookTransferLogic.helps(m, missing: missing) { continue }
             let tid = m?["tid"] as? String ?? "none"
             if dismissed[id] == tid { continue }
             let i = entry(id, b?.title ?? (m?["title"] as? String ?? ""))

@@ -233,7 +233,10 @@ extension AppStore {
         saveBook(StudyBook(id: ref.id, title: ref.title ?? ref.id, level: firstModule.level, language: firstModule.language, color: firstModule.color), reload: false)
     }
 
-    public func saveBook(_ book: StudyBook, reload: Bool = true) {
+    /// `bump` (every edit) raises the book's rev so other computers take this copy; an import keeps the received rev.
+    public func saveBook(_ book: StudyBook, reload: Bool = true, bump: Bool = true) {
+        var book = book
+        if bump { book.rev = max(self.book(book.id)?.rev ?? 0, book.rev ?? 0) + 1 }
         let enc = JSONEncoder()
         enc.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
         let d = bookDir(book.id)
@@ -323,7 +326,7 @@ extension AppStore {
             try? fm.removeItem(at: target)
             try fm.copyItem(at: root.appendingPathComponent(c), to: target)
         }
-        saveBook(book, reload: false)
+        saveBook(book, reload: false, bump: false)
         reloadModules()
         return (book, unreadable)
     }

@@ -92,6 +92,19 @@ def fill_gaps(pairs, duration):
     return out
 
 
+def bump_rev(book_json):
+    """Raise the book's rev (as an edit in the app does) so the other computers take the new copy."""
+    if not os.path.isfile(book_json):
+        return
+    with open(book_json, encoding="utf-8") as f:
+        book = json.load(f)
+    book["rev"] = (book.get("rev") or 0) + 1
+    tmp = book_json + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(book, f, ensure_ascii=False, indent=2)
+    os.replace(tmp, book_json)
+
+
 def process_module(module_json, aligner, force, dry):
     base = os.path.dirname(module_json)
     with open(module_json, encoding="utf-8") as f:
@@ -120,6 +133,10 @@ def process_module(module_json, aligner, force, dry):
         with open(tmp, "w", encoding="utf-8") as f:
             json.dump(mod, f, ensure_ascii=False, indent=2)
         os.replace(tmp, module_json)
+        # installed module (…/StudyDesk/Modules/<id>): its book lives in …/StudyDesk/Books/<book id>
+        bid = (mod.get("book") or {}).get("id")
+        if bid and os.path.basename(os.path.dirname(base)) == "Modules":
+            bump_rev(os.path.join(os.path.dirname(os.path.dirname(base)), "Books", bid, "book.json"))
     return changed
 
 
@@ -135,6 +152,7 @@ def process_sdbook(path, aligner, force, dry):
             if os.path.isfile(mj):
                 changed += process_module(mj, aligner, force, dry)
         if changed:
+            bump_rev(os.path.join(work, "book.json"))
             tmp = path + ".tmp"
             with zipfile.ZipFile(tmp, "w", zipfile.ZIP_DEFLATED) as z:
                 for root, _, files in os.walk(work):

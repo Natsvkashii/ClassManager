@@ -289,10 +289,8 @@ struct ModulePlayerView: View {
                         Text("Indice").font(.system(size: 13, weight: .semibold))
                         Image(systemName: "chevron.down").font(.system(size: 9, weight: .bold))
                     }
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(RoundedRectangle(cornerRadius: 8).fill(module.accent.opacity(0.12)))
-                    .foregroundStyle(module.accent)
+                    .padding(.horizontal, 4)
+                    .foregroundStyle(module.accent)   // the toolbar draws the capsule around it
                 }
                 .buttonStyle(.plain)
                 .help("Indice del capitolo")

@@ -19,7 +19,7 @@ public enum AuthorAttribution {
     public static let authorName = "Guaira Jaramillo Nitoglia"
     public static let authorEmail = "guaira.jaramillo.nitoglia@gmail.com"
     public static let appName = "StudyDesk"
-    public static let appVersion = "26.11.1-008"
+    public static let appVersion = "26.11.1-009"
 
     /// Centralized channel indicator: 0 = Stable, 1 = Unstable / Beta
     public static let isUnstableBuild: Int = 1
@@ -653,6 +653,7 @@ public struct StudyBook: Codable, Hashable, Identifiable {
     public var description: String?
     public var author: ModuleAuthor?
     public var chapters: [BookChapter] = []
+    public var rev: Int?   // raised by every edit; the copy with the higher rev wins when books sync
 
     public var accent: Color { Theme.color(hex: color) }
 }

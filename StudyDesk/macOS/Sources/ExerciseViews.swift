@@ -261,7 +261,6 @@ struct AudioPlayerView: View {
     @State private var duration: Double = 0
     @State private var rate: Float = 1
     @State private var showTranscript = false
-    @State private var showFullScreenLyrics = false
     @State private var activeTimeline: [Double] = []
     private let tick = Timer.publish(every: 0.05, on: .main, in: .common).autoconnect()
 
@@ -329,21 +328,16 @@ struct AudioPlayerView: View {
                 Text(media.label ?? "Ascolto").font(.system(size: 12 * scaleFactor, weight: .heavy)).foregroundStyle(Theme.warn)
                 Spacer()
                 if let t = media.transcript, !t.isEmpty {
-                    Button {
-                        showFullScreenLyrics = true
-                    } label: {
-                        HStack(spacing: 4 * scaleFactor) {
-                            Image(systemName: "arrow.up.left.and.arrow.down.right")
-                            Text("Schermo intero")
-                        }
-                        .font(.system(size: 11 * scaleFactor, weight: .bold))
-                        .foregroundStyle(Theme.warn)
-                        .padding(.horizontal, 8 * scaleFactor)
-                        .padding(.vertical, 3 * scaleFactor)
-                        .background(Capsule().fill(Theme.warn.opacity(0.15)))
+                    Button { openFullScreen(t) } label: {
+                        Image(systemName: "arrow.up.left.and.arrow.down.right")
+                            .font(.system(size: 11 * scaleFactor, weight: .bold))
+                            .foregroundStyle(Theme.warn)
+                            .padding(6 * scaleFactor)
+                            .background(Circle().fill(Theme.warn.opacity(0.15)))
                     }
                     .buttonStyle(.plain)
-                    .help("Visualizza trascrizione e audio a schermo intero stile Spotify")
+                    .help("Trascrizione a schermo intero")
+                    .accessibilityLabel("Schermo intero")
                 }
                 Menu(formatRate(Double(rate))) {
                     ForEach([0.75, 0.9, 1.0, 1.25], id: \.self) { r in
@@ -384,36 +378,14 @@ struct AudioPlayerView: View {
         .padding(12)
         .background(RoundedRectangle(cornerRadius: 12).fill(Theme.warn.opacity(0.10)))
         .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Theme.warn.opacity(0.3)))
-        .sheet(isPresented: $showFullScreenLyrics) {
-            if let t = media.transcript, !t.isEmpty {
-                SpotifyFullScreenLyricsView(
-                    title: media.label ?? "Traccia Audio",
-                    subtitle: store.modules.first(where: { $0.id == moduleId })?.course,
-                    transcript: t,
-                    position: position,
-                    duration: max(duration, 1),
-                    activeTimeline: activeTimeline,
-                    wordTimes: media.wordTimes,
-                    playing: playing,
-                    rate: rate,
-                    onToggle: { toggle() },
-                    onSeek: { seek($0) },
-                    onRateChange: { r in
-                        rate = r
-                        if playing { player?.rate = rate }
-                    },
-                    onClose: { showFullScreenLyrics = false }
-                )
-                .frame(minWidth: 880, idealWidth: 1100, maxWidth: .infinity, minHeight: 620, idealHeight: 800, maxHeight: .infinity)
-            }
-        }
         .onReceive(tick) { _ in
             guard let p = player else { return }
             position = p.currentTime().seconds.isFinite ? p.currentTime().seconds : 0
             if let d = p.currentItem?.duration.seconds, d.isFinite, d > 0 { duration = d }
             if playing && p.rate == 0 && position >= duration - 0.3 { playing = false; seek(0) }
+            LyricsFullScreen.shared.update(owner: fullScreenKey, position: position, duration: max(duration, 1), playing: playing, rate: rate, activeTimeline: activeTimeline)
         }
-        .onDisappear { player?.pause(); playing = false }
+        .onDisappear { player?.pause(); playing = false; LyricsFullScreen.shared.close(owner: fullScreenKey) }
         .task {
             guard let url = store.assetURL(moduleId, media.src ?? media.url) else { return }
             if let d = try? await AVURLAsset(url: url).load(.duration), d.seconds.isFinite {
@@ -432,6 +404,23 @@ struct AudioPlayerView: View {
         if player == nil, let url = store.assetURL(moduleId, media.src ?? media.url) { player = AVPlayer(url: url) }
         return player
     }
+    private var fullScreenKey: String { "\(moduleId)|\(media.src ?? media.url ?? "")|\(media.label ?? "")" }
+
+    // A real full-screen window (its own Space), kept live by the tick below.
+    private func openFullScreen(_ transcript: String) {
+        let fs = LyricsFullScreen.shared
+        fs.update(owner: nil, position: position, duration: max(duration, 1), playing: playing, rate: rate, activeTimeline: activeTimeline)
+        fs.present(owner: fullScreenKey, root: LiveLyricsView(
+            live: fs.live,
+            title: media.label ?? "Traccia Audio",
+            subtitle: store.modules.first(where: { $0.id == moduleId })?.course,
+            transcript: transcript,
+            wordTimes: media.wordTimes,
+            onToggle: { toggle() },
+            onSeek: { seek($0) },
+            onRateChange: { r in rate = r; if playing { player?.rate = r } }))
+    }
+
     private func toggle() {
         guard let p = ensurePlayer() else { return }
         if playing { p.pause() } else { p.playImmediately(atRate: rate) }
@@ -562,12 +551,12 @@ struct SyncedTranscriptView: View {
     }
 
     private var currentWordId: Int? {
-        guard isPlaying else { return nil }
         return lines.flatMap(\.words).last(where: { $0.start <= effectivePos })?.id
     }
 
     var body: some View {
-        let lines = self.lines, pos = effectivePos, currentWordId = self.currentWordId
+        // Before the track starts all text is fully visible; then words turn solid once spoken.
+        let lines = self.lines, started = isPlaying || position > 0.05, currentWordId = started ? self.currentWordId : nil
         ScrollViewReader { proxy in
             ScrollView(.vertical, showsIndicators: true) {
                 VStack(alignment: .leading, spacing: 10 * scaleFactor) {
@@ -587,20 +576,15 @@ struct SyncedTranscriptView: View {
                             }
                             FlowWordsLayout(spacing: 5 * scaleFactor) {
                                 ForEach(line.words) { word in
-                                    let isCurrent = isPlaying && currentWordId == word.id
-                                    let isPast = isPlaying && pos >= word.end
-                                    let wordColor: Color = {
-                                        guard isPlaying else { return Color.primary }
-                                        if isCurrent { return Theme.warn }
-                                        if isPast { return Color.primary }
-                                        return Color.secondary.opacity(0.40)
-                                    }()
+                                    let isCurrent = currentWordId == word.id
+                                    let isPast = !started || (currentWordId.map { word.id < $0 } ?? false)
+                                    let wordColor: Color = isCurrent ? Theme.warn : (isPast ? Color.primary : Color.secondary.opacity(0.40))
 
                                     Button {
                                         onSeek(max(0, word.start - 0.05))
                                     } label: {
                                         Text(word.text)
-                                            .font(.system(size: 13 * scaleFactor, weight: isCurrent ? .black : (isPast ? .semibold : (isPlaying ? .regular : .medium))))
+                                            .font(.system(size: 13 * scaleFactor, weight: isCurrent ? .black : .semibold))
                                             .foregroundStyle(wordColor)
                                             .padding(.horizontal, 4 * scaleFactor)
                                             .padding(.vertical, 2 * scaleFactor)
@@ -610,10 +594,10 @@ struct SyncedTranscriptView: View {
                                             )
                                     }
                                     .buttonStyle(.plain)
+                                    .id("w\(word.id)")
                                 }
                             }
                         }
-                        .id(line.id)
                         .padding(.vertical, 2 * scaleFactor)
                     }
                 }
@@ -621,11 +605,9 @@ struct SyncedTranscriptView: View {
             }
             .frame(maxHeight: 180 * scaleFactor)
             .background(RoundedRectangle(cornerRadius: 8).fill(Color.primary.opacity(0.04)))
-            .onChange(of: currentLineId) { _, newId in
+            .onChange(of: currentWordId) { _, newId in
                 if let newId {
-                    withAnimation(.spring(response: 0.45, dampingFraction: 0.8)) {
-                        proxy.scrollTo(newId, anchor: .center)
-                    }
+                    withAnimation(.easeInOut(duration: 0.35)) { proxy.scrollTo("w\(newId)", anchor: .center) }
                 }
             }
         }
@@ -778,7 +760,6 @@ struct SpotifyFullScreenLyricsView: View {
     }
 
     private var currentWordId: Int? {
-        guard playing else { return nil }
         return lines.flatMap(\.words).last(where: { $0.start <= effectivePos })?.id
     }
 
@@ -850,41 +831,33 @@ struct SpotifyFullScreenLyricsView: View {
                 .padding(.top, 24)
                 .padding(.bottom, 12)
 
-                // Large Spotify Lyrics Area with smooth spring scrolling
-                let lines = self.lines, pos = effectivePos, currentLineId = self.currentLineId, currentWordId = self.currentWordId
+                // Lyrics: before the track starts everything is white; then each word turns white once
+                // spoken and the rest stays dim. The scroll follows the spoken word, not the paragraph.
+                let lines = self.lines, started = playing || position > 0.05, currentWordId = started ? self.currentWordId : nil
                 ScrollViewReader { proxy in
                     ScrollView(.vertical, showsIndicators: false) {
                         VStack(alignment: .leading, spacing: 28) {
                             Color.clear.frame(height: 120)
-
                             ForEach(lines) { line in
-                                let isLineActive = currentLineId == line.id
                                 VStack(alignment: .leading, spacing: 8) {
                                     if let spk = line.speaker {
                                         Text(spk)
                                             .font(.system(size: 14, weight: .black))
-                                            .foregroundStyle(isLineActive ? Color.cyan : Color.white.opacity(0.40))
+                                            .foregroundStyle(Color.cyan.opacity(started ? 0.75 : 1))
                                             .textCase(.uppercase)
                                             .tracking(1.2)
                                     }
-
                                     FlowWordsLayout(spacing: 10) {
                                         ForEach(line.words) { word in
-                                            let isWordActive = isLineActive && currentWordId == word.id
-                                            let isWordPast = playing && pos >= word.end
-
+                                            let isWordActive = currentWordId == word.id
+                                            let spoken = !started || (currentWordId.map { word.id <= $0 } ?? false)
                                             Button {
                                                 onSeek(max(0, word.start - 0.05))
                                             } label: {
                                                 Text(word.text)
-                                                    .font(.system(size: isLineActive ? 34 : 28, weight: isWordActive ? .black : (isLineActive ? .bold : .semibold)))
-                                                    .foregroundStyle(
-                                                        isWordActive ? Color.white :
-                                                        (isLineActive ? Color.white.opacity(0.92) :
-                                                        (isWordPast ? Color.white.opacity(0.65) :
-                                                        (playing ? Color.white.opacity(0.32) : Color.white.opacity(0.85))))
-                                                    )
-                                                    .padding(.horizontal, isWordActive ? 6 : 2)
+                                                    .font(.system(size: 32, weight: isWordActive ? .black : .bold))
+                                                    .foregroundStyle(spoken ? Color.white : Color.white.opacity(0.30))
+                                                    .padding(.horizontal, 3)
                                                     .padding(.vertical, 2)
                                                     .background(
                                                         RoundedRectangle(cornerRadius: 8)
@@ -893,25 +866,19 @@ struct SpotifyFullScreenLyricsView: View {
                                                     .shadow(color: isWordActive ? Color.cyan.opacity(0.45) : Color.clear, radius: 10)
                                             }
                                             .buttonStyle(.plain)
+                                            .id("w\(word.id)")
                                         }
                                     }
                                 }
-                                .id(line.id)
-                                .opacity(isLineActive ? 1.0 : (playing ? 0.40 : 0.85))
-                                .scaleEffect(isLineActive ? 1.02 : 0.98, anchor: .leading)
-                                .animation(.spring(response: 0.45, dampingFraction: 0.8), value: isLineActive)
                                 .padding(.vertical, 4)
                             }
-
                             Color.clear.frame(height: 180)
                         }
                         .padding(.horizontal, 48)
                     }
-                    .onChange(of: currentLineId) { _, newId in
+                    .onChange(of: currentWordId) { _, newId in
                         if let newId {
-                            withAnimation(.spring(response: 0.55, dampingFraction: 0.82)) {
-                                proxy.scrollTo(newId, anchor: .center)
-                            }
+                            withAnimation(.easeInOut(duration: 0.35)) { proxy.scrollTo("w\(newId)", anchor: .center) }
                         }
                     }
                 }
@@ -2367,5 +2334,79 @@ enum WordTiming {
         let v = WordTiming.matches(wordTimes, transcript)
         alignedCache[key] = v
         return v
+    }
+}
+
+// MARK: - Full-screen transcript window
+
+@MainActor @Observable final class LyricsLive {
+    var position: Double = 0
+    var duration: Double = 1
+    var playing = false
+    var rate: Float = 1
+    var activeTimeline: [Double] = []
+}
+
+struct LiveLyricsView: View {
+    let live: LyricsLive
+    let title: String
+    let subtitle: String?
+    let transcript: String
+    let wordTimes: [[Double]]?
+    let onToggle: () -> Void
+    let onSeek: (Double) -> Void
+    let onRateChange: (Float) -> Void
+
+    var body: some View {
+        SpotifyFullScreenLyricsView(title: title, subtitle: subtitle, transcript: transcript,
+                                    position: live.position, duration: live.duration, activeTimeline: live.activeTimeline,
+                                    wordTimes: wordTimes, playing: live.playing, rate: live.rate,
+                                    onToggle: onToggle, onSeek: onSeek, onRateChange: onRateChange,
+                                    onClose: { LyricsFullScreen.shared.close(owner: nil) })
+    }
+}
+
+@MainActor final class LyricsFullScreen: NSObject, NSWindowDelegate {
+    static let shared = LyricsFullScreen()
+    let live = LyricsLive()
+    private var window: NSWindow?
+    private var owner: String?
+
+    func present(owner: String, root: LiveLyricsView) {
+        close(owner: nil)
+        let screen = NSScreen.main?.frame ?? NSRect(x: 0, y: 0, width: 1280, height: 800)
+        let w = NSWindow(contentRect: screen, styleMask: [.titled, .closable, .resizable, .fullSizeContentView], backing: .buffered, defer: false)
+        w.titleVisibility = .hidden
+        w.titlebarAppearsTransparent
+            = true
+        w.isReleasedWhenClosed = false
+        w.collectionBehavior = [.fullScreenPrimary]
+        w.contentView = NSHostingView(rootView: root)
+        w.delegate = self
+        window = w
+        self.owner = owner
+        w.makeKeyAndOrderFront(nil)
+        w.toggleFullScreen(nil)
+    }
+
+    /// Closes the window if `owner` opened it (nil closes it whoever did).
+    func close(owner: String?) {
+        guard let w = window, owner == nil || owner == self.owner else { return }
+        w.close()
+    }
+
+    func update(owner: String?, position: Double, duration: Double, playing: Bool, rate: Float, activeTimeline: [Double]) {
+        guard owner == nil || (window != nil && owner == self.owner) else { return }
+        if live.position != position { live.position = position }
+        if live.duration != duration { live.duration = duration }
+        if live.playing != playing { live.playing = playing }
+        if live.rate != rate { live.rate = rate }
+        if live.activeTimeline.count != activeTimeline.count { live.activeTimeline = activeTimeline }
+    }
+
+    func windowWillClose(_ notification: Notification) {
+        window?.delegate = nil
+        window = nil
+        owner = nil
     }
 }
