@@ -76,8 +76,6 @@ public:
 #include "include/webview.h"
 #include "assets_bundle.h"
 
-static std::atomic<SOCKET> g_googleOAuthSock{INVALID_SOCKET};
-
 // Version and Metadata Constants
 static const wchar_t* APP_NAME = L"ClassDesk";
 static const wchar_t* APP_VERSION = BUNDLED_APP_VERSION;
@@ -1256,108 +1254,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         }).detach();
     }, nullptr);
 
-    // E2. startGoogleOAuth: Starts loopback server on port 8089 and opens browser
-    w.bind("__native_start_google_oauth", [&w](std::string req) -> std::string {
-        std::string authUrl = ParseJsonArg(req, 0);
-        if (authUrl.empty()) return "false";
-
-        // Close any lingering previous socket
-        SOCKET oldSock = g_googleOAuthSock.exchange(INVALID_SOCKET);
-        if (oldSock != INVALID_SOCKET) {
-            closesocket(oldSock);
-        }
-
-        std::thread([authUrl, &w]() {
-            WSADATA wsa;
-            if (WSAStartup(MAKEWORD(2,2), &wsa) != 0) return;
-
-            SOCKET serverSock = socket(AF_INET, SOCK_STREAM, 0);
-            if (serverSock != INVALID_SOCKET) {
-                sockaddr_in serverAddr;
-                memset(&serverAddr, 0, sizeof(serverAddr));
-                serverAddr.sin_family = AF_INET;
-                serverAddr.sin_port = htons(8089);
-                serverAddr.sin_addr.s_addr = inet_addr("127.0.0.1");
-
-                int opt = 1;
-                setsockopt(serverSock, SOL_SOCKET, SO_REUSEADDR, (char*)&opt, sizeof(opt));
-
-                if (bind(serverSock, (sockaddr*)&serverAddr, sizeof(serverAddr)) == 0 && listen(serverSock, 1) == 0) {
-                    g_googleOAuthSock.store(serverSock);
-
-                    std::wstring wUrl = Utf8ToWide(authUrl);
-                    ShellExecuteW(NULL, L"open", wUrl.c_str(), NULL, NULL, SW_SHOWNORMAL);
-
-                    fd_set readfds;
-                    FD_ZERO(&readfds);
-                    FD_SET(serverSock, &readfds);
-
-                    timeval tv;
-                    tv.tv_sec = 60; // 60 seconds timeout
-                    tv.tv_usec = 0;
-
-                    int selRes = select(0, &readfds, NULL, NULL, &tv);
-
-                    if (selRes > 0 && g_googleOAuthSock.load() == serverSock) {
-                        sockaddr_in clientAddr;
-                        int clientLen = sizeof(clientAddr);
-                        SOCKET clientSock = accept(serverSock, (sockaddr*)&clientAddr, &clientLen);
-                        if (clientSock != INVALID_SOCKET) {
-                            char buf[4096] = {0};
-                            int bytes = recv(clientSock, buf, sizeof(buf) - 1, 0);
-                            if (bytes > 0) {
-                                std::string reqStr(buf);
-                                size_t codePos = reqStr.find("code=");
-                                size_t errPos = reqStr.find("error=");
-
-                                if (codePos != std::string::npos && errPos == std::string::npos) {
-                                    size_t endPos = reqStr.find_first_of(" &\r\n", codePos + 5);
-                                    std::string code = reqStr.substr(codePos + 5, endPos - (codePos + 5));
-
-                                    std::string html = "<!DOCTYPE html><html lang='it'><head><meta charset='utf-8'><title>Accesso riuscito</title><style>body{font-family:Segoe UI,sans-serif;text-align:center;padding:50px;background:#f8fafc;color:#0f172a;}h2{color:#0284c7;}</style></head><body><h2>✓ Accesso a Google Calendar completato!</h2><p>Puoi chiudere questa scheda e tornare a <strong>ClassDesk</strong>.</p><script>setTimeout(function(){window.close();},2500);</script></body></html>";
-                                    std::string resp = "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: " + std::to_string(html.size()) + "\r\nConnection: close\r\n\r\n" + html;
-                                    send(clientSock, resp.c_str(), (int)resp.size(), 0);
-
-                                    std::string js = "if(window.app && window.app.onGoogleOAuthSuccess) window.app.onGoogleOAuthSuccess('" + code + "');";
-                                    w.dispatch([&w, js]() {
-                                        w.eval(js);
-                                    });
-                                } else {
-                                    std::string html = "<!DOCTYPE html><html lang='it'><head><meta charset='utf-8'><title>Accesso annullato</title><style>body{font-family:Segoe UI,sans-serif;text-align:center;padding:50px;background:#f8fafc;color:#0f172a;}h2{color:#e11d48;}</style></head><body><h2>✕ Accesso a Google Calendar non completato</h2><p>L'autorizzazione è stata annullata o rifiutata. Puoi chiudere questa scheda e riprovare in <strong>ClassDesk</strong>.</p><script>setTimeout(function(){window.close();},3500);</script></body></html>";
-                                    std::string resp = "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: " + std::to_string(html.size()) + "\r\nConnection: close\r\n\r\n" + html;
-                                    send(clientSock, resp.c_str(), (int)resp.size(), 0);
-
-                                    std::string js = "if(window.app && window.app.onGoogleOAuthError) window.app.onGoogleOAuthError('Autorizzazione Google annullata o negata');";
-                                    w.dispatch([&w, js]() {
-                                        w.eval(js);
-                                    });
-                                }
-                            }
-                            closesocket(clientSock);
-                        }
-                    } else if (selRes == 0) {
-                        std::string js = "if(window.app && window.app.onGoogleOAuthError) window.app.onGoogleOAuthError('Tempo di attesa scaduto per l\'accesso a Google');";
-                        w.dispatch([&w, js]() {
-                            w.eval(js);
-                        });
-                    }
-                }
-                g_googleOAuthSock.store(INVALID_SOCKET);
-                closesocket(serverSock);
-            }
-            WSACleanup();
-        }).detach();
-
-        return "true";
-    });
-
-    w.bind("__native_cancel_google_oauth", [](std::string /*req*/) -> std::string {
-        SOCKET s = g_googleOAuthSock.exchange(INVALID_SOCKET);
-        if (s != INVALID_SOCKET) {
-            closesocket(s);
-        }
-        return "true";
-    });
 
     // F. checkUpdates: WinHTTP request to GitHub Releases API with fallback to raw manifest
     w.bind("__native_check_updates", [](std::string /*req*/) -> std::string {
@@ -1645,12 +1541,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
             },
             getAppVersion: function() {
                 return Promise.resolve(')JS") + verStr + std::string(R"JS(');
-            },
-            startGoogleOAuth: function(authUrl) {
-                return window.__native_start_google_oauth(authUrl);
-            },
-            cancelGoogleOAuth: function() {
-                return window.__native_cancel_google_oauth();
             },
             checkForUpdatesAPI: function() {
                 return window.__native_check_updates();

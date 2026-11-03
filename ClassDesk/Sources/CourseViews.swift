@@ -414,21 +414,18 @@ public struct HomeView: View {
                 .buttonStyle(.borderedProminent)
                 .tint(pal.color)
 
-                Button {
-                    activeSheet = .exportCoursePDF(course)
-                } label: {
-                    Image(systemName: "square.and.arrow.up")
-                        .font(.system(size: 13, weight: .semibold))
-                        .frame(width: 28, height: 22)
-                }
-                .buttonStyle(.bordered)
-                .tint(pal.color)
-                .help("Esporta contenuto del corso in PDF")
-
-                Button(role: .destructive) {
-                    courseToDeleteOrArchive = course
-                } label: {
-                    Image(systemName: "trash")
+                EllipsisMenu {
+                    Button {
+                        activeSheet = .exportCoursePDF(course)
+                    } label: {
+                        Label("Esporta PDF", systemImage: "square.and.arrow.up")
+                    }
+                    Divider()
+                    Button(role: .destructive) {
+                        courseToDeleteOrArchive = course
+                    } label: {
+                        Label("\(store.t("deleteBtn")) / \(store.t("archiveInsteadBtn"))", systemImage: "trash")
+                    }
                 }
             }
         }
@@ -2061,14 +2058,13 @@ public struct RubricsAndCriteriaView: View {
                                     }
                                     Spacer()
                                     if store.state.rubrics.count > 1 {
-                                        Button(role: .destructive) {
-                                            store.moveRubricToTrash(rub)
-                                        } label: {
-                                            Image(systemName: "trash")
-                                                .font(.caption)
-                                                .foregroundStyle(isSelected ? .white : .red)
+                                        EllipsisMenu(tint: isSelected ? .white : .secondary) {
+                                            Button(role: .destructive) {
+                                                store.moveRubricToTrash(rub)
+                                            } label: {
+                                                Label(store.t("deleteBtn"), systemImage: "trash")
+                                            }
                                         }
-                                        .buttonStyle(.plain)
                                     }
                                 }
                                 .padding(12)
@@ -2238,16 +2234,15 @@ public struct RubricsAndCriteriaView: View {
                                     .buttonStyle(.borderedProminent)
                                     .tint(pal.color)
 
-                                    Button(role: .destructive) {
-                                        store.recordUndoSnapshot()
-                                        store.state.rubrics[rIdx].criteria.removeAll { $0.id == crit.id }
-                                        store.persist()
-                                    } label: {
-                                        Label(store.t("deleteBtn"), systemImage: "trash")
-                                            .font(.caption)
+                                    EllipsisMenu {
+                                        Button(role: .destructive) {
+                                            store.recordUndoSnapshot()
+                                            store.state.rubrics[rIdx].criteria.removeAll { $0.id == crit.id }
+                                            store.persist()
+                                        } label: {
+                                            Label(store.t("deleteBtn"), systemImage: "trash")
+                                        }
                                     }
-                                    .buttonStyle(.bordered)
-                                    .tint(.red)
                                 }
 
                                 Divider()
@@ -2345,7 +2340,6 @@ public struct ModuleCalendarView: View {
     @State private var selectedExportLang: String = "it"
     @State private var collisionMoveData: (slotKey: String, toDate: String)? = nil
     @State private var showCollisionAlert: Bool = false
-    @State private var showScanGoogleSheet: Bool = false
     @State private var quickActionSlotKey: String? = nil
 
     public var body: some View {
@@ -2420,14 +2414,19 @@ public struct ModuleCalendarView: View {
                     .tint(.green)
 
                     // Download 1:1 Square PNG Image of the Module Calendar
-                    Button {
-                        selectedExportLang = store.state.settings.language
-                        showExportLangModal = true
-                    } label: {
-                        Label(store.t("downloadPngBtn"), systemImage: "photo.badge.arrow.down")
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .tint(.indigo)
+                    CalendarShareMenu(
+                        imageProvider: {
+                            renderSquareCalendarImage(course: course, module: mod, slots: slots, weeks: posterWeeks, palette: pal, lang: store.state.settings.language)
+                        },
+                        textProvider: {
+                            store.generatePlainModuleScheduleText(course: course, module: mod, slots: slots)
+                        },
+                        onDownload: {
+                            selectedExportLang = store.state.settings.language
+                            showExportLangModal = true
+                        },
+                        emailSubject: "Calendario \(course.name)"
+                    )
 
                     Button {
                         store.syncCourseToAppleCalendar(course)
@@ -2437,34 +2436,13 @@ public struct ModuleCalendarView: View {
                     .buttonStyle(.borderedProminent)
                     .tint(pal.color)
 
-                    if store.state.settings.googleCalendarConnected {
-                        Button {
-                            showScanGoogleSheet = true
-                        } label: {
-                            Label("Sincronizza Google", systemImage: "g.circle.fill")
-                        }
-                        .buttonStyle(.borderedProminent)
-                        .tint(Color(red: 0.15, green: 0.45, blue: 0.88))
-                    }
-
                     if let meet = mod.googleMeetUrl, !meet.isEmpty, let meetUrl = URL(string: meet) {
                         Link(destination: meetUrl) {
-                            Label("Partecipa a Meet", systemImage: "video.fill")
+                            Label("Partecipa alla riunione", systemImage: "video.fill")
                         }
                         .buttonStyle(.borderedProminent)
                         .tint(.green)
-                        .help("Apri videoconferenza Google Meet per questo modulo (\(meet))")
-                    } else if store.state.settings.googleCalendarConnected {
-                        Button {
-                            Task {
-                                await store.createGoogleMeetForModule(course: course, module: mod)
-                            }
-                        } label: {
-                            Label("Crea Google Meet", systemImage: "video.badge.plus")
-                        }
-                        .buttonStyle(.bordered)
-                        .tint(.blue)
-                        .help("Genera una stanza Google Meet per tutte le lezioni di questo modulo")
+                        .help("Apri la videoconferenza di questo modulo (\(meet))")
                     }
                     }
                 }
@@ -2812,9 +2790,6 @@ public struct ModuleCalendarView: View {
                 if let data = collisionMoveData {
                     Text("In data \(store.formatDateDisplay(data.toDate)) è già presente una lezione per questo corso. Vuoi spostare in avanti tutte le lezioni successive secondo la frequenza del modulo o mantenere entrambe le lezioni nello stesso giorno?")
                 }
-            }
-            .sheet(isPresented: $showScanGoogleSheet) {
-                ScanGoogleCalendarEventsSheet(course: course, module: mod)
             }
         )
     }
@@ -3350,7 +3325,7 @@ public struct ModuleCalendarView: View {
         store.showToast("✅ \(store.t("copyTextBtn"))")
     }
 
-    private func exportSquareCalendarPNG(course: Course, module: CourseModule, slots: [String], weeks: [[CalendarDayCell]], palette: CourseColorInfo, lang: String = "it") {
+    private func renderSquareCalendarImage(course: Course, module: CourseModule, slots: [String], weeks: [[CalendarDayCell]], palette: CourseColorInfo, lang: String = "it") -> NSImage? {
         let badge = store.formatLevelModuleBadge(course: course, module: module)
         let poster = ModuleSquareCalendarPosterView(
             courseName: course.name,
@@ -3365,8 +3340,13 @@ public struct ModuleCalendarView: View {
 
         let renderer = ImageRenderer(content: poster)
         renderer.scale = 2.0 // High-DPI 2160x2160 square PNG (1:1 aspect ratio)
+        return renderer.nsImage
+    }
 
-        guard let nsImage = renderer.nsImage,
+    private func exportSquareCalendarPNG(course: Course, module: CourseModule, slots: [String], weeks: [[CalendarDayCell]], palette: CourseColorInfo, lang: String = "it") {
+        let badge = store.formatLevelModuleBadge(course: course, module: module)
+        let renderedImage = renderSquareCalendarImage(course: course, module: module, slots: slots, weeks: weeks, palette: palette, lang: lang)
+        guard let nsImage = renderedImage,
               let tiffData = nsImage.tiffRepresentation,
               let bitmap = NSBitmapImageRep(data: tiffData),
               let pngData = bitmap.representation(using: .png, properties: [:]) else {
@@ -4035,53 +4015,32 @@ public struct RosterView: View {
 
                                                     if !course.archived {
                                                         if store.showFormerGroupStudents {
-                                                            Button(store.t("reinsertBtn")) {
-                                                                store.recordUndoSnapshot()
-                                                                if !store.state.courses[cIdx].levels[lIdx].modules[mIdx].studentIds.contains(st.id) {
-                                                                    store.state.courses[cIdx].levels[lIdx].modules[mIdx].studentIds.append(st.id)
+                                                            EllipsisMenu {
+                                                                Button {
+                                                                    store.recordUndoSnapshot()
+                                                                    if !store.state.courses[cIdx].levels[lIdx].modules[mIdx].studentIds.contains(st.id) {
+                                                                        store.state.courses[cIdx].levels[lIdx].modules[mIdx].studentIds.append(st.id)
+                                                                    }
+                                                                    store.state.courses[cIdx].formerStudentIds.removeAll { $0 == st.id }
+                                                                    store.persist()
+                                                                } label: {
+                                                                    Label(store.t("reinsertBtn"), systemImage: "arrow.uturn.backward.circle")
                                                                 }
-                                                                store.state.courses[cIdx].formerStudentIds.removeAll { $0 == st.id }
-                                                                store.persist()
                                                             }
-                                                            .buttonStyle(.borderedProminent)
-                                                            .tint(.green)
-                                                            .controlSize(.small)
                                                         } else {
-                                                            // 1. Yellow Archive Icon Button (Moves student to Ex Studenti)
-                                                            Button {
-                                                                store.archiveStudentInGroup(cIdx: cIdx, lIdx: lIdx, mIdx: mIdx, studentId: st.id)
-                                                            } label: {
-                                                                Image(systemName: "archivebox.fill")
-                                                                    .font(.system(size: 12, weight: .bold))
-                                                                    .foregroundStyle(colorScheme == .dark ? Color(red: 1.0, green: 0.85, blue: 0.25) : Color(red: 0.65, green: 0.42, blue: 0.0))
-                                                                    .frame(width: 28, height: 26)
-                                                                    .background(
-                                                                        RoundedRectangle(cornerRadius: 7)
-                                                                            .fill(colorScheme == .dark ? Color.yellow.opacity(0.24) : Color.yellow.opacity(0.32))
-                                                                            .overlay(
-                                                                                RoundedRectangle(cornerRadius: 7)
-                                                                                    .strokeBorder(colorScheme == .dark ? Color.yellow.opacity(0.85) : Color.orange.opacity(0.65), lineWidth: 1)
-                                                                            )
-                                                                    )
+                                                            EllipsisMenu {
+                                                                Button {
+                                                                    store.archiveStudentInGroup(cIdx: cIdx, lIdx: lIdx, mIdx: mIdx, studentId: st.id)
+                                                                } label: {
+                                                                    Label(store.t("archiveInsteadBtn"), systemImage: "archivebox")
+                                                                }
+                                                                Divider()
+                                                                Button(role: .destructive) {
+                                                                    studentForRemovePrompt = st
+                                                                } label: {
+                                                                    Label(store.t("removeFromGroupBtn"), systemImage: "xmark")
+                                                                }
                                                             }
-                                                            .buttonStyle(.plain)
-                                                            .help(store.t("archiveStudentTooltip"))
-
-                                                            // 2. Red X Icon Button (Shows pop-up proposing to archive instead of removing)
-                                                            Button {
-                                                                studentForRemovePrompt = st
-                                                            } label: {
-                                                                Image(systemName: "xmark")
-                                                                    .font(.system(size: 12, weight: .heavy))
-                                                                    .foregroundStyle(.white)
-                                                                    .frame(width: 28, height: 26)
-                                                                    .background(
-                                                                        RoundedRectangle(cornerRadius: 7)
-                                                                            .fill(Color.red)
-                                                                    )
-                                                            }
-                                                            .buttonStyle(.plain)
-                                                            .help(store.t("removeFromGroupBtn"))
                                                         }
                                                     }
                                                 }

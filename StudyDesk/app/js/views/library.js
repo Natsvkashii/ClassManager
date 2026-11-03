@@ -11,7 +11,7 @@
 // =====================================================================================
 
 // Library: import (picker + drag&drop), module cards, export, delete.
-import { h, icon, toast, confirmDialog } from '../core/ui.js';
+import { h, icon, toast, confirmDialog, moreMenu } from '../core/ui.js';
 import { exportSdmod, deleteModule } from '../core/modules.js';
 import { loadShelf, exportSdbook, deleteBook } from '../core/books.js';
 import { importFile, IMPORT_ACCEPT } from '../core/importer.js';
@@ -58,18 +58,20 @@ export async function moduleCard(rec, app, bucket, { actions = true } = {}) {
         rec.source === 'editor' ? h('span.badge.violet', 'Mio') : null),
       actions ? h('div.row', { style: { marginTop: 'auto' }, onclick: (e) => e.stopPropagation() },
         h('button.btn.btn-sm.btn-primary', { onclick: open }, icon('play'), 'Apri'),
-        h('button.btn.btn-sm', {
-          title: 'Esporta .sdmod', onclick: async () => {
-            try { await saveBlob(await exportSdmod(rec.id), `${rec.id}.sdmod`); toast('Modulo esportato.', 'ok'); } catch (e) { toast(e.message, 'bad'); }
+        moreMenu([
+          {
+            icon: 'file-export', label: 'Esporta .sdmod', onClick: async () => {
+              try { await saveBlob(await exportSdmod(rec.id), `${rec.id}.sdmod`); toast('Modulo esportato.', 'ok'); } catch (e) { toast(e.message, 'bad'); }
+            },
           },
-        }, icon('file-export')),
-        h('button.btn.btn-sm.btn-danger', {
-          title: 'Elimina', onclick: async () => {
-            if (await confirmDialog('Eliminare il modulo?', `«${m.title}» e i relativi progressi verranno rimossi da questo dispositivo.`, 'Elimina', true)) {
-              await deleteModule(rec.id); toast('Modulo eliminato.'); app.refresh();
-            }
+          {
+            icon: 'trash', label: 'Elimina', danger: true, onClick: async () => {
+              if (await confirmDialog('Eliminare il modulo?', `«${m.title}» e i relativi progressi verranno rimossi da questo dispositivo.`, 'Elimina', true)) {
+                await deleteModule(rec.id); toast('Modulo eliminato.'); app.refresh();
+              }
+            },
           },
-        }, icon('trash'))) : null));
+        ])) : null));
 }
 
 async function bookCard(entry, app, urls) {
@@ -83,18 +85,20 @@ async function bookCard(entry, app, urls) {
       h('div.progress', h('span', { style: { width: d.pct + '%' } })), h('span.faint', `${d.pct}% completato`),
       h('div.row', { style: { marginTop: 'auto' }, onclick: (e) => e.stopPropagation() },
         h('button.btn.btn-sm.btn-primary', { onclick: open }, icon('book-open-reader'), 'Apri'),
-        h('button.btn.btn-sm', {
-          title: 'Esporta .sdbook', onclick: async () => {
-            try { await saveBlob(await exportSdbook(entry.id), `${entry.id}.sdbook`); toast('Libro esportato.', 'ok'); } catch (e) { toast(e.message, 'bad'); }
+        moreMenu([
+          {
+            icon: 'file-export', label: 'Esporta .sdbook', onClick: async () => {
+              try { await saveBlob(await exportSdbook(entry.id), `${entry.id}.sdbook`); toast('Libro esportato.', 'ok'); } catch (e) { toast(e.message, 'bad'); }
+            },
           },
-        }, icon('file-export')),
-        h('button.btn.btn-sm.btn-danger', {
-          title: 'Elimina libro', onclick: async () => {
-            if (await confirmDialog('Eliminare il libro?', `«${m.title}»: i capitoli restano in libreria come moduli singoli.`, 'Elimina libro', true)) {
-              await deleteBook(entry.id); toast('Libro eliminato.'); app.refresh();
-            }
+          {
+            icon: 'trash', label: 'Elimina libro', danger: true, onClick: async () => {
+              if (await confirmDialog('Eliminare il libro?', `«${m.title}»: i capitoli restano in libreria come moduli singoli.`, 'Elimina libro', true)) {
+                await deleteBook(entry.id); toast('Libro eliminato.'); app.refresh();
+              }
+            },
           },
-        }, icon('trash')))));
+        ]))));
 }
 
 export async function renderLibrary(host, params, app) {

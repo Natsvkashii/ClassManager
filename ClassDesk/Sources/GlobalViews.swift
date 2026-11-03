@@ -7,6 +7,30 @@
 import SwiftUI
 import AppKit
 
+// MARK: - Compact "⋯" overflow menu (secondary / destructive actions)
+
+struct EllipsisMenu<Content: View>: View {
+    var tint: Color = .secondary
+    @ViewBuilder var content: () -> Content
+
+    var body: some View {
+        Menu {
+            content()
+        } label: {
+            Image(systemName: "ellipsis")
+                .font(.system(size: 12, weight: .bold))
+                .foregroundStyle(tint)
+                .frame(width: 26, height: 26)
+                .background(Circle().fill(Color.secondary.opacity(0.14)))
+                .contentShape(Circle())
+        }
+        .menuStyle(.button)
+        .buttonStyle(.plain)
+        .menuIndicator(.hidden)
+        .fixedSize()
+    }
+}
+
 // MARK: - Global Calendar View (Day, Week, and Month Views)
 
 public enum CalendarViewMode: String, CaseIterable, Identifiable {
@@ -19,7 +43,6 @@ public enum CalendarViewMode: String, CaseIterable, Identifiable {
 
 public struct GlobalCalendarView: View {
     @Environment(AppStore.self) private var store
-    @ObservedObject private var googleManager = GoogleCalendarManager.shared
     @Binding var activeSheet: ActiveModalSheet?
 
     @State private var viewMode: CalendarViewMode = .month
@@ -28,7 +51,7 @@ public struct GlobalCalendarView: View {
         let allEvents = getAllEventsByDate()
 
         VStack(alignment: .leading, spacing: 14) {
-            // Top Toolbar: Navigation, Title, Google Sync, View Mode & Filters
+            // Top Toolbar: Navigation, Title, View Mode & Filters
             HStack(spacing: 10) {
                 // Navigation Prev / Today / Next
                 HStack(spacing: 4) {
@@ -63,32 +86,6 @@ public struct GlobalCalendarView: View {
                 .pickerStyle(.segmented)
                 .frame(width: 220)
 
-                // Google Calendar Sync Quick Action
-                if store.state.settings.googleCalendarConnected {
-                    Button {
-                        Task { await googleManager.refreshCalendarEvents(store: store) }
-                    } label: {
-                        HStack(spacing: 5) {
-                            Image(systemName: "g.circle.fill")
-                                .foregroundStyle(.blue)
-                            Text(googleManager.isSyncing ? "Sincronizzo..." : "Google Sync")
-                        }
-                    }
-                    .buttonStyle(.bordered)
-                    .help("Google Calendar collegato (\(store.state.settings.googleCalendarEmail)). Clicca per sincronizzare.")
-                } else {
-                    Button {
-                        Task { await googleManager.startOAuthFlow(store: store) }
-                    } label: {
-                        HStack(spacing: 5) {
-                            Image(systemName: "g.circle")
-                            Text("Accedi con Google")
-                        }
-                    }
-                    .buttonStyle(.bordered)
-                    .help("Collega Google Calendar per sincronizzare le lezioni e le riunioni Google Meet")
-                }
-
                 // Course Filter
                 Picker("", selection: Binding(
                     get: { store.calendarFilterCourseId },
@@ -122,11 +119,6 @@ public struct GlobalCalendarView: View {
             }
         }
         .padding(20)
-        .task {
-            if store.state.settings.googleCalendarConnected {
-                await googleManager.refreshCalendarEvents(store: store)
-            }
-        }
     }
 
     // MARK: - Navigation Logic
@@ -186,7 +178,7 @@ public struct GlobalCalendarView: View {
         }
     }
 
-    // MARK: - Day View (Hourly Grid with Google Calendar Side-by-Side Clustering)
+    // MARK: - Day View (Hourly Grid with Side-by-Side Clustering)
 
     private struct PlacedDayEvent: Identifiable {
         var id: String { event.id }
@@ -503,82 +495,42 @@ public struct GlobalCalendarView: View {
 
     @ViewBuilder
     private func renderEventCard(ev: CalEvent, compact: Bool, fillHeight: Bool = false) -> some View {
-        if ev.isGoogleEvent {
-            Button {
-                if let meet = ev.meetUrl, !meet.isEmpty, let u = URL(string: meet) {
-                    NSWorkspace.shared.open(u)
-                } else if let link = ev.htmlLink, !link.isEmpty, let u = URL(string: link) {
-                    NSWorkspace.shared.open(u)
-                }
-            } label: {
-                VStack(alignment: .leading, spacing: 1) {
-                    HStack(spacing: 4) {
-                        Image(systemName: "g.circle.fill")
-                            .font(.system(size: compact ? 8.5 : 10))
-                        Text(ev.courseName)
-                            .font(.system(size: compact ? 9.5 : 11, weight: .bold))
-                            .lineLimit(1)
-                        Spacer(minLength: 0)
-                        if ev.meetUrl != nil {
-                            Image(systemName: "video.fill")
-                                .font(.system(size: 8))
-                                .foregroundStyle(.white)
-                        }
+        Button {
+            activeSheet = .lessonPlan(courseId: ev.courseId, sectionId: ev.sectionId, slotKey: ev.slotKey)
+        } label: {
+            VStack(alignment: .leading, spacing: 1) {
+                HStack(spacing: 4) {
+                    Text(ev.courseName)
+                        .font(.system(size: compact ? 9.5 : 11, weight: .bold))
+                        .lineLimit(1)
+                    Spacer(minLength: 0)
+                    if ev.meetUrl != nil {
+                        Image(systemName: "video.fill")
+                            .font(.system(size: 8))
+                            .foregroundStyle(.white)
                     }
-                    Text(ev.isAllDay ? "Tutto il giorno" : "\(ev.time) - \(ev.endTime)")
-                        .font(.system(size: compact ? 8.5 : 9.5))
-                        .opacity(0.9)
+                    if ev.conflict {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .font(.system(size: 9))
+                            .foregroundStyle(.yellow)
+                            .help(store.t("timeConflictWarning"))
+                    }
+                }
+                Text("\(store.formatTimeDisplay(ev.time)) - \(store.formatTimeDisplay(ev.endTime))")
+                    .font(.system(size: compact ? 8.5 : 9.5))
+                    .opacity(0.9)
 
-                    if fillHeight {
-                        Spacer(minLength: 0)
-                    }
+                if fillHeight {
+                    Spacer(minLength: 0)
                 }
-                .padding(compact ? 4 : 6)
-                .frame(maxWidth: .infinity, maxHeight: fillHeight ? .infinity : nil, alignment: .topLeading)
-                .background(RoundedRectangle(cornerRadius: 6).fill(Color(red: 0.15, green: 0.45, blue: 0.88)))
-                .foregroundStyle(.white)
             }
-            .buttonStyle(.plain)
-            .frame(maxWidth: .infinity, maxHeight: fillHeight ? .infinity : nil)
-            .help(ev.meetUrl != nil ? "Google Calendar: \(ev.courseName)\nClicca per aprire la riunione Google Meet" : "Google Calendar: \(ev.courseName)")
-        } else {
-            Button {
-                activeSheet = .lessonPlan(courseId: ev.courseId, sectionId: ev.sectionId, slotKey: ev.slotKey)
-            } label: {
-                VStack(alignment: .leading, spacing: 1) {
-                    HStack(spacing: 4) {
-                        Text(ev.courseName)
-                            .font(.system(size: compact ? 9.5 : 11, weight: .bold))
-                            .lineLimit(1)
-                        Spacer(minLength: 0)
-                        if ev.meetUrl != nil {
-                            Image(systemName: "video.fill")
-                                .font(.system(size: 8))
-                                .foregroundStyle(.white)
-                        }
-                        if ev.conflict {
-                            Image(systemName: "exclamationmark.triangle.fill")
-                                .font(.system(size: 9))
-                                .foregroundStyle(.yellow)
-                                .help(store.t("timeConflictWarning"))
-                        }
-                    }
-                    Text("\(store.formatTimeDisplay(ev.time)) - \(store.formatTimeDisplay(ev.endTime))")
-                        .font(.system(size: compact ? 8.5 : 9.5))
-                        .opacity(0.9)
-
-                    if fillHeight {
-                        Spacer(minLength: 0)
-                    }
-                }
-                .padding(compact ? 5 : 7)
-                .frame(maxWidth: .infinity, maxHeight: fillHeight ? .infinity : nil, alignment: .topLeading)
-                .background(RoundedRectangle(cornerRadius: 6).fill(ev.color))
-                .foregroundStyle(.white)
-            }
-            .buttonStyle(.plain)
-            .frame(maxWidth: .infinity, maxHeight: fillHeight ? .infinity : nil)
+            .padding(compact ? 5 : 7)
+            .frame(maxWidth: .infinity, maxHeight: fillHeight ? .infinity : nil, alignment: .topLeading)
+            .background(RoundedRectangle(cornerRadius: 6).fill(ev.color))
+            .foregroundStyle(.white)
         }
+        .buttonStyle(.plain)
+        .frame(maxWidth: .infinity, maxHeight: fillHeight ? .infinity : nil)
     }
 
     // MARK: - Data Models & Event Aggregation
@@ -593,9 +545,7 @@ public struct GlobalCalendarView: View {
         public let endTime: String
         public let color: Color
         public var conflict: Bool = false
-        public var isGoogleEvent: Bool = false
         public var meetUrl: String? = nil
-        public var htmlLink: String? = nil
         public var isAllDay: Bool = false
     }
 
@@ -631,37 +581,12 @@ public struct GlobalCalendarView: View {
                                 endTime: eTime,
                                 color: pal.color,
                                 conflict: false,
-                                isGoogleEvent: false,
                                 meetUrl: les?.googleMeetUrl ?? m.googleMeetUrl,
-                                htmlLink: nil,
                                 isAllDay: false
                             )
                         )
                     }
                 }
-            }
-        }
-
-        // Add Google Calendar Events if enabled
-        if store.state.settings.googleCalendarConnected && store.state.settings.showGoogleCalendarEvents {
-            for gEv in googleManager.cachedGoogleEvents {
-                byDate[gEv.dateOnly, default: []].append(
-                    CalEvent(
-                        id: "google_\(gEv.id)",
-                        courseId: "",
-                        courseName: gEv.summary,
-                        sectionId: "",
-                        slotKey: "",
-                        time: gEv.startTimeDisplay,
-                        endTime: gEv.endTimeDisplay,
-                        color: Color(red: 0.26, green: 0.52, blue: 0.96),
-                        conflict: false,
-                        isGoogleEvent: true,
-                        meetUrl: gEv.hangoutLink,
-                        htmlLink: gEv.htmlLink,
-                        isAllDay: gEv.isAllDay
-                    )
-                )
             }
         }
 
@@ -939,17 +864,13 @@ public struct StudentsDirectoryView: View {
                                             }
                                             .controlSize(.small)
 
-                                            Button(role: .destructive) {
-                                                studentToDelete = st
-                                            } label: {
-                                                Image(systemName: "trash")
-                                                    .font(.caption.bold())
-                                                    .foregroundStyle(.white)
-                                                    .frame(width: 28, height: 24)
-                                                    .background(RoundedRectangle(cornerRadius: 6).fill(Color.red))
+                                            EllipsisMenu {
+                                                Button(role: .destructive) {
+                                                    studentToDelete = st
+                                                } label: {
+                                                    Label(store.t("deleteBtn"), systemImage: "trash")
+                                                }
                                             }
-                                            .buttonStyle(.plain)
-                                            .help(store.t("deleteBtn"))
                                         }
                                         .frame(width: 120, alignment: .trailing)
                                     }
@@ -1051,16 +972,20 @@ public struct ArchiveView: View {
                                         .tint(pal.color)
                                         .help("Apri e visualizza il corso archiviato nelle normali schede")
 
-                                        Button(store.t("restoreCourseBtn")) {
-                                            store.restoreArchivedCourse(course.id)
-                                        }
-                                        .buttonStyle(.borderedProminent)
-                                        .tint(.green)
-
                                         Spacer()
 
-                                        Button(store.t("deleteBtn"), role: .destructive) {
-                                            store.moveCourseToTrash(course.id)
+                                        EllipsisMenu {
+                                            Button {
+                                                store.restoreArchivedCourse(course.id)
+                                            } label: {
+                                                Label(store.t("restoreCourseBtn"), systemImage: "arrow.uturn.backward.circle")
+                                            }
+                                            Divider()
+                                            Button(role: .destructive) {
+                                                store.moveCourseToTrash(course.id)
+                                            } label: {
+                                                Label(store.t("deleteBtn"), systemImage: "trash")
+                                            }
                                         }
                                     }
                                 }
@@ -1178,12 +1103,13 @@ public struct TrashBinView: View {
                                 .buttonStyle(.borderedProminent)
                                 .tint(.green)
 
-                                Button(role: .destructive) {
-                                    store.deleteTrashItemPermanently(item.id)
-                                } label: {
-                                    Image(systemName: "xmark.bin.fill")
+                                EllipsisMenu {
+                                    Button(role: .destructive) {
+                                        store.deleteTrashItemPermanently(item.id)
+                                    } label: {
+                                        Label(store.t("deletePermanentlyBtn"), systemImage: "xmark.bin.fill")
+                                    }
                                 }
-                                .help(store.t("deletePermanentlyBtn"))
                             }
                             .padding(14)
                             .appCardStyle(cornerRadius: 12)
@@ -1511,21 +1437,6 @@ public struct BillingView: View {
                                 Spacer()
 
                                 HStack(spacing: 8) {
-                                    if let cIdx = store.activeCourseIndex {
-                                        Button {
-                                            store.recordUndoSnapshot()
-                                            store.state.courses[cIdx].billingConfig.billingInfo = contact.asBillingInfo
-                                            store.persist()
-                                            store.showToast("Dati cliente applicati a \(store.state.courses[cIdx].name)")
-                                        } label: {
-                                            Label("Usa nel Corso", systemImage: "checkmark.circle")
-                                                .font(.caption.bold())
-                                        }
-                                        .buttonStyle(.bordered)
-                                        .tint(.green)
-                                        .help("Imposta questo cliente come intestatario di fatturazione del corso attivo")
-                                    }
-
                                     Button {
                                         isCreatingNewContact = false
                                         editingContact = contact
@@ -1535,14 +1446,24 @@ public struct BillingView: View {
                                     }
                                     .buttonStyle(.bordered)
 
-                                    Button(role: .destructive) {
-                                        contactToDelete = contact
-                                    } label: {
-                                        Image(systemName: "trash")
-                                            .font(.caption.bold())
+                                    EllipsisMenu {
+                                        if let cIdx = store.activeCourseIndex {
+                                            Button {
+                                                store.recordUndoSnapshot()
+                                                store.state.courses[cIdx].billingConfig.billingInfo = contact.asBillingInfo
+                                                store.persist()
+                                                store.showToast("Dati cliente applicati a \(store.state.courses[cIdx].name)")
+                                            } label: {
+                                                Label("Usa nel Corso", systemImage: "checkmark.circle")
+                                            }
+                                            Divider()
+                                        }
+                                        Button(role: .destructive) {
+                                            contactToDelete = contact
+                                        } label: {
+                                            Label(store.t("deleteBtn"), systemImage: "trash")
+                                        }
                                     }
-                                    .buttonStyle(.bordered)
-                                    .tint(.red)
                                 }
                             }
                             .padding(14)
@@ -1808,16 +1729,20 @@ public struct BillingView: View {
                                     .font(.subheadline.bold())
                                     .foregroundStyle(pal.color)
                                 Spacer()
-                                // Export PNG Button
-                                Button {
-                                    selectedExportBillingLang = store.state.settings.language
-                                    showExportBillingLangModal = true
-                                } label: {
-                                    Label(store.t("exportCalendarPngBtn"), systemImage: "photo.badge.arrow.down")
-                                        .font(.caption.bold())
-                                }
-                                .buttonStyle(.borderedProminent)
-                                .tint(.indigo)
+                                // Share menu (copy image / copy text / download / e-mail)
+                                CalendarShareMenu(
+                                    imageProvider: {
+                                        renderBillingCalendarImage(course: course, level: currentLevel, module: currentModule, palette: pal, lang: store.state.settings.language)
+                                    },
+                                    textProvider: {
+                                        store.generatePlainModuleScheduleText(course: course, module: currentModule, slots: store.sortedSlots(for: course, module: currentModule))
+                                    },
+                                    onDownload: {
+                                        selectedExportBillingLang = store.state.settings.language
+                                        showExportBillingLangModal = true
+                                    },
+                                    emailSubject: "Fatturazione \(course.name)"
+                                )
                             }
 
                             HStack(spacing: 12) {
@@ -2357,7 +2282,7 @@ public struct BillingView: View {
         return sections
     }
 
-    private func exportBillingCalendarPNG(course: Course, level: CourseLevel, module: CourseModule, palette: CourseColorInfo, lang: String = "it") {
+    private func renderBillingCalendarImage(course: Course, level: CourseLevel, module: CourseModule, palette: CourseColorInfo, lang: String = "it") -> NSImage? {
         let poster = BillingCalendarPosterView(
             course: course,
             level: level,
@@ -2370,8 +2295,12 @@ public struct BillingView: View {
 
         let renderer = ImageRenderer(content: poster)
         renderer.scale = 2.0 // High DPI crisp output
+        return renderer.nsImage
+    }
 
-        guard let nsImage = renderer.nsImage,
+    private func exportBillingCalendarPNG(course: Course, level: CourseLevel, module: CourseModule, palette: CourseColorInfo, lang: String = "it") {
+        let renderedImage = renderBillingCalendarImage(course: course, level: level, module: module, palette: palette, lang: lang)
+        guard let nsImage = renderedImage,
               let tiffData = nsImage.tiffRepresentation,
               let bitmap = NSBitmapImageRep(data: tiffData),
               let pngData = bitmap.representation(using: .png, properties: [:]) else {
@@ -3579,124 +3508,6 @@ public struct SettingsView: View {
                             .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color.blue.opacity(0.30)))
                     )
 
-                    // Google Calendar & Google Meet Section Card
-                    VStack(alignment: .leading, spacing: 12) {
-                        // Google Calendar Beta Notice Banner
-                        HStack(alignment: .top, spacing: 10) {
-                            Image(systemName: "flask.fill")
-                                .font(.body)
-                                .foregroundStyle(.orange)
-                            VStack(alignment: .leading, spacing: 3) {
-                                HStack(spacing: 6) {
-                                    Text(store.t("googleCalendarBetaBadge"))
-                                        .font(.caption.bold())
-                                        .foregroundStyle(.orange)
-                                    Text("BETA")
-                                        .font(.system(size: 9, weight: .black))
-                                        .padding(.horizontal, 5)
-                                        .padding(.vertical, 1)
-                                        .background(RoundedRectangle(cornerRadius: 4).fill(Color.orange.opacity(0.18)))
-                                        .foregroundStyle(.orange)
-                                }
-                                Text(store.t("googleCalendarBetaNotice"))
-                                    .font(.caption2)
-                                    .foregroundStyle(.secondary)
-                                    .lineLimit(nil)
-                            }
-                        }
-                        .padding(10)
-                        .background(RoundedRectangle(cornerRadius: 10).fill(Color.orange.opacity(0.08)))
-
-                        HStack {
-                            VStack(alignment: .leading, spacing: 3) {
-                                HStack(spacing: 6) {
-                                    Image(systemName: "g.circle.fill")
-                                        .font(.title3)
-                                        .foregroundStyle(.blue)
-                                    Text("Google Calendar & Google Meet")
-                                        .font(.headline)
-                                        .foregroundStyle(.blue)
-                                }
-                                Text("Sincronizza le lezioni sul tuo calendario Google personale, genera stanze Meet permanenti per modulo e invia inviti via email agli studenti.")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                            Spacer()
-
-                            if store.state.settings.googleCalendarConnected {
-                                HStack(spacing: 8) {
-                                    Button {
-                                        Task { await GoogleCalendarManager.shared.refreshCalendarEvents(store: store) }
-                                    } label: {
-                                        Label(GoogleCalendarManager.shared.isSyncing ? "Sincronizzo..." : "Sincronizza", systemImage: "arrow.triangle.2.circlepath")
-                                    }
-                                    .buttonStyle(.bordered)
-
-                                    Button(role: .destructive) {
-                                        GoogleCalendarManager.shared.disconnect(store: store)
-                                    } label: {
-                                        Label("Disconnetti", systemImage: "xmark.circle")
-                                    }
-                                    .buttonStyle(.bordered)
-                                }
-                            } else {
-                                if GoogleCalendarManager.shared.isAuthenticating {
-                                    HStack(spacing: 8) {
-                                        ProgressView().controlSize(.small)
-                                        Text("In attesa nel browser...")
-                                            .font(.caption)
-                                            .foregroundStyle(.secondary)
-                                        Button("Annulla") {
-                                            GoogleCalendarManager.shared.cancelOAuthFlow()
-                                        }
-                                        .buttonStyle(.bordered)
-                                        .controlSize(.small)
-                                    }
-                                } else {
-                                    Button {
-                                        Task { await GoogleCalendarManager.shared.startOAuthFlow(store: store) }
-                                    } label: {
-                                        Label("Accedi con Google", systemImage: "g.circle.fill")
-                                    }
-                                    .buttonStyle(.borderedProminent)
-                                    .tint(.blue)
-                                }
-                            }
-                        }
-
-                        if let err = GoogleCalendarManager.shared.lastSyncError, !store.state.settings.googleCalendarConnected {
-                            HStack(spacing: 6) {
-                                Image(systemName: "exclamationmark.circle.fill")
-                                    .foregroundStyle(.orange)
-                                Text(err)
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                            .padding(.top, 2)
-                        }
-
-                        if store.state.settings.googleCalendarConnected {
-                            Divider()
-                            HStack {
-                                Text("Account Google collegato:").font(.caption.bold())
-                                Text(store.state.settings.googleCalendarEmail.isEmpty ? "Collegato" : store.state.settings.googleCalendarEmail)
-                                    .font(.caption)
-                                    .foregroundStyle(.blue)
-                                Spacer()
-                                Toggle("Mostra impegni personali nel Calendario Generale", isOn: Binding(
-                                    get: { store.state.settings.showGoogleCalendarEvents },
-                                    set: { store.state.settings.showGoogleCalendarEvents = $0; store.persist() }
-                                ))
-                                .font(.caption.bold())
-                            }
-                        }
-                    }
-                    .padding(14)
-                    .background(
-                        RoundedRectangle(cornerRadius: 12)
-                            .fill(Color.blue.opacity(0.06))
-                            .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color.blue.opacity(0.24)))
-                    )
                     HStack {
                         VStack(alignment: .leading, spacing: 3) {
                             Text(store.t("updatesSectionHeader"))
@@ -4231,5 +4042,92 @@ public struct OnboardingWizardView: View {
         store.persist()
         dismiss()
         store.showToast("Configurazione completata con successo!")
+    }
+}
+
+
+// MARK: - Calendar Share Menu (icon-only share button: copy image / copy text / download / e-mail)
+
+public struct CalendarShareMenu: View {
+    @Environment(AppStore.self) private var store
+
+    /// Renders the calendar image (same image used for the PNG export).
+    let imageProvider: () -> NSImage?
+    /// Plain-text version of the calendar lessons.
+    let textProvider: () -> String
+    /// Existing export/save behaviour ("Scarica").
+    let onDownload: () -> Void
+    var emailSubject: String = "Calendario"
+
+    public var body: some View {
+        Menu {
+            Button {
+                copyImage()
+            } label: {
+                Label("Copia immagine", systemImage: "photo.on.rectangle")
+            }
+            Button {
+                copyText()
+            } label: {
+                Label("Copia solo testo", systemImage: "text.quote")
+            }
+            Button {
+                onDownload()
+            } label: {
+                Label("Scarica", systemImage: "arrow.down.circle")
+            }
+            Button {
+                sendByEmail()
+            } label: {
+                Label("Invia per e-mail", systemImage: "envelope")
+            }
+        } label: {
+            Image(systemName: "square.and.arrow.up")
+                .font(.system(size: 13, weight: .semibold))
+        }
+        .menuStyle(.borderlessButton)
+        .menuIndicator(.hidden)
+        .fixedSize()
+        .help("Condividi calendario")
+    }
+
+    private func copyImage() {
+        guard let img = imageProvider() else {
+            store.showToast("Errore nella generazione dell'immagine")
+            return
+        }
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.writeObjects([img])
+        store.showToast("Immagine copiata")
+    }
+
+    private func copyText() {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(textProvider(), forType: .string)
+        store.showToast("Testo copiato")
+    }
+
+    private func sendByEmail() {
+        guard let img = imageProvider(),
+              let tiff = img.tiffRepresentation,
+              let png = NSBitmapImageRep(data: tiff)?.representation(using: .png, properties: [:]) else {
+            store.showToast("Errore nella generazione dell'immagine")
+            return
+        }
+        let fileName = emailSubject.replacingOccurrences(of: "/", with: "-").replacingOccurrences(of: " ", with: "_") + ".png"
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent(fileName)
+        do {
+            try png.write(to: url, options: .atomic)
+        } catch {
+            store.showToast("Errore nella preparazione dell'allegato")
+            return
+        }
+        let items: [Any] = [textProvider(), url]
+        if let service = NSSharingService(named: .composeEmail), service.canPerform(withItems: items) {
+            service.subject = emailSubject
+            service.perform(withItems: items)
+        } else {
+            store.showToast("Nessun client e-mail disponibile")
+        }
     }
 }

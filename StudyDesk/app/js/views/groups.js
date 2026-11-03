@@ -11,7 +11,7 @@
 // =====================================================================================
 
 // Groups (teacher): list, group page (results table, students, assignments), student detail, ClassDesk link.
-import { h, icon, clear, toast, modal, confirmDialog, validEmail, fmtDate } from '../core/ui.js';
+import { h, icon, clear, toast, modal, confirmDialog, validEmail, fmtDate, moreMenu } from '../core/ui.js';
 import { loadShelf } from '../core/books.js';
 import { listSavedBoards, saveBoardRecord, deleteSavedBoard } from '../core/boards.js';
 import { listGroups, getGroup, saveGroup, deleteGroup, getGroupProgress, importProgressFiles, removeStudentProgress, makeInvite } from '../core/groups.js';
@@ -186,8 +186,10 @@ export async function renderGroups(host, params, app) {
   document.documentElement.style.setProperty('--module', group.color || '#0ea5e9');
 
   app.setActions(
-    h('button.btn', { onclick: () => app.navigate('groups') }, icon('list'), 'Gruppi'),
-    h('button.btn', { onclick: () => editGroupModal(group, async (g) => { await saveGroup(g); reload(); }) }, icon('pen'), 'Modifica'),
+    moreMenu([
+      { icon: 'list', label: 'Gruppi', onClick: () => app.navigate('groups') },
+      { icon: 'pen', label: 'Modifica', onClick: () => editGroupModal(group, async (g) => { await saveGroup(g); reload(); }) },
+    ]),
     h('button.btn.btn-primary', {
       onclick: async () => {
         const inv = await makeInvite(group);
@@ -246,9 +248,11 @@ export async function renderGroups(host, params, app) {
     put(h('div.card',
       h('div.card-head', h('h3', 'Studenti'), h('div.row',
         // groups mirrored from ClassDesk through the Hub update by themselves: no backup file to choose
-        group.classDesk && !group.hubId ? h('button.btn.btn-sm', { onclick: () => syncClassDesk(group, reload) }, icon('rotate'), 'Sincronizza da ClassDesk') : null,
-        group.hubId ? null : h('button.btn.btn-sm', { onclick: () => classDeskModal(group, reload) }, icon('link'), group.classDesk ? 'Cambia collegamento' : 'Collega a ClassDesk'),
-        group.classDesk && !group.hubId ? h('button.btn.btn-sm.btn-ghost', { onclick: async () => { await saveGroup({ ...group, classDesk: null }); reload(); } }, icon('link-slash'), 'Scollega') : null,
+        group.hubId || !group.classDesk ? (group.hubId ? null : h('button.btn.btn-sm', { onclick: () => classDeskModal(group, reload) }, icon('link'), 'Collega a ClassDesk')) : moreMenu([
+          { icon: 'rotate', label: 'Sincronizza da ClassDesk', onClick: () => syncClassDesk(group, reload) },
+          { icon: 'link', label: 'Cambia collegamento', onClick: () => classDeskModal(group, reload) },
+          { icon: 'link-slash', label: 'Scollega', danger: true, onClick: async () => { await saveGroup({ ...group, classDesk: null }); reload(); } },
+        ], { label: 'ClassDesk' }),
         h('button.btn.btn-sm.btn-primary', { onclick: add }, icon('user-plus'), 'Aggiungi'))),
       group.hubId ? h('div.card-pad', { style: { paddingBottom: 0 } }, h('span.faint', `Corso di ClassDesk «${group.classDesk ? group.classDesk.courseName : group.name}»: gli studenti si aggiornano da soli tramite HubDesk.`))
         : group.classDesk ? h('div.card-pad', { style: { paddingBottom: 0 } }, h('span.faint', `Collegato a ${group.classDesk.courseName} › ${group.classDesk.levelName} › ${group.classDesk.moduleName} (ultima sincronizzazione ${fmtDate(group.classDesk.linkedAt)}). La sincronizzazione chiede un nuovo backup JSON di ClassDesk e aggiunge o aggiorna gli studenti.`)) : null,
@@ -257,13 +261,15 @@ export async function renderGroups(host, params, app) {
         return h('div.card-head',
           h('div', h('b', studentName(s)), h('div.faint', [s.email, s.classDeskStudentId ? 'ClassDesk' : '', d ? `risultati del ${fmtDate(d.exportedAt || d.importedAt)}` : 'nessun risultato'].filter(Boolean).join(' · '))),
           h('div.row', d ? h('button.btn.btn-sm', { onclick: () => app.navigate(`groups/${encodeURIComponent(id)}/s/${encodeURIComponent(s.id)}`) }, icon('eye'), 'Dettaglio') : null,
-            h('button.btn.btn-sm', { 'aria-label': 'Modifica studente', onclick: () => studentModal(s, async (n) => { await saveGroup({ ...group, students: group.students.map((x) => (x.id === n.id ? n : x)) }); reload(); }) }, icon('pen')),
-            h('button.btn.btn-sm.btn-danger', {
-              'aria-label': 'Rimuovi studente', onclick: async () => {
-                if (!(await confirmDialog('Rimuovere lo studente?', `${studentName(s)} e i suoi risultati importati verranno rimossi dal gruppo.`, 'Rimuovi', true))) return;
-                await removeStudentProgress(id, s.id); await saveGroup({ ...group, students: group.students.filter((x) => x.id !== s.id) }); reload();
+            moreMenu([
+              { icon: 'pen', label: 'Modifica studente', onClick: () => studentModal(s, async (n) => { await saveGroup({ ...group, students: group.students.map((x) => (x.id === n.id ? n : x)) }); reload(); }) },
+              {
+                icon: 'trash', label: 'Rimuovi studente', danger: true, onClick: async () => {
+                  if (!(await confirmDialog('Rimuovere lo studente?', `${studentName(s)} e i suoi risultati importati verranno rimossi dal gruppo.`, 'Rimuovi', true))) return;
+                  await removeStudentProgress(id, s.id); await saveGroup({ ...group, students: group.students.filter((x) => x.id !== s.id) }); reload();
+                },
               },
-            }, icon('trash'))));
+            ])));
       }) : h('div.empty', icon('user-plus', 'ico'), h('p', 'Nessuno studente. Aggiungili a mano o collega il gruppo a ClassDesk.'))));
     put(h('div.row', { style: { marginTop: '1.25rem' } }, h('button.btn.btn-danger', {
       onclick: async () => { if (await confirmDialog('Eliminare il gruppo?', `«${group.name}» e i risultati importati verranno rimossi da questo dispositivo.`, 'Elimina gruppo', true)) { await deleteGroup(id); toast('Gruppo eliminato.'); app.navigate('groups'); } },
@@ -280,19 +286,21 @@ export async function renderGroups(host, params, app) {
         h('div.saved-meta', h('b', r.name), h('span.faint', `Salvata il ${fmtDate(r.updatedAt)}`)),
         h('div.row',
           h('button.btn.btn-sm.btn-primary', { onclick: () => app.navigate('board/' + encodeURIComponent(r.id)) }, icon('chalkboard'), 'Apri'),
-          h('button.btn.btn-sm', {
-            'aria-label': 'Rinomina', title: 'Rinomina', onclick: () => {
-              const inp = h('input.input', { value: r.name, maxlength: 80 });
-              modal({ title: 'Rinomina la lavagna', body: h('div.field', h('label', 'Nome'), inp), buttons: [{ label: 'Annulla' }, { label: 'Salva', primary: true, onClick: async () => { await saveBoardRecord({ ...r, name: inp.value }); reload(); } }] });
-              setTimeout(() => inp.select(), 30);
+          moreMenu([
+            {
+              icon: 'pen', label: 'Rinomina', onClick: () => {
+                const inp = h('input.input', { value: r.name, maxlength: 80 });
+                modal({ title: 'Rinomina la lavagna', body: h('div.field', h('label', 'Nome'), inp), buttons: [{ label: 'Annulla' }, { label: 'Salva', primary: true, onClick: async () => { await saveBoardRecord({ ...r, name: inp.value }); reload(); } }] });
+                setTimeout(() => inp.select(), 30);
+              },
             },
-          }, icon('pen')),
-          h('button.btn.btn-sm.btn-danger', {
-            'aria-label': 'Elimina', title: 'Elimina', onclick: async () => {
-              if (!(await confirmDialog('Eliminare la lavagna salvata?', `«${r.name}» verrà eliminata da questo dispositivo.`, 'Elimina', true))) return;
-              await deleteSavedBoard(r.id); reload();
+            {
+              icon: 'trash', label: 'Elimina', danger: true, onClick: async () => {
+                if (!(await confirmDialog('Eliminare la lavagna salvata?', `«${r.name}» verrà eliminata da questo dispositivo.`, 'Elimina', true))) return;
+                await deleteSavedBoard(r.id); reload();
+              },
             },
-          }, icon('trash'))))))) : h('div.empty', icon('chalkboard', 'ico'), h('p', 'Nessuna lavagna salvata in questo gruppo. Sulla Lavagna usa il pulsante di salvataggio e scegli «Salva in un gruppo».'))));
+          ])))))) : h('div.empty', icon('chalkboard', 'ico'), h('p', 'Nessuna lavagna salvata in questo gruppo. Sulla Lavagna usa il pulsante di salvataggio e scegli «Salva in un gruppo».'))));
   }
 
   // ---- content (assignments)

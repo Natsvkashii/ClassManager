@@ -1065,7 +1065,6 @@ public final class AppStore {
                 let modCopy = state.courses[cIdx].levels[lIdx].modules[mIdx]
                 let foundLesson = findLesson(in: courseCopy, sectionId: sectionId, slotKey: slotKey)
                 let savedEvId = foundLesson?.calendarEventIdentifier
-                let savedGoogleId = foundLesson?.googleCalendarEventId
 
                 state.courses[cIdx].levels[lIdx].modules[mIdx].dates.removeAll { $0 == slotKey }
                 for stId in state.courses[cIdx].levels[lIdx].modules[mIdx].attendance.keys {
@@ -1081,9 +1080,6 @@ public final class AppStore {
                 Task {
                     if self.state.settings.autoSyncAppleCalendar {
                         await AppleCalendarManager.shared.removeLessonEvent(course: courseCopy, module: modCopy, slotKey: slotKey, savedEventId: savedEvId)
-                    }
-                    if let gId = savedGoogleId, !gId.isEmpty {
-                        await GoogleCalendarManager.shared.removeLessonFromGoogle(eventId: gId, store: self)
                     }
                 }
                 showToast("Lezione eliminata con successo")
@@ -1574,6 +1570,23 @@ public final class AppStore {
         return lines.joined(separator: "\n")
     }
 
+    /// Plain-text (no emoji / markdown) lesson list of a module: one line per lesson with date, time and title.
+    public func generatePlainModuleScheduleText(course: Course, module: CourseModule, slots: [String]) -> String {
+        let badge = formatLevelModuleBadge(course: course, module: module)
+        var lines: [String] = ["\(course.name) - \(badge)"]
+        for (idx, sk) in slots.enumerated() {
+            let les = findLesson(in: course, sectionId: module.id, slotKey: sk)
+            let sTime = les?.time ?? module.startTime
+            let eTime = les?.endTime ?? module.endTime
+            var line = "\(idx + 1). \(formatShortWeekdayDate(sk)) (\(formatDateDisplay(sk))) \(formatTimeDisplay(sTime)) - \(formatTimeDisplay(eTime))"
+            if let title = les?.title.trimmingCharacters(in: .whitespacesAndNewlines), !title.isEmpty {
+                line += " - \(title)"
+            }
+            lines.append(line)
+        }
+        return lines.joined(separator: "\n")
+    }
+
     public func generateLessonInvitationText(course: Course, module: CourseModule, slotKey: String) -> String {
         let les = findLesson(in: course, sectionId: module.id, slotKey: slotKey)
         let sTime = les?.time ?? module.startTime
@@ -1664,112 +1677,6 @@ public final class AppStore {
             syncCourseToAppleCalendar(course, showNotification: false)
         }
         showToast(t("appleCalendarSyncedMsg"))
-    }
-
-    // MARK: - Google Calendar Synchronization
-
-    public func syncModuleToGoogleCalendar(course: Course, module: CourseModule, showNotification: Bool = true) {
-        guard state.settings.googleCalendarConnected else { return }
-        Task { @MainActor in
-            guard let cIdx = self.state.courses.firstIndex(where: { $0.id == course.id }),
-                  let lvlIdx = self.state.courses[cIdx].levels.firstIndex(where: { $0.modules.contains(where: { $0.id == module.id }) }),
-                  let mIdx = self.state.courses[cIdx].levels[lvlIdx].modules.firstIndex(where: { $0.id == module.id }) else { return }
-
-            let moduleStIds = Set(self.state.courses[cIdx].levels[lvlIdx].modules[mIdx].studentIds)
-            let attendeeEmails = self.state.studentsDirectory
-                .filter { moduleStIds.contains($0.id) }
-                .compactMap { s -> String? in
-                    let em = s.email.trimmingCharacters(in: .whitespacesAndNewlines)
-                    return em.contains("@") ? em : nil
-                }
-
-            let slots = self.sortedSlots(for: self.state.courses[cIdx], module: module)
-            var syncedCount = 0
-
-            for (idx, slotKey) in slots.enumerated() {
-                let lp = self.findLesson(in: self.state.courses[cIdx], sectionId: module.id, slotKey: slotKey)
-                do {
-                    let currentMod = self.state.courses[cIdx].levels[lvlIdx].modules[mIdx]
-                    let (evId, meetUrl) = try await GoogleCalendarManager.shared.syncLessonToGoogle(
-                        course: self.state.courses[cIdx],
-                        module: currentMod,
-                        lessonPlan: lp,
-                        slotKey: slotKey,
-                        lessonNum: idx + 1,
-                        attendees: attendeeEmails,
-                        store: self
-                    )
-                    syncedCount += 1
-
-                    if let meet = meetUrl, !meet.isEmpty, (currentMod.googleMeetUrl?.isEmpty ?? true) {
-                        self.state.courses[cIdx].levels[lvlIdx].modules[mIdx].googleMeetUrl = meet
-                    }
-
-                    if let lIdx = self.state.courses[cIdx].lessons.firstIndex(where: { $0.slotKey == slotKey && ($0.sectionId == nil || $0.sectionId == module.id) }) {
-                        self.state.courses[cIdx].lessons[lIdx].googleCalendarEventId = evId
-                        if let meet = meetUrl {
-                            self.state.courses[cIdx].lessons[lIdx].googleMeetUrl = meet
-                        }
-                    } else {
-                        var newLp = lp ?? LessonPlan(sectionId: module.id, date: self.extractDate(from: slotKey), slotKey: slotKey, time: currentMod.startTime, endTime: currentMod.endTime)
-                        newLp.googleCalendarEventId = evId
-                        if let meet = meetUrl {
-                            newLp.googleMeetUrl = meet
-                        }
-                        self.state.courses[cIdx].lessons.append(newLp)
-                    }
-                } catch {
-                    print("Google Calendar sync lesson error for slot \(slotKey): \(error.localizedDescription)")
-                }
-            }
-
-            self.persist()
-            if showNotification {
-                self.showToast("Google Calendar: \(syncedCount) lezioni sincronizzate")
-            }
-        }
-    }
-
-    public func createGoogleMeetForModule(course: Course, module: CourseModule) async {
-        guard let cIdx = self.state.courses.firstIndex(where: { $0.id == course.id }),
-              let lvlIdx = self.state.courses[cIdx].levels.firstIndex(where: { $0.modules.contains(where: { $0.id == module.id }) }),
-              let mIdx = self.state.courses[cIdx].levels[lvlIdx].modules.firstIndex(where: { $0.id == module.id }) else { return }
-
-        do {
-            let res = try await GoogleCalendarManager.shared.createModuleMeetRoom(
-                course: self.state.courses[cIdx],
-                module: self.state.courses[cIdx].levels[lvlIdx].modules[mIdx],
-                store: self
-            )
-            self.state.courses[cIdx].levels[lvlIdx].modules[mIdx].googleMeetUrl = res.meetUrl
-
-            // Apply the new Google Meet URL to all lessons in this module
-            for lIdx in 0..<self.state.courses[cIdx].lessons.count {
-                if self.state.courses[cIdx].lessons[lIdx].sectionId == module.id {
-                    self.state.courses[cIdx].lessons[lIdx].googleMeetUrl = res.meetUrl
-                }
-            }
-
-            self.persist()
-            self.showToast("Stanza Google Meet creata per tutte le lezioni!")
-        } catch {
-            self.showToast("Errore creazione Google Meet: \(error.localizedDescription)")
-        }
-    }
-
-    public func removeGoogleMeetFromModule(course: Course, module: CourseModule) {
-        guard let cIdx = self.state.courses.firstIndex(where: { $0.id == course.id }),
-              let lvlIdx = self.state.courses[cIdx].levels.firstIndex(where: { $0.modules.contains(where: { $0.id == module.id }) }),
-              let mIdx = self.state.courses[cIdx].levels[lvlIdx].modules.firstIndex(where: { $0.id == module.id }) else { return }
-
-        self.state.courses[cIdx].levels[lvlIdx].modules[mIdx].googleMeetUrl = nil
-        for lIdx in 0..<self.state.courses[cIdx].lessons.count {
-            if self.state.courses[cIdx].lessons[lIdx].sectionId == module.id {
-                self.state.courses[cIdx].lessons[lIdx].googleMeetUrl = nil
-            }
-        }
-        self.persist()
-        self.showToast("Link Google Meet rimosso dal modulo")
     }
 
     // MARK: - WhatsApp & Email Contact Helpers

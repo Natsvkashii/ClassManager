@@ -19,12 +19,12 @@ public enum AuthorAttribution {
     public static let authorName = "Guaira Jaramillo Nitoglia"
     public static let authorEmail = "guaira.jaramillo.nitoglia@gmail.com"
     public static let appName = "StudyDesk"
-    public static let appVersion = "26.11.1-011"
+    public static let appVersion = "26.11.1-012"
 
     /// Centralized channel indicator: 0 = Stable, 1 = Unstable / Beta
     public static let isUnstableBuild: Int = 1
     /// Dynamic build type: "stable", "beta", or "internal"
-    public static let buildType: String = "beta"
+    public static let buildType: String = "internal"
 
     public static var isBeta: Bool { isUnstableBuild == 1 }
     public static var appChannel: String { isUnstableBuild == 1 ? "unstable" : "stable" }

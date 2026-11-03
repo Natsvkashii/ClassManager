@@ -42,9 +42,11 @@ struct UpdateBanner: View {
             } else {
                 Button { um.downloadAndInstall(release: release, store: store) } label: { Label("Scarica e installa", systemImage: "arrow.down.circle.fill") }
                     .buttonStyle(.borderedProminent).tint(.purple).controlSize(.small)
-                Button { um.openInBrowser(release: release) } label: { Label("Vedi su GitHub", systemImage: "safari") }
-                    .buttonStyle(.bordered).controlSize(.small)
             }
+            Menu {
+                Button { um.openInBrowser(release: release) } label: { Label("Vedi su GitHub", systemImage: "safari") }
+            } label: { Image(systemName: "ellipsis.circle") }
+                .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize().help("Altro")
             Button { um.bannerDismissed = true } label: { Image(systemName: "xmark").font(.caption.bold()).foregroundStyle(.secondary) }
                 .buttonStyle(.plain).padding(.leading, 4)
         }

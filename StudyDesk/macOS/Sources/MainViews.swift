@@ -308,7 +308,18 @@ struct ModulePlayerView: View {
                     GroupSelectorPill(book: b)
                 }
 
+                Button { store.focusMode.toggle() } label: {
+                    Image(systemName: store.focusMode ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right")
+                }
+                .help(store.focusMode ? "Esci da schermo intero (ESC)" : "Schermo intero")
+                .keyboardShortcut("f", modifiers: [.command, .control])
+
                 Menu {
+                    Button { store.saveReportWithPanel() } label: { Label("Esporta i progressi", systemImage: "square.and.arrow.up") }
+                    if store.state.isTeacher {
+                        Button { store.editingModuleId = module.id; store.currentTab = .editor } label: { Label("Apri nell'editor", systemImage: "square.and.pencil") }
+                    }
+                    Divider()
                     Picker("Dimensione elementi", selection: $exerciseScale) {
                         Text("Livello 1 (100% Normale)").tag(1)
                         Text("Livello 2 (120% Medio)").tag(2)
@@ -316,21 +327,9 @@ struct ModulePlayerView: View {
                         Text("Livello 4 (160% Molto grande)").tag(4)
                     }
                 } label: {
-                    Image(systemName: "textformat.size")
+                    Image(systemName: "ellipsis.circle")
                 }
-                .help("Ingrandisci o rimpicciolisci testo ed elementi degli esercizi (1-4)")
-
-                Button { store.focusMode.toggle() } label: {
-                    Image(systemName: store.focusMode ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right")
-                }
-                .help(store.focusMode ? "Esci da schermo intero (ESC)" : "Schermo intero")
-                .keyboardShortcut("f", modifiers: [.command, .control])
-
-                Button { store.saveReportWithPanel() } label: { Image(systemName: "square.and.arrow.up") }.help("Esporta i progressi")
-
-                if store.state.isTeacher {
-                    Button { store.editingModuleId = module.id; store.currentTab = .editor } label: { Image(systemName: "square.and.pencil") }.help("Apri nell'editor")
-                }
+                .help("Altro: esporta i progressi, apri nell'editor, dimensione di testo ed elementi (1-4)")
             }
         }
     }

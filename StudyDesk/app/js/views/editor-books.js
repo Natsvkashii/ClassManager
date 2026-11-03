@@ -11,7 +11,7 @@
 // =====================================================================================
 
 // Editor: books (teacher). List of books, create / edit a book (metadata, cover, chapters), export .sdbook.
-import { h, icon, clear, toast, modal, confirmDialog, debounce } from '../core/ui.js';
+import { h, icon, clear, toast, modal, confirmDialog, debounce, moreMenu } from '../core/ui.js';
 import { db } from '../core/db.js';
 import { listModules } from '../core/modules.js';
 import { loadShelf, getBookRec, saveBookRec, setChapters, deleteBook, exportSdbook, renumberChapter } from '../core/books.js';
@@ -104,8 +104,10 @@ export async function renderBookEditor(host, bookId, app) {
         h('div.row', { style: { gap: '.25rem', flexWrap: 'nowrap' } },
           h('button.btn.btn-sm.btn-icon', { title: 'Su', 'aria-label': 'Sposta su', disabled: i === 0, onclick: () => move(-1) }, icon('arrow-up')),
           h('button.btn.btn-sm.btn-icon', { title: 'Giù', 'aria-label': 'Sposta giù', disabled: i === chapterIds.length - 1, onclick: () => move(1) }, icon('arrow-down')),
-          m.source === 'editor' ? h('button.btn.btn-sm.btn-icon', { title: 'Modifica il modulo', 'aria-label': 'Modifica il modulo', onclick: () => app.navigate('editor/' + encodeURIComponent(id)) }, icon('pen')) : null,
-          h('button.btn.btn-sm.btn-icon.btn-danger', { title: 'Rimuovi dal libro', 'aria-label': 'Rimuovi dal libro', onclick: () => { chapterIds = chapterIds.filter((x) => x !== id); touch(); drawChapters(); } }, icon('xmark')))));
+          moreMenu([
+            m.source === 'editor' ? { icon: 'pen', label: 'Modifica il modulo', onClick: () => app.navigate('editor/' + encodeURIComponent(id)) } : null,
+            { icon: 'xmark', label: 'Rimuovi dal libro', danger: true, onClick: () => { chapterIds = chapterIds.filter((x) => x !== id); touch(); drawChapters(); } },
+          ]))));
     });
   }
 

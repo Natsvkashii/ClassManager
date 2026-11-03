@@ -66,6 +66,61 @@ export function modal({ title, body, buttons = [], wide = false, onClose }) {
   return { close, el: back };
 }
 
+let closeOpenMenu = null;
+/** Closes the "⋯" menu that is currently open, if any. */
+export const closeMenus = () => { if (closeOpenMenu) closeOpenMenu(); };
+
+/**
+ * "⋯" icon button opening a small popover menu.
+ * items: {icon, label, onClick, danger} or {node} for custom content; falsy entries are skipped.
+ * Danger items are moved last, after a separator. Closes on outside click, Escape, scroll and resize.
+ */
+export function moreMenu(items, { label = 'Altro', cls = '' } = {}) {
+  const list = items.filter(Boolean);
+  const normal = list.filter((i) => !i.danger);
+  const danger = list.filter((i) => i.danger);
+  const btn = h('button.btn.btn-sm.btn-icon' + (cls ? '.' + cls.split(/\s+/).filter(Boolean).join('.') : ''), {
+    type: 'button', title: label, 'aria-label': label, 'aria-haspopup': 'menu', 'aria-expanded': 'false',
+    onclick: (e) => {
+      e.stopPropagation();
+      if (btn._pop) { closeMenus(); return; }
+      closeMenus();
+      const entry = (it) => {
+        if (it.node) return it.node;
+        return h('button.menu-item' + (it.danger ? '.danger' : ''), {
+          type: 'button', role: 'menuitem',
+          onclick: async (ev) => { ev.stopPropagation(); closeMenus(); if (it.onClick) await it.onClick(); },
+        }, it.icon ? icon(it.icon) : null, h('span', it.label));
+      };
+      const pop = h('div.menu-pop', { role: 'menu' }, normal.map(entry), normal.length && danger.length ? h('div.menu-sep') : null, danger.map(entry));
+      document.body.append(pop);
+      const r = btn.getBoundingClientRect();
+      const w = pop.offsetWidth, ht = pop.offsetHeight;
+      const left = Math.min(Math.max(8, r.right - w), window.innerWidth - w - 8);
+      let top = r.bottom + 6;
+      if (top + ht > window.innerHeight - 8) top = Math.max(8, r.top - ht - 6);
+      pop.style.left = left + 'px'; pop.style.top = top + 'px';
+      btn._pop = pop; btn.setAttribute('aria-expanded', 'true');
+      const onDown = (ev) => { if (!pop.contains(ev.target) && !btn.contains(ev.target)) closeMenus(); };
+      const onKey = (ev) => { if (ev.key === 'Escape') { ev.stopPropagation(); closeMenus(); } };
+      const onAway = (ev) => { if (!pop.contains(ev.target)) closeMenus(); };
+      document.addEventListener('pointerdown', onDown, true);
+      document.addEventListener('keydown', onKey, true);
+      window.addEventListener('resize', closeMenus);
+      window.addEventListener('scroll', onAway, true);
+      closeOpenMenu = () => {
+        pop.remove(); btn._pop = null; btn.setAttribute('aria-expanded', 'false');
+        document.removeEventListener('pointerdown', onDown, true);
+        document.removeEventListener('keydown', onKey, true);
+        window.removeEventListener('resize', closeMenus);
+        window.removeEventListener('scroll', onAway, true);
+        closeOpenMenu = null;
+      };
+    },
+  }, icon('ellipsis'));
+  return btn;
+}
+
 export function confirmDialog(title, text, okLabel = 'Conferma', danger = false) {
   return new Promise((resolve) => {
     let done = false;

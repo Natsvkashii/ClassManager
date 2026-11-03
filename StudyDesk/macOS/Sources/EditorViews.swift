@@ -164,8 +164,11 @@ struct ModuleEditorView: View {
             ToolbarItemGroup {
                 Button { close() } label: { Label("Chiudi", systemImage: "xmark") }
                 Button { save() } label: { Label(dirty ? "Salva*" : "Salva", systemImage: "square.and.arrow.down") }.keyboardShortcut("s", modifiers: .command)
-                Button { save(); if let id = draft?.id { store.exportModule(id) } } label: { Label("Esporta .sdmod", systemImage: "square.and.arrow.up") }
-                Button { save(); if let id = draft?.id { store.openModule(id) } } label: { Label("Prova", systemImage: "play.fill") }
+                Menu {
+                    Button { save(); if let id = draft?.id { store.exportModule(id) } } label: { Label("Esporta .sdmod", systemImage: "square.and.arrow.up") }
+                    Button { save(); if let id = draft?.id { store.openModule(id) } } label: { Label("Prova", systemImage: "play.fill") }
+                } label: { Image(systemName: "ellipsis.circle") }
+                .menuIndicator(.hidden).help("Altro")
             }
         }
         .navigationTitle(draft?.title ?? "Editor")

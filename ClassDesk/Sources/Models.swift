@@ -18,12 +18,12 @@ public enum AuthorAttribution {
     public static let authorName = "Guaira Jaramillo Nitoglia"
     public static let authorEmail = "guaira.jaramillo.nitoglia@gmail.com"
     public static let appName = "ClassDesk"
-    public static let appVersion = "26.11.1-011"
+    public static let appVersion = "26.11.1-012"
 
     /// Centralized channel indicator: 0 = Stable, 1 = Unstable / Beta
     public static let isUnstableBuild: Int = 1
     /// Dynamic build type: "stable", "beta", or "internal"
-    public static let buildType: String = "beta"
+    public static let buildType: String = "internal"
 
     public static var isBeta: Bool {
         return isUnstableBuild == 1
@@ -444,17 +444,11 @@ public struct AppSettings: Codable, Equatable {
     public var updateCheckFrequency: String = "startup" // "startup", "daily", "weekly", "manual"
     public var lastUpdateCheckDate: Double = 0.0
     public var onboardingCompleted: Bool = false
-    public var googleCalendarConnected: Bool = false
-    public var googleCalendarEmail: String = ""
-    public var googleAccessToken: String = ""
-    public var googleRefreshToken: String = ""
-    public var googleTokenExpiry: Double = 0.0
-    public var showGoogleCalendarEvents: Bool = true
 
     public init() {}
 
     enum CodingKeys: String, CodingKey {
-        case language, theme, sidebarMini, firstDayOfWeek, dateFormat, timeFormat, currency, passThreshold, defaultLessonDuration, defaultHourlyRate, defaultLessonDurationHours, defaultVatPercent, autoSyncAppleCalendar, calendarSyncMode, iCloudSyncEnabled, checkForUpdatesAutomatically, includeBetaUpdates, updateCheckFrequency, lastUpdateCheckDate, onboardingCompleted, googleCalendarConnected, googleCalendarEmail, googleAccessToken, googleRefreshToken, googleTokenExpiry, showGoogleCalendarEvents
+        case language, theme, sidebarMini, firstDayOfWeek, dateFormat, timeFormat, currency, passThreshold, defaultLessonDuration, defaultHourlyRate, defaultLessonDurationHours, defaultVatPercent, autoSyncAppleCalendar, calendarSyncMode, iCloudSyncEnabled, checkForUpdatesAutomatically, includeBetaUpdates, updateCheckFrequency, lastUpdateCheckDate, onboardingCompleted
     }
 
     public init(from decoder: Decoder) throws {
@@ -480,12 +474,6 @@ public struct AppSettings: Codable, Equatable {
         updateCheckFrequency = c.flexString(.updateCheckFrequency, default: "startup")
         lastUpdateCheckDate = c.flexDouble(.lastUpdateCheckDate, default: 0.0)
         onboardingCompleted = c.flexBool(.onboardingCompleted, default: false)
-        googleCalendarConnected = c.flexBool(.googleCalendarConnected, default: false)
-        googleCalendarEmail = c.flexString(.googleCalendarEmail, default: "")
-        googleAccessToken = c.flexString(.googleAccessToken, default: "")
-        googleRefreshToken = c.flexString(.googleRefreshToken, default: "")
-        googleTokenExpiry = c.flexDouble(.googleTokenExpiry, default: 0.0)
-        showGoogleCalendarEvents = c.flexBool(.showGoogleCalendarEvents, default: true)
     }
 
     public init(dict: [String: Any]) {
@@ -510,12 +498,6 @@ public struct AppSettings: Codable, Equatable {
         updateCheckFrequency = JSONDictHelper.str(dict["updateCheckFrequency"], default: "startup")
         lastUpdateCheckDate = JSONDictHelper.dbl(dict["lastUpdateCheckDate"], default: 0.0)
         onboardingCompleted = JSONDictHelper.bool(dict["onboardingCompleted"], default: false)
-        googleCalendarConnected = JSONDictHelper.bool(dict["googleCalendarConnected"], default: false)
-        googleCalendarEmail = JSONDictHelper.str(dict["googleCalendarEmail"], default: "")
-        googleAccessToken = JSONDictHelper.str(dict["googleAccessToken"], default: "")
-        googleRefreshToken = JSONDictHelper.str(dict["googleRefreshToken"], default: "")
-        googleTokenExpiry = JSONDictHelper.dbl(dict["googleTokenExpiry"], default: 0.0)
-        showGoogleCalendarEvents = JSONDictHelper.bool(dict["showGoogleCalendarEvents"], default: true)
     }
 }
 
@@ -1253,11 +1235,10 @@ public struct LessonPlan: Codable, Identifiable, Equatable {
     public var notes: String = ""
     public var calendarEventIdentifier: String? = nil
     public var googleMeetUrl: String? = nil
-    public var googleCalendarEventId: String? = nil
     public var invitedEmails: [String] = []
 
     enum CodingKeys: String, CodingKey {
-        case id, sectionId, date, slotKey, time, endTime, title, objectives, topics, methodology, materials, homework, notes, calendarEventIdentifier, googleMeetUrl, googleCalendarEventId, invitedEmails
+        case id, sectionId, date, slotKey, time, endTime, title, objectives, topics, methodology, materials, homework, notes, calendarEventIdentifier, googleMeetUrl, invitedEmails
     }
 
     public init(id: String = "les-" + UUID().uuidString.prefix(6).lowercased(),
@@ -1275,7 +1256,6 @@ public struct LessonPlan: Codable, Identifiable, Equatable {
                 notes: String = "",
                 calendarEventIdentifier: String? = nil,
                 googleMeetUrl: String? = nil,
-                googleCalendarEventId: String? = nil,
                 invitedEmails: [String] = []) {
         self.id = id
         self.sectionId = sectionId
@@ -1292,7 +1272,6 @@ public struct LessonPlan: Codable, Identifiable, Equatable {
         self.notes = LessonPlan.cleanDidacticText(notes)
         self.calendarEventIdentifier = calendarEventIdentifier
         self.googleMeetUrl = googleMeetUrl
-        self.googleCalendarEventId = googleCalendarEventId
         self.invitedEmails = invitedEmails
     }
 
@@ -1333,7 +1312,6 @@ public struct LessonPlan: Codable, Identifiable, Equatable {
         notes = LessonPlan.cleanDidacticText(c.flexString(.notes, default: ""))
         calendarEventIdentifier = c.flexOptString(.calendarEventIdentifier)
         googleMeetUrl = c.flexOptString(.googleMeetUrl)
-        googleCalendarEventId = c.flexOptString(.googleCalendarEventId)
         invitedEmails = (try? c.decodeIfPresent([String].self, forKey: .invitedEmails)) ?? []
     }
 
@@ -1354,7 +1332,6 @@ public struct LessonPlan: Codable, Identifiable, Equatable {
         notes = LessonPlan.cleanDidacticText(JSONDictHelper.str(dict["notes"], default: ""))
         calendarEventIdentifier = JSONDictHelper.optStr(dict["calendarEventIdentifier"])
         googleMeetUrl = JSONDictHelper.optStr(dict["googleMeetUrl"])
-        googleCalendarEventId = JSONDictHelper.optStr(dict["googleCalendarEventId"])
         invitedEmails = JSONDictHelper.strArray(dict["invitedEmails"])
     }
 }

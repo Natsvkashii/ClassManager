@@ -11,7 +11,7 @@
 // =====================================================================================
 
 // Module editor: metadata, sections, activities and parts of every type, media attachments, preview, export.
-import { h, icon, clear, toast, modal, confirmDialog, debounce, validEmail } from '../core/ui.js';
+import { h, icon, clear, toast, modal, confirmDialog, debounce, validEmail, moreMenu } from '../core/ui.js';
 import { db } from '../core/db.js';
 import { listModules, getModule, validateModule, slug, exportSdmod, loadAssetUrls, assetUrl, putAsset, deleteAsset, revoke, referencedPaths } from '../core/modules.js';
 import { pickFiles, saveBlob } from '../core/platform.js';
@@ -267,10 +267,10 @@ export async function renderEditor(host, params, app) {
     a.parts.push(blankPart(type, label, uniq(`${a.id}-${label.toLowerCase()}`)));
     touch(); select('part', { si, ai, pi: a.parts.length - 1 });
   }
-  const actionsRow = (arr, i, onGone, extra = []) => h('div.row', { style: { margin: '1rem 0' } }, ...extra,
+  const actionsRow = (arr, i, onGone, extra = [], menuExtra = []) => h('div.row', { style: { margin: '1rem 0' } }, ...extra,
     iconBtn('arrow-up', 'Sposta su', () => { if (move(arr, i, -1)) { sel[sel.k === 'section' ? 'si' : sel.k === 'activity' ? 'ai' : 'pi'] = i - 1; touch(); drawTree(); drawPane(); } }),
     iconBtn('arrow-down', 'Sposta giù', () => { if (move(arr, i, 1)) { sel[sel.k === 'section' ? 'si' : sel.k === 'activity' ? 'ai' : 'pi'] = i + 1; touch(); drawTree(); drawPane(); } }),
-    h('button.btn.btn-sm.btn-danger', { onclick: async () => { if (await confirmDialog('Eliminare?', 'L\'elemento e il suo contenuto verranno rimossi.', 'Elimina', true)) { arr.splice(i, 1); touch(); onGone(); } } }, icon('trash'), 'Elimina'));
+    moreMenu([...menuExtra, { icon: 'trash', label: 'Elimina', danger: true, onClick: async () => { if (await confirmDialog('Eliminare?', 'L\'elemento e il suo contenuto verranno rimossi.', 'Elimina', true)) { arr.splice(i, 1); touch(); onGone(); } } }]));
 
   // ---- panes
   function drawPane() {
@@ -348,8 +348,8 @@ export async function renderEditor(host, params, app) {
         catch (e) { jsonMsg.style.color = 'var(--bad-ink)'; jsonMsg.textContent = 'JSON non valido: ' + e.message; }
       } }, icon('code'), 'Applica JSON'), jsonMsg),
       actionsRow(a.parts, sel.pi, () => select('activity', { si: sel.si, ai: sel.ai }), [
-        h('button.btn.btn-sm.btn-primary', { onclick: () => preview(a, p) }, icon('eye'), 'Anteprima'),
-        h('button.btn.btn-sm', { onclick: () => { const c = structuredClone(p); c.id = uniq(p.id + '-copia'); a.parts.splice(sel.pi + 1, 0, c); touch(); select('part', { ...sel, pi: sel.pi + 1 }); } }, icon('copy'), 'Duplica')]));
+        h('button.btn.btn-sm.btn-primary', { onclick: () => preview(a, p) }, icon('eye'), 'Anteprima')], [
+        { icon: 'copy', label: 'Duplica', onClick: () => { const c = structuredClone(p); c.id = uniq(p.id + '-copia'); a.parts.splice(sel.pi + 1, 0, c); touch(); select('part', { ...sel, pi: sel.pi + 1 }); } }]));
   }
 
   function preview(a, p) {

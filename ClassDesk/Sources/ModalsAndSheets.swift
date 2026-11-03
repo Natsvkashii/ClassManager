@@ -311,8 +311,6 @@ public struct ModuleFormSheet: View {
     @State private var name: String = "M1"
     @State private var desc: String = ""
     @State private var googleMeetUrl: String = ""
-    @State private var isCreatingMeet: Bool = false
-    @State private var meetError: String? = nil
 
     public init(levelId: String, editingModule: CourseModule?) {
         self.levelId = levelId
@@ -340,179 +338,65 @@ public struct ModuleFormSheet: View {
                 Text("Descrizione").font(.caption.bold())
                 TextField("Descrizione opzionale...", text: $desc).textFieldStyle(.roundedBorder)
                 
-                // Online Meeting / Google Meet Management for the Module
+                // Online meeting link management for the Module
                 VStack(alignment: .leading, spacing: 6) {
-                    if store.state.settings.googleCalendarConnected {
-                        HStack {
-                            Label("Stanza Google Meet del Modulo", systemImage: "video.fill")
-                                .font(.caption.bold())
-                                .foregroundStyle(.blue)
+                    HStack {
+                        Label("Link Riunione Online (Zoom, Teams, Meet, Skype...)", systemImage: "video.fill")
+                            .font(.caption.bold())
+                            .foregroundStyle(.blue)
+                        Spacer()
+                        Text("Condiviso per tutte le lezioni")
+                            .font(.system(size: 9.5))
+                            .foregroundStyle(.secondary)
+                    }
+
+                    if !googleMeetUrl.trimmingCharacters(in: .whitespaces).isEmpty {
+                        HStack(spacing: 8) {
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundStyle(.green)
+                            Text(googleMeetUrl)
+                                .font(.system(size: 11, design: .monospaced))
+                                .foregroundStyle(.primary)
+                                .lineLimit(1)
                             Spacer()
-                            Text("Condivisa per tutte le lezioni")
-                                .font(.system(size: 9.5))
-                                .foregroundStyle(.secondary)
-                        }
-
-                        if !googleMeetUrl.trimmingCharacters(in: .whitespaces).isEmpty {
-                            HStack(spacing: 8) {
-                                Image(systemName: "checkmark.circle.fill")
-                                    .foregroundStyle(.green)
-                                Text(googleMeetUrl)
-                                    .font(.system(size: 11, design: .monospaced))
-                                    .foregroundStyle(.primary)
-                                    .lineLimit(1)
-                                Spacer()
-                                if let u = URL(string: googleMeetUrl.trimmingCharacters(in: .whitespaces)) {
-                                    Link(destination: u) {
-                                        Label("Partecipa a Meet", systemImage: "arrow.up.right.video.fill")
-                                            .font(.caption2.bold())
-                                    }
-                                    .buttonStyle(.borderedProminent)
-                                    .tint(.green)
-                                }
-                                Button {
-                                    NSPasteboard.general.clearContents()
-                                    NSPasteboard.general.setString(googleMeetUrl, forType: .string)
-                                    store.showToast("Link Meet copiato!")
-                                } label: {
-                                    Image(systemName: "doc.on.doc")
-                                        .font(.caption)
-                                }
-                                .buttonStyle(.bordered)
-                                .help("Copia link")
-
-                                Button(role: .destructive) {
-                                    googleMeetUrl = ""
-                                } label: {
-                                    Image(systemName: "trash")
-                                        .font(.caption)
-                                }
-                                .buttonStyle(.plain)
-                                .foregroundStyle(.red)
-                                .help("Rimuovi stanza Meet dal modulo")
-                            }
-                            .padding(8)
-                            .background(RoundedRectangle(cornerRadius: 8).fill(Color.green.opacity(0.08)))
-                        } else {
-                            VStack(alignment: .leading, spacing: 6) {
-                                Button {
-                                    guard let cIdx = store.activeCourseIndex else { return }
-                                    let course = store.state.courses[cIdx]
-                                    let dummyMod = CourseModule(
-                                        id: editingModule?.id ?? "sec-temp",
-                                        name: name.trimmingCharacters(in: .whitespaces).isEmpty ? "M1" : name,
-                                        studentIds: editingModule?.studentIds ?? [],
-                                        dates: editingModule?.dates ?? []
-                                    )
-                                    isCreatingMeet = true
-                                    meetError = nil
-                                    Task {
-                                        do {
-                                            let res = try await GoogleCalendarManager.shared.createModuleMeetRoom(course: course, module: dummyMod, store: store)
-                                            await MainActor.run {
-                                                self.googleMeetUrl = res.meetUrl
-                                                self.isCreatingMeet = false
-                                                self.store.showToast("Stanza Google Meet creata!")
-                                            }
-                                        } catch {
-                                            await MainActor.run {
-                                                self.meetError = error.localizedDescription
-                                                self.isCreatingMeet = false
-                                            }
-                                        }
-                                    }
-                                } label: {
-                                    HStack(spacing: 6) {
-                                        if isCreatingMeet {
-                                            ProgressView().controlSize(.small)
-                                        } else {
-                                            Image(systemName: "video.badge.plus")
-                                        }
-                                        Text(isCreatingMeet ? "Creazione stanza su Google..." : "Crea link Google Meet per tutte le lezioni")
-                                            .font(.caption.bold())
-                                    }
+                            if let u = URL(string: googleMeetUrl.trimmingCharacters(in: .whitespaces)) {
+                                Link(destination: u) {
+                                    Label("Partecipa", systemImage: "arrow.up.right.video.fill")
+                                        .font(.caption2.bold())
                                 }
                                 .buttonStyle(.borderedProminent)
                                 .tint(.blue)
-                                .disabled(isCreatingMeet)
-
-                                if let err = meetError {
-                                    Text("Errore: \(err)")
-                                        .font(.caption2)
-                                        .foregroundStyle(.red)
-                                }
                             }
-                            .padding(8)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .background(RoundedRectangle(cornerRadius: 8).fill(Color.secondary.opacity(0.06)))
-                        }
-
-                        HStack(spacing: 6) {
-                            Text("Link personalizzato:").font(.system(size: 10, weight: .bold)).foregroundStyle(.secondary)
-                            TextField("https://meet.google.com/xxx-xxxx-xxx", text: $googleMeetUrl)
-                                .textFieldStyle(.roundedBorder)
-                                .font(.system(size: 11, design: .monospaced))
-                        }
-                    } else {
-                        // Google account NOT connected: Allow custom link of ANY platform (Zoom, Teams, Meet, Skype...)
-                        HStack {
-                            Label("Link Riunione Online (Zoom, Teams, Meet, Skype...)", systemImage: "video.fill")
-                                .font(.caption.bold())
-                                .foregroundStyle(.blue)
-                            Spacer()
-                            Text("Condiviso per tutte le lezioni")
-                                .font(.system(size: 9.5))
-                                .foregroundStyle(.secondary)
-                        }
-
-                        if !googleMeetUrl.trimmingCharacters(in: .whitespaces).isEmpty {
-                            HStack(spacing: 8) {
-                                Image(systemName: "checkmark.circle.fill")
-                                    .foregroundStyle(.green)
-                                Text(googleMeetUrl)
-                                    .font(.system(size: 11, design: .monospaced))
-                                    .foregroundStyle(.primary)
-                                    .lineLimit(1)
-                                Spacer()
-                                if let u = URL(string: googleMeetUrl.trimmingCharacters(in: .whitespaces)) {
-                                    Link(destination: u) {
-                                        Label("Partecipa", systemImage: "arrow.up.right.video.fill")
-                                            .font(.caption2.bold())
-                                    }
-                                    .buttonStyle(.borderedProminent)
-                                    .tint(.blue)
-                                }
-                                Button {
-                                    NSPasteboard.general.clearContents()
-                                    NSPasteboard.general.setString(googleMeetUrl, forType: .string)
-                                    store.showToast("Link copiato!")
-                                } label: {
-                                    Image(systemName: "doc.on.doc")
-                                        .font(.caption)
-                                }
-                                .buttonStyle(.bordered)
-                                .help("Copia link")
-
-                                Button(role: .destructive) {
-                                    googleMeetUrl = ""
-                                } label: {
-                                    Image(systemName: "trash")
-                                        .font(.caption)
-                                }
-                                .buttonStyle(.plain)
-                                .foregroundStyle(.red)
-                                .help("Rimuovi link riunione")
+                            Button {
+                                NSPasteboard.general.clearContents()
+                                NSPasteboard.general.setString(googleMeetUrl, forType: .string)
+                                store.showToast("Link copiato!")
+                            } label: {
+                                Image(systemName: "doc.on.doc")
+                                    .font(.caption)
                             }
-                            .padding(8)
-                            .background(RoundedRectangle(cornerRadius: 8).fill(Color.blue.opacity(0.08)))
-                        }
+                            .buttonStyle(.bordered)
+                            .help("Copia link")
 
-                        HStack(spacing: 6) {
-                            Text("Incolla link riunione:").font(.system(size: 10, weight: .bold)).foregroundStyle(.secondary)
-                            TextField("https://zoom.us/..., https://teams.microsoft.com/..., o qualsiasi link", text: $googleMeetUrl)
-                                .textFieldStyle(.roundedBorder)
-                                .font(.system(size: 11, design: .monospaced))
+                            Button(role: .destructive) {
+                                googleMeetUrl = ""
+                            } label: {
+                                Image(systemName: "trash")
+                                    .font(.caption)
+                            }
+                            .buttonStyle(.plain)
+                            .foregroundStyle(.red)
+                            .help("Rimuovi link riunione")
                         }
+                        .padding(8)
+                        .background(RoundedRectangle(cornerRadius: 8).fill(Color.blue.opacity(0.08)))
+                    }
+
+                    HStack(spacing: 6) {
+                        Text("Incolla link riunione:").font(.system(size: 10, weight: .bold)).foregroundStyle(.secondary)
+                        TextField("https://zoom.us/..., https://teams.microsoft.com/..., o qualsiasi link", text: $googleMeetUrl)
+                            .textFieldStyle(.roundedBorder)
+                            .font(.system(size: 11, design: .monospaced))
                     }
                 }
             }
@@ -570,7 +454,7 @@ public struct ModuleFormSheet: View {
                         store.switchModule(newMod.id)
                     }
 
-                    // Propagate the module Google Meet link to ALL lessons in this module
+                    // Propagate the module meeting link to ALL lessons in this module
                     for lesIdx in 0..<store.state.courses[cIdx].lessons.count {
                         if store.state.courses[cIdx].lessons[lesIdx].sectionId == targetModId {
                             store.state.courses[cIdx].lessons[lesIdx].googleMeetUrl = finalMeet
@@ -669,167 +553,82 @@ public struct LessonPlanSheet: View {
                         }
                     }
 
-                    // Online Meeting / Google Meet Management Card
+                    // Online meeting link management card
                     VStack(alignment: .leading, spacing: 10) {
-                        if store.state.settings.googleCalendarConnected {
-                            HStack {
-                                Label("Videoconferenza Google Meet", systemImage: "video.fill")
-                                    .font(.caption.bold())
-                                    .foregroundStyle(.blue)
-                                Spacer()
-                            }
+                        HStack {
+                            Label("Link Riunione Online (Zoom, Teams, Meet, Skype...)", systemImage: "video.fill")
+                                .font(.caption.bold())
+                                .foregroundStyle(.blue)
+                            Spacer()
+                        }
 
-                            if !googleMeetUrl.trimmingCharacters(in: .whitespaces).isEmpty {
-                                HStack(spacing: 8) {
-                                    Image(systemName: "checkmark.circle.fill")
-                                        .foregroundStyle(.green)
-                                    VStack(alignment: .leading, spacing: 1) {
-                                        Text("Stanza Google Meet Permanente")
-                                            .font(.system(size: 10, weight: .bold))
-                                            .foregroundStyle(.secondary)
-                                        Text(googleMeetUrl)
-                                            .font(.system(size: 11, weight: .semibold, design: .monospaced))
-                                            .foregroundStyle(.primary)
-                                            .lineLimit(1)
-                                    }
-                                    Spacer()
-                                    if let u = URL(string: googleMeetUrl.trimmingCharacters(in: .whitespaces)) {
-                                        Link(destination: u) {
-                                            Label("Partecipa a Meet", systemImage: "arrow.up.right.video.fill")
-                                                .font(.caption.bold())
-                                        }
-                                        .buttonStyle(.borderedProminent)
-                                        .tint(.blue)
-                                    }
-                                    Button {
-                                        copyStudentInvite()
-                                    } label: {
-                                        Label(store.t("copyLessonInviteBtn"), systemImage: "doc.on.doc")
-                                            .font(.caption.bold())
-                                    }
-                                    .buttonStyle(.bordered)
-                                    .help(store.t("copyLessonInviteBtn"))
-                                    Button(role: .destructive) {
-                                        googleMeetUrl = ""
-                                    } label: {
-                                        Image(systemName: "trash")
-                                            .font(.caption)
-                                    }
-                                    .buttonStyle(.plain)
-                                    .foregroundStyle(.red)
-                                    .help("Rimuovi link Google Meet")
-                                }
-                                .padding(8)
-                                .background(RoundedRectangle(cornerRadius: 8).fill(Color.green.opacity(0.08)))
-                            } else {
-                                HStack(spacing: 8) {
-                                    Image(systemName: "video.slash")
-                                        .font(.title3)
+                        if !googleMeetUrl.trimmingCharacters(in: .whitespaces).isEmpty {
+                            HStack(spacing: 8) {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .foregroundStyle(.green)
+                                VStack(alignment: .leading, spacing: 1) {
+                                    Text("Link Riunione Online")
+                                        .font(.system(size: 10, weight: .bold))
                                         .foregroundStyle(.secondary)
-                                    VStack(alignment: .leading, spacing: 2) {
-                                        Text("Nessun link Google Meet assegnato")
-                                            .font(.caption.bold())
-                                        Text("I link Meet non vengono generati in automatico per evitare conflitti con eventi che ne sono sprovvisti.")
-                                            .font(.system(size: 9.5))
-                                            .foregroundStyle(.secondary)
-                                    }
-                                    Spacer()
-                                    if let modMeet = getModuleMeetUrl(), !modMeet.isEmpty {
-                                        Button("Usa stanza del Modulo") {
-                                            googleMeetUrl = modMeet
-                                        }
-                                        .font(.caption2.bold())
-                                        .buttonStyle(.bordered)
-                                    }
-                                }
-                                .padding(8)
-                                .background(RoundedRectangle(cornerRadius: 8).fill(Color.secondary.opacity(0.06)))
-                            }
-
-                            // Optional manual link input/edit
-                            HStack(spacing: 6) {
-                                Text("Link personalizzato:").font(.system(size: 10, weight: .bold)).foregroundStyle(.secondary)
-                                TextField("https://meet.google.com/xxx-xxxx-xxx", text: $googleMeetUrl)
-                                    .textFieldStyle(.roundedBorder)
-                                    .font(.system(size: 11, design: .monospaced))
-                            }
-                        } else {
-                            // Google account NOT connected: Allow custom link of ANY platform (Zoom, Teams, Meet, Skype...)
-                            HStack {
-                                Label("Link Riunione Online (Zoom, Teams, Meet, Skype...)", systemImage: "video.fill")
-                                    .font(.caption.bold())
-                                    .foregroundStyle(.blue)
-                                Spacer()
-                            }
-
-                            if !googleMeetUrl.trimmingCharacters(in: .whitespaces).isEmpty {
-                                HStack(spacing: 8) {
-                                    Image(systemName: "checkmark.circle.fill")
-                                        .foregroundStyle(.green)
-                                    VStack(alignment: .leading, spacing: 1) {
-                                        Text("Link Riunione Online")
-                                            .font(.system(size: 10, weight: .bold))
-                                            .foregroundStyle(.secondary)
-                                        Text(googleMeetUrl)
-                                            .font(.system(size: 11, weight: .semibold, design: .monospaced))
-                                            .foregroundStyle(.primary)
-                                            .lineLimit(1)
-                                    }
-                                    Spacer()
-                                    if let u = URL(string: googleMeetUrl.trimmingCharacters(in: .whitespaces)) {
-                                        Link(destination: u) {
-                                            Label("Partecipa", systemImage: "arrow.up.right.video.fill")
-                                                .font(.caption.bold())
-                                        }
-                                        .buttonStyle(.borderedProminent)
-                                        .tint(.blue)
-                                    }
-                                    Button {
-                                        copyStudentInvite()
-                                    } label: {
-                                        Label(store.t("copyLessonInviteBtn"), systemImage: "doc.on.doc")
-                                            .font(.caption.bold())
-                                    }
-                                    .buttonStyle(.bordered)
-                                    .help(store.t("copyLessonInviteBtn"))
-                                    Button(role: .destructive) {
-                                        googleMeetUrl = ""
-                                    } label: {
-                                        Image(systemName: "trash")
-                                            .font(.caption)
-                                    }
-                                    .buttonStyle(.plain)
-                                    .foregroundStyle(.red)
-                                    .help("Rimuovi link riunione")
-                                }
-                                .padding(8)
-                                .background(RoundedRectangle(cornerRadius: 8).fill(Color.blue.opacity(0.08)))
-                            } else if let modMeet = getModuleMeetUrl(), !modMeet.isEmpty {
-                                HStack(spacing: 8) {
-                                    Image(systemName: "link")
-                                        .foregroundStyle(.blue)
-                                    Text("Link disponibile nel Modulo: \(modMeet)")
-                                        .font(.system(size: 10))
-                                        .foregroundStyle(.secondary)
+                                    Text(googleMeetUrl)
+                                        .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                                        .foregroundStyle(.primary)
                                         .lineLimit(1)
-                                    Spacer()
-                                    Button("Usa link del Modulo") {
-                                        googleMeetUrl = modMeet
-                                    }
-                                    .font(.caption2.bold())
-                                    .buttonStyle(.bordered)
                                 }
-                                .padding(8)
-                                .background(RoundedRectangle(cornerRadius: 8).fill(Color.secondary.opacity(0.06)))
+                                Spacer()
+                                if let u = URL(string: googleMeetUrl.trimmingCharacters(in: .whitespaces)) {
+                                    Link(destination: u) {
+                                        Label("Partecipa", systemImage: "arrow.up.right.video.fill")
+                                            .font(.caption.bold())
+                                    }
+                                    .buttonStyle(.borderedProminent)
+                                    .tint(.blue)
+                                }
+                                Button {
+                                    copyStudentInvite()
+                                } label: {
+                                    Label(store.t("copyLessonInviteBtn"), systemImage: "doc.on.doc")
+                                        .font(.caption.bold())
+                                }
+                                .buttonStyle(.bordered)
+                                .help(store.t("copyLessonInviteBtn"))
+                                Button(role: .destructive) {
+                                    googleMeetUrl = ""
+                                } label: {
+                                    Image(systemName: "trash")
+                                        .font(.caption)
+                                }
+                                .buttonStyle(.plain)
+                                .foregroundStyle(.red)
+                                .help("Rimuovi link riunione")
                             }
+                            .padding(8)
+                            .background(RoundedRectangle(cornerRadius: 8).fill(Color.blue.opacity(0.08)))
+                        } else if let modMeet = getModuleMeetUrl(), !modMeet.isEmpty {
+                            HStack(spacing: 8) {
+                                Image(systemName: "link")
+                                    .foregroundStyle(.blue)
+                                Text("Link disponibile nel Modulo: \(modMeet)")
+                                    .font(.system(size: 10))
+                                    .foregroundStyle(.secondary)
+                                    .lineLimit(1)
+                                Spacer()
+                                Button("Usa link del Modulo") {
+                                    googleMeetUrl = modMeet
+                                }
+                                .font(.caption2.bold())
+                                .buttonStyle(.bordered)
+                            }
+                            .padding(8)
+                            .background(RoundedRectangle(cornerRadius: 8).fill(Color.secondary.opacity(0.06)))
+                        }
 
-                            // Manual link input of ANY platform
-                            HStack(spacing: 6) {
-                                Text("Incolla link riunione:").font(.system(size: 10, weight: .bold)).foregroundStyle(.secondary)
-                                TextField("https://zoom.us/..., https://teams.microsoft.com/..., o qualsiasi link", text: $googleMeetUrl)
-                                    .textFieldStyle(.roundedBorder)
-                                    .font(.system(size: 11, design: .monospaced))
-                            }
+                        // Manual link input of ANY platform
+                        HStack(spacing: 6) {
+                            Text("Incolla link riunione:").font(.system(size: 10, weight: .bold)).foregroundStyle(.secondary)
+                            TextField("https://zoom.us/..., https://teams.microsoft.com/..., o qualsiasi link", text: $googleMeetUrl)
+                                .textFieldStyle(.roundedBorder)
+                                .font(.system(size: 11, design: .monospaced))
                         }
 
                         // Email invitations
@@ -1094,7 +893,6 @@ public struct RecurringLessonsSheet: View {
     @State private var startTime: String = "19:00"
     @State private var endTime: String = "20:30"
     @State private var selectedWeekdays: Set<Int> = [2, 4] // Calendar weekday: 1=Sun, 2=Mon, ..., 7=Sat
-    @State private var showGoogleCalendarPrompt: Bool = false
 
     private let weekdayOptions: [(calDay: Int, idxMon: Int)] = [
         (2, 0), (3, 1), (4, 2), (5, 3), (6, 4), (7, 5), (1, 6)
@@ -1161,11 +959,7 @@ public struct RecurringLessonsSheet: View {
                 Spacer()
                 Button(store.t("cancelBtn")) { dismiss() }
                 Button(store.t("confirmBtn")) {
-                    if store.state.settings.googleCalendarConnected {
-                        showGoogleCalendarPrompt = true
-                    } else {
-                        generateLessons(syncWithGoogle: false)
-                    }
+                    generateLessons()
                 }
                 .buttonStyle(.borderedProminent)
                 .disabled(selectedWeekdays.isEmpty || lessonCount < 1)
@@ -1179,20 +973,9 @@ public struct RecurringLessonsSheet: View {
                 endTime = mod.endTime
             }
         }
-        .alert("Sincronizzazione Google Calendar", isPresented: $showGoogleCalendarPrompt) {
-            Button("Sì, crea su Google Calendar") {
-                generateLessons(syncWithGoogle: true)
-            }
-            Button("No, solo su ClassDesk") {
-                generateLessons(syncWithGoogle: false)
-            }
-            Button(store.t("cancelBtn"), role: .cancel) {}
-        } message: {
-            Text("Vuoi creare un evento ugualmente ricorrente anche su Google Calendar per le \(lessonCount) lezioni generate?")
-        }
     }
 
-    private func generateLessons(syncWithGoogle: Bool) {
+    private func generateLessons() {
         guard let (cIdx, lIdx, mIdx) = store.activeIndices() else { return }
         store.recordUndoSnapshot()
         let secId = store.state.courses[cIdx].levels[lIdx].modules[mIdx].id
@@ -1229,13 +1012,6 @@ public struct RecurringLessonsSheet: View {
         store.persist()
         if store.state.settings.autoSyncAppleCalendar {
             store.syncCourseToAppleCalendar(store.state.courses[cIdx], showNotification: false)
-        }
-        if syncWithGoogle && store.state.settings.googleCalendarConnected {
-            store.syncModuleToGoogleCalendar(
-                course: store.state.courses[cIdx],
-                module: store.state.courses[cIdx].levels[lIdx].modules[mIdx],
-                showNotification: true
-            )
         }
         store.showToast("+\(added) \(store.t("lessonsLower"))")
         dismiss()
@@ -2860,275 +2636,3 @@ public struct RubricsManagerSheet: View {
         .frame(width: 640, height: 420)
     }
 }
-
-// MARK: - Scan & Associate Google Calendar Events Sheet
-
-public struct ScanGoogleCalendarEventsSheet: View {
-    @Environment(AppStore.self) private var store
-    @Environment(\.dismiss) private var dismiss
-
-    let course: Course
-    let module: CourseModule
-
-    @State private var groupCode: String = ""
-    @State private var fromDate: Date = Date()
-    @State private var isScanning: Bool = false
-    @State private var scannedEvents: [GoogleCalendarEventItem] = []
-    @State private var scanPerformed: Bool = false
-    @State private var errorMessage: String? = nil
-    @State private var matchedSummary: String? = nil
-    @State private var unassociatedCount: Int = 0
-
-    public init(course: Course, module: CourseModule) {
-        self.course = course
-        self.module = module
-        _groupCode = State(initialValue: course.code)
-
-        let initialDate: Date
-        if let firstSlot = module.dates.first {
-            let dStr = AppStore.extractDateStatic(from: firstSlot)
-            initialDate = AppStore.isoDateFormatter.date(from: dStr) ?? Date()
-        } else {
-            initialDate = Date()
-        }
-        _fromDate = State(initialValue: initialDate)
-    }
-
-    public var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack {
-                Label("Sincronizzazione & Scansione Google Calendar", systemImage: "g.circle.fill")
-                    .font(.title3.bold())
-                    .foregroundStyle(.blue)
-                Spacer()
-                Button { dismiss() } label: {
-                    Image(systemName: "xmark.circle.fill")
-                        .font(.title3)
-                        .foregroundStyle(.secondary)
-                }
-                .buttonStyle(.plain)
-            }
-
-            Divider()
-
-            // Instructional info banner
-            HStack(spacing: 12) {
-                Image(systemName: "info.circle.fill")
-                    .font(.title2)
-                    .foregroundStyle(.blue)
-                VStack(alignment: .leading, spacing: 3) {
-                    Text("Ricerca automatica per codice corso")
-                        .font(.subheadline.bold())
-                    Text("Il programma scansiona il calendario Google per trovare gli eventi già creati con il codice del gruppo e li associa alle lezioni programmate, rilevando automaticamente le stanze Google Meet.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-            }
-            .padding(12)
-            .background(RoundedRectangle(cornerRadius: 10).fill(Color.blue.opacity(0.08)))
-
-            // Input Fields: Code & Starting Date
-            HStack(spacing: 16) {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Codice Gruppo / Corso *")
-                        .font(.caption.bold())
-                    TextField("Es. ITA05F", text: $groupCode)
-                        .textFieldStyle(.roundedBorder)
-                        .frame(width: 140)
-                }
-
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Associa eventi a partire da *")
-                        .font(.caption.bold())
-                    DatePicker("", selection: $fromDate, displayedComponents: .date)
-                        .labelsHidden()
-                        .datePickerStyle(.compact)
-                }
-
-                VStack(alignment: .leading, spacing: 6) {
-                    Text(" ").font(.caption.bold())
-                    Button {
-                        performScan()
-                    } label: {
-                        if isScanning {
-                            ProgressView()
-                                .controlSize(.small)
-                                .padding(.horizontal, 8)
-                        } else {
-                            Label("Scansiona Calendario", systemImage: "magnifyingglass")
-                                .font(.caption.bold())
-                        }
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .tint(.blue)
-                    .disabled(isScanning || groupCode.trimmingCharacters(in: .whitespaces).isEmpty)
-                }
-            }
-
-            if let err = errorMessage {
-                HStack {
-                    Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.red)
-                    Text(err).font(.caption).foregroundStyle(.red)
-                }
-                .padding(8)
-                .background(RoundedRectangle(cornerRadius: 8).fill(Color.red.opacity(0.1)))
-            }
-
-            // Results Section
-            if scanPerformed {
-                Divider()
-                if scannedEvents.isEmpty {
-                    VStack(alignment: .center, spacing: 8) {
-                        Image(systemName: "calendar.badge.exclamationmark")
-                            .font(.largeTitle)
-                            .foregroundStyle(.secondary)
-                        Text("Nessun evento trovato su Google Calendar con il codice '\(groupCode)' a partire dal \(store.formatDateDisplay(AppStore.isoDateFormatter.string(from: fromDate))).")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                            .multilineTextAlignment(.center)
-
-                        Button {
-                            store.syncModuleToGoogleCalendar(course: course, module: module)
-                            dismiss()
-                        } label: {
-                            Label("Crea nuovi eventi per tutte le lezioni del modulo", systemImage: "plus.circle.fill")
-                        }
-                        .buttonStyle(.borderedProminent)
-                        .tint(.green)
-                        .padding(.top, 4)
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(16)
-                } else {
-                    VStack(alignment: .leading, spacing: 10) {
-                        HStack {
-                            Text("Trovati \(scannedEvents.count) eventi con il codice '\(groupCode)'")
-                                .font(.headline)
-                                .foregroundStyle(.primary)
-                            Spacer()
-                            Button("Associa Eventi al Modulo") {
-                                performAssociation()
-                            }
-                            .buttonStyle(.borderedProminent)
-                            .tint(.green)
-                        }
-
-                        ScrollView {
-                            LazyVStack(alignment: .leading, spacing: 6) {
-                                ForEach(scannedEvents) { ev in
-                                    HStack(spacing: 10) {
-                                        Text(store.formatDateDisplay(ev.dateOnly))
-                                            .font(.caption.bold())
-                                            .frame(width: 90, alignment: .leading)
-                                        Text(ev.isAllDay ? "Tutto il giorno" : "\(ev.startTimeDisplay) - \(ev.endTimeDisplay)")
-                                            .font(.caption)
-                                            .foregroundStyle(.secondary)
-                                            .frame(width: 100, alignment: .leading)
-                                        Text(ev.summary)
-                                            .font(.caption.bold())
-                                            .lineLimit(1)
-                                        Spacer()
-                                        if let h = ev.hangoutLink, !h.isEmpty {
-                                            Label("Meet", systemImage: "video.fill")
-                                                .font(.caption2.bold())
-                                                .foregroundStyle(.green)
-                                                .padding(.horizontal, 6)
-                                                .padding(.vertical, 2)
-                                                .background(Capsule().fill(Color.green.opacity(0.12)))
-                                        }
-                                    }
-                                    .padding(8)
-                                    .background(RoundedRectangle(cornerRadius: 8).fill(Color.secondary.opacity(0.06)))
-                                }
-                            }
-                        }
-                        .frame(maxHeight: 180)
-
-                        if let summary = matchedSummary {
-                            HStack {
-                                Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
-                                Text(summary).font(.caption.bold()).foregroundStyle(.green)
-                                Spacer()
-                                if unassociatedCount > 0 {
-                                    Button("Crea eventi per le \(unassociatedCount) lezioni rimanenti") {
-                                        store.syncModuleToGoogleCalendar(course: course, module: module)
-                                        dismiss()
-                                    }
-                                    .buttonStyle(.bordered)
-                                    .font(.caption)
-                                }
-                            }
-                            .padding(8)
-                            .background(RoundedRectangle(cornerRadius: 8).fill(Color.green.opacity(0.1)))
-                        }
-                    }
-                }
-            }
-
-            Spacer()
-
-            Divider()
-
-            HStack {
-                Spacer()
-                Button(store.t("closeBtn")) { dismiss() }
-                    .buttonStyle(.bordered)
-            }
-        }
-        .padding(22)
-        .frame(width: 660, height: 520)
-    }
-
-    private func performScan() {
-        let codeTrimmed = groupCode.trimmingCharacters(in: .whitespaces)
-        guard !codeTrimmed.isEmpty else { return }
-
-        if let cIdx = store.state.courses.firstIndex(where: { $0.id == course.id }) {
-            if store.state.courses[cIdx].code != codeTrimmed {
-                store.state.courses[cIdx].code = codeTrimmed
-                store.persist()
-            }
-        }
-
-        isScanning = true
-        errorMessage = nil
-        matchedSummary = nil
-
-        let fromDateStr = AppStore.isoDateFormatter.string(from: fromDate)
-        Task {
-            do {
-                let events = try await GoogleCalendarManager.shared.scanEventsForCode(
-                    code: codeTrimmed,
-                    fromDateStr: fromDateStr,
-                    store: store
-                )
-                await MainActor.run {
-                    self.scannedEvents = events
-                    self.scanPerformed = true
-                    self.isScanning = false
-                }
-            } catch {
-                await MainActor.run {
-                    self.errorMessage = error.localizedDescription
-                    self.isScanning = false
-                    self.scanPerformed = true
-                }
-            }
-        }
-    }
-
-    private func performAssociation() {
-        let fromDateStr = AppStore.isoDateFormatter.string(from: fromDate)
-        let (matched, unassoc) = GoogleCalendarManager.shared.associateEventsToModule(
-            course: course,
-            module: module,
-            events: scannedEvents,
-            fromDateStr: fromDateStr,
-            store: store
-        )
-        matchedSummary = "✓ \(matched) eventi associati correttamente alle lezioni del modulo!"
-        unassociatedCount = unassoc
-        store.showToast("✓ \(matched) lezioni associate con successo a Google Calendar!")
-    }
-}
-

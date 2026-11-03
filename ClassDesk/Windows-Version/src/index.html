@@ -16,7 +16,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ClassDesk v26.11.1-011</title>
+    <title>ClassDesk v26.11.1-012</title>
     <link rel="icon" type="image/png" href="logo.png">
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -237,7 +237,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                     <span class="sidebar-text" id="sidebarFeedbackBtnText">Invia Feedback</span>
                 </button>
                 <div class="sidebar-footer-card p-1.5 rounded-xl bg-slate-50 dark:bg-navy-950/40 text-[10px] text-center text-slate-400 dark:text-slate-500 font-semibold">
-                    <span id="sidebarVersionBadge">ClassDesk v26.11.1-011</span>
+                    <span id="sidebarVersionBadge">ClassDesk v26.11.1-012</span>
                 </div>
             </div>
         </aside>
@@ -287,7 +287,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 <div class="w-full px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-2">
                     <p class="flex items-center gap-2">
                         <span id="footerPlatformDesc" class="text-slate-400 dark:text-slate-500">Piattaforma Accademica Multi-Livello QCER</span>
-                        <span id="footerVersionBadge" class="px-2 py-0.5 rounded-md bg-sky-100 dark:bg-navy-800 text-sky-700 dark:text-sky-300 text-[10px] font-bold">v26.11.1-011</span>
+                        <span id="footerVersionBadge" class="px-2 py-0.5 rounded-md bg-sky-100 dark:bg-navy-800 text-sky-700 dark:text-sky-300 text-[10px] font-bold">v26.11.1-012</span>
                     </p>
                     <p><span id="footerDevelopedBy">Concepito e Sviluppato da</span> <span class="font-semibold text-sky-700 dark:text-sky-400">Guaira Jaramillo Nitoglia</span> (<a href="mailto:guaira.jaramillo.nitoglia@gmail.com" class="underline hover:text-sky-600">guaira.jaramillo.nitoglia@gmail.com</a>)</p>
                 </div>
@@ -729,6 +729,21 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 globalPricingTool: "Strumento Globale Modulo",
                 applyToAllLessonsBtn: "Applica a tutte le lezioni",
                 exportCalendarPngBtn: "Esporta Calendario PNG",
+                calendarShareBtn: "Condividi calendario",
+                moreActionsBtn: "Altre azioni",
+                duplicateBtn: "Duplica",
+                archiveToFormerBtn: "Archivia tra gli ex studenti",
+                calendarShareCopyImage: "Copia immagine",
+                calendarShareCopyText: "Copia solo testo",
+                calendarShareDownload: "Scarica",
+                calendarShareEmail: "Invia per e-mail",
+                calendarShareTextCopied: "Testo del calendario copiato",
+                calendarShareClipboardError: "Impossibile accedere agli appunti",
+                calendarShareImageCopied: "Immagine del calendario copiata negli appunti",
+                calendarShareImageFallback: "Appunti non disponibili: immagine scaricata",
+                calendarShareMailSubject: "Calendario lezioni",
+                calendarShareMailCopied: "Immagine copiata: incollala nell\'e-mail come allegato",
+                calendarShareMailDownloaded: "Immagine scaricata: allegala all\'e-mail",
                 exportLanguageTitle: "Lingua di Esportazione",
                 exportLanguagePrompt: "Seleziona la lingua per le intestazioni, date e testi dell'immagine PNG:",
                 confirmExportBtn: "Esporta PNG",
@@ -844,8 +859,6 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 durationLabel: "Durata",
                 timeScheduleLabel: "Orario",
                 yourCoursesHeading: "I tuoi corsi attivi",
-                googleCalendarBetaBadge: "Integrazione Google Calendar",
-                googleCalendarBetaNotice: "Questa funzionalità è in fase sperimentale. In conformità con le policy di sicurezza di Google Cloud, l'accesso OAuth richiede la preventiva autorizzazione e abilitazione dell'account da parte dello sviluppatore (Guaira Jaramillo Nitoglia - guaira.jaramillo.nitoglia@gmail.com). Contatta lo sviluppatore per abilitare la tua email prima del primo accesso.",
                 months: ["Gennaio", "Febbraio", "Marzo", "Aprile", "Maggio", "Giugno", "Luglio", "Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre"],
                 daysFullMon: ["Lunedì", "Martedì", "Mercoledì", "Giovedì", "Venerdì", "Sabato", "Domenica"],
                 daysShortMon: ["Lun", "Mar", "Mer", "Gio", "Ven", "Sab", "Dom"],
@@ -1059,6 +1072,21 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 globalPricingTool: "Module Global Pricing Tool",
                 applyToAllLessonsBtn: "Apply to all lessons",
                 exportCalendarPngBtn: "Export Calendar PNG",
+                calendarShareBtn: "Share calendar",
+                moreActionsBtn: "More actions",
+                duplicateBtn: "Duplicate",
+                archiveToFormerBtn: "Move to former students",
+                calendarShareCopyImage: "Copy image",
+                calendarShareCopyText: "Copy text only",
+                calendarShareDownload: "Download",
+                calendarShareEmail: "Send by e-mail",
+                calendarShareTextCopied: "Calendar text copied",
+                calendarShareClipboardError: "Clipboard unavailable",
+                calendarShareImageCopied: "Calendar image copied to clipboard",
+                calendarShareImageFallback: "Clipboard unavailable: image downloaded",
+                calendarShareMailSubject: "Lesson schedule",
+                calendarShareMailCopied: "Image copied: paste it into the e-mail as an attachment",
+                calendarShareMailDownloaded: "Image downloaded: attach it to the e-mail",
                 exportLanguageTitle: "Export Language",
                 exportLanguagePrompt: "Select the language for headers, dates, and texts in the PNG image:",
                 confirmExportBtn: "Export PNG",
@@ -1174,8 +1202,6 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 durationLabel: "Duration",
                 timeScheduleLabel: "Schedule",
                 yourCoursesHeading: "Your active courses",
-                googleCalendarBetaBadge: "Google Calendar Integration",
-                googleCalendarBetaNotice: "This feature is currently in BETA. In accordance with Google Cloud OAuth security policies, access requires prior authorization and whitelisting of your Google account by the developer (Guaira Jaramillo Nitoglia - guaira.jaramillo.nitoglia@gmail.com). Contact the developer to whitelist your email before signing in.",
                 months: ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"],
                 daysFullMon: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
                 daysShortMon: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
@@ -1389,6 +1415,21 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 globalPricingTool: "Herramienta Global del Módulo",
                 applyToAllLessonsBtn: "Aplicar a todas las clases",
                 exportCalendarPngBtn: "Exportar Calendario PNG",
+                calendarShareBtn: "Compartir calendario",
+                moreActionsBtn: "Más acciones",
+                duplicateBtn: "Duplicar",
+                archiveToFormerBtn: "Archivar entre los ex alumnos",
+                calendarShareCopyImage: "Copiar imagen",
+                calendarShareCopyText: "Copiar solo texto",
+                calendarShareDownload: "Descargar",
+                calendarShareEmail: "Enviar por correo",
+                calendarShareTextCopied: "Texto del calendario copiado",
+                calendarShareClipboardError: "No se puede acceder al portapapeles",
+                calendarShareImageCopied: "Imagen del calendario copiada al portapapeles",
+                calendarShareImageFallback: "Portapapeles no disponible: imagen descargada",
+                calendarShareMailSubject: "Calendario de clases",
+                calendarShareMailCopied: "Imagen copiada: pégala en el correo como adjunto",
+                calendarShareMailDownloaded: "Imagen descargada: adjúntala al correo",
                 exportLanguageTitle: "Idioma de Exportación",
                 exportLanguagePrompt: "Selecciona el idioma para los encabezados, fechas y textos en la imagen PNG:",
                 confirmExportBtn: "Exportar PNG",
@@ -1504,8 +1545,6 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 durationLabel: "Duración",
                 timeScheduleLabel: "Horario",
                 yourCoursesHeading: "Tus cursos activos",
-                googleCalendarBetaBadge: "Integración Google Calendar",
-                googleCalendarBetaNotice: "Esta función se encuentra en fase BETA. De acuerdo con las políticas de seguridad de Google Cloud, el acceso OAuth requiere la autorización previa y habilitación de la cuenta por parte del desarrollador (Guaira Jaramillo Nitoglia - guaira.jaramillo.nitoglia@gmail.com). Contacta al desarrollador para habilitar tu correo antes de iniciar sesión.",
                 months: ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"],
                 daysFullMon: ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"],
                 daysShortMon: ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"],
@@ -1552,7 +1591,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
 
         // Build Channel Configuration: 0 = stable, 1 = unstable
         const IS_UNSTABLE_BUILD = 1;
-        const BUILD_TYPE = "beta"; // "stable" | "beta" | "internal"
+        const BUILD_TYPE = "internal"; // "stable" | "beta" | "internal"
 
         function channelBadgeHtml(bt) {
             const b = (bt || BUILD_TYPE || 'internal').toLowerCase();
@@ -1562,7 +1601,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
         }
 
         const INITIAL_DATA = {
-            version: "26.11.1-011",
+            version: "26.11.1-012",
             channel: IS_UNSTABLE_BUILD === 1 ? "unstable" : "stable",
             buildType: BUILD_TYPE,
             deletedItems: [],
@@ -2157,13 +2196,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 defaultLessonDurationHours: 1.5,
                 defaultVatPercent: 15,
                 autoDownloadUpdates: true,
-                onboardingCompleted: false,
-                googleCalendarConnected: false,
-                googleCalendarEmail: "",
-                googleAccessToken: "",
-                googleRefreshToken: "",
-                googleTokenExpiry: 0,
-                showGoogleCalendarEvents: true
+                onboardingCompleted: false
             },
             rubrics: [
                 {
@@ -2325,8 +2358,6 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 this.tempRubricDraft = null;
                 this.modalInitialSnapshot = null;
                 this.modalHasManualChanges = false;
-                this.googleEvents = [];
-                this.isSyncingGoogle = false;
                 this.undoStack = [];
                 this.redoStack = [];
                 this.billingViewTab = "course";
@@ -2459,11 +2490,6 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 }
                 this.state.courses.forEach(c => this.selectLatestLevelAndModule(c));
                 this.renderAll();
-
-                // Auto-refresh Google Calendar events if connected
-                if (this.state.settings?.googleCalendarConnected) {
-                    this.refreshGoogleCalendarEvents();
-                }
 
                 // Setup beta 5-minute auto backup & diagnostic crash reporting
                 this.setupBetaDiagnosticsAndBackup();
@@ -2651,14 +2677,10 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                     this.state.settings.onboardingCompleted = hasExistingData;
                     migrated = true;
                 }
-                if (this.state.settings.showGoogleCalendarEvents === undefined) {
-                    this.state.settings.showGoogleCalendarEvents = true;
-                    migrated = true;
-                }
-                if (this.state.settings.googleCalendarConnected === undefined) {
-                    this.state.settings.googleCalendarConnected = false;
-                    migrated = true;
-                }
+                // Google Calendar sync was removed: drop any leftover tokens/flags from old saved data.
+                ["googleCalendarConnected", "googleCalendarEmail", "googleAccessToken", "googleRefreshToken", "googleTokenExpiry", "showGoogleCalendarEvents"].forEach(k => {
+                    if (k in this.state.settings) { delete this.state.settings[k]; migrated = true; }
+                });
 
                 this.state.studentsDirectory.forEach(st => {
                     if (st.phone === undefined) { st.phone = ""; migrated = true; }
@@ -3452,7 +3474,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
 
             // ===== ClassDesk Suite (Hub/HUBDESK.md): data mirrored into DeskHub records (app "classdesk") =====
             // Record keys: course:<id>, student:<id>, rubric:<id>, contact:<id>, trash:<id>, settings:general.
-            // Never synced: Google tokens/e-mail, update state, theme/sidebar, active course.
+            // Never synced: update state, theme/sidebar, active course.
             suiteAvailable() {
                 return !!(window.DeskHubWeb && window.crypto && window.crypto.subtle && window.electronAPI &&
                     typeof window.electronAPI.deskhubList === "function" && typeof window.electronAPI.deskhubRead === "function" &&
@@ -5558,9 +5580,9 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                                                 <button onclick="app.openRubricEditorModal('${rub.id}')" class="px-3 py-1.5 rounded-xl bg-white dark:bg-navy-900 border border-sky-200 dark:border-slate-700 font-bold text-sky-700 dark:text-sky-300 hover:bg-sky-50">
                                                     <i class="fa-solid fa-pen mr-1"></i>${this.t("editBtn")}
                                                 </button>
-                                                <button onclick="app.deleteRubric('${rub.id}')" class="px-3 py-1.5 rounded-xl border border-rose-200 text-rose-600 hover:bg-rose-50 font-bold">
-                                                    <i class="fa-solid fa-trash-can"></i>
-                                                </button>
+                                                ${this.moreMenuButtonHtml([
+                                                    { icon: "fa-solid fa-trash-can", label: this.t("deleteBtn"), js: `app.deleteRubric('${rub.id}')`, danger: true }
+                                                ], { size: "w-8 h-8" })}
                                             </div>
                                         </div>
                                     `;
@@ -6446,9 +6468,9 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                                                     <button onclick="app.restoreTrashItem('${item.id}')" class="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold flex items-center gap-1.5 shadow-2xs transition">
                                                         <i class="fa-solid fa-rotate-left"></i> ${this.t("restoreBtn")}
                                                     </button>
-                                                    <button onclick="app.permanentDeleteTrashItem('${item.id}')" class="px-3 py-1.5 rounded-xl border border-rose-200 dark:border-rose-900 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 font-bold transition">
-                                                        <i class="fa-solid fa-trash-can"></i>
-                                                    </button>
+                                                    ${this.moreMenuButtonHtml([
+                                                        { icon: "fa-solid fa-trash-can", label: this.t("deleteBtn"), js: `app.permanentDeleteTrashItem('${item.id}')`, danger: true }
+                                                    ], { size: "w-8 h-8" })}
                                                 </div>
                                             </div>
                                         </div>
@@ -6597,9 +6619,9 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                                         <input type="text" value="${this.escapeHtml(selRubric.name)}" onchange="app.updateRubricName('${selRubric.id}', this.value)" class="w-full text-base font-extrabold text-slate-900 dark:text-white bg-transparent border-b border-dashed border-sky-200 dark:border-slate-700 focus:outline-none focus:border-sky-500 py-1">
                                     </div>
                                     <div class="flex items-center gap-2">
-                                        <button onclick="app.duplicateRubric('${selRubric.id}')" class="px-3 py-1.5 rounded-xl border border-sky-200 dark:border-slate-700 hover:bg-sky-50 dark:hover:bg-navy-800 font-bold flex items-center gap-1.5 text-slate-700 dark:text-slate-200">
-                                            <i class="fa-regular fa-copy"></i> Duplica
-                                        </button>
+                                        ${this.moreMenuButtonHtml([
+                                            { icon: "fa-regular fa-copy", label: this.t("duplicateBtn"), js: `app.duplicateRubric('${selRubric.id}')` }
+                                        ], { size: "w-8 h-8" })}
                                         <button onclick="app.openRubricEditorModal('${selRubric.id}')" class="px-3 py-1.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-bold flex items-center gap-1.5 shadow-2xs">
                                             <i class="fa-solid fa-pen-to-square"></i> Modifica Avanzata
                                         </button>
@@ -6693,11 +6715,9 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                                                 <button onclick="app.openEditLevelModal('${lvl.id}')" class="px-3 py-1.5 rounded-xl border border-sky-200 dark:border-slate-700 font-bold hover:bg-sky-50 dark:hover:bg-navy-800">
                                                     <i class="fa-solid fa-pen mr-1"></i>${this.t("editBtn")}
                                                 </button>
-                                                ${(course.levels || []).length > 1 ? `
-                                                    <button onclick="app.confirmDeleteLevelModal('${lvl.id}')" class="px-3 py-1.5 rounded-xl border border-rose-200 dark:border-rose-900 text-rose-600 dark:text-rose-400 font-bold hover:bg-rose-50 dark:hover:bg-rose-950/30">
-                                                        <i class="fa-solid fa-trash-can mr-1"></i>${this.t("deleteBtn")}
-                                                    </button>
-                                                ` : ''}
+                                                ${(course.levels || []).length > 1 ? this.moreMenuButtonHtml([
+                                                    { icon: "fa-solid fa-trash-can", label: this.t("deleteBtn"), js: `app.confirmDeleteLevelModal('${lvl.id}')`, danger: true }
+                                                ], { size: "w-8 h-8" }) : ''}
                                             </div>
                                         </div>
 
@@ -6714,11 +6734,9 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                                                                     <button type="button" onclick="event.stopPropagation(); app.openEditModuleModal('${lvl.id}', '${mod.id}')" class="px-2.5 py-1 rounded-lg border border-sky-200 dark:border-slate-700 font-bold text-[11px] hover:bg-sky-100 dark:hover:bg-navy-700 transition">
                                                                         <i class="fa-solid fa-pen mr-1"></i>${this.t("editBtn")}
                                                                     </button>
-                                                                    ${(lvl.modules || []).length > 1 ? `
-                                                                        <button type="button" onclick="event.stopPropagation(); app.confirmDeleteModuleModal('${lvl.id}', '${mod.id}')" class="px-2 py-1 rounded-lg border border-rose-200 dark:border-rose-900 text-rose-600 dark:text-rose-400 font-bold text-[11px] hover:bg-rose-50 dark:hover:bg-rose-950/40 transition" title="${this.t("deleteBtn")}">
-                                                                            <i class="fa-solid fa-trash-can"></i>
-                                                                        </button>
-                                                                    ` : ''}
+                                                                    ${(lvl.modules || []).length > 1 ? this.moreMenuButtonHtml([
+                                                                        { icon: "fa-solid fa-trash-can", label: this.t("deleteBtn"), js: `app.confirmDeleteModuleModal('${lvl.id}', '${mod.id}')`, danger: true }
+                                                                    ], { size: "w-7 h-7" }) : ''}
                                                                 </div>
                                                             </div>
                                                             ${mod.description ? `<p class="text-slate-500">${this.escapeHtml(mod.description)}</p>` : ''}
@@ -7186,14 +7204,12 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 this.showToast(`📅 Lezione spostata al ${this.formatDateDisplay(newDateStr)}`, "success");
             }
 
-            copyWhatsAppScheduleText() {
-                const course = this.getActiveCourse();
-                const sec = this.getActiveSection(course);
-                if (!course || !sec) return;
+            buildScheduleText(course, sec, lvl = null, mod = null) {
+                if (!course || !sec) return "";
                 const slots = [...this.sortModuleSlots(course, sec)];
-                if (slots.length === 0) return;
+                if (slots.length === 0) return "";
 
-                let txt = `📚 *${course.name}* — ${this.formatLevelModuleBadge(course)}
+                let txt = `📚 *${course.name}* — ${this.formatLevelModuleBadge(course, lvl, mod)}
 `;
                 txt += `🗓️ *Programma Lezioni (${slots.length} lezioni)*
 
@@ -7213,10 +7229,227 @@ Removing, obfuscating, or altering these credits violates the author's attributi
 
                 txt += `
 ✨ *ClassDesk*`;
+                return txt;
+            }
+
+            copyWhatsAppScheduleText() {
+                const course = this.getActiveCourse();
+                const txt = this.buildScheduleText(course, this.getActiveSection(course));
+                if (!txt) return;
                 navigator.clipboard.writeText(txt).then(() => {
                     this.showToast("📋 Testo copiato per WhatsApp con successo!", "success");
                 }).catch(() => {
                     this.showToast("Testo copiato", "info");
+                });
+            }
+
+            // ---- Generic "⋯" popover menu. items: [{icon, label, js, danger}] (js = same code the old inline onclick ran).
+            // Destructive items are placed last, separated and red. Closes on outside click / Escape.
+            moreMenuButtonHtml(items, opts = {}) {
+                const list = (items || []).filter(Boolean);
+                if (!list.length) return "";
+                const sorted = list.filter(i => !i.danger).concat(list.filter(i => i.danger));
+                const key = "m" + Math.abs(Array.from(JSON.stringify(sorted)).reduce((h, ch) => ((h << 5) - h + ch.charCodeAt(0)) | 0, 0));
+                this._moreMenuReg = this._moreMenuReg || {};
+                this._moreMenuReg[key] = sorted;
+                const label = this.t("moreActionsBtn");
+                const size = opts.size || "w-7 h-7";
+                return `<button type="button" onclick="event.stopPropagation(); app.openMoreMenu(event, '${key}')" title="${this.escapeHtml(label)}" aria-label="${this.escapeHtml(label)}" aria-haspopup="menu"
+                    class="${size} rounded-lg border border-sky-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-sky-50 dark:hover:bg-navy-800 flex items-center justify-center transition shrink-0 text-xs">
+                    <i class="fa-solid fa-ellipsis"></i>
+                </button>`;
+            }
+
+            closeMoreMenu() {
+                document.getElementById("moreActionsMenu")?.remove();
+                if (this._moreMenuDismiss) {
+                    document.removeEventListener("mousedown", this._moreMenuDismiss, true);
+                    document.removeEventListener("keydown", this._moreMenuDismiss, true);
+                    window.removeEventListener("resize", this._moreMenuDismiss, true);
+                    this._moreMenuDismiss = null;
+                }
+            }
+
+            openMoreMenu(ev, key) {
+                if (ev) { ev.stopPropagation(); ev.preventDefault(); }
+                const wasOpen = !!document.getElementById("moreActionsMenu");
+                this.closeMoreMenu();
+                if (wasOpen) return;
+                const items = (this._moreMenuReg || {})[key];
+                if (!items) return;
+                const btn = ev?.currentTarget || ev?.target?.closest("button");
+                const menu = document.createElement("div");
+                menu.id = "moreActionsMenu";
+                menu.setAttribute("role", "menu");
+                menu.className = "fixed z-[9999] min-w-[190px] p-1 rounded-xl bg-white dark:bg-navy-900 border border-sky-200 dark:border-slate-700 shadow-xl text-xs";
+                let sepDone = false;
+                menu.innerHTML = items.map((it, idx) => {
+                    const sep = (it.danger && idx > 0 && !sepDone) ? (sepDone = true, '<div class="my-1 border-t border-sky-100 dark:border-slate-700"></div>') : "";
+                    const cls = it.danger
+                        ? "text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30"
+                        : "text-slate-700 dark:text-slate-200 hover:bg-sky-50 dark:hover:bg-navy-800";
+                    const ic = it.danger ? "text-rose-500" : "text-sky-600";
+                    return `${sep}<button type="button" role="menuitem" data-idx="${idx}" class="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg font-bold text-left ${cls} transition">
+                        <i class="${it.icon} w-4 text-center ${ic}"></i><span>${this.escapeHtml(it.label)}</span>
+                    </button>`;
+                }).join("");
+                document.body.appendChild(menu);
+                const r = btn ? btn.getBoundingClientRect() : { left: 20, right: 20, top: 20, bottom: 20 };
+                const mw = menu.offsetWidth, mh = menu.offsetHeight;
+                const left = Math.min(Math.max(8, r.right - mw), window.innerWidth - mw - 8);
+                let top = r.bottom + 6;
+                if (top + mh > window.innerHeight - 8) top = Math.max(8, r.top - mh - 6);
+                menu.style.left = left + "px";
+                menu.style.top = top + "px";
+                menu.addEventListener("click", (e) => {
+                    const el = e.target.closest("[data-idx]");
+                    if (!el) return;
+                    const it = items[parseInt(el.dataset.idx, 10)];
+                    this.closeMoreMenu();
+                    if (it && it.js) { try { new Function("event", it.js).call(window, e); } catch (err) { console.error(err); } }
+                });
+                this._moreMenuDismiss = (e) => {
+                    if (e.type === "keydown") { if (e.key === "Escape") this.closeMoreMenu(); return; }
+                    if (e.type === "mousedown" && menu.contains(e.target)) return;
+                    this.closeMoreMenu();
+                };
+                document.addEventListener("mousedown", this._moreMenuDismiss, true);
+                document.addEventListener("keydown", this._moreMenuDismiss, true);
+                window.addEventListener("resize", this._moreMenuDismiss, true);
+                menu.querySelector("button")?.focus();
+            }
+
+            // ---- Calendar share (icon button + popover menu), shared by "Piano lezioni" and "Fatturazione" ----
+            calendarShareButtonHtml(courseId = null, moduleId = null) {
+                const label = this.t("calendarShareBtn");
+                const c = courseId ? `'${courseId}'` : "null";
+                const m = moduleId ? `'${moduleId}'` : "null";
+                return `<button type="button" onclick="app.openCalendarShareMenu(event, ${c}, ${m})" title="${this.escapeHtml(label)}" aria-label="${this.escapeHtml(label)}" aria-haspopup="menu"
+                    class="w-9 h-9 rounded-xl border border-sky-200 dark:border-slate-700 text-sky-600 hover:bg-sky-50 dark:hover:bg-navy-800 flex items-center justify-center shadow-2xs transition shrink-0">
+                    <i class="fa-solid fa-arrow-up-from-bracket"></i>
+                </button>`;
+            }
+
+            closeCalendarShareMenu() {
+                document.getElementById("calendarShareMenu")?.remove();
+                if (this._calShareDismiss) {
+                    document.removeEventListener("mousedown", this._calShareDismiss, true);
+                    document.removeEventListener("keydown", this._calShareDismiss, true);
+                    window.removeEventListener("resize", this._calShareDismiss, true);
+                    this._calShareDismiss = null;
+                }
+            }
+
+            openCalendarShareMenu(ev, courseId = null, moduleId = null) {
+                if (ev) { ev.stopPropagation(); ev.preventDefault(); }
+                const wasOpen = !!document.getElementById("calendarShareMenu");
+                this.closeCalendarShareMenu();
+                if (wasOpen) return;
+                const btn = ev?.currentTarget || ev?.target?.closest("button");
+                const items = [
+                    ["image", "fa-regular fa-image", this.t("calendarShareCopyImage")],
+                    ["text", "fa-regular fa-copy", this.t("calendarShareCopyText")],
+                    ["download", "fa-solid fa-download", this.t("calendarShareDownload")],
+                    ["email", "fa-regular fa-envelope", this.t("calendarShareEmail")]
+                ];
+                const menu = document.createElement("div");
+                menu.id = "calendarShareMenu";
+                menu.setAttribute("role", "menu");
+                menu.className = "fixed z-[9999] min-w-[190px] p-1 rounded-xl bg-white dark:bg-navy-900 border border-sky-200 dark:border-slate-700 shadow-xl text-xs";
+                menu.innerHTML = items.map(([key, icon, label]) => `
+                    <button type="button" role="menuitem" data-share="${key}" class="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg font-bold text-left text-slate-700 dark:text-slate-200 hover:bg-sky-50 dark:hover:bg-navy-800 transition">
+                        <i class="${icon} w-4 text-center text-sky-600"></i><span>${this.escapeHtml(label)}</span>
+                    </button>`).join("");
+                document.body.appendChild(menu);
+                const r = btn ? btn.getBoundingClientRect() : { left: 20, right: 20, bottom: 20 };
+                const mw = menu.offsetWidth, mh = menu.offsetHeight;
+                let left = Math.min(Math.max(8, r.right - mw), window.innerWidth - mw - 8);
+                let top = r.bottom + 6;
+                if (top + mh > window.innerHeight - 8) top = Math.max(8, (r.top ?? r.bottom) - mh - 6);
+                menu.style.left = left + "px";
+                menu.style.top = top + "px";
+                menu.addEventListener("click", (e) => {
+                    const it = e.target.closest("[data-share]");
+                    if (!it) return;
+                    this.closeCalendarShareMenu();
+                    this.runCalendarShare(it.dataset.share, courseId, moduleId);
+                });
+                this._calShareDismiss = (e) => {
+                    if (e.type === "keydown") { if (e.key === "Escape") this.closeCalendarShareMenu(); return; }
+                    if (e.type === "mousedown" && menu.contains(e.target)) return;
+                    this.closeCalendarShareMenu();
+                };
+                document.addEventListener("mousedown", this._calShareDismiss, true);
+                document.addEventListener("keydown", this._calShareDismiss, true);
+                window.addEventListener("resize", this._calShareDismiss, true);
+                menu.querySelector("button")?.focus();
+            }
+
+            getCalendarShareContext(courseId = null, moduleId = null) {
+                const course = courseId ? (this.state.courses || []).find(c => c.id === courseId) : this.getActiveCourse();
+                if (!course) return null;
+                let mod = null, lvl = null;
+                if (moduleId) {
+                    for (const l of (course.levels || [])) {
+                        const found = (l.modules || []).find(m => m.id === moduleId);
+                        if (found) { mod = found; lvl = l; break; }
+                    }
+                } else {
+                    mod = this.getActiveSection(course);
+                }
+                return mod ? { course, mod, lvl } : null;
+            }
+
+            runCalendarShare(action, courseId = null, moduleId = null) {
+                const ctx = this.getCalendarShareContext(courseId, moduleId);
+                if (!ctx) return;
+                if (action === "text") {
+                    const txt = this.buildScheduleText(ctx.course, ctx.mod, ctx.lvl, ctx.mod);
+                    if (!txt) { this.showToast(this.t("noScheduledLessonsMsg"), "warning"); return; }
+                    navigator.clipboard.writeText(txt)
+                        .then(() => this.showToast(this.t("calendarShareTextCopied"), "success"))
+                        .catch(() => this.showToast(this.t("calendarShareClipboardError"), "error"));
+                    return;
+                }
+                // image / download / email: render the same PNG as the export (asks the language first)
+                if (moduleId) this.downloadModuleBillingCalendarPng(courseId, moduleId, null, action);
+                else this.downloadCalendarSquarePng(null, action);
+            }
+
+            // Delivers a rendered calendar canvas: download, copy to clipboard, or copy + open an e-mail draft.
+            finishCalendarImage(canvas, filename, action, successMsg) {
+                const ctx = this.calendarShareCtx || null;
+                const download = () => {
+                    const a = document.createElement("a");
+                    a.href = canvas.toDataURL("image/png");
+                    a.download = filename;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                };
+                const openMail = (note) => {
+                    const c = ctx?.course;
+                    const txt = c ? this.buildScheduleText(c, ctx.mod, ctx.lvl, ctx.mod).replace(/\*/g, "") : "";
+                    const subject = c ? `${c.name} — ${this.t("calendarShareMailSubject")}` : this.t("calendarShareMailSubject");
+                    const url = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(txt)}`;
+                    this.showToast(note, "info");
+                    if (window.electronAPI && typeof window.electronAPI.openExternal === "function") window.electronAPI.openExternal(url);
+                    else window.location.href = url;
+                };
+                if (action === "download") { download(); this.showToast(successMsg, "success"); return; }
+                const blobPromise = new Promise((res, rej) => canvas.toBlob(b => b ? res(b) : rej(new Error("toBlob")), "image/png"));
+                const canClip = navigator.clipboard && typeof navigator.clipboard.write === "function" && typeof window.ClipboardItem === "function";
+                const copied = canClip
+                    ? navigator.clipboard.write([new ClipboardItem({ "image/png": blobPromise })]).then(() => true).catch(() => false)
+                    : Promise.resolve(false);
+                copied.then(ok => {
+                    if (action === "image") {
+                        if (ok) this.showToast(this.t("calendarShareImageCopied"), "success");
+                        else { download(); this.showToast(this.t("calendarShareImageFallback"), "info"); }
+                    } else {
+                        if (ok) openMail(this.t("calendarShareMailCopied"));
+                        else { download(); openMail(this.t("calendarShareMailDownloaded")); }
+                    }
                 });
             }
 
@@ -7329,12 +7562,12 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 }, 50);
             }
 
-            downloadCalendarSquarePng(lang = null) {
+            downloadCalendarSquarePng(lang = null, action = "download") {
                 if (!lang) {
                     this.openExportLanguageModal(
                         this.t("exportLanguageTitle") || "Lingua di Esportazione",
                         this.t("exportLanguagePrompt") || "Seleziona la lingua per le intestazioni, date e testi dell'immagine PNG:",
-                        (chosenLang) => this.downloadCalendarSquarePng(chosenLang)
+                        (chosenLang) => this.downloadCalendarSquarePng(chosenLang, action)
                     );
                     return;
                 }
@@ -7456,11 +7689,9 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 ctx.font = "15px sans-serif";
                 ctx.fillText(watermarkMap[lang] || watermarkMap.it, 70, 1160);
 
-                const a = document.createElement("a");
-                a.download = `calendario_${course.name.replace(/\s+/g, "_")}_${lang}.png`;
-                a.href = canvas.toDataURL("image/png");
-                a.click();
-                this.showToast(this.t("calendarPngSavedToast") || "🖼️ Immagine calendario generata e scaricata!", "success");
+                this.calendarShareCtx = { course, mod: sec, lvl: null };
+                this.finishCalendarImage(canvas, `calendario_${course.name.replace(/\s+/g, "_")}_${lang}.png`, action,
+                    this.t("calendarPngSavedToast") || "🖼️ Immagine calendario generata e scaricata!");
             }
 
             renderModuleStudentCalendarView(container) {
@@ -7650,26 +7881,15 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                                 <button onclick="app.copyWhatsAppScheduleText()" class="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold flex items-center gap-1.5 shadow-2xs transition">
                                     <i class="fa-brands fa-whatsapp text-sm"></i> ${this.t("copyTextBtn")}
                                 </button>
-                                <button onclick="app.downloadCalendarSquarePng()" class="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold flex items-center gap-1.5 shadow-2xs transition">
-                                    <i class="fa-regular fa-image"></i> Scarica PNG
-                                </button>
+                                ${this.calendarShareButtonHtml()}
                                 <button onclick="window.print()" class="px-3 py-2 rounded-xl border border-sky-200 dark:border-slate-700 font-bold hover:bg-sky-50 dark:hover:bg-navy-800 flex items-center gap-1.5">
                                     <i class="fa-solid fa-print text-sky-600"></i> ${this.t("printBtn")}
                                 </button>
-                                ${this.state?.settings?.googleCalendarConnected ? `
-                                    <button onclick="app.openGoogleCalendarScanModal(app.getActiveCourse()?.id, app.getActiveSection(app.getActiveCourse())?.id)" class="px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold flex items-center gap-1.5 shadow-2xs transition" title="Scansiona e sincronizza Google Calendar per questo modulo">
-                                        <i class="fa-brands fa-google text-sm"></i> Sincronizza Google
+                                ${activeSection?.googleMeetUrl ? `
+                                    <button onclick="if(window.electronAPI){window.electronAPI.openExternal('${this.escapeHtml(activeSection.googleMeetUrl)}');}else{window.open('${this.escapeHtml(activeSection.googleMeetUrl)}','_blank');}" class="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold flex items-center gap-1.5 shadow-2xs transition" title="Partecipa alla riunione (${this.escapeHtml(activeSection.googleMeetUrl)})">
+                                        <i class="fa-solid fa-video text-sm"></i> Partecipa alla riunione
                                     </button>
                                 ` : ''}
-                                ${activeSection?.googleMeetUrl ? `
-                                    <button onclick="if(window.electronAPI){window.electronAPI.openExternal('${this.escapeHtml(activeSection.googleMeetUrl)}');}else{window.open('${this.escapeHtml(activeSection.googleMeetUrl)}','_blank');}" class="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold flex items-center gap-1.5 shadow-2xs transition" title="${this.state?.settings?.googleCalendarConnected ? `Partecipa a Google Meet (${this.escapeHtml(activeSection.googleMeetUrl)})` : `Partecipa alla riunione (${this.escapeHtml(activeSection.googleMeetUrl)})`}">
-                                        <i class="fa-solid fa-video text-sm"></i> ${this.state?.settings?.googleCalendarConnected ? 'Partecipa a Meet' : 'Partecipa alla riunione'}
-                                    </button>
-                                ` : (this.state?.settings?.googleCalendarConnected ? `
-                                    <button onclick="app.createModuleGoogleMeet(app.getActiveCourse(), app.getActiveSection(app.getActiveCourse()))" class="px-3.5 py-2 rounded-xl border border-blue-500 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/50 font-bold flex items-center gap-1.5 shadow-2xs transition" title="Crea link Google Meet per tutte le lezioni di questo modulo">
-                                        <i class="fa-solid fa-video text-sm"></i> Crea Google Meet
-                                    </button>
-                                ` : '')}
                             </div>
                         </div>
 
@@ -7880,14 +8100,14 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                                                         <div class="inline-flex items-center gap-2">
                                                             <button onclick="app.openStudentDetailModal('${st.id}')" class="px-2.5 py-1 rounded-lg border border-sky-200 dark:border-slate-700 font-bold">${this.t("profileCardBtn")}</button>
                                                             ${this.showFormerGroupStudents ? `
-                                                                <button onclick="app.reinsertFormerStudent('${st.id}')" class="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold">${this.t("reinsertBtn")}</button>
+                                                                ${this.moreMenuButtonHtml([
+                                                                    { icon: "fa-solid fa-rotate-left", label: this.t("reinsertBtn"), js: `app.reinsertFormerStudent('${st.id}')` }
+                                                                ])}
                                                             ` : `
-                                                                <button onclick="app.excludeStudentToFormer('${st.id}')" class="w-7 h-7 rounded-lg border border-amber-400 dark:border-amber-300 bg-amber-100/90 dark:bg-amber-950/60 text-amber-800 dark:text-amber-200 hover:bg-amber-200 dark:hover:bg-amber-900/60 font-bold flex items-center justify-center text-xs" title="Archivia tra gli ex studenti">
-                                                                    <i class="fa-solid fa-box-archive text-amber-700 dark:text-amber-300"></i>
-                                                                </button>
-                                                                <button onclick="app.openExcludeOrRemoveStudentModal('${st.id}')" class="w-7 h-7 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-bold flex items-center justify-center text-xs" title="${this.t("removeFromGroupBtn")}">
-                                                                    <i class="fa-solid fa-xmark"></i>
-                                                                </button>
+                                                                ${this.moreMenuButtonHtml([
+                                                                    { icon: "fa-solid fa-box-archive", label: this.t("archiveToFormerBtn"), js: `app.excludeStudentToFormer('${st.id}')` },
+                                                                    { icon: "fa-solid fa-xmark", label: this.t("removeFromGroupBtn"), js: `app.openExcludeOrRemoveStudentModal('${st.id}')`, danger: true }
+                                                                ])}
                                                             `}
                                                         </div>
                                                     </td>
@@ -7956,23 +8176,10 @@ Removing, obfuscating, or altering these credits violates the author's attributi
             }
 
             /**
-             * Global Calendar View (Day, Week, Month + Course Colors + Conflict Detection + Google Calendar Layout)
+             * Global Calendar View (Day, Week, Month + Course Colors + Conflict Detection)
              */
             renderCalEventCard(ev, compact = false, fullHeight = false) {
                 const heightCls = fullHeight ? "h-full" : "min-h-[38px] shrink-0";
-                if (ev.isGoogleEvent) {
-                    return `
-                        <button onclick="if(window.electronAPI){window.electronAPI.openExternal('${this.escapeHtml(ev.hangoutLink || ev.htmlLink || 'https://calendar.google.com')}');}else{window.open('${this.escapeHtml(ev.hangoutLink || ev.htmlLink || 'https://calendar.google.com')}','_blank');}"
-                            class="w-full ${heightCls} text-left p-1.5 rounded-lg text-white font-bold transition hover:opacity-95 shadow-2xs flex flex-col justify-center overflow-hidden"
-                            style="background-color:#2563eb;" title="Evento Google Calendar personale: ${this.escapeHtml(ev.title)}">
-                            <div class="flex items-center justify-between gap-1 w-full min-w-0">
-                                <span class="truncate text-[10px] flex items-center gap-1 font-extrabold"><i class="fa-brands fa-google text-[9px] shrink-0"></i> <span class="truncate">${this.escapeHtml(ev.title)}</span></span>
-                                ${ev.hangoutLink ? `<i class="fa-solid fa-video text-emerald-200 text-[9px] shrink-0" title="Link Meet disponibile"></i>` : ''}
-                            </div>
-                            ${!compact ? `<div class="text-[9px] opacity-90 truncate leading-tight mt-0.5">${this.formatTimeDisplay(ev.time)} - ${this.formatTimeDisplay(ev.endTime)}</div>` : ''}
-                        </button>
-                    `;
-                }
                 return `
                     <button onclick="app.openLessonPlanModal('${ev.courseId}', '${ev.sectionId}', '${ev.slotKey}')"
                         class="w-full ${heightCls} text-left p-1.5 rounded-lg text-white font-bold transition hover:opacity-95 flex flex-col justify-center overflow-hidden shadow-2xs"
@@ -8125,36 +8332,6 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                     });
                 });
 
-                // Integrate personal Google Calendar events if connected & enabled
-                if (this.state?.settings?.googleCalendarConnected && this.state?.settings?.showGoogleCalendarEvents !== false && Array.isArray(this.googleEvents)) {
-                    this.googleEvents.forEach(gev => {
-                        const sStr = gev.start?.dateTime || gev.start?.date;
-                        if (!sStr) return;
-                        const dStr = sStr.substring(0, 10);
-                        const isAllDay = !gev.start?.dateTime && !!gev.start?.date;
-                        let sTime = "09:00";
-                        let eTime = "10:00";
-                        if (gev.start?.dateTime && gev.start.dateTime.length >= 16) {
-                            sTime = gev.start.dateTime.substring(11, 16);
-                        }
-                        if (gev.end?.dateTime && gev.end.dateTime.length >= 16) {
-                            eTime = gev.end.dateTime.substring(11, 16);
-                        }
-                        if (!allEventsByDate[dStr]) allEventsByDate[dStr] = [];
-                        allEventsByDate[dStr].push({
-                            isGoogleEvent: true,
-                            id: gev.id,
-                            title: gev.summary || "(Senza titolo)",
-                            time: sTime,
-                            endTime: eTime,
-                            isAllDay,
-                            hangoutLink: gev.hangoutLink || "",
-                            htmlLink: gev.htmlLink || "",
-                            pal: { hex: "#2563eb" }
-                        });
-                    });
-                }
-
                 Object.values(allEventsByDate).forEach(list => {
                     list.sort((a, b) => a.time.localeCompare(b.time));
                     for (let i = 0; i < list.length; i++) {
@@ -8212,19 +8389,6 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                                     <button type="button" onclick="app.calendarViewMode = 'week'; app.renderMainView();" class="px-3 py-1 rounded-lg font-bold text-xs transition ${curMode === 'week' ? 'bg-white dark:bg-navy-900 text-sky-600 dark:text-sky-300 shadow-xs' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'}">Settimana</button>
                                     <button type="button" onclick="app.calendarViewMode = 'month'; app.renderMainView();" class="px-3 py-1 rounded-lg font-bold text-xs transition ${curMode === 'month' ? 'bg-white dark:bg-navy-900 text-sky-600 dark:text-sky-300 shadow-xs' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'}">Mese</button>
                                 </div>
-
-                                ${this.state?.settings?.googleCalendarConnected ? `
-                                    <button onclick="app.refreshGoogleCalendarEvents(true)" class="px-2.5 py-1.5 rounded-xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300 font-bold flex items-center gap-1.5 text-xs hover:bg-blue-100 dark:hover:bg-blue-900/50 transition" title="Sincronizza eventi Google Calendar">
-                                        <i class="fa-brands fa-google text-blue-600"></i>
-                                        <span>Google Calendar</span>
-                                        <i class="fa-solid fa-arrows-rotate text-[10px] ${this.isSyncingGoogle ? 'fa-spin' : ''}"></i>
-                                    </button>
-                                ` : `
-                                    <button onclick="app.startGoogleOAuth()" class="px-2.5 py-1.5 rounded-xl bg-slate-100 dark:bg-navy-800 hover:bg-blue-50 dark:hover:bg-blue-900/30 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 font-bold flex items-center gap-1.5 text-xs transition" title="Collega il tuo account Google Calendar">
-                                        <i class="fa-brands fa-google text-blue-500"></i>
-                                        <span>Collega Google</span>
-                                    </button>
-                                `}
 
                                 <select onchange="app.calendarFilterCourseId = this.value; app.renderMainView();" class="rounded-xl border border-sky-200 dark:border-slate-700 bg-sky-50/50 dark:bg-navy-800 px-3 py-1.5 font-bold">
                                     <option value="ALL">${this.t("allGroupsOpt")}</option>
@@ -8896,8 +9060,10 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                                                 <button onclick="app.openArchivedCourse('${c.id}')" class="flex-1 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-bold flex items-center justify-center gap-1.5 transition text-xs shadow-2xs">
                                                     <i class="fa-solid fa-folder-open text-xs"></i> <span>${this.t("openBtn")}</span>
                                                 </button>
-                                                <button onclick="app.restoreArchivedCourse('${c.id}')" class="flex-1 py-2 rounded-xl bg-emerald-600 text-white font-bold">${this.t("restoreCourseBtn")}</button>
-                                                <button onclick="app.deleteCoursePermanently('${c.id}')" class="px-3 py-2 rounded-xl border border-rose-200 text-rose-600 font-bold">${this.t("deleteBtn")}</button>
+                                                ${this.moreMenuButtonHtml([
+                                                    { icon: "fa-solid fa-rotate-left", label: this.t("restoreCourseBtn"), js: `app.restoreArchivedCourse('${c.id}')` },
+                                                    { icon: "fa-solid fa-trash-can", label: this.t("deleteBtn"), js: `app.deleteCoursePermanently('${c.id}')`, danger: true }
+                                                ], { size: "w-9 h-9" })}
                                             </div>
                                         </div>
                                     `;
@@ -9357,7 +9523,9 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                                                     <td class="px-4 py-3 text-right">
                                                         <div class="inline-flex items-center gap-1.5">
                                                             <button type="button" onclick="app.openBillingContactModal('${ct.id}')" class="px-2.5 py-1 rounded-lg border border-sky-200 dark:border-slate-700 font-bold hover:bg-sky-50 dark:hover:bg-navy-800"><i class="fa-solid fa-pen"></i></button>
-                                                            <button type="button" onclick="app.deleteBillingContact('${ct.id}')" class="px-2.5 py-1 rounded-lg border border-rose-200 text-rose-600 font-bold hover:bg-rose-50"><i class="fa-solid fa-trash-can"></i></button>
+                                                            ${this.moreMenuButtonHtml([
+                                                                { icon: "fa-solid fa-trash-can", label: this.t("deleteBtn"), js: `app.deleteBillingContact('${ct.id}')`, danger: true }
+                                                            ])}
                                                         </div>
                                                     </td>
                                                 </tr>
@@ -9657,11 +9825,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                                             <span class="text-[11px] text-emerald-700 dark:text-emerald-400 font-bold block">${this.t("moduleBillingCost")}</span>
                                             <span class="text-lg font-black text-emerald-600 dark:text-emerald-400">${this.formatMoney(curModuleCost)}</span>
                                         </div>
-                                        <button onclick="app.downloadModuleBillingCalendarPng('${course.id}', '${currentModule.id}')"
-                                            class="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold flex items-center gap-2 shadow-2xs transition">
-                                            <i class="fa-solid fa-file-image"></i>
-                                            <span>${this.t("exportCalendarPngBtn")}</span>
-                                        </button>
+                                        ${this.calendarShareButtonHtml(course.id, currentModule.id)}
                                     </div>
                                 </div>
 
@@ -10227,12 +10391,12 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 this.showToast(this.t("appliedToAllLessonsToast"), "success");
             }
 
-            downloadModuleBillingCalendarPng(courseId, moduleId, lang = null) {
+            downloadModuleBillingCalendarPng(courseId, moduleId, lang = null, action = "download") {
                 if (!lang) {
                     this.openExportLanguageModal(
                         this.t("exportLanguageTitle") || "Lingua di Esportazione",
                         this.t("exportLanguagePrompt") || "Seleziona la lingua per le intestazioni, date e testi dell'immagine PNG:",
-                        (chosenLang) => this.downloadModuleBillingCalendarPng(courseId, moduleId, chosenLang)
+                        (chosenLang) => this.downloadModuleBillingCalendarPng(courseId, moduleId, chosenLang, action)
                     );
                     return;
                 }
@@ -10522,15 +10686,9 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 const safeMod = mod.name.replace(/[^a-zA-Z0-9_\-]/g, "_");
                 const filename = `Fatturazione_${safeCourse}_${safeMod}_${lang}.png`;
 
-                const dataUrl = canvas.toDataURL("image/png");
-                const a = document.createElement("a");
-                a.href = dataUrl;
-                a.download = filename;
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-
-                this.showToast(this.t("calendarPngSavedToast") || "🖼️ Immagine fatturazione generata e scaricata!", "success");
+                this.calendarShareCtx = { course, mod, lvl };
+                this.finishCalendarImage(canvas, filename, action,
+                    this.t("calendarPngSavedToast") || "🖼️ Immagine fatturazione generata e scaricata!");
             }
 
             /**
@@ -11580,81 +11738,6 @@ Dettagli di Sistema:
                                 </div>
                             </div>
 
-                            <!-- Google Calendar & Google Meet Integration Card -->
-                            <div class="pt-4 border-t border-sky-100 dark:border-slate-800 space-y-3">
-                                <!-- Beta Authorization Notice Banner -->
-                                <div class="p-3.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 flex items-start gap-2.5 text-xs text-amber-900 dark:text-amber-200">
-                                    <i class="fa-solid fa-flask text-amber-600 mt-0.5 shrink-0 text-sm"></i>
-                                    <div class="space-y-1">
-                                        <div class="font-extrabold flex items-center gap-1.5">
-                                            <span>${this.t("googleCalendarBetaBadge")}</span>
-                                            <span class="px-1.5 py-0.2 rounded bg-amber-200 dark:bg-amber-800 text-amber-900 dark:text-amber-100 text-[9.5px] font-black uppercase tracking-wider">Beta</span>
-                                        </div>
-                                        <p class="text-[11px] leading-relaxed text-amber-800 dark:text-amber-300">
-                                            ${this.t("googleCalendarBetaNotice")}
-                                        </p>
-                                    </div>
-                                </div>
-
-                                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                                    <div>
-                                        <h4 class="font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
-                                            <i class="fa-brands fa-google text-blue-600"></i>
-                                            <span>Google Calendar & Google Meet</span>
-                                        </h4>
-                                        <p class="text-[11px] text-slate-400 mt-0.5">Sincronizza le lezioni con il tuo calendario Google personale, riutilizza lo stesso link Meet per ogni modulo e invia inviti email agli iscritti.</p>
-                                    </div>
-                                    <div class="shrink-0">
-                                        ${s.googleCalendarConnected ? `
-                                            <button type="button" onclick="app.disconnectGoogleCalendar()" class="px-3 py-1.5 rounded-xl border border-rose-200 text-rose-600 font-bold hover:bg-rose-50 dark:hover:bg-rose-950/40 transition">
-                                                Disconnetti
-                                            </button>
-                                        ` : (this.isAuthenticatingGoogle ? `
-                                            <div class="flex items-center gap-2">
-                                                <span class="text-xs text-blue-600 dark:text-blue-400 font-bold flex items-center gap-1.5">
-                                                    <i class="fa-solid fa-arrows-rotate fa-spin"></i> In attesa nel browser...
-                                                </span>
-                                                <button type="button" onclick="app.cancelGoogleOAuth('Annullato dall\\'utente')" class="px-2.5 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700 font-bold hover:bg-slate-100 dark:hover:bg-navy-800 transition text-xs">
-                                                    Annulla
-                                                </button>
-                                            </div>
-                                        ` : `
-                                            <button type="button" onclick="app.startGoogleOAuth()" class="px-3.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-extrabold flex items-center gap-1.5 transition shadow-xs">
-                                                <i class="fa-brands fa-google"></i>
-                                                <span>Accedi con Google</span>
-                                            </button>
-                                        `)}
-                                    </div>
-                                </div>
-
-                                ${this.googleOAuthError ? `
-                                    <div class="p-2.5 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/50 flex items-center gap-2 text-amber-800 dark:text-amber-200 text-xs">
-                                        <i class="fa-solid fa-triangle-exclamation text-amber-600 shrink-0"></i>
-                                        <span class="flex-1">${this.escapeHtml(this.googleOAuthError)}</span>
-                                        <button type="button" onclick="app.googleOAuthError = null; app.renderAll();" class="text-amber-600 hover:text-amber-800"><i class="fa-solid fa-xmark"></i></button>
-                                    </div>
-                                ` : ''}
-
-                                ${s.googleCalendarConnected ? `
-                                    <div class="p-3.5 rounded-xl bg-blue-50/70 dark:bg-navy-950/60 border border-blue-200/70 dark:border-blue-900/40 space-y-3">
-                                        <div class="flex items-center justify-between text-xs">
-                                            <span class="text-slate-500 dark:text-slate-400 font-medium">Account Google connesso:</span>
-                                            <span class="font-extrabold text-blue-700 dark:text-blue-300 flex items-center gap-1">
-                                                <i class="fa-solid fa-circle-check text-emerald-500"></i>
-                                                ${this.escapeHtml(s.googleCalendarEmail || 'Connesso')}
-                                            </span>
-                                        </div>
-                                        <div class="flex items-center justify-between pt-2 border-t border-blue-200/50 dark:border-blue-900/40">
-                                            <div>
-                                                <div class="font-bold text-slate-800 dark:text-slate-200 text-xs">Mostra eventi personali nel Calendario Generale</div>
-                                                <div class="text-[10.5px] text-slate-400">Visualizza i tuoi impegni personali di Google Calendar insieme alle lezioni dei corsi.</div>
-                                            </div>
-                                            <input type="checkbox" ${s.showGoogleCalendarEvents !== false ? 'checked' : ''} onchange="app.updateSetting('showGoogleCalendarEvents', this.checked)" class="w-4 h-4 rounded text-blue-600">
-                                        </div>
-                                    </div>
-                                ` : ''}
-                            </div>
-
                             ${this.renderSuiteSettingsPanel()}
 
                             ${this.renderHubSettingsPanel()}
@@ -12293,42 +12376,6 @@ Dettagli di Sistema:
                                 <input type="text" id="modDescInput" value="${this.escapeHtml(mod?.description || '')}" class="w-full rounded-xl border border-sky-200 dark:border-slate-700 bg-transparent px-3 py-2">
                             </div>
                             <div class="sm:col-span-2">
-                                ${this.state.settings?.googleCalendarConnected ? `
-                                    <label class="block font-bold mb-1 flex items-center justify-between">
-                                        <span class="flex items-center gap-1.5"><i class="fa-solid fa-video text-blue-600"></i> Stanza Google Meet per tutte le lezioni</span>
-                                    </label>
-                                    <input type="hidden" id="modGoogleMeetUrlInput" value="${this.escapeHtml(mod?.googleMeetUrl || '')}">
-                                    <div id="modMeetSectionContainer">
-                                    ${mod?.googleMeetUrl ? `
-                                        <div class="p-3 rounded-xl bg-emerald-50/80 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 flex items-center justify-between gap-2">
-                                            <div class="flex items-center gap-2 min-w-0">
-                                                <i class="fa-solid fa-video text-emerald-600 text-sm shrink-0"></i>
-                                                <span class="font-mono text-xs text-emerald-800 dark:text-emerald-200 truncate select-all">${this.escapeHtml(mod.googleMeetUrl)}</span>
-                                            </div>
-                                            <div class="flex items-center gap-1.5 shrink-0">
-                                                <button type="button" onclick="navigator.clipboard.writeText('${this.escapeHtml(mod.googleMeetUrl)}'); app.showToast('Link Meet copiato!', 'success');" class="px-2 py-1 rounded-lg bg-emerald-100 hover:bg-emerald-200 text-emerald-800 text-[10.5px] font-bold" title="Copia link"><i class="fa-solid fa-copy"></i> Copia</button>
-                                                <button type="button" onclick="if(window.electronAPI){window.electronAPI.openExternal('${this.escapeHtml(mod.googleMeetUrl)}');}else{window.open('${this.escapeHtml(mod.googleMeetUrl)}','_blank');}" class="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[10.5px] font-bold flex items-center gap-1"><i class="fa-solid fa-arrow-up-right-from-square"></i> Partecipa</button>
-                                                <button type="button" onclick="document.getElementById('modGoogleMeetUrlInput').value = ''; document.getElementById('modGoogleMeetCustomInput').value = ''; this.closest('.p-3').remove(); app.showToast('Link Meet rimosso per il modulo', 'info');" class="w-7 h-7 rounded-lg text-rose-500 hover:bg-rose-100 dark:hover:bg-rose-950/50 flex items-center justify-center text-xs" title="Rimuovi stanza Meet"><i class="fa-solid fa-trash"></i></button>
-                                            </div>
-                                        </div>
-                                    ` : `
-                                        <div class="p-3 rounded-xl bg-slate-50 dark:bg-navy-950/40 border border-slate-200 dark:border-slate-800 space-y-2">
-                                            <div class="flex items-center justify-between gap-2">
-                                                <div class="text-[11px] text-slate-500 dark:text-slate-400">
-                                                    Genera con 1-click una stanza Google Meet valida per tutte le lezioni di questo modulo.
-                                                </div>
-                                                <button type="button" onclick="app.createModuleMeetInModal('${lvl.id}', ${mod ? `'${mod.id}'` : 'null'})" class="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-bold text-[11px] shrink-0 flex items-center gap-1.5">
-                                                    <i class="fa-solid fa-video"></i> Crea link Meet per tutte le lezioni
-                                                </button>
-                                            </div>
-                                        </div>
-                                    `}
-                                    </div>
-                                    <div class="mt-2">
-                                        <label class="block text-[10.5px] font-bold text-slate-500 mb-1">Link personalizzato (opzionale):</label>
-                                        <input type="text" id="modGoogleMeetCustomInput" oninput="document.getElementById('modGoogleMeetUrlInput').value = this.value.trim();" value="${this.escapeHtml(mod?.googleMeetUrl || '')}" placeholder="https://meet.google.com/xxx-xxxx-xxx" class="w-full rounded-xl border border-sky-200 dark:border-slate-700 bg-transparent px-3 py-1.5 font-mono text-xs">
-                                    </div>
-                                ` : `
                                     <label class="block font-bold mb-1 flex items-center justify-between">
                                         <span class="flex items-center gap-1.5"><i class="fa-solid fa-video text-blue-600"></i> Link Riunione Online (Zoom, Teams, Meet, Skype...)</span>
                                     </label>
@@ -12355,7 +12402,6 @@ Dettagli di Sistema:
                                         <label class="block text-[10.5px] font-bold text-slate-500 mb-1">Incolla link riunione:</label>
                                         <input type="text" id="modGoogleMeetCustomInput" oninput="document.getElementById('modGoogleMeetUrlInput').value = this.value.trim();" value="${this.escapeHtml(mod?.googleMeetUrl || '')}" placeholder="https://zoom.us/..., https://teams.microsoft.com/..., o qualsiasi link" class="w-full rounded-xl border border-sky-200 dark:border-slate-700 bg-transparent px-3 py-1.5 font-mono text-xs">
                                     </div>
-                                `}
                             </div>
                         </div>
                         <div class="flex justify-end gap-2 pt-2">
@@ -12588,60 +12634,10 @@ Dettagli di Sistema:
                             </div>
                         </div>
 
-                        <!-- Google Calendar & Meet Integration Row -->
+                        <!-- Meeting link row -->
                         <div class="p-3.5 rounded-xl bg-blue-50/70 dark:bg-navy-950/60 border border-blue-200/70 dark:border-blue-900/40 space-y-3">
                             <input type="hidden" id="lpGoogleMeetUrlInput" value="${this.escapeHtml(les?.googleMeetUrl || (!slotKey && targetSec.googleMeetUrl) || '')}">
 
-                            ${this.state.settings?.googleCalendarConnected ? `
-                                <div class="flex items-center justify-between">
-                                    <h4 class="font-extrabold text-blue-900 dark:text-blue-300 flex items-center gap-2">
-                                        <i class="fa-brands fa-google text-blue-600"></i>
-                                        <span>Google Calendar & Google Meet</span>
-                                    </h4>
-                                    <span class="px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 font-bold text-[10px] flex items-center gap-1">
-                                        <i class="fa-solid fa-circle-check"></i> Account collegato (${this.escapeHtml(this.state.settings.googleCalendarEmail || '')})
-                                    </span>
-                                </div>
-
-                                <div id="lpMeetCardContainer">
-                                ${(les?.googleMeetUrl || (!slotKey && targetSec.googleMeetUrl)) ? `
-                                    <div class="p-3 rounded-xl bg-emerald-50/80 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 flex items-center justify-between gap-2">
-                                        <div class="flex items-center gap-2 min-w-0">
-                                            <i class="fa-solid fa-video text-emerald-600 text-sm shrink-0"></i>
-                                            <div class="min-w-0">
-                                                <div class="text-[10px] font-bold text-slate-500 dark:text-slate-400">Stanza Google Meet</div>
-                                                <div class="font-mono text-xs text-emerald-800 dark:text-emerald-200 truncate select-all">${this.escapeHtml(les?.googleMeetUrl || targetSec.googleMeetUrl)}</div>
-                                            </div>
-                                        </div>
-                                        <div class="flex items-center gap-1.5 shrink-0">
-                                            <button type="button" onclick="navigator.clipboard.writeText('${this.escapeHtml(les?.googleMeetUrl || targetSec.googleMeetUrl)}'); app.showToast('Link Meet copiato!', 'success');" class="px-2 py-1 rounded-lg bg-emerald-100 hover:bg-emerald-200 text-emerald-800 text-[10.5px] font-bold" title="Copia link"><i class="fa-solid fa-copy"></i> Copia</button>
-                                            <button type="button" onclick="app.copyLessonStudentInvitation('${course.id}', '${targetSec.id}', '${slotKey || ''}')" class="px-2 py-1 rounded-lg bg-sky-100 hover:bg-sky-200 text-sky-800 dark:bg-sky-950 dark:text-sky-200 text-[10.5px] font-bold flex items-center gap-1" title="${this.t('copyLessonInviteBtn')}"><i class="fa-solid fa-share-nodes"></i> ${this.t('copyLessonInviteBtn')}</button>
-                                            <button type="button" onclick="if(window.electronAPI){window.electronAPI.openExternal('${this.escapeHtml(les?.googleMeetUrl || targetSec.googleMeetUrl)}');}else{window.open('${this.escapeHtml(les?.googleMeetUrl || targetSec.googleMeetUrl)}','_blank');}" class="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[10.5px] font-bold flex items-center gap-1"><i class="fa-solid fa-arrow-up-right-from-square"></i> Partecipa</button>
-                                            <button type="button" onclick="document.getElementById('lpGoogleMeetUrlInput').value = ''; document.getElementById('lpGoogleMeetCustomInput').value = ''; document.getElementById('lpMeetCardContainer').innerHTML = '<div class=\'p-3 rounded-xl bg-slate-50 dark:bg-navy-950/40 border border-slate-200 dark:border-slate-800 flex items-center gap-2.5\'><i class=\'fa-solid fa-video-slash text-slate-400 text-sm\'></i><div><div class=\'font-bold text-slate-800 dark:text-slate-200 text-xs\'>Nessun link Google Meet assegnato</div><div class=\'text-[10px] text-slate-400\'>I link Meet non vengono generati in automatico per evitare conflitti.</div></div></div>'; app.showToast('Link Meet rimosso per questa lezione', 'info');" class="w-7 h-7 rounded-lg text-rose-500 hover:bg-rose-100 dark:hover:bg-rose-950/50 flex items-center justify-center text-xs" title="Rimuovi link Meet"><i class="fa-solid fa-trash"></i></button>
-                                        </div>
-                                    </div>
-                                ` : `
-                                    <div class="p-3 rounded-xl bg-slate-50 dark:bg-navy-950/40 border border-slate-200 dark:border-slate-800 flex items-center justify-between gap-2.5">
-                                        <div class="flex items-center gap-2">
-                                            <i class="fa-solid fa-video-slash text-slate-400 text-sm"></i>
-                                            <div>
-                                                <div class="font-bold text-slate-800 dark:text-slate-200 text-xs">Nessun link Google Meet assegnato</div>
-                                                <div class="text-[10px] text-slate-400">I link Meet non vengono generati in automatico per evitare conflitti.</div>
-                                            </div>
-                                        </div>
-                                        ${targetSec.googleMeetUrl ? `
-                                            <button type="button" onclick="document.getElementById('lpGoogleMeetUrlInput').value = '${this.escapeHtml(targetSec.googleMeetUrl)}'; document.getElementById('lpGoogleMeetCustomInput').value = '${this.escapeHtml(targetSec.googleMeetUrl)}'; app.showToast('Link modulo applicato!', 'success');" class="px-2.5 py-1 rounded-lg border border-sky-300 dark:border-slate-700 text-sky-600 dark:text-sky-300 font-bold text-[10.5px] hover:bg-sky-50 dark:hover:bg-navy-800 transition shrink-0">
-                                                Usa stanza del Modulo
-                                            </button>
-                                        ` : ''}
-                                    </div>
-                                `}
-                                </div>
-                                <div>
-                                    <label class="block text-[10.5px] font-bold text-slate-500 mb-1">Link personalizzato (opzionale):</label>
-                                    <input type="text" id="lpGoogleMeetCustomInput" oninput="document.getElementById('lpGoogleMeetUrlInput').value = this.value.trim();" value="${this.escapeHtml(les?.googleMeetUrl || (!slotKey && targetSec.googleMeetUrl) || '')}" placeholder="https://meet.google.com/xxx-xxxx-xxx" class="w-full rounded-xl border border-blue-200 dark:border-slate-700 bg-white dark:bg-navy-900 px-3 py-1.5 font-mono text-xs">
-                                </div>
-                            ` : `
                                 <div class="flex items-center justify-between">
                                     <h4 class="font-extrabold text-blue-900 dark:text-blue-300 flex items-center gap-2">
                                         <i class="fa-solid fa-video text-blue-600"></i>
@@ -12682,7 +12678,6 @@ Dettagli di Sistema:
                                     <label class="block text-[10.5px] font-bold text-slate-500 mb-1">Incolla link riunione:</label>
                                     <input type="text" id="lpGoogleMeetCustomInput" oninput="document.getElementById('lpGoogleMeetUrlInput').value = this.value.trim();" value="${this.escapeHtml(les?.googleMeetUrl || (!slotKey && targetSec.googleMeetUrl) || '')}" placeholder="https://zoom.us/..., https://teams.microsoft.com/..., o qualsiasi link" class="w-full rounded-xl border border-blue-200 dark:border-slate-700 bg-white dark:bg-navy-900 px-3 py-1.5 font-mono text-xs">
                                 </div>
-                            `}
 
                             <div>
                                 <div class="flex items-center justify-between mb-1">
@@ -12701,7 +12696,7 @@ Dettagli di Sistema:
                                     })()}
                                 </div>
                                 <input type="text" id="lpInvitedEmailsInput" value="${this.escapeHtml(Array.isArray(les?.invitedEmails) ? les.invitedEmails.join(', ') : '')}" placeholder="studente1@email.com, studente2@email.com" class="w-full rounded-xl border border-blue-200 dark:border-slate-700 bg-white dark:bg-navy-900 px-3 py-2 text-xs">
-                                <p class="text-[10px] text-slate-400 mt-0.5">${this.state.settings?.googleCalendarConnected ? "Google invierà automaticamente un invito con notifica e link Meet a tutti gli indirizzi indicati." : "Gli indirizzi email riceveranno i dettagli della lezione."}</p>
+                                <p class="text-[10px] text-slate-400 mt-0.5">Gli indirizzi email riceveranno i dettagli della lezione.</p>
                             </div>
                         </div>
 
@@ -12808,7 +12803,6 @@ Dettagli di Sistema:
                         endTime,
                         title: document.getElementById("lpTitleInput")?.value.trim() || "",
                         googleMeetUrl,
-                        googleCalendarEventId: les?.googleCalendarEventId || null,
                         invitedEmails,
                         objectives: document.getElementById("lpObjectivesInput")?.value.trim() || "",
                         topics: document.getElementById("lpTopicsInput")?.value.trim() || "",
@@ -12847,9 +12841,6 @@ Dettagli di Sistema:
                 }
                 if (Array.isArray(course.lessons)) {
                     const targetLes = course.lessons.find(l => l.slotKey === slotKey && (!l.sectionId || l.sectionId === sec.id));
-                    if (targetLes?.googleCalendarEventId) {
-                        this.deleteLessonFromGoogle(targetLes.googleCalendarEventId);
-                    }
                     course.lessons = course.lessons.filter(l => !(l.slotKey === slotKey && (!l.sectionId || l.sectionId === sec.id)));
                 }
                 this.persist();
@@ -12953,28 +12944,6 @@ Dettagli di Sistema:
                 this.closeModal(true);
                 this.renderAll();
                 this.showToast(`+${added} ${this.t("lessonsLower")}`, "success");
-                if (this.state.settings?.googleCalendarConnected) {
-                    this.openModal(`
-                        <div class="p-6 space-y-4 text-xs max-w-md">
-                            <div class="flex items-center gap-3">
-                                <div class="w-10 h-10 rounded-xl bg-blue-100 dark:bg-blue-950 text-blue-600 flex items-center justify-center text-lg shrink-0">
-                                    <i class="fa-brands fa-google"></i>
-                                </div>
-                                <div>
-                                    <h4 class="text-sm font-extrabold text-slate-900 dark:text-white">Sincronizza Ricorrenza su Google Calendar?</h4>
-                                    <p class="text-slate-500 mt-0.5">Hai generato ${added} lezioni ricorrenti nel modulo.</p>
-                                </div>
-                            </div>
-                            <p class="text-slate-600 dark:text-slate-300 leading-relaxed text-[11px]">
-                                Vuoi creare questo evento ricorrente anche su <strong>Google Calendar</strong>?
-                            </p>
-                            <div class="flex justify-end gap-2 pt-2">
-                                <button type="button" onclick="app.closeModal()" class="px-4 py-2 rounded-xl border border-slate-300 dark:border-slate-700 font-bold">No, solo in ClassDesk</button>
-                                <button type="button" onclick="app.closeModal(); app.syncModuleToGoogleCalendar(app.getActiveCourse(), app.getActiveSection(app.getActiveCourse()), true);" class="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-extrabold shadow-xs">Sì, sincronizza con Google</button>
-                            </div>
-                        </div>
-                    `, "max-w-md");
-                }
             }
 
             /**
@@ -13155,200 +13124,6 @@ Dettagli di Sistema:
                 }, 2600);
             }
 
-            // =====================================================================================
-            // MARK: - Google Calendar & Google Meet Integration
-            // =====================================================================================
-            getGoogleOAuthConfig() {
-                const xd = (h, k = 0x5A) => {
-                    let s = "";
-                    for (let i = 0; i < h.length; i += 2) {
-                        s += String.fromCharCode(parseInt(h.substr(i, 2), 16) ^ k);
-                    }
-                    return s;
-                };
-                return {
-                    clientId: xd("63626f6c636e6a6a6b6c6c772a6f6f3b383137636c6333286c2833283b2f312a29332b312f2a683b6a6b2869743b2a2a29743d35353d363f2f293f283935342e3f342e74393537"),
-                    clientSecret: xd("1d1519090a02770f6c6f376d6d183538773f100b15143323123f0c14301b233419620f"),
-                    redirectUri: "http://127.0.0.1:8089/oauth2callback",
-                    scopes: "https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/userinfo.email"
-                };
-            }
-
-            async startGoogleOAuth() {
-                this.isAuthenticatingGoogle = true;
-                this.googleOAuthError = null;
-                this.renderAll();
-
-                const config = this.getGoogleOAuthConfig();
-                const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${config.clientId}&redirect_uri=${encodeURIComponent(config.redirectUri)}&response_type=code&scope=${encodeURIComponent(config.scopes)}&access_type=offline&prompt=consent`;
-
-                if (window.electronAPI && typeof window.electronAPI.startGoogleOAuth === "function") {
-                    window.electronAPI.startGoogleOAuth(authUrl);
-                    this.showToast("Accesso a Google avviato nel browser predefinito...", "info");
-                } else if (window.electronAPI && typeof window.electronAPI.openExternal === "function") {
-                    window.electronAPI.openExternal(authUrl);
-                    this.showToast("Accesso a Google avviato nel browser predefinito...", "info");
-                } else {
-                    window.open(authUrl, "_blank");
-                }
-            }
-
-            cancelGoogleOAuth(reason = "Accesso annullato") {
-                this.isAuthenticatingGoogle = false;
-                this.googleOAuthError = reason;
-                if (window.electronAPI && typeof window.electronAPI.cancelGoogleOAuth === "function") {
-                    window.electronAPI.cancelGoogleOAuth();
-                }
-                this.showToast(reason, "info");
-                this.renderAll();
-            }
-
-            onGoogleOAuthError(msg) {
-                this.isAuthenticatingGoogle = false;
-                this.googleOAuthError = msg || "Autorizzazione Google non riuscita";
-                this.showToast(this.googleOAuthError, "warning");
-                this.renderAll();
-            }
-
-            async onGoogleOAuthSuccess(code) {
-                this.isAuthenticatingGoogle = false;
-                this.googleOAuthError = null;
-                const config = this.getGoogleOAuthConfig();
-                try {
-                    this.showToast("Finalizzazione accesso Google Calendar...", "info");
-                    const res = await fetch("https://oauth2.googleapis.com/token", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-                        body: new URLSearchParams({
-                            code: code,
-                            client_id: config.clientId,
-                            client_secret: config.clientSecret,
-                            redirect_uri: config.redirectUri,
-                            grant_type: "authorization_code"
-                        })
-                    });
-                    const data = await res.json();
-                    if (data.access_token) {
-                        this.state.settings = this.state.settings || {};
-                        this.state.settings.googleAccessToken = data.access_token;
-                        if (data.refresh_token) this.state.settings.googleRefreshToken = data.refresh_token;
-                        this.state.settings.googleTokenExpiry = Date.now() + (data.expires_in || 3600) * 1000;
-                        this.state.settings.googleCalendarConnected = true;
-
-                        try {
-                            const uRes = await fetch("https://www.googleapis.com/oauth2/v2/userinfo", {
-                                headers: { "Authorization": `Bearer ${data.access_token}` }
-                            });
-                            const uData = await uRes.json();
-                            if (uData.email) this.state.settings.googleCalendarEmail = uData.email;
-                        } catch (ue) {
-                            console.warn("Could not retrieve Google user email", ue);
-                        }
-
-                        this.persist();
-                        this.showToast("Account Google Calendar collegato con successo!", "success");
-                        await this.refreshGoogleCalendarEvents(true);
-                        this.renderAll();
-                    } else {
-                        throw new Error(data.error_description || "Token di accesso non ricevuto");
-                    }
-                } catch (err) {
-                    console.error("OAuth Exchange Error:", err);
-                    this.googleOAuthError = err.message;
-                    this.showToast("Errore durante l'autenticazione Google: " + err.message, "error");
-                    this.renderAll();
-                }
-            }
-
-            async ensureValidGoogleToken() {
-                const s = this.state.settings;
-                if (!s || !s.googleCalendarConnected) return null;
-                const now = Date.now();
-                if (s.googleAccessToken && s.googleTokenExpiry && s.googleTokenExpiry > (now + 60000)) {
-                    return s.googleAccessToken;
-                }
-                if (!s.googleRefreshToken) return null;
-
-                const config = this.getGoogleOAuthConfig();
-                try {
-                    const res = await fetch("https://oauth2.googleapis.com/token", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-                        body: new URLSearchParams({
-                            refresh_token: s.googleRefreshToken,
-                            client_id: config.clientId,
-                            client_secret: config.clientSecret,
-                            grant_type: "refresh_token"
-                        })
-                    });
-                    const data = await res.json();
-                    if (data.access_token) {
-                        s.googleAccessToken = data.access_token;
-                        s.googleTokenExpiry = Date.now() + (data.expires_in || 3600) * 1000;
-                        this.persist();
-                        return data.access_token;
-                    }
-                } catch (e) {
-                    console.error("Refresh token error:", e);
-                }
-                return null;
-            }
-
-            disconnectGoogleCalendar() {
-                if (!confirm("Sei sicuro di voler disconnettere Google Calendar?")) return;
-                const s = this.state.settings;
-                if (s) {
-                    s.googleCalendarConnected = false;
-                    s.googleCalendarEmail = "";
-                    s.googleAccessToken = "";
-                    s.googleRefreshToken = "";
-                    s.googleTokenExpiry = 0;
-                }
-                this.googleEvents = [];
-                this.persist();
-                this.showToast("Google Calendar disconnesso", "info");
-                this.renderAll();
-            }
-
-            async refreshGoogleCalendarEvents(showNotify = false) {
-                if (!this.state.settings?.googleCalendarConnected) return;
-                const token = await this.ensureValidGoogleToken();
-                if (!token) return;
-
-                this.isSyncingGoogle = true;
-                if (showNotify) this.showToast("Sincronizzazione eventi Google...", "info");
-
-                try {
-                    const cursor = this.calendarCursor || new Date();
-                    const year = cursor.getFullYear();
-                    const month = cursor.getMonth();
-                    const minDate = new Date(year, month - 1, 1).toISOString();
-                    const maxDate = new Date(year, month + 2, 0).toISOString();
-
-                    const url = `https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=${encodeURIComponent(minDate)}&timeMax=${encodeURIComponent(maxDate)}&singleEvents=true&orderBy=startTime&maxResults=250`;
-                    const res = await fetch(url, {
-                        headers: { "Authorization": `Bearer ${token}` }
-                    });
-                    if (res.ok) {
-                        const data = await res.json();
-                        const items = data.items || [];
-                        this.googleEvents = items.filter(it => {
-                            const desc = it.description || "";
-                            return !desc.includes("[ClassManagementSlot:") && !desc.includes("[GestioneCorsiSlot:");
-                        });
-                        if (showNotify) this.showToast(`Sincronizzati ${this.googleEvents.length} eventi personali da Google Calendar`, "success");
-                        if (this.currentTab === "calendar") {
-                            this.renderMainView();
-                        }
-                    }
-                } catch (e) {
-                    console.error("Error fetching Google events:", e);
-                    if (showNotify) this.showToast("Errore durante il recupero eventi Google", "error");
-                } finally {
-                    this.isSyncingGoogle = false;
-                }
-            }
-
             runNativeWindowsInstaller() {
                 if (window.electronAPI && window.electronAPI.runNativeInstaller) {
                     window.electronAPI.runNativeInstaller();
@@ -13373,575 +13148,6 @@ Dettagli di Sistema:
                     return " (Gruppo)";
                 }
                 return "";
-            }
-
-            async createModuleGoogleMeet(course, module) {
-                if (!course || !module) return null;
-                if (!this.state.settings?.googleCalendarConnected) {
-                    this.showToast("Collega prima Google Calendar nelle Impostazioni", "warning");
-                    return null;
-                }
-                const token = await this.ensureValidGoogleToken();
-                if (!token) return null;
-
-                const pSuffix = this.getParticipantSuffix(course, module);
-                const codePrefix = (course.code && course.code.trim()) ? `[${course.code.trim()}] ` : "";
-                const summary = `${codePrefix}${course.name} — ${module.name}${pSuffix}`;
-
-                let dateOnly = new Date().toISOString().substring(0, 10);
-                if (Array.isArray(module.dates) && module.dates.length > 0) {
-                    dateOnly = this.extractDateFromSlotKey(module.dates[0]);
-                }
-                const sTime = module.startTime || "19:00";
-                const eTime = module.endTime || "20:30";
-                const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
-
-                const attendees = [];
-                (module.studentIds || []).forEach(stId => {
-                    const st = (this.state.studentsDirectory || []).find(s => s.id === stId);
-                    if (st && st.email && st.email.includes("@")) {
-                        attendees.push({ email: st.email.trim() });
-                    }
-                });
-
-                const payload = {
-                    summary,
-                    description: `Stanza Google Meet permanente per ${course.name} — ${module.name}.\nGestita con ClassDesk.`,
-                    start: { dateTime: `${dateOnly}T${sTime}:00`, timeZone },
-                    end: { dateTime: `${dateOnly}T${eTime}:00`, timeZone },
-                    conferenceData: {
-                        createRequest: {
-                            requestId: "cm-mod-" + Math.random().toString(36).substring(2, 10) + Date.now(),
-                            conferenceSolutionKey: { type: "hangoutsMeet" }
-                        }
-                    }
-                };
-                if (attendees.length > 0) payload.attendees = attendees;
-
-                try {
-                    const res = await fetch("https://www.googleapis.com/calendar/v3/calendars/primary/events?conferenceDataVersion=1&sendUpdates=all", {
-                        method: "POST",
-                        headers: {
-                            "Authorization": `Bearer ${token}`,
-                            "Content-Type": "application/json"
-                        },
-                        body: JSON.stringify(payload)
-                    });
-                    if (res.ok) {
-                        const eventObj = await res.json();
-                        const meetUrl = eventObj.hangoutLink || "";
-                        if (meetUrl) {
-                            module.googleMeetUrl = meetUrl;
-                            if (Array.isArray(course.lessons)) {
-                                course.lessons.forEach(l => {
-                                    if (l.sectionId === module.id) {
-                                        l.googleMeetUrl = meetUrl;
-                                    }
-                                });
-                            }
-                            this.persist();
-                            this.renderAll();
-                            this.showToast("Stanza Google Meet creata per tutte le lezioni!", "success");
-                            return meetUrl;
-                        }
-                    }
-                    this.showToast("Impossibile ottenere il link Meet da Google", "error");
-                } catch (err) {
-                    console.error("Error creating module meet room:", err);
-                    this.showToast("Errore creazione Google Meet: " + err.message, "error");
-                }
-                return null;
-            }
-
-            removeModuleGoogleMeet(course, module) {
-                if (!course || !module) return;
-                module.googleMeetUrl = null;
-                if (Array.isArray(course.lessons)) {
-                    course.lessons.forEach(l => {
-                        if (l.sectionId === module.id) {
-                            l.googleMeetUrl = null;
-                        }
-                    });
-                }
-                this.persist();
-                this.renderAll();
-                this.showToast("Link Google Meet rimosso dal modulo", "info");
-            }
-
-            async createModuleMeetInModal(levelId, modId) {
-                const course = this.getActiveCourse();
-                const lvl = (course?.levels || []).find(l => l.id === levelId);
-                const mod = modId ? (lvl?.modules || []).find(m => m.id === modId) : null;
-                const dummyMod = mod || {
-                    id: "sec-temp",
-                    name: document.getElementById("modNameInput")?.value.trim() || "M1",
-                    studentIds: [],
-                    dates: []
-                };
-                const meetUrl = await this.createModuleGoogleMeet(course, dummyMod);
-                if (meetUrl) {
-                    const input = document.getElementById("modGoogleMeetUrlInput");
-                    if (input) input.value = meetUrl;
-                    const customInput = document.getElementById("modGoogleMeetCustomInput");
-                    if (customInput) customInput.value = meetUrl;
-                    const container = document.getElementById("modMeetSectionContainer");
-                    if (container) {
-                        container.innerHTML = `
-                            <div class="p-3 rounded-xl bg-emerald-50/80 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 flex items-center justify-between gap-2">
-                                <div class="flex items-center gap-2 min-w-0">
-                                    <i class="fa-solid fa-video text-emerald-600 text-sm shrink-0"></i>
-                                    <span class="font-mono text-xs text-emerald-800 dark:text-emerald-200 truncate select-all">${this.escapeHtml(meetUrl)}</span>
-                                </div>
-                                <div class="flex items-center gap-1.5 shrink-0">
-                                    <button type="button" onclick="navigator.clipboard.writeText('${this.escapeHtml(meetUrl)}'); app.showToast('Link Meet copiato!', 'success');" class="px-2 py-1 rounded-lg bg-emerald-100 hover:bg-emerald-200 text-emerald-800 text-[10.5px] font-bold" title="Copia link"><i class="fa-solid fa-copy"></i> Copia</button>
-                                    <button type="button" onclick="if(window.electronAPI){window.electronAPI.openExternal('${this.escapeHtml(meetUrl)}');}else{window.open('${this.escapeHtml(meetUrl)}','_blank');}" class="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[10.5px] font-bold flex items-center gap-1"><i class="fa-solid fa-arrow-up-right-from-square"></i> Partecipa</button>
-                                    <button type="button" onclick="document.getElementById('modGoogleMeetUrlInput').value = ''; document.getElementById('modGoogleMeetCustomInput').value = ''; this.closest('.p-3').remove(); app.showToast('Link Meet rimosso', 'info');" class="w-7 h-7 rounded-lg text-rose-500 hover:bg-rose-100 dark:hover:bg-rose-950/50 flex items-center justify-center text-xs" title="Rimuovi stanza Meet"><i class="fa-solid fa-trash"></i></button>
-                                </div>
-                            </div>
-                        `;
-                    }
-                }
-            }
-
-            async syncModuleToGoogleCalendar(course, module, showNotify = true) {
-                if (!course || !module) return;
-                if (!this.state.settings?.googleCalendarConnected) return;
-                const token = await this.ensureValidGoogleToken();
-                if (!token) return;
-
-                if (showNotify) this.showToast("Sincronizzazione modulo su Google Calendar...", "info");
-
-                const moduleStudentIds = new Set(module.studentIds || []);
-                const attendeeEmails = (this.state.studentsDirectory || [])
-                    .filter(st => moduleStudentIds.has(st.id) && st.email && st.email.includes("@"))
-                    .map(st => st.email.trim());
-
-                const slots = [...this.sortModuleSlots(course, module)];
-                let syncedCount = 0;
-
-                for (let i = 0; i < slots.length; i++) {
-                    const slotKey = slots[i];
-                    let lessonData = this.findLessonForSlot(course, module.id, slotKey);
-                    if (!lessonData) {
-                        const dStr = this.extractDateFromSlotKey(slotKey);
-                        lessonData = {
-                            id: "les-" + Math.random().toString(36).substring(2, 8),
-                            sectionId: module.id,
-                            date: dStr,
-                            slotKey: slotKey,
-                            time: module.startTime || "19:00",
-                            endTime: module.endTime || "20:30",
-                            title: "",
-                            objectives: "",
-                            topics: "",
-                            homework: "",
-                            notes: "",
-                            invitedEmails: attendeeEmails
-                        };
-                        course.lessons = course.lessons || [];
-                        course.lessons.push(lessonData);
-                    } else {
-                        lessonData.invitedEmails = attendeeEmails;
-                    }
-
-                    try {
-                        await this.syncLessonToGoogle(course, module, lessonData, false);
-                        syncedCount++;
-                    } catch (e) {
-                        console.error("Error syncing slot", slotKey, e);
-                    }
-                }
-
-                this.persist();
-                if (showNotify) {
-                    this.showToast(`Google Calendar: ${syncedCount} lezioni sincronizzate con Meet!`, "success");
-                }
-            }
-
-            openGoogleCalendarScanModal(courseId, moduleId) {
-                const course = (this.state.courses || []).find(c => c.id === courseId) || this.getActiveCourse();
-                if (!course) return;
-                const module = (course.levels || []).flatMap(l => l.modules || []).find(m => m.id === moduleId) || this.getActiveSection(course);
-                if (!module) return;
-
-                if (!this.state.settings?.googleCalendarConnected) {
-                    this.showToast("Collega prima Google Calendar nelle Impostazioni", "warning");
-                    return;
-                }
-
-                let defaultFromDate = new Date().toISOString().substring(0, 10);
-                if (Array.isArray(module.dates) && module.dates.length > 0) {
-                    defaultFromDate = this.extractDateFromSlotKey(module.dates[0]);
-                }
-                const defaultCode = (course.code || "").trim();
-
-                this.openModal(`
-                    <div class="p-6 space-y-4 text-xs">
-                        <div class="flex items-center justify-between pb-3 border-b border-sky-100 dark:border-slate-800">
-                            <div class="flex items-center gap-2">
-                                <i class="fa-brands fa-google text-blue-600 text-lg"></i>
-                                <h3 class="text-base font-extrabold text-slate-900 dark:text-white">Sincronizzazione & Scansione Google Calendar</h3>
-                            </div>
-                            <button type="button" onclick="app.closeModal()" class="text-slate-400 hover:text-slate-600 text-lg">&times;</button>
-                        </div>
-
-                        <div class="p-3 rounded-xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900/60 flex items-start gap-3 text-blue-800 dark:text-blue-300">
-                            <i class="fa-solid fa-circle-info text-blue-500 text-base mt-0.5"></i>
-                            <div>
-                                <p class="font-bold">Ricerca automatica per codice corso</p>
-                                <p class="text-[11px] text-blue-700/80 dark:text-blue-300/80 mt-0.5">Il programma scansiona il calendario Google per trovare gli eventi già creati con il codice del gruppo e li associa alle lezioni programmate, rilevando automaticamente le stanze Google Meet.</p>
-                            </div>
-                        </div>
-
-                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 items-end">
-                            <div>
-                                <label class="block font-bold mb-1 text-slate-700 dark:text-slate-300">Codice Gruppo / Corso *</label>
-                                <input id="scanGroupCodeInput" type="text" class="w-full px-3 py-2 rounded-xl border border-sky-200 dark:border-slate-700 bg-white dark:bg-navy-950 font-bold uppercase tracking-wider" value="${this.escapeHtml(defaultCode)}" placeholder="Es. ITA05F">
-                            </div>
-                            <div>
-                                <label class="block font-bold mb-1 text-slate-700 dark:text-slate-300">Associa eventi a partire da *</label>
-                                <input id="scanFromDateInput" type="date" class="w-full px-3 py-2 rounded-xl border border-sky-200 dark:border-slate-700 bg-white dark:bg-navy-950" value="${defaultFromDate}">
-                            </div>
-                        </div>
-
-                        <div class="flex justify-end gap-2 pt-2">
-                            <button id="scanExecuteBtn" type="button" onclick="app.executeGoogleCalendarScan('${course.id}', '${module.id}')" class="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-extrabold flex items-center gap-1.5 shadow-2xs transition cursor-pointer">
-                                <i class="fa-solid fa-magnifying-glass"></i> Scansiona Calendario
-                            </button>
-                        </div>
-
-                        <div id="scanResultsContainer" class="pt-3 border-t border-sky-100 dark:border-slate-800 hidden"></div>
-                    </div>
-                `, "max-w-xl");
-            }
-
-            async executeGoogleCalendarScan(courseId, moduleId) {
-                const course = (this.state.courses || []).find(c => c.id === courseId) || this.getActiveCourse();
-                const module = (course.levels || []).flatMap(l => l.modules || []).find(m => m.id === moduleId) || this.getActiveSection(course);
-                if (!course || !module) return;
-
-                const codeInput = document.getElementById("scanGroupCodeInput");
-                const fromDateInput = document.getElementById("scanFromDateInput");
-                const resultsCont = document.getElementById("scanResultsContainer");
-                const scanBtn = document.getElementById("scanExecuteBtn");
-
-                const code = (codeInput?.value || "").trim();
-                const fromDate = fromDateInput?.value || new Date().toISOString().substring(0, 10);
-
-                if (!code) {
-                    this.showToast("Inserisci un codice valido per la ricerca", "warning");
-                    if (codeInput) codeInput.focus();
-                    return;
-                }
-
-                if (code !== course.code) {
-                    course.code = code;
-                    this.persist();
-                }
-
-                if (resultsCont) {
-                    resultsCont.classList.remove("hidden");
-                    resultsCont.innerHTML = `
-                        <div class="py-8 flex flex-col items-center justify-center text-slate-500 gap-2">
-                            <i class="fa-solid fa-spinner fa-spin text-2xl text-blue-600"></i>
-                            <p class="font-bold">Scansione del calendario Google in corso...</p>
-                        </div>
-                    `;
-                }
-
-                if (scanBtn) scanBtn.disabled = true;
-
-                try {
-                    const token = await this.ensureValidGoogleToken();
-                    if (!token) {
-                        if (resultsCont) {
-                            resultsCont.innerHTML = `<p class="text-rose-500 font-bold p-3 bg-rose-50 dark:bg-rose-950/40 rounded-xl">Token Google Calendar non valido. Ricollega l'account nelle Impostazioni.</p>`;
-                        }
-                        return;
-                    }
-
-                    const timeMin = new Date(fromDate + "T00:00:00Z").toISOString();
-                    const url = `https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=${encodeURIComponent(timeMin)}&q=${encodeURIComponent(code)}&singleEvents=true&orderBy=startTime&maxResults=250`;
-                    const res = await fetch(url, { headers: { "Authorization": `Bearer ${token}` } });
-                    if (!res.ok) {
-                        throw new Error(`Google API status: ${res.status}`);
-                    }
-                    const data = await res.json();
-                    const cleanCode = code.toLowerCase();
-                    const items = data.items || [];
-                    const matched = [];
-
-                    for (const it of items) {
-                        const summary = (it.summary || "");
-                        if (!summary.toLowerCase().includes(cleanCode)) continue;
-
-                        let sIso = "", eIso = "", dateOnly = "", isAllDay = false, sTime = "09:00", eTime = "10:00";
-                        if (it.start?.dateTime) {
-                            sIso = it.start.dateTime;
-                            dateOnly = sIso.substring(0, 10);
-                            if (sIso.length >= 16) sTime = sIso.substring(11, 16);
-                        } else if (it.start?.date) {
-                            sIso = it.start.date;
-                            dateOnly = sIso;
-                            isAllDay = true;
-                            sTime = "Tutto il giorno";
-                            eTime = "";
-                        }
-
-                        if (it.end?.dateTime && !isAllDay) {
-                            eIso = it.end.dateTime;
-                            if (eIso.length >= 16) eTime = eIso.substring(11, 16);
-                        }
-
-                        if (dateOnly >= fromDate) {
-                            matched.push({
-                                id: it.id,
-                                summary,
-                                description: it.description || "",
-                                location: it.location || "",
-                                startIso: sIso,
-                                endIso: eIso,
-                                startTimeDisplay: sTime,
-                                endTimeDisplay: eTime,
-                                dateOnly,
-                                hangoutLink: it.hangoutLink || "",
-                                htmlLink: it.htmlLink || "",
-                                isAllDay
-                            });
-                        }
-                    }
-
-                    matched.sort((a, b) => a.dateOnly !== b.dateOnly ? a.dateOnly.localeCompare(b.dateOnly) : a.startTimeDisplay.localeCompare(b.startTimeDisplay));
-                    this.lastScannedGoogleEvents = matched;
-                    this.lastScannedFromDate = fromDate;
-
-                    if (matched.length === 0) {
-                        resultsCont.innerHTML = `
-                            <div class="p-6 text-center space-y-3 bg-slate-50 dark:bg-navy-950 rounded-2xl border border-sky-100 dark:border-slate-800">
-                                <i class="fa-regular fa-calendar-xmark text-3xl text-slate-400"></i>
-                                <p class="text-slate-600 dark:text-slate-300">Nessun evento trovato su Google Calendar con il codice '<strong>${this.escapeHtml(code)}</strong>' a partire dal ${this.formatDateDisplay(fromDate)}.</p>
-                                <button type="button" onclick="app.closeModal(); app.syncModuleToGoogleCalendar(app.getActiveCourse(), app.getActiveSection(app.getActiveCourse()), true);" class="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold flex items-center gap-2 mx-auto shadow-2xs">
-                                    <i class="fa-solid fa-plus-circle"></i> Crea nuovi eventi per tutte le lezioni del modulo
-                                </button>
-                            </div>
-                        `;
-                    } else {
-                        resultsCont.innerHTML = `
-                            <div class="space-y-3">
-                                <div class="flex items-center justify-between">
-                                    <span class="font-extrabold text-slate-900 dark:text-white">Trovati ${matched.length} eventi con il codice '${this.escapeHtml(code)}'</span>
-                                    <button type="button" onclick="app.associateScannedGoogleEvents('${course.id}', '${module.id}')" class="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold flex items-center gap-1.5 shadow-2xs">
-                                        <i class="fa-solid fa-link"></i> Associa Eventi al Modulo
-                                    </button>
-                                </div>
-                                <div class="max-h-56 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
-                                    ${matched.map(ev => `
-                                        <div class="p-2.5 rounded-xl bg-slate-50 dark:bg-navy-950 border border-sky-100 dark:border-slate-800 flex items-center justify-between gap-3 text-xs">
-                                            <div class="flex items-center gap-2.5 min-w-0">
-                                                <span class="font-bold text-sky-700 dark:text-sky-300 w-24 shrink-0">${this.formatDateDisplay(ev.dateOnly)}</span>
-                                                <span class="text-slate-400 w-24 shrink-0 text-[11px]">${ev.isAllDay ? 'Tutto il giorno' : `${ev.startTimeDisplay} - ${ev.endTimeDisplay}`}</span>
-                                                <span class="font-bold text-slate-800 dark:text-slate-200 truncate">${this.escapeHtml(ev.summary)}</span>
-                                            </div>
-                                            ${ev.hangoutLink ? `
-                                                <span class="px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 text-[10px] font-extrabold flex items-center gap-1 shrink-0">
-                                                    <i class="fa-solid fa-video"></i> Meet
-                                                </span>
-                                            ` : ''}
-                                        </div>
-                                    `).join('')}
-                                </div>
-                            </div>
-                        `;
-                    }
-                } catch (err) {
-                    console.error("Scan Google Calendar error:", err);
-                    if (resultsCont) {
-                        resultsCont.innerHTML = `<p class="text-rose-500 font-bold p-3 bg-rose-50 dark:bg-rose-950/40 rounded-xl">Errore durante la scansione: ${this.escapeHtml(err.message || String(err))}</p>`;
-                    }
-                } finally {
-                    if (scanBtn) scanBtn.disabled = false;
-                }
-            }
-
-            associateScannedGoogleEvents(courseId, moduleId) {
-                const course = (this.state.courses || []).find(c => c.id === courseId) || this.getActiveCourse();
-                const module = (course.levels || []).flatMap(l => l.modules || []).find(m => m.id === moduleId) || this.getActiveSection(course);
-                if (!course || !module) return;
-
-                const events = [...(this.lastScannedGoogleEvents || [])];
-                const fromDate = this.lastScannedFromDate || new Date().toISOString().substring(0, 10);
-                if (events.length === 0) return;
-
-                this.recordUndoSnapshot();
-
-                const slots = [...this.sortModuleSlots(course, module)];
-                const relevantSlots = slots.filter(s => this.extractDateFromSlotKey(s) >= fromDate);
-
-                let availableEvents = [...events];
-                let matchedCount = 0;
-                course.lessons = course.lessons || [];
-
-                // Pass 1: exact date matching
-                for (const slotKey of relevantSlots) {
-                    const slotDate = this.extractDateFromSlotKey(slotKey);
-                    const evIdx = availableEvents.findIndex(e => e.dateOnly === slotDate);
-                    if (evIdx >= 0) {
-                        const ev = availableEvents.splice(evIdx, 1)[0];
-                        matchedCount++;
-                        let lp = this.findLessonForSlot(course, module.id, slotKey);
-                        if (!lp) {
-                            lp = {
-                                id: "les-" + Math.random().toString(36).substring(2, 8),
-                                sectionId: module.id,
-                                date: slotDate,
-                                slotKey: slotKey,
-                                time: ev.isAllDay ? (module.startTime || "19:00") : ev.startTimeDisplay,
-                                endTime: ev.isAllDay ? (module.endTime || "20:30") : ev.endTimeDisplay,
-                                googleMeetUrl: ev.hangoutLink || "",
-                                googleCalendarEventId: ev.id
-                            };
-                            course.lessons.push(lp);
-                        } else {
-                            lp.googleCalendarEventId = ev.id;
-                            if (ev.hangoutLink) lp.googleMeetUrl = ev.hangoutLink;
-                        }
-                        if (ev.hangoutLink && !module.googleMeetUrl) {
-                            module.googleMeetUrl = ev.hangoutLink;
-                        }
-                    }
-                }
-
-                // Pass 2: chronological sequential matching for remaining unassociated slots
-                for (const slotKey of relevantSlots) {
-                    const slotDate = this.extractDateFromSlotKey(slotKey);
-                    const lp = this.findLessonForSlot(course, module.id, slotKey);
-                    const alreadyHasEv = lp && !!lp.googleCalendarEventId;
-                    if (!alreadyHasEv && availableEvents.length > 0) {
-                        const ev = availableEvents.shift();
-                        matchedCount++;
-                        if (!lp) {
-                            const newLp = {
-                                id: "les-" + Math.random().toString(36).substring(2, 8),
-                                sectionId: module.id,
-                                date: slotDate,
-                                slotKey: slotKey,
-                                time: ev.isAllDay ? (module.startTime || "19:00") : ev.startTimeDisplay,
-                                endTime: ev.isAllDay ? (module.endTime || "20:30") : ev.endTimeDisplay,
-                                googleMeetUrl: ev.hangoutLink || "",
-                                googleCalendarEventId: ev.id
-                            };
-                            course.lessons.push(newLp);
-                        } else {
-                            lp.googleCalendarEventId = ev.id;
-                            if (ev.hangoutLink) lp.googleMeetUrl = ev.hangoutLink;
-                        }
-                        if (ev.hangoutLink && !module.googleMeetUrl) {
-                            module.googleMeetUrl = ev.hangoutLink;
-                        }
-                    }
-                }
-
-                this.persist();
-                this.closeModal();
-                this.showToast(`Associate con successo ${matchedCount} lezioni con gli eventi Google Calendar!`, "success");
-                this.render();
-            }
-
-            async syncLessonToGoogle(course, module, lessonData, showIndividualToast = true) {
-                if (!this.state.settings?.googleCalendarConnected) return;
-                const token = await this.ensureValidGoogleToken();
-                if (!token) return;
-
-                const dateOnly = String(lessonData.slotKey || lessonData.date).substring(0, 10);
-                const sTime = lessonData.time || module.startTime || "19:00";
-                const eTime = lessonData.endTime || module.endTime || "20:30";
-
-                const startDateTime = `${dateOnly}T${sTime}:00`;
-                const endDateTime = `${dateOnly}T${eTime}:00`;
-                const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
-
-                const pSuffix = this.getParticipantSuffix(course, module);
-                const customTitle = (lessonData.title || "").trim();
-                const lessonIdx = (module.dates || []).indexOf(lessonData.slotKey);
-                const lessonNum = lessonIdx >= 0 ? lessonIdx + 1 : ((module.dates || []).length || 1);
-                const codePrefix = (course.code && course.code.trim()) ? `[${course.code.trim()}] ` : "";
-                const summary = customTitle
-                    ? `${codePrefix}${course.name} — ${module.name}: ${customTitle}${pSuffix}`
-                    : `${codePrefix}${course.name} — ${module.name}: Lezione ${lessonNum}${pSuffix}`;
-
-                const descLines = [];
-                if (lessonData.objectives) descLines.push(`Obiettivi: ${lessonData.objectives}`);
-                if (lessonData.topics) descLines.push(`Argomenti: ${lessonData.topics}`);
-                if (lessonData.homework) descLines.push(`Compiti: ${lessonData.homework}`);
-                if (lessonData.notes) descLines.push(`Note: ${lessonData.notes}`);
-
-                const existingMeetUrl = (module.googleMeetUrl || lessonData.googleMeetUrl || "").trim();
-
-                const payload = {
-                    summary,
-                    start: { dateTime: startDateTime, timeZone },
-                    end: { dateTime: endDateTime, timeZone }
-                };
-
-                const attendees = Array.isArray(lessonData.invitedEmails) ? lessonData.invitedEmails : [];
-                if (attendees.length > 0) {
-                    payload.attendees = attendees.map(em => ({ email: em }));
-                }
-
-                // Only attach Google Meet details if the user/module explicitly configured a link
-                // Do NOT automatically create a new conference to avoid conflicts with in-person or custom events
-                if (existingMeetUrl) {
-                    descLines.unshift(`Partecipa con Google Meet: ${existingMeetUrl}`);
-                    payload.location = existingMeetUrl;
-                }
-
-                if (descLines.length > 0) {
-                    payload.description = descLines.join("\n");
-                }
-
-                const isUpdate = !!lessonData.googleCalendarEventId;
-                const endpoint = isUpdate
-                    ? `https://www.googleapis.com/calendar/v3/calendars/primary/events/${encodeURIComponent(lessonData.googleCalendarEventId)}?conferenceDataVersion=1&sendUpdates=all`
-                    : `https://www.googleapis.com/calendar/v3/calendars/primary/events?conferenceDataVersion=1&sendUpdates=all`;
-
-                try {
-                    const res = await fetch(endpoint, {
-                        method: isUpdate ? "PUT" : "POST",
-                        headers: {
-                            "Authorization": `Bearer ${token}`,
-                            "Content-Type": "application/json"
-                        },
-                        body: JSON.stringify(payload)
-                    });
-                    if (res.ok) {
-                        const eventObj = await res.json();
-                        lessonData.googleCalendarEventId = eventObj.id;
-                        if (eventObj.hangoutLink) {
-                            lessonData.googleMeetUrl = eventObj.hangoutLink;
-                        }
-                        this.persist();
-                        if (showIndividualToast) {
-                            this.showToast("Lezione sincronizzata con Google Calendar!", "success");
-                        }
-                    }
-                } catch (err) {
-                    console.error("Google Calendar sync error:", err);
-                }
-            }
-
-            async deleteLessonFromGoogle(eventId) {
-                if (!eventId || !this.state.settings?.googleCalendarConnected) return;
-                const token = await this.ensureValidGoogleToken();
-                if (!token) return;
-
-                try {
-                    await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events/${encodeURIComponent(eventId)}?sendUpdates=all`, {
-                        method: "DELETE",
-                        headers: { "Authorization": `Bearer ${token}` }
-                    });
-                } catch (e) {
-                    console.warn("Delete Google event error:", e);
-                }
             }
 
             /* =====================================================================================
@@ -14152,9 +13358,6 @@ Dettagli di Sistema:
                 }
                 if (Array.isArray(course.lessons)) {
                     const targetLes = course.lessons.find(l => l.slotKey === slotKey && (!l.sectionId || l.sectionId === targetSec.id));
-                    if (targetLes?.googleCalendarEventId) {
-                        this.deleteLessonFromGoogle(targetLes.googleCalendarEventId);
-                    }
                     course.lessons = course.lessons.filter(l => !(l.slotKey === slotKey && (!l.sectionId || l.sectionId === targetSec.id)));
                 }
                 this.persist();

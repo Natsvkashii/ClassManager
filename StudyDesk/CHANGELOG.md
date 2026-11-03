@@ -1,5 +1,8 @@
 # Changelog
 
+## v26.11.1-012 (Interna) – 3 novembre 2026
+- Interfaccia più semplice: azioni secondarie raccolte in menu «⋯» (lavagna, libreria, gruppi, editor di moduli e libri, barra dell'esercizio, avviso di aggiornamento).
+
 ## v26.11.1-011 (Beta) – 3 novembre 2026
 - Sincronizzazione dei libri: se due computer hanno copie diverse con lo stesso numero di revisione (ad esempio dopo un aggiornamento da una versione precedente), la copia pubblicata più di recente arriva comunque agli altri, invece di bloccare la sincronizzazione.
 - Windows: i gruppi archiviati in ClassDesk restano archiviati (prima Windows perdeva l'indicazione e i due computer si riscrivevano il gruppo a vicenda ogni pochi secondi, ricaricando di continuo la pagina) e, come su Mac, non vengono più mostrati.

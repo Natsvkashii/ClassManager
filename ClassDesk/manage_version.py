@@ -83,6 +83,13 @@ def sync_channel_flags(is_unstable: int, build_type: str = None):
         with open(INDEX_HTML, "w", encoding="utf-8") as f:
             f.write(new_content)
         print(f"✓ Updated Windows-Version/src/index.html -> IS_UNSTABLE_BUILD = {flag_val}, BUILD_TYPE = {b_type}")
+    # 3. Info.plist (read by HubDesk for the S / β / I badge)
+    if os.path.exists(INFO_PLIST):
+        with open(INFO_PLIST, "rb") as f:
+            plist = plistlib.load(f)
+        plist["AppBuildType"] = b_type
+        with open(INFO_PLIST, "wb") as f:
+            plistlib.dump(plist, f)
 
 
 def get_git_branch():

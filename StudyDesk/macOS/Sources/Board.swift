@@ -1472,7 +1472,6 @@ struct BoardView: View {
                         .toggleStyle(.button).help(model.polar ? "Puntamento polare attivo: linee dritte ogni 15°" : "Puntamento polare: linee dritte per schemi e tabelle")
                     bgButton
                     Button { model.undo() } label: { Image(systemName: "arrow.uturn.backward") }.help("Annulla (⌘Z)").keyboardShortcut("z").disabled(model.editing != nil)
-                    Button { if model.isEmpty { store.showToast("La lavagna è già vuota") } else { confirmClear = true } } label: { Image(systemName: "trash") }.help("Cancella la lavagna")
                     fileMenu
                     sharedIndicator
                     if watching {
@@ -1492,14 +1491,6 @@ struct BoardView: View {
                 .buttonStyle(.bordered)
                 .controlSize(.small)
             }
-            Button {
-                if let w = NSApp.keyWindow ?? NSApp.windows.first {
-                    w.toggleFullScreen(nil)
-                }
-            } label: {
-                Image(systemName: isFullScreen ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right")
-            }
-            .help(isFullScreen ? "Esci da schermo intero" : "Schermo intero")
             Menu {
                 if !watching {
                     Toggle(isOn: Binding(get: { model.sharing }, set: { $0 ? model.startSharing() : model.stopSharing() })) {
@@ -1511,14 +1502,17 @@ struct BoardView: View {
                 ForEach(model.remotes, id: \.endpoint) { r in
                     if case .service(let name, _, _, _) = r.endpoint { Button("Guarda: \(name)") { model.watch(r) } }
                 }
+                Divider()
+                Button {
+                    if let w = NSApp.keyWindow ?? NSApp.windows.first { w.toggleFullScreen(nil) }
+                } label: { Label(isFullScreen ? "Esci da schermo intero" : "Schermo intero", systemImage: isFullScreen ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right") }
+                Button {
+                    withAnimation(.easeInOut(duration: 0.2)) { isToolbarHidden = true }
+                } label: { Label("Nascondi la barra degli strumenti", systemImage: "chevron.up") }
+                Divider()
+                Button(role: .destructive) { if model.isEmpty { store.showToast("La lavagna è già vuota") } else { confirmClear = true } } label: { Label("Cancella la lavagna", systemImage: "trash") }
             } label: { Image(systemName: "ellipsis.circle") }
             .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize().help("Altro")
-            Button {
-                withAnimation(.easeInOut(duration: 0.2)) { isToolbarHidden = true }
-            } label: {
-                Image(systemName: "chevron.up")
-            }
-            .help("Nascondi la barra degli strumenti")
             Button { exit() } label: { Image(systemName: "xmark") }.help("Chiudi lavagna")
         }
         .padding(.horizontal, 12).padding(.vertical, 8)

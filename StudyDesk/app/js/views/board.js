@@ -14,7 +14,7 @@
 // mouse and touch. Tools: pen, eraser, text boxes, laser pointer; grid in centimetres and polar tracking for straight lines.
 // Boards can be saved in a group and exported as PNG, JPEG or PDF. Electron only: share the board on the LAN (_sdboard._tcp)
 // and watch another one read-only.
-import { h, icon, toast, modal, confirmDialog, fmtDate } from '../core/ui.js';
+import { h, icon, toast, modal, confirmDialog, fmtDate, moreMenu, closeMenus } from '../core/ui.js';
 import { platform, electronApi, saveBlob } from '../core/platform.js';
 import { settings, saveSettings } from '../core/settings.js';
 import { isTeacher } from '../core/role.js';
@@ -1097,6 +1097,7 @@ export async function renderBoard(host, params, app) {
   );
 
   const paintBar = () => {
+    closeMenus();
     const watching = !!remote;
     const quick = inksFor(own.background).slice(0, 5);
     bar.replaceChildren(...[
@@ -1116,11 +1117,10 @@ export async function renderBoard(host, params, app) {
       h('button.btn.btn-sm.btn-icon' + (tool.polar ? '.btn-primary' : ''), { type: 'button', title: tool.polar ? 'Puntamento polare attivo: linee dritte ogni 15°' : 'Puntamento polare: linee dritte per schemi e tabelle', 'aria-label': 'Puntamento polare', 'aria-pressed': tool.polar ? 'true' : 'false', onclick: () => { tool.polar = !tool.polar; if (tool.polar && tool.mode !== 'pen') tool.mode = 'pen'; savePrefs(); paintBar(); } }, icon('compass-drafting')),
       pop('bg', 'button.btn.btn-sm.btn-icon', { title: 'Colore della lavagna', 'aria-label': 'Colore della lavagna' }, [icon('fill-drip')], bgPanel),
       h('button.btn.btn-sm.btn-icon', { type: 'button', title: 'Annulla (Ctrl+Z)', 'aria-label': 'Annulla', onclick: undo }, icon('rotate-left')),
-      h('button.btn.btn-sm.btn-icon', { type: 'button', title: 'Cancella la lavagna', 'aria-label': 'Cancella la lavagna', onclick: clearAll }, icon('trash')),
       pop('file', 'button.btn.btn-sm.btn-icon', { title: 'Salva ed esporta', 'aria-label': 'Salva ed esporta' }, [icon('floppy-disk')], filePanel, 'right'),
       ...(sharedIndicator() || []),
       h('div.spacer'),
-      ...(net ? [moreMenu(watching)] : []),
+      moreMenu(boardMenuItems(watching)),
       (viewport.zoom !== 1 || Math.abs(viewport.panX) > 1 || Math.abs(viewport.panY) > 1) ? h('button.btn.btn-sm.btn-ghost', {
         onclick: resetZoom, title: 'Reimposta zoom (100%)',
         style: { fontSize: '0.8rem', padding: '0.2rem 0.5rem', fontWeight: 'bold' }
@@ -1129,28 +1129,22 @@ export async function renderBoard(host, params, app) {
         onclick: toggleFullScreen,
         title: isFullScreen ? 'Esci da schermo intero' : 'Schermo intero'
       }, icon(isFullScreen ? 'compress' : 'expand')),
-      h('button.btn.btn-sm.btn-icon', {
-        onclick: () => {
-          bar.style.display = 'none';
-          floatBtn.style.display = 'flex';
-        },
-        title: 'Nascondi la barra degli strumenti'
-      }, icon('chevron-up')),
       h('button.btn.btn-sm.btn-icon', { onclick: () => exit(), title: 'Chiudi' }, icon('xmark'))].filter(Boolean));
   };
   let swallow = false;
   const onDocDown = (e) => { if (openPop && !e.target.closest('.bpop') && !e.target.closest('.modal-backdrop')) { openPop = null; swallow = e.target === canvas; paintBar(); } };
   document.addEventListener('pointerdown', onDocDown, true);
   // overflow: the old view-only sharing of the 26.10 versions and watching another board
-  const moreMenu = (watching) => {
-    const d = h('details.board-more', h('summary.btn.btn-sm.btn-icon', { title: 'Altro', 'aria-label': 'Altro' }, icon('ellipsis')),
-      h('div.board-more-panel',
-        ...(watching ? [] : [h('label.switch.board-share', h('input', { type: 'checkbox', checked: netState.sharing, onchange: toggleShare }),
-          netState.sharing ? `Condivisione diretta (versioni 26.10): ${netState.viewers}` : 'Condivisione diretta (versioni 26.10)')]),
-        remotesMenu(),
-        !watching && netState.status ? h('span.faint.board-status', netState.status) : null));
-    return d;
-  };
+  const boardMenuItems = (watching) => [
+    ...(net ? [
+      !watching ? { node: h('label.switch.board-share', h('input', { type: 'checkbox', checked: netState.sharing, onchange: toggleShare }),
+        netState.sharing ? `Condivisione diretta (versioni 26.10): ${netState.viewers}` : 'Condivisione diretta (versioni 26.10)') } : null,
+      { node: remotesMenu() },
+      !watching && netState.status ? { node: h('span.faint.board-status', netState.status) } : null,
+    ] : []),
+    { icon: 'chevron-up', label: 'Nascondi la barra degli strumenti', onClick: () => { bar.style.display = 'none'; floatBtn.style.display = 'flex'; } },
+    { icon: 'trash', label: 'Cancella la lavagna', danger: true, onClick: clearAll },
+  ];
   const remotesMenu = () => {
     const sel = h('select.input.board-remotes', {
       onchange: (e) => { const v = e.target.value; e.target.value = ''; if (v) watch(v); },

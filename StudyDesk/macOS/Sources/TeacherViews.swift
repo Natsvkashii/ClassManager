@@ -165,8 +165,9 @@ struct GroupDetailView: View {
             Spacer()
             VStack(alignment: .trailing, spacing: 8) {
                 Button { importReports() } label: { Label("Importa progressi…", systemImage: "tray.and.arrow.down.fill") }.buttonStyle(.borderedProminent)
-                Button { store.exportInvite(groupId) } label: { Label("Invito per gli studenti…", systemImage: "envelope.badge") }
                 Menu("Altro") {
+                    Button { store.exportInvite(groupId) } label: { Label("Invito per gli studenti…", systemImage: "envelope.badge") }
+                    Divider()
                     Button("Elimina gruppo…", role: .destructive) {
                         let a = NSAlert(); a.messageText = "Eliminare il gruppo «\(group.name)»?"
                         a.informativeText = "Verranno eliminati anche i progressi ricevuti per questo gruppo. ClassDesk non viene modificato."
@@ -561,7 +562,6 @@ struct BookEditorView: View {
                         Spacer()
                         Button { move(chapters, i, -1) } label: { Image(systemName: "arrow.up") }.disabled(i == 0)
                         Button { move(chapters, i, 1) } label: { Image(systemName: "arrow.down") }.disabled(i == chapters.count - 1)
-                        Button("Modifica") { edit(m) }
                         Menu {
                             Button { edit(m) } label: { Label("Modifica nell'editor", systemImage: "square.and.pencil") }
                             Divider()
