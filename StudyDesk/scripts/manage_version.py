@@ -127,6 +127,8 @@ def build_icons():
 
 def info_plist(version):
     short = version.split("-")[0]
+    m = re.search(r'buildType\s*:\s*String\s*=\s*"([^"]+)"', read(MODELS_SWIFT))
+    build_type = m.group(1) if m else "internal"  # HubDesk shows this as the S / β / I badge
     return f"""<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -139,7 +141,7 @@ def info_plist(version):
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>CFBundleShortVersionString</key><string>{short}</string>
   <key>CFBundleVersion</key><string>{version}</string>
-  <key>AppBuildType</key><string>internal</string>
+  <key>AppBuildType</key><string>{build_type}</string>
   <key>LSMinimumSystemVersion</key><string>14.0</string>
   <key>LSApplicationCategoryType</key><string>public.app-category.education</string>
   <key>NSHighResolutionCapable</key><true/>
