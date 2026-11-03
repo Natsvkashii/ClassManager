@@ -476,10 +476,14 @@ struct SyncedTranscriptView: View {
     }
 
     private var effectivePos: Double {
-        position + (WordTiming.matches(wordTimes, transcript) ? 0.05 : 0.18) // real timings need only a small lead
+        position + (TranscriptLinesCache.aligned(transcript, wordTimes) ? 0.05 : 0.18) // real timings need only a small lead
     }
 
     private var lines: [LineItem] {
+        TranscriptLinesCache.lines(transcript, duration, activeTimeline, wordTimes, build: buildLines)
+    }
+
+    private func buildLines() -> [LineItem] {
         let rawLines = transcript.components(separatedBy: "\n").filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
         guard !rawLines.isEmpty else { return [] }
 
@@ -552,7 +556,9 @@ struct SyncedTranscriptView: View {
     }
 
     private var currentLineId: Int? {
-        lines.first(where: { effectivePos >= $0.start && effectivePos <= $0.end })?.id ?? (lines.last?.id)
+        // The line being spoken, or during a pause the one just finished (never jump to the end).
+        let pos = effectivePos, ls = lines
+        return ls.last(where: { $0.start <= pos })?.id ?? ls.first?.id
     }
 
     private var currentWordId: Int? {
@@ -561,6 +567,7 @@ struct SyncedTranscriptView: View {
     }
 
     var body: some View {
+        let lines = self.lines, pos = effectivePos, currentWordId = self.currentWordId
         ScrollViewReader { proxy in
             ScrollView(.vertical, showsIndicators: true) {
                 VStack(alignment: .leading, spacing: 10 * scaleFactor) {
@@ -581,7 +588,7 @@ struct SyncedTranscriptView: View {
                             FlowWordsLayout(spacing: 5 * scaleFactor) {
                                 ForEach(line.words) { word in
                                     let isCurrent = isPlaying && currentWordId == word.id
-                                    let isPast = isPlaying && effectivePos >= word.end
+                                    let isPast = isPlaying && pos >= word.end
                                     let wordColor: Color = {
                                         guard isPlaying else { return Color.primary }
                                         if isCurrent { return Theme.warn }
@@ -685,10 +692,14 @@ struct SpotifyFullScreenLyricsView: View {
     let onClose: () -> Void
 
     private var effectivePos: Double {
-        position + (WordTiming.matches(wordTimes, transcript) ? 0.05 : 0.18) // real timings need only a small lead
+        position + (TranscriptLinesCache.aligned(transcript, wordTimes) ? 0.05 : 0.18) // real timings need only a small lead
     }
 
     private var lines: [SyncedTranscriptView.LineItem] {
+        TranscriptLinesCache.lines(transcript, duration, activeTimeline, wordTimes, build: buildLines)
+    }
+
+    private func buildLines() -> [SyncedTranscriptView.LineItem] {
         let rawLines = transcript.components(separatedBy: "\n").filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
         guard !rawLines.isEmpty else { return [] }
 
@@ -761,7 +772,9 @@ struct SpotifyFullScreenLyricsView: View {
     }
 
     private var currentLineId: Int? {
-        lines.first(where: { effectivePos >= $0.start && effectivePos <= $0.end })?.id ?? (lines.last?.id)
+        // The line being spoken, or during a pause the one just finished (never jump to the end).
+        let pos = effectivePos, ls = lines
+        return ls.last(where: { $0.start <= pos })?.id ?? ls.first?.id
     }
 
     private var currentWordId: Int? {
@@ -838,6 +851,7 @@ struct SpotifyFullScreenLyricsView: View {
                 .padding(.bottom, 12)
 
                 // Large Spotify Lyrics Area with smooth spring scrolling
+                let lines = self.lines, pos = effectivePos, currentLineId = self.currentLineId, currentWordId = self.currentWordId
                 ScrollViewReader { proxy in
                     ScrollView(.vertical, showsIndicators: false) {
                         VStack(alignment: .leading, spacing: 28) {
@@ -857,7 +871,7 @@ struct SpotifyFullScreenLyricsView: View {
                                     FlowWordsLayout(spacing: 10) {
                                         ForEach(line.words) { word in
                                             let isWordActive = isLineActive && currentWordId == word.id
-                                            let isWordPast = playing && effectivePos >= word.end
+                                            let isWordPast = playing && pos >= word.end
 
                                             Button {
                                                 onSeek(max(0, word.start - 0.05))
@@ -2327,5 +2341,31 @@ enum WordTiming {
             if let c = line.firstIndex(of: ":"), line[..<c].trimmingCharacters(in: .whitespaces).count <= 18 { line = String(line[line.index(after: c)...]) }
             return n + line.components(separatedBy: .whitespaces).filter { !$0.isEmpty && $0 != "-" && $0 != "–" }.count
         }
+    }
+}
+
+// The transcript views are rebuilt 20 times a second while audio plays: parsing the transcript on every
+// access (once per word) froze the app. Parse once per transcript/duration/timings and reuse.
+@MainActor enum TranscriptLinesCache {
+    private static var cache: [String: [SyncedTranscriptView.LineItem]] = [:]
+    private static var alignedCache: [String: Bool] = [:]
+
+    static func lines(_ transcript: String, _ duration: Double, _ timeline: [Double], _ wordTimes: [[Double]]?,
+                      build: () -> [SyncedTranscriptView.LineItem]) -> [SyncedTranscriptView.LineItem] {
+        let key = "\(transcript.hashValue)|\(Int(duration * 10))|\(timeline.count)|\(timeline.last ?? 0)|\(wordTimes?.count ?? -1)|\(wordTimes?.last?.first ?? 0)"
+        if let hit = cache[key] { return hit }
+        if cache.count > 64 { cache.removeAll() }
+        let built = build()
+        cache[key] = built
+        return built
+    }
+
+    static func aligned(_ transcript: String, _ wordTimes: [[Double]]?) -> Bool {
+        let key = "\(transcript.hashValue)|\(wordTimes?.count ?? -1)|\(wordTimes?.last?.first ?? 0)"
+        if let hit = alignedCache[key] { return hit }
+        if alignedCache.count > 64 { alignedCache.removeAll() }
+        let v = WordTiming.matches(wordTimes, transcript)
+        alignedCache[key] = v
+        return v
     }
 }

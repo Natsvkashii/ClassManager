@@ -3,6 +3,7 @@
 ## v26.11.1-008 (Beta) – 3 novembre 2026
 - Trascrizioni audio sincronizzate in tempo reale: con i tempi delle parole calcolati da `scripts/align_audio.py` (allineamento WhisperX) la trascrizione e la vista a schermo intero seguono l'audio parola per parola; senza tempi resta la stima precedente.
 - Lettore web/Windows: corretto un errore che poteva bloccare la trascrizione sincronizzata (`clear` non importato).
+- Trascrizione (macOS): non si blocca più aprendola mentre l'audio è in riproduzione, e alla fine di ogni riga non salta più in fondo al testo.
 - Editor del libro (macOS): «Modifica» apre davvero il capitolo nell'Editor; il pulsante ⊖, che toglieva il capitolo dal libro con un solo clic, è sostituito da un menu «⋯» con conferma.
 
 ## v26.11.1-007 (Unstable) – 2 novembre 2026
