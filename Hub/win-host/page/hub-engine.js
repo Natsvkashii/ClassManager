@@ -28,6 +28,15 @@ function keyBatches(keys) {
   return out;
 }
 const APP_RE = /^[A-Za-z0-9._-]{1,64}$/;
+
+// StudyDesk book transfer records (bookfile: / bookchunk:) are copies any device may publish:
+// two of them differing is not a conflict for the user. The copy with the higher rev wins, then the newer one.
+const isTransferKey = (k) => BIG_KEY.test(k);
+function transferWins(remoteRec, localRec) {
+  const rv = remoteRec?.value?.rev || 0, lv = localRec?.value?.rev || 0;
+  if (rv !== lv) return rv > lv;
+  return String(remoteRec?.updatedAt || '') > String(localRec?.updatedAt || '');
+}
 const nowIso = () => new Date().toISOString();
 
 // ---------------------------------------------------------------- record helpers (Hub/js/deskhub-records.js)
@@ -170,6 +179,7 @@ async function createEngine(opts = {}) {
   for (const p of ((await fsx.readJSON('peers.json')) || {}).peers || []) if (p.deviceId) peers.set(p.deviceId, { ...p, connected: undefined });
   let conflicts = (await fsx.readJSON('conflicts.json')) || [];
   if (!Array.isArray(conflicts)) conflicts = [];
+  conflicts = conflicts.filter((c) => !isTransferKey(c.key || ''));   // settled automatically now
   const peerView = (p) => ({ deviceId: p.deviceId, name: p.name, platform: p.platform || '', version: p.version || '', host: p.host || '', port: p.port || 0,
     connected: conns.has(p.deviceId), lastSeen: p.lastSeen || '', lastSync: p.lastSync || '' });
   const peerList = () => [...peers.values()].map(peerView);
@@ -305,6 +315,14 @@ async function createEngine(opts = {}) {
       for (const k of p.conflict) delete agreed[k];
       const fetched = {}, wantKeys = [...toPull, ...p.conflict];
       for (const keys of keyBatches(wantKeys)) Object.assign(fetched, (await conn.request({ t: 'get', keys })).records || {});
+      // StudyDesk book transfers are copies, not edits: settle them without asking (higher rev, then newer).
+      const userConflicts = [];
+      for (const k of p.conflict) {
+        if (!isTransferKey(k)) { userConflicts.push(k); continue; }
+        const l = await getRecord(k), r = fetched[k];
+        if (!l || !r) continue;
+        if (transferWins(r, l)) { toPull.push(k); agreed[k] = remote[k]; } else { toPush.push(k); agreed[k] = local[k]; }
+      }
       const pulled = [];
       for (const k of toPull) { if (!fetched[k]) { delete agreed[k]; continue; } await storeRecord(k, fetched[k]); pulled.push(k); }
       let recs = {}, n = 0, bytes = 0;
@@ -319,7 +337,7 @@ async function createEngine(opts = {}) {
       if (Object.keys(agreed).length) await conn.request({ t: 'base', hashes: agreed });
       await writeBase(id, mergeBase(base, agreed));
       const fresh = []; let isNew = 0;
-      for (const k of p.conflict) {
+      for (const k of userConflicts) {
         const c = { key: k, peer: id, peerName: peer.name, local: await getRecord(k), remote: fetched[k] || null, at: nowIso() };
         const prev = conflicts.find((x) => x.key === k && x.peer === id);
         if (prev && prev.local && prev.remote && c.local && c.remote && hashRecord(prev.local) === hashRecord(c.local) && hashRecord(prev.remote) === hashRecord(c.remote)) fresh.push(prev);
@@ -331,7 +349,7 @@ async function createEngine(opts = {}) {
       if (isNew) log(`${isNew} conflitti con «${peer.name}»`);
       peer.lastSync = nowIso();
       if (pulled.length) notifyApps(pulled);
-      const result = { peer: id, pulled: pulled.length, pushed: toPush.length, conflicts: p.conflict.length };
+      const result = { peer: id, pulled: pulled.length, pushed: toPush.length, conflicts: userConflicts.length };
       if (pulled.length || toPush.length || p.conflict.length) log(`Sincronizzato con «${peer.name}»: ricevuti ${result.pulled}, inviati ${result.pushed}${result.conflicts ? `, conflitti ${result.conflicts}` : ''}`);
       persistPeers(); ev.emit('state', getState());
       return result;

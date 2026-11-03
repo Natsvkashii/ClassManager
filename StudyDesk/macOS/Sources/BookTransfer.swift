@@ -34,6 +34,7 @@ public enum BookTransferLogic {
 
     public static func needsPublish(_ manifest: [String: Any]?, chapters: [String], rev: Int = 0) -> Bool {
         guard let m = manifest else { return true }
+        if (m["rev"] as? Int ?? 0) > rev { return false }   // a newer copy exists: receive it, do not compete
         let have = Set(m["chapters"] as? [String] ?? [])
         return chapters.contains { !have.contains($0) } || rev > (m["rev"] as? Int ?? 0)
     }

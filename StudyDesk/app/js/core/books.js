@@ -79,7 +79,8 @@ export async function exportSdbook(bookId) {
 
 /** Saves an edited book: raises its rev so the other computers take this copy. */
 export async function saveBookRec(rec) {
-  if (rec.book) rec.book = { ...rec.book, rev: (Number.isInteger(rec.book.rev) ? rec.book.rev : 0) + 1 };
+  // in place: editors keep a reference to rec.book and save it again later
+  if (rec.book) rec.book.rev = (Number.isInteger(rec.book.rev) ? rec.book.rev : 0) + 1;
   await db.put('books', rec);
   return rec;
 }

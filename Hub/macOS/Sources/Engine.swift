@@ -211,6 +211,7 @@ public final class HubEngine {
         loadSettings()
         loadPeers()
         conflicts = ((fs.read(fs.file("conflicts.json")) as? [[String: Any]]) ?? []).compactMap(ConflictItem.init(json:))
+            .filter { !Self.isTransferKey($0.key) }   // book transfers are settled automatically now
     }
 
     // MARK: Settings
@@ -617,6 +618,13 @@ public final class HubEngine {
             guard let gr = await conn.request(["t": "get", "keys": keys], timeout: 60), let recs = gr["records"] as? [String: Any] else { return }
             for (k, v) in recs { if let r = v as? [String: Any] { got[k] = r } }
         }
+        // StudyDesk book transfers are copies any device may publish, not edits: settle them without asking.
+        var userConflicts: [String] = []
+        for k in plan.conflict {
+            guard Self.isTransferKey(k) else { userConflicts.append(k); continue }
+            guard let l = fs.record(k), let r = got[k] else { continue }
+            if Self.transferWins(remote: r, over: l) { pullKeys.append(k) } else { pushKeys.append(k); agreed[k] = local[k] }
+        }
         var wroteByApp: [String: [String]] = [:]
         for k in pullKeys {
             guard let rec = got[k], let (app, key) = HubFS.split(k) else { agreed[k] = nil; continue }
@@ -655,11 +663,11 @@ public final class HubEngine {
         let name = peerName(device)
         let existing = Set(conflicts.filter { $0.peer == device }.map(\.key))
         // The plan is a snapshot: drop conflicts that were settled while we were talking (e.g. the peer pushed the winner).
-        let stillConflicting = plan.conflict.filter { k in
+        let stillConflicting = userConflicts.filter { k in
             guard let now = fs.record(k).map({ DeskHubRecords.hash($0) }) else { return true }
             return now != remote[k] && now == local[k] && fs.base(for: device)[k] == base0[k]
         }
-        if stillConflicting.count != plan.conflict.count { queued.insert(device) }   // something moved meanwhile: look again
+        if stillConflicting.count != userConflicts.count { queued.insert(device) }   // something moved meanwhile: look again
         let items = stillConflicting.map { ConflictItem(key: $0, peer: device, peerName: name, local: fs.record($0), remote: got[$0], at: isoNow()) }
         let fresh = items.filter { !existing.contains($0.key) }.count
         conflicts.removeAll { $0.peer == device }
@@ -686,6 +694,14 @@ public final class HubEngine {
     }
 
     // MARK: Conflicts
+
+    nonisolated static func isTransferKey(_ k: String) -> Bool { k.contains("/bookchunk:") || k.contains("/bookfile:") }
+    /// Between two copies of a book transfer record: the higher rev wins, then the newer one.
+    nonisolated static func transferWins(remote: [String: Any], over local: [String: Any]) -> Bool {
+        let rv = (remote["value"] as? [String: Any])?["rev"] as? Int ?? 0, lv = (local["value"] as? [String: Any])?["rev"] as? Int ?? 0
+        if rv != lv { return rv > lv }
+        return (remote["updatedAt"] as? String ?? "") > (local["updatedAt"] as? String ?? "")
+    }
 
     private func saveConflicts() { fs.write(conflicts.map(\.json), to: fs.file("conflicts.json")) }
 

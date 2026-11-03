@@ -71,6 +71,7 @@ test('edits travel: the copy with the higher rev wins, an equal rev does nothing
   assert.equal(needsPublish(pub(3), meta), false);
   assert.equal(needsPublish(pub(undefined), { chapters: [{ moduleId: 'm1' }] }), false); // old copies: no endless resends
   assert.equal(needsUpdate(pub(4), meta), true);      // edited on the other computer
+  assert.equal(needsPublish({ chapters: [], rev: 4 }, meta), false); // newer copy lacking a chapter: take it, do not republish
   assert.equal(needsUpdate(pub(3), meta), false);
   assert.equal(needsUpdate(undefined, meta), false);
 });

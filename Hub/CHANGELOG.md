@@ -1,5 +1,8 @@
 # HubDesk – Changelog
 
+## 26.11.1-010 (Beta)
+- Conflitti: le copie dei libri di StudyDesk in sincronizzazione non vengono più mostrate come conflitti da risolvere (si ripresentavano anche dopo aver scelto una versione); HubDesk tiene da solo la copia più recente e rimuove i conflitti di questo tipo già salvati.
+
 ## 26.11.1-009 (Beta)
 - Allineamento alla beta Classroom Tools 26.11.1-009 (sincronizzazione delle modifiche ai libri, trascrizioni migliorate). Sostituisce la 26.11.1-008.
 

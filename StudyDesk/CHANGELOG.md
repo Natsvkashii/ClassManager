@@ -1,5 +1,8 @@
 # Changelog
 
+## v26.11.1-010 (Beta) – 3 novembre 2026
+- Sincronizzazione dei libri: un computer non ripubblica più un libro quando esiste già una copia più recente (la riceve); l'editor dei libri su Windows salva correttamente il numero di revisione.
+
 ## v26.11.1-009 (Beta) – 3 novembre 2026
 Comprende tutte le novità della 26.11.1-008 (sostituita da questa versione), più:
 - Sincronizzazione dei libri tra computer: ora si trasmettono anche le modifiche ai capitoli già presenti sull'altro computer (prima arrivavano solo i capitoli mancanti). Vince la copia modificata per ultima.

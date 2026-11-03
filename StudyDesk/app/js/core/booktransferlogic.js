@@ -49,6 +49,7 @@ export const bookRev = (meta) => (meta && Number.isInteger(meta.rev) ? meta.rev 
  *  or this device edited the book after it was published (higher rev). */
 export function needsPublish(manifest, meta) {
   if (!manifest) return true;
+  if ((manifest.rev || 0) > bookRev(meta)) return false;   // a newer copy exists: receive it, do not compete
   const have = new Set(manifest.chapters || []);
   return chapterIds(meta).some((id) => !have.has(id)) || bookRev(meta) > (manifest.rev || 0);
 }

@@ -1,52 +1,52 @@
 {
-  "version": "26.11.1-009",
+  "version": "26.11.1-010",
   "channel": "unstable",
-  "tag_name": "v26.11.1-009",
+  "tag_name": "v26.11.1-010",
   "prerelease": true,
-  "published_at": "2026-11-03T17:26:40Z",
-  "name": "Classroom Tools v26.11.1-009 - macOS (Apple Silicon) & Windows (Beta)",
-  "body": "# Classroom Tools v26.11.1-009 (Beta) - macOS (Apple Silicon) & Windows\n\n**Classroom Tools**: Suite unificata che include ClassDesk, StudyDesk e HubDesk.\n\n## Download e Installazione\n- **macOS (Apple Silicon)**: [`Classroom-Tools-26.11.1-009-macOS-AppleSilicon.pkg`](https://github.com/Natsvkashii/ClassManager/releases/download/v26.11.1-009/Classroom-Tools-26.11.1-009-macOS-AppleSilicon.pkg)\n- **Windows**: [`Classroom-Tools-26.11.1-009-Windows-Setup.exe`](https://github.com/Natsvkashii/ClassManager/releases/download/v26.11.1-009/Classroom-Tools-26.11.1-009-Windows-Setup.exe)\n\n- **HubDesk** è sempre incluso per gestire aggiornamenti centralizzati e sincronizzazione tra dispositivi.\n- **ClassDesk** e **StudyDesk** possono essere selezionati all'installazione o scaricati dall'Hub.\n- Chi possiede una versione precedente riceve l'aggiornamento automatico senza perdita di dati.\n\n## HubDesk\n- Allineamento alla beta Classroom Tools 26.11.1-009 (sincronizzazione delle modifiche ai libri, trascrizioni migliorate). Sostituisce la 26.11.1-008.\n\n## ClassDesk\n- Allineamento alla beta Classroom Tools 26.11.1-009 (sostituisce la 26.11.1-008); nessun cambiamento di funzionamento in ClassDesk.\n\n## StudyDesk\nComprende tutte le novità della 26.11.1-008 (sostituita da questa versione), più:\n- Sincronizzazione dei libri tra computer: ora si trasmettono anche le modifiche ai capitoli già presenti sull'altro computer (prima arrivavano solo i capitoli mancanti). Vince la copia modificata per ultima.\n- Trascrizioni: ogni parola diventa bianca solo dopo essere stata pronunciata (non più l'intero paragrafo); prima dell'avvio il testo è tutto ben leggibile; lo scorrimento segue la parola pronunciata, sia nella trascrizione sia a schermo intero.\n- Schermo intero: pulsante a sola icona; la trascrizione si apre davvero a schermo intero (su macOS in uno spazio proprio, su Windows a tutto schermo) e non più in una finestra.\n- macOS: pulsante «Indice» con il colore uniforme; pulsante «⋯» delle copertine dei libri ben visibile.\n\n---\n© 2026 Guaira Jaramillo Nitoglia · guaira.jaramillo.nitoglia@gmail.com · GPL-3.0\n",
-  "setupUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.11.1-009/Classroom-Tools-26.11.1-009-Windows-Setup.exe",
-  "setupName": "Classroom-Tools-26.11.1-009-Windows-Setup.exe",
-  "macPkgUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.11.1-009/Classroom-Tools-26.11.1-009-macOS-AppleSilicon.pkg",
-  "macPkgName": "Classroom-Tools-26.11.1-009-macOS-AppleSilicon.pkg",
+  "published_at": "2026-11-03T18:22:24Z",
+  "name": "Classroom Tools v26.11.1-010 - macOS (Apple Silicon) & Windows (Beta)",
+  "body": "# Classroom Tools v26.11.1-010 (Beta) - macOS (Apple Silicon) & Windows\n\n**Classroom Tools**: Suite unificata che include ClassDesk, StudyDesk e HubDesk.\n\n## Download e Installazione\n- **macOS (Apple Silicon)**: [`Classroom-Tools-26.11.1-010-macOS-AppleSilicon.pkg`](https://github.com/Natsvkashii/ClassManager/releases/download/v26.11.1-010/Classroom-Tools-26.11.1-010-macOS-AppleSilicon.pkg)\n- **Windows**: [`Classroom-Tools-26.11.1-010-Windows-Setup.exe`](https://github.com/Natsvkashii/ClassManager/releases/download/v26.11.1-010/Classroom-Tools-26.11.1-010-Windows-Setup.exe)\n\n- **HubDesk** è sempre incluso per gestire aggiornamenti centralizzati e sincronizzazione tra dispositivi.\n- **ClassDesk** e **StudyDesk** possono essere selezionati all'installazione o scaricati dall'Hub.\n- Chi possiede una versione precedente riceve l'aggiornamento automatico senza perdita di dati.\n\n## HubDesk\n- Conflitti: le copie dei libri di StudyDesk in sincronizzazione non vengono più mostrate come conflitti da risolvere (si ripresentavano anche dopo aver scelto una versione); HubDesk tiene da solo la copia più recente e rimuove i conflitti di questo tipo già salvati.\n\n## ClassDesk\n- Allineamento alla beta Classroom Tools 26.11.1-010; nessun cambiamento di funzionamento in ClassDesk.\n\n## StudyDesk\n- Sincronizzazione dei libri: un computer non ripubblica più un libro quando esiste già una copia più recente (la riceve); l'editor dei libri su Windows salva correttamente il numero di revisione.\n\n---\n© 2026 Guaira Jaramillo Nitoglia · guaira.jaramillo.nitoglia@gmail.com · GPL-3.0\n",
+  "setupUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.11.1-010/Classroom-Tools-26.11.1-010-Windows-Setup.exe",
+  "setupName": "Classroom-Tools-26.11.1-010-Windows-Setup.exe",
+  "macPkgUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.11.1-010/Classroom-Tools-26.11.1-010-macOS-AppleSilicon.pkg",
+  "macPkgName": "Classroom-Tools-26.11.1-010-macOS-AppleSilicon.pkg",
   "suite": {
-    "version": "26.11.1-009",
+    "version": "26.11.1-010",
     "apps": {
       "hubdesk": {
         "mac": {
-          "name": "Classroom-Tools-26.11.1-009-macOS-AppleSilicon.pkg",
-          "url": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.11.1-009/Classroom-Tools-26.11.1-009-macOS-AppleSilicon.pkg"
+          "name": "Classroom-Tools-26.11.1-010-macOS-AppleSilicon.pkg",
+          "url": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.11.1-010/Classroom-Tools-26.11.1-010-macOS-AppleSilicon.pkg"
         },
         "win": {
-          "name": "Classroom-Tools-26.11.1-009-Windows-Setup.exe",
-          "url": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.11.1-009/Classroom-Tools-26.11.1-009-Windows-Setup.exe"
+          "name": "Classroom-Tools-26.11.1-010-Windows-Setup.exe",
+          "url": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.11.1-010/Classroom-Tools-26.11.1-010-Windows-Setup.exe"
         }
       },
       "classdesk": {
         "mac": {
-          "name": "Classroom-Tools-26.11.1-009-macOS-AppleSilicon.pkg",
-          "url": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.11.1-009/Classroom-Tools-26.11.1-009-macOS-AppleSilicon.pkg"
+          "name": "Classroom-Tools-26.11.1-010-macOS-AppleSilicon.pkg",
+          "url": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.11.1-010/Classroom-Tools-26.11.1-010-macOS-AppleSilicon.pkg"
         },
         "win": {
-          "name": "Classroom-Tools-26.11.1-009-Windows-Setup.exe",
-          "url": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.11.1-009/Classroom-Tools-26.11.1-009-Windows-Setup.exe"
+          "name": "Classroom-Tools-26.11.1-010-Windows-Setup.exe",
+          "url": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.11.1-010/Classroom-Tools-26.11.1-010-Windows-Setup.exe"
         }
       },
       "studydesk": {
         "mac": {
-          "name": "Classroom-Tools-26.11.1-009-macOS-AppleSilicon.pkg",
-          "url": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.11.1-009/Classroom-Tools-26.11.1-009-macOS-AppleSilicon.pkg"
+          "name": "Classroom-Tools-26.11.1-010-macOS-AppleSilicon.pkg",
+          "url": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.11.1-010/Classroom-Tools-26.11.1-010-macOS-AppleSilicon.pkg"
         },
         "win": {
-          "name": "Classroom-Tools-26.11.1-009-Windows-Setup.exe",
-          "url": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.11.1-009/Classroom-Tools-26.11.1-009-Windows-Setup.exe"
+          "name": "Classroom-Tools-26.11.1-010-Windows-Setup.exe",
+          "url": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.11.1-010/Classroom-Tools-26.11.1-010-Windows-Setup.exe"
         }
       }
     },
     "pkg": {
-      "name": "Classroom-Tools-26.11.1-009-macOS-AppleSilicon.pkg",
-      "url": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.11.1-009/Classroom-Tools-26.11.1-009-macOS-AppleSilicon.pkg"
+      "name": "Classroom-Tools-26.11.1-010-macOS-AppleSilicon.pkg",
+      "url": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.11.1-010/Classroom-Tools-26.11.1-010-macOS-AppleSilicon.pkg"
     }
   }
 }
