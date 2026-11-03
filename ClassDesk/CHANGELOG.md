@@ -5,7 +5,7 @@ Il formato è basato su [Keep a Changelog](https://keepachangelog.com/it/1.0.0/)
 
 ---
 
-## [26.11.1-012] — 2026-11-03 (Interna)
+## [26.11.1-012] — 2026-11-03 (Stabile)
 - Rimossa la sincronizzazione con Google Calendar e i pulsanti per creare sale Google Meet.
 - Calendario in Piano lezioni e Fatturazione: pulsante di condivisione con Copia immagine, Copia solo testo, Scarica, Invia per e-mail.
 - Azioni secondarie e di eliminazione raccolte in menu «⋯» (corsi, studenti, cestino, contatti, livelli e moduli, rubriche).

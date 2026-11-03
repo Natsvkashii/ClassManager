@@ -1,6 +1,6 @@
 # Changelog
 
-## v26.11.1-012 (Interna) – 3 novembre 2026
+## v26.11.1-012 (Stabile) – 3 novembre 2026
 - Interfaccia più semplice: azioni secondarie raccolte in menu «⋯» (lavagna, libreria, gruppi, editor di moduli e libri, barra dell'esercizio, avviso di aggiornamento).
 
 ## v26.11.1-011 (Beta) – 3 novembre 2026

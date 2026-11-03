@@ -21,9 +21,9 @@ public enum AuthorAttribution {
     public static let appVersion = "26.11.1-012"
 
     /// Centralized channel indicator: 0 = Stable, 1 = Unstable / Beta
-    public static let isUnstableBuild: Int = 1
+    public static let isUnstableBuild: Int = 0
     /// Dynamic build type: "stable", "beta", or "internal"
-    public static let buildType: String = "internal"
+    public static let buildType: String = "stable"
 
     public static var isBeta: Bool {
         return isUnstableBuild == 1

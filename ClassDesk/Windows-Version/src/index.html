@@ -1590,8 +1590,8 @@ Removing, obfuscating, or altering these credits violates the author's attributi
         ];
 
         // Build Channel Configuration: 0 = stable, 1 = unstable
-        const IS_UNSTABLE_BUILD = 1;
-        const BUILD_TYPE = "internal"; // "stable" | "beta" | "internal"
+        const IS_UNSTABLE_BUILD = 0;
+        const BUILD_TYPE = "stable"; // "stable" | "beta" | "internal"
 
         function channelBadgeHtml(bt) {
             const b = (bt || BUILD_TYPE || 'internal').toLowerCase();

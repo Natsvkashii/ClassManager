@@ -1,7 +1,7 @@
 # HubDesk – Changelog
 
-## 26.11.1-012 (Interna)
-- Allineamento alla release interna Classroom Tools 26.11.1-012.
+## 26.11.1-012 (Stabile)
+- Allineamento alla release stabile Classroom Tools 26.11.1-012.
 
 ## 26.11.1-011 (Beta)
 - Allineamento alla beta Classroom Tools 26.11.1-011 (sincronizzazione dei libri più affidabile in StudyDesk).

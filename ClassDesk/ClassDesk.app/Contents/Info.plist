@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
 	<key>AppBuildType</key>
-	<string>internal</string>
+	<string>stable</string>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>it</string>
 	<key>CFBundleDisplayName</key>

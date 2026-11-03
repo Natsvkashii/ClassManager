@@ -16,9 +16,9 @@ import Foundation
 
 public enum HubInfo {
     public static let appVersion = "26.11.1-012"
-    public static let isUnstableBuild: Int = 1
+    public static let isUnstableBuild: Int = 0
     /// Build type variable: "stable", "beta", or "internal"
-    public static let buildType: String = "internal"
+    public static let buildType: String = "stable"
     public static let bundleId = "com.guairajaramillo.hubdesk"
     public static let repo = "Natsvkashii/ClassManager"
     public static let releasesURL = "https://api.github.com/repos/Natsvkashii/ClassManager/releases"
