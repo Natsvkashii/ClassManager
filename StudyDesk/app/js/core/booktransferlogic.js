@@ -55,6 +55,10 @@ export function needsPublish(manifest, meta) {
 }
 /** The published copy was edited after this one: take it even if no chapter is missing. */
 export const needsUpdate = (manifest, meta) => !!manifest && (manifest.rev || 0) > bookRev(meta);
+/** Same rev but a copy this device never held (it published or imported `heldTid`): take the published one,
+ *  which HubDesk keeps as the most recent. Only for books that carry a rev (old copies are left alone). */
+export const tieUpdate = (manifest, meta, heldTid) =>
+  !!manifest && (manifest.rev || 0) >= 1 && (manifest.rev || 0) === bookRev(meta) && !!manifest.tid && manifest.tid !== heldTid;
 /** The published copy brings at least one missing chapter. */
 export const manifestHelps = (manifest, missing) => !!manifest && missing.some((id) => (manifest.chapters || []).includes(id));
 

@@ -16,7 +16,7 @@
 //   deleted:<key>                                           {deletedAt} tombstone
 // Values must serialise exactly like the macOS app does (it omits null optionals), otherwise hashes of equal data would differ.
 
-const GROUP_FIELDS = ['id', 'name', 'level', 'color', 'description', 'students', 'bookIds', 'moduleIds', 'classDesk', 'hubId', 'createdAt'];
+const GROUP_FIELDS = ['id', 'name', 'level', 'color', 'description', 'students', 'bookIds', 'moduleIds', 'classDesk', 'hubId', 'createdAt', 'archived'];
 const STUDENT_FIELDS = ['id', 'firstName', 'lastName', 'email', 'classDeskStudentId'];
 const PROGRESS_FIELDS = ['activityId', 'partId', 'type', 'answer', 'score', 'maxScore', 'status', 'attempts', 'updatedAt'];
 
@@ -48,6 +48,8 @@ export function recordToGroup(r) {
     id: r.id, name: r.name || '', level: r.level || '', color: r.color || '#0ea5e9', description: r.description || '',
     students: (r.students || []).map((s) => ({ ...s })), bookIds: r.bookIds || [], moduleIds: r.moduleIds || [],
     classDesk: r.classDesk || null, ...(r.hubId ? { hubId: r.hubId } : {}), createdAt: r.createdAt || new Date().toISOString(),
+    // kept as received: dropping it made Windows and the Mac rewrite the record back and forth every few seconds
+    ...(r.archived ? { archived: true } : {}),
   };
 }
 

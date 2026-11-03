@@ -708,24 +708,33 @@ public final class HubEngine {
     /// keepLocal = true: our version wins (it is pushed); false: the other version is stored here.
     /// The base is set so the next sync moves the winner in the right direction even if the peer is offline.
     public func resolve(_ ids: [String], keepLocal: Bool) {
-        var byPeer: [String: [String]] = [:]
-        for item in conflicts where ids.contains(item.id) {
-            if keepLocal {
-                // base := the other side's hash (or absent) => local differs from base only => push
-                fs.mergeBase([item.key: item.remote.map { DeskHubRecords.hash($0) } ?? ""], for: item.peer)
-            } else if let r = item.remote {
-                storeIncoming(item.key, r)
-                fs.mergeBase([item.key: DeskHubRecords.hash(r)], for: item.peer)
-                if let (app, key) = HubFS.split(item.key) { sendClients(["t": "records", "app": app, "keys": [key]]) }
-            } else {
-                fs.mergeBase([item.key: ""], for: item.peer)
-            }
-            byPeer[item.peer, default: []].append(item.key)
-        }
-        conflicts.removeAll { ids.contains($0.id) }
+        let items = conflicts.filter { ids.contains($0.id) }
+        guard !items.isEmpty else { return }
+        conflicts.removeAll { ids.contains($0.id) }   // the list updates at once
         saveConflicts()
-        for (peer, keys) in byPeer {
-            conns[peer]?.send(["t": "changed", "keys": keys])
+        // Hashing big records (book pieces, MBs each) froze the window: do it off the main thread.
+        let work = ResolveWork(items: items.map { ($0.key, $0.peer, $0.remote) })
+        Task.detached(priority: .userInitiated) {
+            let hashed = ResolveWork(items: work.items, hashes: work.items.map { $0.2.map { DeskHubRecords.hash($0) } ?? "" })
+            await MainActor.run { self.applyResolution(hashed, keepLocal: keepLocal) }
+        }
+    }
+
+    private func applyResolution(_ w: ResolveWork, keepLocal: Bool) {
+        var base: [String: [String: String]] = [:], keys: [String: [String]] = [:]
+        for (i, (key, peer, remote)) in w.items.enumerated() {
+            // keep local: base := the other side's hash => local differs from base only => push.
+            // keep the other: store it; base := its hash.
+            if !keepLocal, let r = remote {
+                storeIncoming(key, r)
+                if let (app, k) = HubFS.split(key) { sendClients(["t": "records", "app": app, "keys": [k]]) }
+            }
+            base[peer, default: [:]][key] = w.hashes[i]
+            keys[peer, default: []].append(key)
+        }
+        for (peer, b) in base { fs.mergeBase(b, for: peer) }   // one write per device, not one per record
+        for (peer, ks) in keys {
+            conns[peer]?.send(["t": "changed", "keys": ks])
             sync(peer)
         }
         addLog(keepLocal ? "Conflitti risolti: tenuta la versione di questo dispositivo" : "Conflitti risolti: usata la versione dell'altro dispositivo")
@@ -856,4 +865,10 @@ public final class HubEngine {
     }
 
     func sendClients(_ m: [String: Any]) { for c in clients { c.send(m) } }
+}
+
+/// Conflicts being resolved, handed to a background task (records are plain JSON values).
+struct ResolveWork: @unchecked Sendable {
+    var items: [(String, String, [String: Any]?)]
+    var hashes: [String] = []
 }

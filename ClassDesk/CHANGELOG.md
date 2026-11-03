@@ -5,6 +5,9 @@ Il formato è basato su [Keep a Changelog](https://keepachangelog.com/it/1.0.0/)
 
 ---
 
+## [26.11.1-011] — 2026-11-03 (Beta)
+- Allineamento alla beta Classroom Tools 26.11.1-011; nessun cambiamento di funzionamento in ClassDesk.
+
 ## [26.11.1-010] — 2026-11-03 (Beta)
 - Allineamento alla beta Classroom Tools 26.11.1-010; nessun cambiamento di funzionamento in ClassDesk.
 

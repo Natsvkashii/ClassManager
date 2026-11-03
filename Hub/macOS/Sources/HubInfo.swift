@@ -15,7 +15,7 @@ import Foundation
 // Version, constants and the YY.MM.R-BBB comparator.
 
 public enum HubInfo {
-    public static let appVersion = "26.11.1-010"
+    public static let appVersion = "26.11.1-011"
     public static let isUnstableBuild: Int = 1
     /// Build type variable: "stable", "beta", or "internal"
     public static let buildType: String = "beta"

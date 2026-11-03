@@ -38,6 +38,13 @@ public enum BookTransferLogic {
         let have = Set(m["chapters"] as? [String] ?? [])
         return chapters.contains { !have.contains($0) } || rev > (m["rev"] as? Int ?? 0)
     }
+    /// Same rev but a copy this Mac never held (published or imported here): take the published one, which HubDesk
+    /// keeps as the most recent. Only for books that carry a rev (old copies are left alone).
+    public static func tieUpdate(_ manifest: [String: Any]?, rev: Int, held: String?) -> Bool {
+        guard let m = manifest, let tid = m["tid"] as? String else { return false }
+        let mr = m["rev"] as? Int ?? 0
+        return mr >= 1 && mr == rev && tid != held
+    }
     /// The published copy was edited after this one (higher rev): take it even if no chapter is missing.
     public static func needsUpdate(_ manifest: [String: Any]?, rev: Int) -> Bool {
         guard let m = manifest else { return false }
@@ -99,6 +106,11 @@ public final class BookTransfer {
     @ObservationIgnored private var sending: Set<String> = []
     @ObservationIgnored private var sentAt: [String: Date] = [:]
 
+    /// book id -> tid of the copy this Mac holds (published or imported here)
+    private var held: [String: String] {
+        get { UserDefaults.standard.dictionary(forKey: "bookTransferHeld") as? [String: String] ?? [:] }
+        set { UserDefaults.standard.set(newValue, forKey: "bookTransferHeld") }
+    }
     private var dismissed: [String: String] {
         get { UserDefaults.standard.dictionary(forKey: "bookTransferDismissed") as? [String: String] ?? [:] }
         set { UserDefaults.standard.set(newValue, forKey: "bookTransferDismissed") }
@@ -156,13 +168,13 @@ public final class BookTransfer {
             sending.insert(b.id); sentAt[b.id] = Date()
             let old = manifests[b.id], id = b.id, title = b.title, from = deviceName, rev = b.rev ?? 0
             Task.detached(priority: .utility) {
-                let ok = Self.publish(pkg, id: id, title: title, chapters: all, rev: rev, from: from, old: old)
-                await MainActor.run { self.sending.remove(id); if !ok { self.sentAt[id] = nil } }
+                let tid = Self.publish(pkg, id: id, title: title, chapters: all, rev: rev, from: from, old: old)
+                await MainActor.run { self.sending.remove(id); if let tid { self.held[id] = tid } else { self.sentAt[id] = nil } }
             }
         }
     }
 
-    nonisolated private static func publish(_ pkg: BookPackage, id: String, title: String, chapters: [String], rev: Int, from: String, old: [String: Any]?) -> Bool {
+    nonisolated private static func publish(_ pkg: BookPackage, id: String, title: String, chapters: [String], rev: Int, from: String, old: [String: Any]?) -> String? {
         let fm = FileManager.default
         let file = fm.temporaryDirectory.appendingPathComponent("sdbook_sync_\(UUID().uuidString).sdbook")
         defer { try? fm.removeItem(at: file) }
@@ -184,10 +196,10 @@ public final class BookTransfer {
             if let old, let otid = old["tid"] as? String, otid != tid {
                 for n in 0..<(old["chunks"] as? Int ?? 0) { recs.remove(BookTransferLogic.chunkKey(id, otid, n)) }
             }
-            return true
+            return tid
         } catch {
             NSLog("StudyDesk: invio libro \(id) non riuscito: \(error)")
-            return false
+            return nil
         }
     }
 
@@ -199,7 +211,7 @@ public final class BookTransfer {
             let wanted = (b?.chapters.isEmpty == false) ? b!.chapters.map(\.moduleId) : (m?["chapters"] as? [String] ?? [])
             let missing = wanted.filter { !has.contains($0) }
             let update = missing.isEmpty && b != nil && (m?["device"] as? String) != DeskHubPaths.deviceId
-                && BookTransferLogic.needsUpdate(m, rev: b?.rev ?? 0)
+                && (BookTransferLogic.needsUpdate(m, rev: b?.rev ?? 0) || BookTransferLogic.tieUpdate(m, rev: b?.rev ?? 0, held: held[id]))
             if missing.isEmpty && !update {
                 if let i = index(id), entries[i].status != .done, entries[i].status != .error { entries.remove(at: i) }
                 continue
@@ -277,6 +289,7 @@ public final class BookTransfer {
             let have = Set(store.modules.map(\.id))
             let still = missing.filter { chapters.contains($0) && !have.contains($0) }
             if !still.isEmpty { throw StoreError.message("Importati \(store.chapters(of: book).count) capitoli ma ne mancano ancora \(still.count).") }
+            held[id] = entries[i].tid
             entries[i].status = .done; entries[i].done = entries[i].total
             log(i, "Importato: \(store.chapters(of: book).count) capitoli")
             store.showToast("Libro «\(book.title)» sincronizzato")

@@ -240,3 +240,10 @@ test('hub file location: DESKHUB_HOME overrides the folder', () => {
   assert.equal(hub.hubFile({ DESKHUB_HOME: '/tmp/x' }), path.join('/tmp/x', 'hub.json'));
   assert.ok(hub.hubFile({}).endsWith(path.join('DeskHub', 'hub.json')));
 });
+
+test('an archived group survives the record round trip (no back-and-forth rewrites with the Mac)', () => {
+  const rec = { id: 'g1', name: 'X', archived: true, students: [], bookIds: [], moduleIds: [], createdAt: '2026-11-02T00:00:00Z' };
+  assert.equal(recordToGroup(rec).archived, true);
+  assert.equal(groupToRecord(recordToGroup(rec)).archived, true);
+  assert.equal('archived' in groupToRecord(recordToGroup({ ...rec, archived: undefined })), false);
+});

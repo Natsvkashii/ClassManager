@@ -18,7 +18,8 @@ import { isoNow } from './grading.js';
 import { addTombstone, clearTombstone } from './tombstones.js';
 import { schedulePublish } from './hubbridge.js';
 
-export const listGroups = async () => (await db.all('groups')).sort((a, b) => a.name.localeCompare(b.name, 'it'));
+// Archived groups (archived in ClassDesk) are hidden, as on the Mac; their results are kept.
+export const listGroups = async () => (await db.all('groups')).filter((g) => !g.archived).sort((a, b) => a.name.localeCompare(b.name, 'it'));
 export const getGroup = (id) => db.get('groups', id);
 export const saveGroup = async (g) => { await db.put('groups', g); await clearTombstone(`group:${g.id}`); schedulePublish(); return g; };
 

@@ -1,5 +1,9 @@
 # HubDesk – Changelog
 
+## 26.11.1-011 (Beta)
+- Allineamento alla beta Classroom Tools 26.11.1-011 (sincronizzazione dei libri più affidabile in StudyDesk).
+- macOS: risolvere conflitti con dati grandi non blocca più la finestra (il lavoro pesante avviene in background).
+
 ## 26.11.1-010 (Beta)
 - Conflitti: le copie dei libri di StudyDesk in sincronizzazione non vengono più mostrate come conflitti da risolvere (si ripresentavano anche dopo aver scelto una versione); HubDesk tiene da solo la copia più recente e rimuove i conflitti di questo tipo già salvati.
 

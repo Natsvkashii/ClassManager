@@ -19,7 +19,7 @@ import { listBookRecs, getBookRec, exportSdbook, importSdbook } from './books.js
 import { toBase64, platform } from './platform.js';
 import { h, icon, clear, toast } from './ui.js';
 import {
-  CHUNK_SIZE, isTransferFile, manifestKey, chunkKey, keyOfFile, chapterIds, missingChapters, canSend, needsPublish, needsUpdate, bookRev,
+  CHUNK_SIZE, isTransferFile, manifestKey, chunkKey, keyOfFile, chapterIds, missingChapters, canSend, needsPublish, needsUpdate, tieUpdate, bookRev,
   manifestHelps, countChunks, percent, track, reportMailto,
 } from './booktransferlogic.js';
 
@@ -43,6 +43,9 @@ async function sha256Hex(bytes) {
 }
 const fromB64 = (s) => { const bin = atob(s); const out = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i); return out; };
 const dismissed = async () => (await kv.get('bookTransferDismissed')) || {};
+// book id -> tid of the copy this device holds (published or imported here)
+const held = async () => (await kv.get('bookTransferHeld')) || {};
+const markHeld = async (id, tid) => { const m = await held(); m[id] = tid; await kv.set('bookTransferHeld', m); };
 
 /**
  * One pass. io: { list() -> [{n, s}], get(key) -> record|null, put(key, value, deleted?), me, deviceName, connected }.
@@ -92,6 +95,7 @@ async function send(io, recs, manifests, has, files) {
       await io.put(manifestKey(rec.id), { id: rec.id, title: meta.title || rec.id, tid, sha256: sha, size: bytes.length, chunks, chunkSize: CHUNK_SIZE, chapters: chapterIds(meta), rev: bookRev(meta), from: io.deviceName, createdAt: new Date().toISOString() });
       if (old && old.tid !== tid) for (let n = 0; n < (old.chunks || 0); n++) await io.put(chunkKey(rec.id, old.tid, n), null, true);
       manifests[rec.id] = { tid, chapters: chapterIds(meta), rev: bookRev(meta) };
+      await markHeld(rec.id, tid);
     } catch (e) {
       console.error('Invio libro', rec.id, e);
       sentAt.delete(rec.id);
@@ -100,7 +104,7 @@ async function send(io, recs, manifests, has, files) {
 }
 
 async function receive(io, recs, manifests, has, files) {
-  const skip = await dismissed();
+  const skip = await dismissed(), have = await held();
   const now = Date.now();
   const ids = new Set([...recs.map((r) => r.id), ...Object.keys(manifests)]);
   for (const id of ids) {
@@ -108,7 +112,7 @@ async function receive(io, recs, manifests, has, files) {
     const meta = rec?.book && chapterIds(rec.book).length ? rec.book : { chapters: (m?.chapters || []).map((moduleId) => ({ moduleId })) };
     const missing = missingChapters(meta, has);
     const e0 = entries.get(id);
-    const update = !missing.length && !!rec && m && m.device !== io.me && needsUpdate(m, rec.book);
+    const update = !missing.length && !!rec && m && m.device !== io.me && (needsUpdate(m, rec.book) || tieUpdate(m, rec.book, have[id]));
     if (!missing.length && !update) { if (e0 && e0.status !== 'done' && e0.status !== 'error') { entries.delete(id); } continue; }
     if (m && !update && !manifestHelps(m, missing)) continue;           // the published copy does not have them: wait for a newer one
     if (skip[id] && skip[id] === (m ? m.tid : 'none')) continue;  // the user closed the error for this copy
@@ -157,6 +161,7 @@ async function assemble(io, e, m, missing) {
     const mods = new Set((await listModules()).map((x) => x.id));
     const still = missing.filter((id) => (m.chapters || []).includes(id) && !mods.has(id));
     if (still.length) throw new Error(`Importati ${res.count} capitoli ma ne mancano ancora ${still.length}.`);
+    await markHeld(m.id, m.tid);
     e.status = 'done'; e.done = e.total; log(e, `Importato: ${res.count} capitoli`);
     window.dispatchEvent(new CustomEvent('studydesk:data-changed'));
     setTimeout(() => { if (entries.get(e.id) === e && e.status === 'done') { entries.delete(e.id); render(); } }, 4000);

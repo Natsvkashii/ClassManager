@@ -2,7 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  bookMetaOf, missingChapters, canSend, needsPublish, needsUpdate, bookRev, manifestHelps, countChunks, chunkKey, manifestKey, isTransferFile,
+  bookMetaOf, missingChapters, canSend, needsPublish, needsUpdate, tieUpdate, bookRev, manifestHelps, countChunks, chunkKey, manifestKey, isTransferFile,
   isTransferKey, keyOfFile, track, percent, reportMailto, REPORT_TO,
 } from '../app/js/core/booktransferlogic.js';
 import { encodeKey } from '../app/js/core/hubnative.js';
@@ -74,4 +74,12 @@ test('edits travel: the copy with the higher rev wins, an equal rev does nothing
   assert.equal(needsPublish({ chapters: [], rev: 4 }, meta), false); // newer copy lacking a chapter: take it, do not republish
   assert.equal(needsUpdate(pub(3), meta), false);
   assert.equal(needsUpdate(undefined, meta), false);
+});
+
+test('equal rev, different copy: take the published one once, never the one already held', () => {
+  const meta = { chapters: [{ moduleId: 'm1' }], rev: 2 };
+  assert.equal(tieUpdate({ rev: 2, tid: 'B' }, meta, 'A'), true);   // a copy this device never had
+  assert.equal(tieUpdate({ rev: 2, tid: 'A' }, meta, 'A'), false);  // the one it has: nothing to do
+  assert.equal(tieUpdate({ rev: 1, tid: 'B' }, meta, 'A'), false);  // older: needsPublish handles it
+  assert.equal(tieUpdate({ tid: 'B' }, { chapters: [] }, undefined), false); // books without rev: left alone
 });
