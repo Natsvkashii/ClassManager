@@ -499,6 +499,7 @@ struct BookEditorView: View {
     @Environment(AppStore.self) private var store
     let bookId: String
     let onClose: () -> Void
+    @State private var removing: StudyModule?
 
     private var book: StudyBook { store.book(bookId) ?? StudyBook(id: bookId, title: "") }
 
@@ -560,8 +561,13 @@ struct BookEditorView: View {
                         Spacer()
                         Button { move(chapters, i, -1) } label: { Image(systemName: "arrow.up") }.disabled(i == 0)
                         Button { move(chapters, i, 1) } label: { Image(systemName: "arrow.down") }.disabled(i == chapters.count - 1)
-                        Button("Modifica") { store.editingModuleId = m.id }
-                        Button(role: .destructive) { store.setChapter(m.id, of: nil) } label: { Image(systemName: "minus.circle") }.help("Togli dal libro (il modulo resta installato)")
+                        Button("Modifica") { edit(m) }
+                        Menu {
+                            Button { edit(m) } label: { Label("Modifica nell'editor", systemImage: "square.and.pencil") }
+                            Divider()
+                            Button(role: .destructive) { removing = m } label: { Label("Togli dal libro…", systemImage: "minus.circle") }
+                        } label: { Image(systemName: "ellipsis") }
+                        .menuIndicator(.hidden).fixedSize().help("Altre azioni")
                     }
                     .padding(8).background(RoundedRectangle(cornerRadius: 8).fill(Color.primary.opacity(0.035)))
                 }
@@ -569,7 +575,13 @@ struct BookEditorView: View {
             .padding(22)
             .frame(maxWidth: 900, alignment: .leading)
         }
+        .confirmationDialog("Togliere «\(removing?.title ?? "")» dal libro?", isPresented: Binding(get: { removing != nil }, set: { if !$0 { removing = nil } })) {
+            Button("Togli dal libro", role: .destructive) { if let m = removing { store.setChapter(m.id, of: nil) }; removing = nil }
+        } message: { Text("Il modulo resta installato e si può riaggiungere con «Aggiungi modulo esistente».") }
     }
+
+    // The book editor lives outside the Editor tab: switch there, or the module never opens.
+    private func edit(_ m: StudyModule) { store.editingModuleId = m.id; store.currentTab = .editor }
 
     private func move(_ chapters: [StudyModule], _ i: Int, _ d: Int) {
         var b = book
@@ -589,7 +601,7 @@ struct BookEditorView: View {
         m.author = ModuleAuthor(name: store.state.profile?.fullName, email: store.state.profile?.email)
         store.saveModule(m)
         store.setChapter(id, of: bookId, number: String(count + 1))
-        store.editingModuleId = id
+        edit(m)
     }
 }
 
