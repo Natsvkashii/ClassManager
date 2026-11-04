@@ -232,31 +232,38 @@ public struct HomeView: View {
                 if store.activeCourses.isEmpty {
                     emptyCoursesCard
                 } else {
-                    // Featured Hero Card (Live Now or Next Lesson)
+                    // Featured Hero Card + 4 Subsequent Lessons Grid side-by-side
                     if let featured = featuredLesson {
-                        featuredHeroCard(featured)
+                        if !subsequentLessons.isEmpty {
+                            HStack(alignment: .top, spacing: 18) {
+                                // Left side: Featured card (compact, half width)
+                                featuredHeroCard(featured, isCompact: true)
+                                    .frame(maxWidth: .infinity, alignment: .topLeading)
+
+                                // Right side: Subsequent 4 lessons in 2 rows x 2 columns (2x2 grid)
+                                VStack(alignment: .leading, spacing: 10) {
+                                    HStack {
+                                        Label(store.t("subsequentLessonsHeading"), systemImage: "calendar.badge.clock")
+                                            .font(.headline.bold())
+                                        Spacer()
+                                        Text("\(min(subsequentLessons.count, 4)) \(store.t("lessonsLower"))")
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                    }
+
+                                    LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)], spacing: 10) {
+                                        ForEach(Array(subsequentLessons.prefix(4))) { item in
+                                            subsequentLessonCard(item)
+                                        }
+                                    }
+                                }
+                                .frame(maxWidth: .infinity, alignment: .topLeading)
+                            }
+                        } else {
+                            featuredHeroCard(featured, isCompact: false)
+                        }
                     } else {
                         noUpcomingLessonsCard
-                    }
-
-                    // Subsequent Lessons (Schede Ridotte)
-                    if !subsequentLessons.isEmpty {
-                        VStack(alignment: .leading, spacing: 12) {
-                            HStack {
-                                Label(store.t("subsequentLessonsHeading"), systemImage: "calendar.badge.clock")
-                                    .font(.headline.bold())
-                                Spacer()
-                                Text("\(subsequentLessons.count) \(store.t("lessonsLower"))")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-
-                            LazyVGrid(columns: [GridItem(.adaptive(minimum: 220, maximum: 300), spacing: 14)], spacing: 14) {
-                                ForEach(Array(subsequentLessons)) { item in
-                                    subsequentLessonCard(item)
-                                }
-                            }
-                        }
                     }
 
                     // Active Courses Overview
@@ -437,62 +444,106 @@ public struct HomeView: View {
         )
     }
 
-    private func featuredHeroCard(_ item: ScheduledHomeLesson) -> some View {
+    private func formatRemainingTime(for item: ScheduledHomeLesson, now: Date) -> String {
+        if item.isLiveNow {
+            return "In corso ora"
+        }
+        let cal = Calendar.current
+        let p = item.dateIso.split(separator: "-").compactMap { Int($0) }
+        guard p.count == 3 else { return "" }
+        let tParts = item.startTime.split(separator: ":").compactMap { Int($0) }
+        guard tParts.count >= 2 else { return "" }
+
+        var comps = DateComponents()
+        comps.year = p[0]
+        comps.month = p[1]
+        comps.day = p[2]
+        comps.hour = tParts[0]
+        comps.minute = tParts[1]
+        comps.second = 0
+
+        guard let targetDate = cal.date(from: comps) else { return "" }
+        let diffSec = targetDate.timeIntervalSince(now)
+
+        if diffSec <= 0 {
+            return "Inizia a breve"
+        }
+
+        let totalMinutes = Int(diffSec / 60)
+        let totalHours = Int(round(Double(totalMinutes) / 60.0))
+
+        if totalMinutes < 60 {
+            if totalMinutes <= 1 {
+                return "Manca 1 minuto"
+            } else {
+                return "Mancano \(totalMinutes) minuti"
+            }
+        } else {
+            if totalHours <= 1 {
+                return "Manca 1 ora"
+            } else {
+                return "Mancano \(totalHours) ore"
+            }
+        }
+    }
+
+    private func featuredHeroCard(_ item: ScheduledHomeLesson, isCompact: Bool = false) -> some View {
         let pal = store.palette(for: item.course.color)
         let accentColor = item.isLiveNow ? Color.green : pal.color
 
-        return VStack(alignment: .leading, spacing: 18) {
+        return VStack(alignment: .leading, spacing: isCompact ? 12 : 18) {
             // Top Bar: Live / Next Badge, Course Badge, Enrolled count
-            HStack(spacing: 10) {
+            HStack(spacing: 8) {
                 if item.isLiveNow {
-                    HStack(spacing: 6) {
+                    HStack(spacing: 5) {
                         Circle()
                             .fill(Color.white)
-                            .frame(width: 8, height: 8)
+                            .frame(width: 7, height: 7)
                         Text(store.t("liveLessonNow").uppercased())
-                            .font(.system(size: 11, weight: .black))
+                            .font(.system(size: 10, weight: .black))
                     }
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 4)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 3)
                     .background(Capsule().fill(Color.green))
                     .foregroundStyle(.white)
                 } else {
-                    HStack(spacing: 6) {
+                    HStack(spacing: 5) {
                         Image(systemName: "clock")
-                            .font(.system(size: 11, weight: .bold))
+                            .font(.system(size: 10, weight: .bold))
                         Text(store.t("nextLessonHeading").uppercased())
-                            .font(.system(size: 11, weight: .black))
+                            .font(.system(size: 10, weight: .black))
                     }
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 4)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 3)
                     .background(Capsule().fill(Color.blue.opacity(0.12)))
                     .foregroundStyle(.blue)
                 }
 
                 Text(item.badge)
-                    .font(.caption.bold())
+                    .font(.caption2.bold())
                     .foregroundStyle(.white)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(RoundedRectangle(cornerRadius: 6).fill(pal.color))
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 3)
+                    .background(RoundedRectangle(cornerRadius: 5).fill(pal.color))
 
                 Text(item.course.name)
-                    .font(.subheadline.bold())
+                    .font(.caption.bold())
                     .foregroundStyle(.secondary)
+                    .lineLimit(1)
 
                 Spacer()
 
                 // Live Countdown Timer Badge before next lesson
                 let remainingText = countdownString(for: item, now: currentTime)
                 if !remainingText.isEmpty {
-                    HStack(spacing: 5) {
+                    HStack(spacing: 4) {
                         Image(systemName: item.isLiveNow ? "dot.radiowaves.left.and.right" : "timer")
-                            .font(.system(size: 11, weight: .bold))
+                            .font(.system(size: 10, weight: .bold))
                         Text(remainingText)
-                            .font(.system(size: 12, weight: .heavy).monospacedDigit())
+                            .font(.system(size: 11, weight: .heavy).monospacedDigit())
                     }
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 4)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 3)
                     .background(
                         Capsule()
                             .fill(item.isLiveNow ? Color.green.opacity(0.18) : pal.color.opacity(0.15))
@@ -505,82 +556,95 @@ public struct HomeView: View {
                     .help("Tempo rimanente prima della prossima lezione")
                 }
 
-                HStack(spacing: 5) {
+                HStack(spacing: 4) {
                     Image(systemName: "person.2")
-                        .font(.caption)
+                        .font(.caption2)
                     Text(store.count(item.studentCount, one: "enrolledOneLower", many: "enrolledLower"))
-                        .font(.caption.bold())
+                        .font(.caption2.bold())
                 }
-                .padding(.horizontal, 8)
-                .padding(.vertical, 4)
+                .padding(.horizontal, 7)
+                .padding(.vertical, 3)
                 .background(RoundedRectangle(cornerRadius: 6).fill(Color.secondary.opacity(0.1)))
             }
 
             // Title & Lesson Number
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: 2) {
                 if item.hasCustomTitle {
                     Text(item.lessonTitle)
-                        .font(.title2.bold())
+                        .font(isCompact ? .title3.bold() : .title2.bold())
+                        .lineLimit(1)
                     Text("\(store.t("lessonNumberTitle")) \(item.lessonNum) • \(item.module.name)")
-                        .font(.subheadline)
+                        .font(.caption)
                         .foregroundStyle(.secondary)
+                        .lineLimit(1)
                 } else {
                     Text("\(store.t("lessonNumberTitle")) \(item.lessonNum)")
-                        .font(.title2.bold())
+                        .font(isCompact ? .title3.bold() : .title2.bold())
                     Text("\(item.level.name) • \(item.module.name)")
-                        .font(.subheadline)
+                        .font(.caption)
                         .foregroundStyle(.secondary)
+                        .lineLimit(1)
                 }
             }
 
             // Metric Cards: Date, Time, Duration, Type
-            HStack(spacing: 12) {
-                metricBox(icon: "calendar", title: store.t("lessonInviteDate"), value: store.formatDateDisplay(item.dateIso))
-                metricBox(icon: "clock", title: store.t("timeScheduleLabel"), value: "\(item.startTime) - \(item.endTime)")
-                metricBox(icon: "stopwatch", title: store.t("durationLabel"), value: item.durationHuman)
-                metricBox(icon: "graduationcap", title: "Tipo", value: item.course.type == "private" ? store.t("privateBadge") : store.t("groupBadge"))
+            if isCompact {
+                LazyVGrid(columns: [GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8)], spacing: 8) {
+                    metricBox(icon: "calendar", title: store.t("lessonInviteDate"), value: store.formatDateDisplay(item.dateIso))
+                    metricBox(icon: "clock", title: store.t("timeScheduleLabel"), value: "\(item.startTime) - \(item.endTime)")
+                    metricBox(icon: "stopwatch", title: store.t("durationLabel"), value: item.durationHuman)
+                    metricBox(icon: "graduationcap", title: "Tipo", value: item.course.type == "private" ? store.t("privateBadge") : store.t("groupBadge"))
+                }
+            } else {
+                HStack(spacing: 12) {
+                    metricBox(icon: "calendar", title: store.t("lessonInviteDate"), value: store.formatDateDisplay(item.dateIso))
+                    metricBox(icon: "clock", title: store.t("timeScheduleLabel"), value: "\(item.startTime) - \(item.endTime)")
+                    metricBox(icon: "stopwatch", title: store.t("durationLabel"), value: item.durationHuman)
+                    metricBox(icon: "graduationcap", title: "Tipo", value: item.course.type == "private" ? store.t("privateBadge") : store.t("groupBadge"))
+                }
             }
 
             // Enrolled Students Roster Row (if students enrolled)
             if !item.studentNames.isEmpty {
-                HStack(spacing: 8) {
+                HStack(spacing: 6) {
                     Image(systemName: "person.2.fill")
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                     Text("\(store.t("enrolledStudentsCountLabel")):")
-                        .font(.caption.bold())
+                        .font(.caption2.bold())
                         .foregroundStyle(.secondary)
 
                     ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 6) {
+                        HStack(spacing: 5) {
                             ForEach(item.studentNames, id: \.self) { sName in
                                 HStack(spacing: 4) {
                                     Circle()
                                         .fill(pal.color)
                                         .frame(width: 5, height: 5)
                                     Text(sName)
-                                        .font(.caption.weight(.semibold))
+                                        .font(.caption2.weight(.semibold))
+                                        .lineLimit(1)
                                 }
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 3)
+                                .padding(.horizontal, 7)
+                                .padding(.vertical, 2)
                                 .background(Capsule().fill(Color.secondary.opacity(0.10)))
                             }
                         }
                     }
                 }
-                .padding(.horizontal, 4)
+                .padding(.horizontal, 2)
             }
 
             Divider()
 
             // Actions: Join, Copy, Lesson Plan, Register
-            HStack(spacing: 12) {
+            HStack(spacing: 8) {
                 if let meet = item.meetUrl, !meet.isEmpty, let url = URL(string: meet) {
                     Button {
                         NSWorkspace.shared.open(url)
                     } label: {
                         Label(store.t("joinLessonBtn"), systemImage: "video.fill")
-                            .font(.callout.bold())
+                            .font(.caption.bold())
                     }
                     .buttonStyle(.borderedProminent)
                     .tint(.green)
@@ -590,7 +654,7 @@ public struct HomeView: View {
                     store.copyLessonStudentInvitation(course: item.course, module: item.module, slotKey: item.slotKey)
                 } label: {
                     Label(store.t("copyLessonInviteBtn"), systemImage: "square.and.arrow.up")
-                        .font(.callout.bold())
+                        .font(.caption.bold())
                 }
                 .buttonStyle(.bordered)
 
@@ -598,7 +662,7 @@ public struct HomeView: View {
                     activeSheet = .lessonPlan(courseId: item.course.id, sectionId: item.module.id, slotKey: item.slotKey)
                 } label: {
                     Label(store.t("lessonPlanTitle"), systemImage: "text.book.closed")
-                        .font(.callout.bold())
+                        .font(.caption.bold())
                 }
                 .buttonStyle(.bordered)
 
@@ -608,15 +672,15 @@ public struct HomeView: View {
                     store.switchCourse(item.course.id, tab: .attendance)
                 } label: {
                     Label(store.t("openCourseBtn"), systemImage: "checklist")
-                        .font(.callout.bold())
+                        .font(.caption.bold())
                 }
                 .buttonStyle(.bordered)
             }
         }
-        .padding(22)
-        .appCardStyle(cornerRadius: 20)
+        .padding(isCompact ? 16 : 22)
+        .appCardStyle(cornerRadius: 18)
         .overlay(
-            RoundedRectangle(cornerRadius: 20)
+            RoundedRectangle(cornerRadius: 18)
                 .strokeBorder(accentColor.opacity(item.isLiveNow ? 0.7 : 0.35), lineWidth: item.isLiveNow ? 2.5 : 1.5)
         )
     }
@@ -642,8 +706,9 @@ public struct HomeView: View {
 
     private func subsequentLessonCard(_ item: ScheduledHomeLesson) -> some View {
         let pal = store.palette(for: item.course.color)
+        let remaining = formatRemainingTime(for: item, now: currentTime)
 
-        return VStack(alignment: .leading, spacing: 10) {
+        return VStack(alignment: .leading, spacing: 8) {
             HStack {
                 Text(item.badge)
                     .font(.caption2.bold())
@@ -680,6 +745,20 @@ public struct HomeView: View {
                 Text(item.startTime)
                     .font(.caption.monospaced())
                     .foregroundStyle(.secondary)
+            }
+
+            // Indicatore "Mancano X ore" o "Mancano Y minuti"
+            if !remaining.isEmpty {
+                HStack(spacing: 4) {
+                    Image(systemName: item.isLiveNow ? "dot.radiowaves.left.and.right" : "clock")
+                        .font(.system(size: 9, weight: .bold))
+                    Text(remaining)
+                        .font(.system(size: 10, weight: .bold))
+                }
+                .padding(.horizontal, 6)
+                .padding(.vertical, 2.5)
+                .background(Capsule().fill(item.isLiveNow ? Color.green.opacity(0.14) : Color.orange.opacity(0.14)))
+                .foregroundStyle(item.isLiveNow ? Color.green : Color.orange)
             }
 
             Divider()
@@ -730,7 +809,7 @@ public struct HomeView: View {
                 .help(store.t("openCourseBtn"))
             }
         }
-        .padding(14)
+        .padding(12)
         .appCardStyle(cornerRadius: 14)
         .overlay(
             RoundedRectangle(cornerRadius: 14)
@@ -3952,59 +4031,92 @@ public struct RosterView: View {
                                             let st = store.state.studentsDirectory.first(where: { $0.id == stId }) ?? Student(id: stId, firstName: "Studente")
                                             HStack(spacing: 12) {
                                                 // Column 1: Student Name
-                                                Button {
-                                                    activeSheet = .studentDetail(st.id)
-                                                } label: {
-                                                    HStack(spacing: 8) {
-                                                        Image(systemName: "person.crop.circle.fill")
-                                                            .foregroundStyle(store.activeCoursePalette.color)
-                                                        Text(st.fullName)
-                                                            .font(.body.weight(.semibold))
-                                                            .lineLimit(2)
-                                                            .multilineTextAlignment(.leading)
+                                                HStack(spacing: 6) {
+                                                    Button {
+                                                        activeSheet = .studentDetail(st.id)
+                                                    } label: {
+                                                        HStack(spacing: 6) {
+                                                            Image(systemName: "person.crop.circle.fill")
+                                                                .foregroundStyle(store.activeCoursePalette.color)
+                                                            Text(st.fullName)
+                                                                .font(.body.weight(.semibold))
+                                                                .lineLimit(2)
+                                                                .multilineTextAlignment(.leading)
+                                                        }
                                                     }
+                                                    .buttonStyle(.plain)
+
+                                                    Button {
+                                                        copyToClipboard(st.fullName, label: "Nome studente")
+                                                    } label: {
+                                                        Image(systemName: "doc.on.doc")
+                                                            .font(.system(size: 10))
+                                                            .foregroundStyle(.secondary.opacity(0.6))
+                                                    }
+                                                    .buttonStyle(.plain)
+                                                    .help("Clicca per copiare il nome")
                                                 }
-                                                .buttonStyle(.plain)
                                                 .frame(width: 240, alignment: .leading)
 
                                                 // Column 2: Phone
-                                                HStack(spacing: 5) {
-                                                    if !st.phone.isEmpty {
-                                                        Image(systemName: "phone.fill").font(.caption2).foregroundStyle(.secondary)
-                                                        Text(st.phone).lineLimit(1)
-                                                    } else {
-                                                        Text("—").foregroundStyle(.tertiary)
+                                                Button {
+                                                    copyToClipboard(st.phone, label: "Telefono")
+                                                } label: {
+                                                    HStack(spacing: 5) {
+                                                        if !st.phone.isEmpty {
+                                                            Image(systemName: "phone.fill").font(.caption2).foregroundStyle(.secondary)
+                                                            Text(st.phone).lineLimit(1)
+                                                            Image(systemName: "doc.on.doc").font(.system(size: 9)).foregroundStyle(.secondary.opacity(0.4))
+                                                        } else {
+                                                            Text("—").foregroundStyle(.tertiary)
+                                                        }
                                                     }
                                                 }
+                                                .buttonStyle(.plain)
                                                 .font(.caption)
                                                 .blur(radius: store.showSensitiveGroupData ? 0 : 5)
                                                 .frame(width: 140, alignment: .leading)
+                                                .help(st.phone.isEmpty ? "" : "Clicca per copiare il telefono")
 
                                                 // Column 3: Email
-                                                HStack(spacing: 5) {
-                                                    if !st.email.isEmpty {
-                                                        Image(systemName: "envelope.fill").font(.caption2).foregroundStyle(.secondary)
-                                                        Text(st.email).lineLimit(1)
-                                                    } else {
-                                                        Text("—").foregroundStyle(.tertiary)
+                                                Button {
+                                                    copyToClipboard(st.email, label: "E-mail")
+                                                } label: {
+                                                    HStack(spacing: 5) {
+                                                        if !st.email.isEmpty {
+                                                            Image(systemName: "envelope.fill").font(.caption2).foregroundStyle(.secondary)
+                                                            Text(st.email).lineLimit(1)
+                                                            Image(systemName: "doc.on.doc").font(.system(size: 9)).foregroundStyle(.secondary.opacity(0.4))
+                                                        } else {
+                                                            Text("—").foregroundStyle(.tertiary)
+                                                        }
                                                     }
                                                 }
+                                                .buttonStyle(.plain)
                                                 .font(.caption)
                                                 .blur(radius: store.showSensitiveGroupData ? 0 : 5)
                                                 .frame(minWidth: 180, maxWidth: .infinity, alignment: .leading)
+                                                .help(st.email.isEmpty ? "" : "Clicca per copiare l'email")
 
                                                 // Column 4: City
-                                                HStack(spacing: 5) {
-                                                    if !st.city.isEmpty {
-                                                        Image(systemName: "location.fill").font(.caption2).foregroundStyle(.secondary)
-                                                        Text(st.city).lineLimit(1)
-                                                    } else {
-                                                        Text("—").foregroundStyle(.tertiary)
+                                                Button {
+                                                    copyToClipboard(st.city, label: "Città")
+                                                } label: {
+                                                    HStack(spacing: 5) {
+                                                        if !st.city.isEmpty {
+                                                            Image(systemName: "location.fill").font(.caption2).foregroundStyle(.secondary)
+                                                            Text(st.city).lineLimit(1)
+                                                            Image(systemName: "doc.on.doc").font(.system(size: 9)).foregroundStyle(.secondary.opacity(0.4))
+                                                        } else {
+                                                            Text("—").foregroundStyle(.tertiary)
+                                                        }
                                                     }
                                                 }
+                                                .buttonStyle(.plain)
                                                 .font(.caption)
                                                 .blur(radius: store.showSensitiveGroupData ? 0 : 5)
                                                 .frame(width: 120, alignment: .leading)
+                                                .help(st.city.isEmpty ? "" : "Clicca per copiare la città")
 
                                                 // Column 5: Actions (Profile Card + Yellow Archive Icon + Red X Icon)
                                                 HStack(spacing: 8) {
@@ -4092,5 +4204,13 @@ public struct RosterView: View {
                 Text(store.t("removeStudentPromptMessage"))
             }
         )
+    }
+
+    private func copyToClipboard(_ text: String, label: String = "") {
+        let clean = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !clean.isEmpty && clean != "—" else { return }
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(clean, forType: .string)
+        store.showToast(label.isEmpty ? "Copiato: \(clean)" : "\(label) copiato: \(clean)")
     }
 }

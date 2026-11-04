@@ -1,5 +1,12 @@
 # Changelog
 
+## v26.11.1-015 (Stabile) – 4 novembre 2026
+- Nuova navigazione: rinominata la sezione Home in Libreria; menu contestuale a comparsa con anteprima di massimo 6 libri (e scorrimento) al passaggio del mouse o pressione prolungata; lavagna posizionata sotto la Libreria e gruppi sotto la lavagna.
+- Esportazione libro nel formato originale (.zip/.book) con download diretto dai tre puntini.
+- Modifica libro dai tre puntini abilitata esclusivamente in modalità insegnante.
+- Aggiornamenti silenziosi all'avvio e chiusura dell'applicazione in background.
+- Include tutte le correzioni e il supporto Wi-Fi sincronizzato con Android dalla versione 26.11.1-014.
+
 ## v26.11.1-012 (Stabile) – 3 novembre 2026
 - Interfaccia più semplice: azioni secondarie raccolte in menu «⋯» (lavagna, libreria, gruppi, editor di moduli e libri, barra dell'esercizio, avviso di aggiornamento).
 

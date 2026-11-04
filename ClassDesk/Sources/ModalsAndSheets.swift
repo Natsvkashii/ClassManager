@@ -1994,12 +1994,33 @@ public struct StudentDetailSheet: View {
             // Top bar with Lesson Notes History, WhatsApp, Email, Modify (pencil), and X button
             HStack(alignment: .center, spacing: 8) {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("\(firstName) \(lastName)".trimmingCharacters(in: .whitespaces))
-                        .font(.title2.bold())
+                    let fullName = "\(firstName) \(lastName)".trimmingCharacters(in: .whitespaces)
+                    Button {
+                        copyToClipboard(fullName, label: "Nome alunno")
+                    } label: {
+                        HStack(spacing: 6) {
+                            Text(fullName)
+                                .font(.title2.bold())
+                                .foregroundStyle(.primary)
+                            Image(systemName: "doc.on.doc")
+                                .font(.system(size: 11))
+                                .foregroundStyle(.secondary.opacity(0.5))
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .help("Clicca per copiare il nome")
+
                     if let idx = studentIndex {
-                        Text("\(store.t("currentLevelLabel")): \(store.state.studentsDirectory[idx].lastFollowedLevel ?? store.state.studentsDirectory[idx].currentLevel)")
-                            .font(.caption.bold())
-                            .foregroundStyle(store.activeCoursePalette.color)
+                        let lvl = store.state.studentsDirectory[idx].lastFollowedLevel ?? store.state.studentsDirectory[idx].currentLevel
+                        Button {
+                            copyToClipboard(lvl, label: "Livello")
+                        } label: {
+                            Text("\(store.t("currentLevelLabel")): \(lvl)")
+                                .font(.caption.bold())
+                                .foregroundStyle(store.activeCoursePalette.color)
+                        }
+                        .buttonStyle(.plain)
+                        .help("Clicca per copiare il livello")
                     }
                 }
                 Spacer()
@@ -2336,39 +2357,66 @@ public struct StudentDetailSheet: View {
         }
     }
 
+    private func copyToClipboard(_ text: String, label: String = "") {
+        let clean = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !clean.isEmpty && clean != "—" else { return }
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(clean, forType: .string)
+        store.showToast(label.isEmpty ? "Copiato: \(clean)" : "\(label) copiato: \(clean)")
+    }
+
     @ViewBuilder
     private func statBox(label: String, value: String, color: Color) -> some View {
-        VStack(spacing: 4) {
-            Text(label).font(.caption2).foregroundStyle(.secondary)
-            Text(value).font(.headline.bold()).foregroundStyle(color)
+        Button {
+            copyToClipboard(value, label: label)
+        } label: {
+            VStack(spacing: 4) {
+                Text(label).font(.caption2).foregroundStyle(.secondary)
+                Text(value).font(.headline.bold()).foregroundStyle(color)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(10)
+            .background(
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(Color.secondary.opacity(0.07))
+                    .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Color.secondary.opacity(0.22)))
+            )
+            .contentShape(Rectangle())
         }
-        .frame(maxWidth: .infinity)
-        .padding(10)
-        .background(
-            RoundedRectangle(cornerRadius: 10)
-                .fill(Color.secondary.opacity(0.07))
-                .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Color.secondary.opacity(0.22)))
-        )
+        .buttonStyle(.plain)
+        .help("Clicca per copiare \(label.lowercased())")
     }
 
     @ViewBuilder
     private func staticFieldBox(_ label: String, value: String) -> some View {
+        let clean = value.trimmingCharacters(in: .whitespacesAndNewlines)
         VStack(alignment: .leading, spacing: 4) {
             Text(label)
                 .font(.caption.bold())
                 .foregroundStyle(.secondary)
-            Text(value.trimmingCharacters(in: .whitespaces).isEmpty ? "—" : value)
-                .font(.body.weight(.medium))
-                .textSelection(.enabled)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 7)
-                .background(
-                    RoundedRectangle(cornerRadius: 8)
-                        .fill(Color.secondary.opacity(0.06))
-                        .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color.secondary.opacity(0.22)))
-                )
+
+            Button {
+                guard !clean.isEmpty && clean != "—" else { return }
+                copyToClipboard(clean, label: label)
+            } label: {
+                HStack(spacing: 6) {
+                    Text(clean.isEmpty ? "—" : clean)
+                        .font(.body.weight(.medium))
+                        .foregroundStyle(clean.isEmpty ? .secondary : .primary)
+                        .textSelection(.enabled)
+                    if !clean.isEmpty && clean != "—" {
+                        Image(systemName: "doc.on.doc")
+                            .font(.system(size: 10))
+                            .foregroundStyle(.secondary.opacity(0.55))
+                    }
+                }
+                .padding(.vertical, 3)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .help(clean.isEmpty || clean == "—" ? "" : "Clicca per copiare \(label.lowercased())")
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     @ViewBuilder

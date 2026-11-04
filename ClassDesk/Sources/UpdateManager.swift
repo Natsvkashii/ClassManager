@@ -189,6 +189,10 @@ public final class UpdateManager: NSObject, URLSessionDownloadDelegate {
     public var isStagingSilentUpdate: Bool = false
     public var isSimulatedStaging: Bool = false
 
+    public var hasStagedUpdateReady: Bool {
+        stagedUpdateVersion != nil || FileManager.default.fileExists(atPath: stagedUpdateDir.appendingPathComponent("staged_version.txt").path)
+    }
+
     @ObservationIgnored private var stagingRelease: GitHubRelease? = nil
     @ObservationIgnored private var downloadTask: URLSessionDownloadTask? = nil
     @ObservationIgnored private var activeDownloadAsset: GitHubAsset? = nil
@@ -342,18 +346,147 @@ public final class UpdateManager: NSObject, URLSessionDownloadDelegate {
         }
     }
 
+    /// Installs a previously downloaded and staged update SILENTLY when the application terminates,
+    /// without relaunching the app (the user closed it).
+    public func installStagedSilentlyOnQuit() {
+        let verFile = stagedUpdateDir.appendingPathComponent("staged_version.txt")
+        let stagedApp = stagedUpdateDir.appendingPathComponent("ClassDesk.app")
+        guard FileManager.default.fileExists(atPath: verFile.path),
+              FileManager.default.fileExists(atPath: stagedApp.path) else {
+            return
+        }
+
+        let stagedVer = (try? String(contentsOf: verFile, encoding: .utf8).trimmingCharacters(in: .whitespacesAndNewlines)) ?? "unknown"
+        try? FileManager.default.removeItem(at: verFile)
+        self.stagedUpdateVersion = nil
+
+        let currentBundle = Bundle.main.bundlePath
+        guard currentBundle.hasSuffix(".app") else {
+            try? FileManager.default.removeItem(at: stagedUpdateDir)
+            return
+        }
+
+        appendLog("[QUIT-INSTALL] Installazione silenziosa alla chiusura (\(stagedVer))...")
+        let currentPid = ProcessInfo.processInfo.processIdentifier
+        let scriptPath = FileManager.default.temporaryDirectory.appendingPathComponent("classdesk_quit_install_\(UUID().uuidString).sh").path
+        let stageDirPath = stagedUpdateDir.path
+
+        let updateScript = """
+        #!/bin/sh
+        trap '' HUP INT TERM
+        PID=\(currentPid)
+        SOURCE="\(stagedApp.path)"
+        TARGET="\(currentBundle)"
+        STAGE_DIR="\(stageDirPath)"
+
+        TIMEOUT=60
+        while [ $TIMEOUT -gt 0 ] && kill -0 "$PID" 2>/dev/null; do
+            sleep 0.15
+            TIMEOUT=$((TIMEOUT - 1))
+        done
+        if kill -0 "$PID" 2>/dev/null; then
+            kill -15 "$PID" 2>/dev/null || true
+            sleep 0.3
+        fi
+
+        OLD_BACKUP="/tmp/classdesk_quit_backup_$$"
+        rm -rf "$OLD_BACKUP" 2>/dev/null || true
+        if [ -d "$TARGET" ]; then
+            mv "$TARGET" "$OLD_BACKUP" 2>/dev/null || true
+        fi
+
+        cp -R "$SOURCE" "$TARGET"
+        CP_STATUS=$?
+
+        if [ $CP_STATUS -ne 0 ] || [ ! -d "$TARGET" ]; then
+            if [ -d "$OLD_BACKUP" ]; then
+                mv "$OLD_BACKUP" "$TARGET" 2>/dev/null || true
+            fi
+        else
+            xattr -cr "$TARGET" 2>/dev/null || true
+            chmod -R ugo+rwX "$TARGET" 2>/dev/null || true
+        fi
+
+        rm -rf "$OLD_BACKUP" 2>/dev/null || true
+        rm -rf "$STAGE_DIR" 2>/dev/null || true
+        rm -f "$0" 2>/dev/null || true
+        exit 0
+        """
+
+        try? updateScript.write(toFile: scriptPath, atomically: true, encoding: .utf8)
+        let chmodProc = Process()
+        chmodProc.executableURL = URL(fileURLWithPath: "/bin/chmod")
+        chmodProc.arguments = ["+x", scriptPath]
+        try? chmodProc.run()
+        chmodProc.waitUntilExit()
+
+        let p = Process()
+        p.executableURL = URL(fileURLWithPath: "/bin/sh")
+        p.arguments = [scriptPath]
+        try? p.run()
+    }
+
+    /// Handles lifecycle checks and silent background downloads when opening the app.
+    public func onAppLaunching(includeBeta: Bool) {
+        // 1. If an update was previously staged and not yet applied, install it pre-opening
+        checkAndApplyStagedUpdateIfNeeded()
+
+        // 2. Check if a pending update was marked on previous quit
+        let pendingFile = appSupportDir.appendingPathComponent("pending_update.txt")
+        let hadPending = FileManager.default.fileExists(atPath: pendingFile.path)
+        if hadPending {
+            try? FileManager.default.removeItem(at: pendingFile)
+        }
+
+        // 3. Automatically check for updates daily / startup, auto-staging silently in background
+        checkForUpdates(includeBeta: includeBeta, silent: true, autoStageInBackground: true)
+    }
+
+    /// Handles lifecycle check and silent update application when closing the app.
+    public func onAppClosing(includeBeta: Bool) {
+        if hasStagedUpdateReady {
+            installStagedSilentlyOnQuit()
+            return
+        }
+
+        // Quick synchronous check before termination (timeout 2s) to detect updates on quit
+        guard let url = URL(string: Self.releasesApiUrl) else { return }
+        var req = URLRequest(url: url)
+        req.timeoutInterval = 2.0
+        req.setValue("application/vnd.github.v3+json", forHTTPHeaderField: "Accept")
+        if let token = ProcessInfo.processInfo.environment["GITHUB_TOKEN"], !token.isEmpty {
+            req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        let pendingFile = appSupportDir.appendingPathComponent("pending_update.txt")
+        let semaphore = DispatchSemaphore(value: 0)
+        let session = URLSession(configuration: .ephemeral)
+        session.dataTask(with: req) { data, response, error in
+            defer { semaphore.signal() }
+            guard let data = data,
+                  let releases = try? JSONDecoder().decode([GitHubRelease].self, from: data) else {
+                return
+            }
+            let valid = releases.filter { includeBeta ? true : !$0.prerelease }
+            guard let latest = valid.first(where: {
+                AppVersion(string: $0.cleanVersion) > AppVersion(string: AuthorAttribution.appVersion)
+            }) else { return }
+
+            try? latest.tag_name.write(to: pendingFile, atomically: true, encoding: .utf8)
+        }.resume()
+        _ = semaphore.wait(timeout: .now() + 2.0)
+    }
+
     /// Checks GitHub Releases for newer versions.
     /// If `includeBeta` is false, only stable (prerelease == false) releases are evaluated,
     /// unless the currently running application is itself a beta (continuity rule).
     public func checkForUpdates(includeBeta: Bool, silent: Bool = false, autoStageInBackground: Bool = false) {
         guard !isChecking else { return }
-        // ClassDesk Suite: when HubDesk is installed it manages the updates (opened on its updates page);
-        // this internal updater stays as the fallback when HubDesk is missing.
-        if SuiteSync.hubDelegatesUpdates {
-            if !silent {
-                statusMessage = "Gli aggiornamenti sono gestiti da HubDesk."
-                DeskHubBootstrap.openHub(page: "updates")
-            }
+        // ClassDesk Suite: when HubDesk is installed and user triggers an interactive check,
+        // direct them to HubDesk. For silent background auto-updates, execute directly.
+        if !autoStageInBackground && !silent && SuiteSync.hubDelegatesUpdates {
+            statusMessage = "Gli aggiornamenti sono gestiti da HubDesk."
+            DeskHubBootstrap.openHub(page: "updates")
             return
         }
         isChecking = true

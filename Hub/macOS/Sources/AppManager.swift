@@ -218,9 +218,25 @@ public final class AppManager {
         // keep installed state fresh (apps installed or removed outside HubDesk)
         let r = DispatchSource.makeTimerSource(queue: .main)
         r.schedule(deadline: .now() + 5, repeating: 5)
-        r.setEventHandler { [weak self] in MainActor.assumeIsolated { self?.refreshInstalled() } }
+        r.setEventHandler { [weak self] in
+            MainActor.assumeIsolated {
+                self?.refreshInstalled()
+                if self?.autoUpdate == true {
+                    Task { await self?.autoInstall() }
+                }
+            }
+        }
         r.resume()
         refresher = r
+
+        NotificationCenter.default.addObserver(forName: NSWorkspace.didTerminateApplicationNotification, object: nil, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated {
+                self?.refreshInstalled()
+                if self?.autoUpdate == true {
+                    Task { await self?.autoInstall() }
+                }
+            }
+        }
     }
     @ObservationIgnored private var refresher: DispatchSourceTimer?
 
@@ -240,7 +256,7 @@ public final class AppManager {
 
     private func autoInstall() async {
         for a in [SuiteApp.classdesk, .studydesk] {
-            if let c = cards[a], c.needsUpdate, !c.isRunning, c.busy == nil { await install(a) }
+            if let c = cards[a], c.needsUpdate, !c.isRunning, c.busy == nil { await install(a, background: true) }
         }
         if let c = cards[.hubdesk], c.needsUpdate, c.busy == nil, !NSApp.windows.contains(where: { $0.isVisible && $0.canBecomeMain }) { await install(.hubdesk, background: true) }
     }
@@ -278,7 +294,7 @@ public final class AppManager {
             try? FileManager.default.removeItem(at: work)
             cards[a]?.progress = 1
             refreshInstalled()
-            if wasRunning { Installer.open(dest) }
+            if wasRunning && !background { Installer.open(dest) }
             else if !card.isInstalled && a != .hubdesk { /* fresh install: the user opens it from the card */ }
         } catch {
             cards[a]?.error = error.localizedDescription

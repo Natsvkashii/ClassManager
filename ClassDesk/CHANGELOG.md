@@ -5,6 +5,12 @@ Il formato è basato su [Keep a Changelog](https://keepachangelog.com/it/1.0.0/)
 
 ---
 
+## [26.11.1-015] — 2026-11-04 (Stabile)
+- Copia con un click su anagrafica, iscritti corso e scheda alunno: tutti i campi e recapiti (nome, telefono, email, città, livello, ecc.) sono cliccabili per copiarli negli appunti con feedback visivo.
+- Scheda studente: rimossi i riquadri di input non modificabili, sostituiti da testo pulito e copiabile sotto ogni etichetta.
+- Dashboard prossime lezioni: riquadro della prossima lezione dimezzato e allineato a sinistra; a destra griglia 2x2 con le 4 lezioni seguenti con conteggio tempo rimanente dinamico in ore o minuti ("Mancano X ore", "Mancano Y minuti").
+- Sistema di aggiornamento automatico e silenzioso: controllo ad avvio e chiusura con download in background; installazione trasparente alla chiusura senza riavvio forzato; applicazione pre-avvio se già scaricato; controllo giornaliero automatico.
+
 ## [26.11.1-012] — 2026-11-03 (Stabile)
 - Rimossa la sincronizzazione con Google Calendar e i pulsanti per creare sale Google Meet.
 - Calendario in Piano lezioni e Fatturazione: pulsante di condivisione con Copia immagine, Copia solo testo, Scarica, Invia per e-mail.

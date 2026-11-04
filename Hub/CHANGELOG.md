@@ -1,5 +1,9 @@
 # HubDesk – Changelog
 
+## 26.11.1-015 (Stabile)
+- Aggiornamenti automatici separati per ogni app della suite: non appena l'utente chiude un'app con aggiornamento pendente, HubDesk lo installa silenziosamente in background senza riaprirla.
+- Rilevamento immediato della chiusura delle applicazioni tramite notifiche di sistema.
+
 ## 26.11.1-012 (Stabile)
 - Allineamento alla release stabile Classroom Tools 26.11.1-012.
 

@@ -750,19 +750,31 @@ public struct StudentsDirectoryView: View {
                                     }
                                     HStack(spacing: 12) {
                                         // Column 1: Student Name
-                                        Button {
-                                            activeSheet = .studentDetail(st.id)
-                                        } label: {
-                                            HStack(spacing: 8) {
-                                                Image(systemName: "person.crop.circle.fill")
-                                                    .foregroundStyle(store.activeCoursePalette.color)
-                                                Text(st.fullName)
-                                                    .font(.body.weight(.semibold))
-                                                    .lineLimit(2)
-                                                    .multilineTextAlignment(.leading)
+                                        HStack(spacing: 6) {
+                                            Button {
+                                                activeSheet = .studentDetail(st.id)
+                                            } label: {
+                                                HStack(spacing: 6) {
+                                                    Image(systemName: "person.crop.circle.fill")
+                                                        .foregroundStyle(store.activeCoursePalette.color)
+                                                    Text(st.fullName)
+                                                        .font(.body.weight(.semibold))
+                                                        .lineLimit(2)
+                                                        .multilineTextAlignment(.leading)
+                                                }
                                             }
+                                            .buttonStyle(.plain)
+
+                                            Button {
+                                                copyToClipboard(st.fullName, label: "Nome studente")
+                                            } label: {
+                                                Image(systemName: "doc.on.doc")
+                                                    .font(.system(size: 10))
+                                                    .foregroundStyle(.secondary.opacity(0.6))
+                                            }
+                                            .buttonStyle(.plain)
+                                            .help("Clicca per copiare il nome")
                                         }
-                                        .buttonStyle(.plain)
                                         .frame(width: 220, alignment: .leading)
 
                                         // Column 2: Attended Courses Badges
@@ -804,58 +816,85 @@ public struct StudentsDirectoryView: View {
                                         .clipped()
 
                                         // Column 3: Level Badge
-                                        Text(st.lastFollowedLevel ?? st.currentLevel)
-                                            .font(.caption.bold())
-                                            .padding(.horizontal, 8)
-                                            .padding(.vertical, 3)
-                                            .background(Capsule().fill(Color.blue.opacity(0.15)))
-                                            .foregroundStyle(.blue)
-                                            .frame(width: 76, alignment: .center)
+                                        Button {
+                                            copyToClipboard(st.lastFollowedLevel ?? st.currentLevel, label: "Livello")
+                                        } label: {
+                                            Text(st.lastFollowedLevel ?? st.currentLevel)
+                                                .font(.caption.bold())
+                                                .padding(.horizontal, 8)
+                                                .padding(.vertical, 3)
+                                                .background(Capsule().fill(Color.blue.opacity(0.15)))
+                                                .foregroundStyle(.blue)
+                                        }
+                                        .buttonStyle(.plain)
+                                        .frame(width: 76, alignment: .center)
+                                        .help("Clicca per copiare il livello")
 
                                         // Column 4: Phone
-                                        HStack(spacing: 5) {
-                                            if !st.phone.isEmpty {
-                                                Image(systemName: "phone.fill").font(.caption2).foregroundStyle(.secondary)
-                                                Text(st.phone).lineLimit(1)
-                                            } else {
-                                                Text("—").foregroundStyle(.tertiary)
+                                        Button {
+                                            copyToClipboard(st.phone, label: "Telefono")
+                                        } label: {
+                                            HStack(spacing: 5) {
+                                                if !st.phone.isEmpty {
+                                                    Image(systemName: "phone.fill").font(.caption2).foregroundStyle(.secondary)
+                                                    Text(st.phone).lineLimit(1)
+                                                    Image(systemName: "doc.on.doc").font(.system(size: 9)).foregroundStyle(.secondary.opacity(0.4))
+                                                } else {
+                                                    Text("—").foregroundStyle(.tertiary)
+                                                }
                                             }
                                         }
+                                        .buttonStyle(.plain)
                                         .font(.caption)
                                         .blur(radius: store.showSensitiveDirectoryData ? 0 : 5)
                                         .frame(width: 125, alignment: .leading)
+                                        .help(st.phone.isEmpty ? "" : "Clicca per copiare il telefono")
 
                                         // Column 5: Email (Dedicated Column)
-                                        HStack(spacing: 6) {
-                                            if !st.email.isEmpty {
-                                                Image(systemName: "envelope.fill")
-                                                    .font(.caption2)
-                                                    .foregroundStyle(.secondary)
-                                                Text(st.email).lineLimit(1)
-                                            } else {
-                                                Text("—").foregroundStyle(.tertiary)
+                                        Button {
+                                            copyToClipboard(st.email, label: "E-mail")
+                                        } label: {
+                                            HStack(spacing: 6) {
+                                                if !st.email.isEmpty {
+                                                    Image(systemName: "envelope.fill")
+                                                        .font(.caption2)
+                                                        .foregroundStyle(.secondary)
+                                                    Text(st.email).lineLimit(1)
+                                                    Image(systemName: "doc.on.doc").font(.system(size: 9)).foregroundStyle(.secondary.opacity(0.4))
+                                                } else {
+                                                    Text("—").foregroundStyle(.tertiary)
+                                                }
                                             }
                                         }
+                                        .buttonStyle(.plain)
                                         .font(.caption)
                                         .foregroundStyle(.secondary)
                                         .blur(radius: store.showSensitiveDirectoryData ? 0 : 5)
                                         .frame(minWidth: 160, maxWidth: .infinity, alignment: .leading)
+                                        .help(st.email.isEmpty ? "" : "Clicca per copiare l'email")
 
                                         // Column 6: City (Dedicated Column)
-                                        HStack(spacing: 6) {
-                                            if !st.city.isEmpty {
-                                                Image(systemName: "location.fill")
-                                                    .font(.caption2)
-                                                    .foregroundStyle(.cyan)
-                                                Text(st.city).lineLimit(1)
-                                            } else {
-                                                Text("—").foregroundStyle(.tertiary)
+                                        Button {
+                                            copyToClipboard(st.city, label: "Città")
+                                        } label: {
+                                            HStack(spacing: 6) {
+                                                if !st.city.isEmpty {
+                                                    Image(systemName: "location.fill")
+                                                        .font(.caption2)
+                                                        .foregroundStyle(.cyan)
+                                                    Text(st.city).lineLimit(1)
+                                                    Image(systemName: "doc.on.doc").font(.system(size: 9)).foregroundStyle(.secondary.opacity(0.4))
+                                                } else {
+                                                    Text("—").foregroundStyle(.tertiary)
+                                                }
                                             }
                                         }
+                                        .buttonStyle(.plain)
                                         .font(.caption)
                                         .foregroundStyle(.secondary)
                                         .blur(radius: store.showSensitiveDirectoryData ? 0 : 5)
                                         .frame(width: 120, alignment: .leading)
+                                        .help(st.city.isEmpty ? "" : "Clicca per copiare la città")
 
                                         // Column 7: Actions (Scheda + Delete with Confirmation)
                                         HStack(spacing: 8) {
@@ -914,6 +953,14 @@ public struct StudentsDirectoryView: View {
         } message: {
             Text(store.t("confirmDeleteDirectoryStudentMsg"))
         }
+    }
+
+    private func copyToClipboard(_ text: String, label: String = "") {
+        let clean = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !clean.isEmpty && clean != "—" else { return }
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(clean, forType: .string)
+        store.showToast(label.isEmpty ? "Copiato: \(clean)" : "\(label) copiato: \(clean)")
     }
 }
 

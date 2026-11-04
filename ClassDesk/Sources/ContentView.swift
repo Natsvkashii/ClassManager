@@ -13,8 +13,19 @@
 import SwiftUI
 import AppKit
 
+final class ClassDeskAppDelegate: NSObject, NSApplicationDelegate {
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        UpdateManager.shared.onAppLaunching(includeBeta: AuthorAttribution.isBeta)
+    }
+
+    func applicationWillTerminate(_ notification: Notification) {
+        UpdateManager.shared.onAppClosing(includeBeta: AuthorAttribution.isBeta)
+    }
+}
+
 @main
 struct ClassDeskApp: App {
+    @NSApplicationDelegateAdaptor(ClassDeskAppDelegate.self) private var appDelegate
     @State private var store = AppStore()
 
     var body: some Scene {
