@@ -580,7 +580,7 @@ public class MainActivity extends Activity {
 
         @JavascriptInterface
         public String getAppVersion() {
-            return "26.11.1-013";
+            return "26.11.1-014";
         }
 
         @JavascriptInterface
@@ -604,7 +604,7 @@ public class MainActivity extends Activity {
                     URL url = new URL(apkUrl);
                     conn = (HttpURLConnection) url.openConnection();
                     conn.setInstanceFollowRedirects(true);
-                    conn.setRequestProperty("User-Agent", "StudyDesk-Android/26.11.1-013");
+                    conn.setRequestProperty("User-Agent", "StudyDesk-Android/26.11.1-014");
                     conn.connect();
 
                     int status = conn.getResponseCode();
@@ -613,7 +613,7 @@ public class MainActivity extends Activity {
                         conn.disconnect();
                         url = new URL(newUrl);
                         conn = (HttpURLConnection) url.openConnection();
-                        conn.setRequestProperty("User-Agent", "StudyDesk-Android/26.11.1-013");
+                        conn.setRequestProperty("User-Agent", "StudyDesk-Android/26.11.1-014");
                         conn.connect();
                     }
 

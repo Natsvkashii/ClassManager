@@ -265,7 +265,7 @@ public class HubDeskSyncClient {
         hello.put("platform", "android");
         hello.put("secret", secret);
         hello.put("proto", PROTO_VERSION);
-        hello.put("version", "26.11.1-013");
+        hello.put("version", "26.11.1-014");
 
         w.println(hello.toString());
         String respLine = r.readLine();
@@ -286,7 +286,7 @@ public class HubDeskSyncClient {
         startReaderLoop();
     }
 
-    /** Multiplexed line reader thread: handles pings automatically and routes replies to request waiters */
+    /** Multiplexed line reader thread: handles pings and server requests automatically and routes replies to request waiters */
     private void startReaderLoop() {
         if (readerThread != null && readerThread.isAlive()) return;
 
@@ -298,23 +298,42 @@ public class HubDeskSyncClient {
                     JSONObject msg = new JSONObject(line);
                     String t = msg.optString("t");
                     int id = msg.optInt("id", 0);
+                    int re = msg.optInt("re", 0);
 
+                    // Check if this is a response to an Android-initiated request (HubDesk sets "re": reqId)
+                    int correlationId = re != 0 ? re : id;
+                    CompletableFuture<JSONObject> waiter = pendingRequests.remove(correlationId);
+                    if (waiter != null) {
+                        waiter.complete(msg);
+                        continue;
+                    }
+
+                    // Handle incoming server requests from HubDesk
                     if ("ping".equals(t)) {
                         JSONObject pong = new JSONObject();
                         pong.put("t", "pong");
-                        if (id != 0) pong.put("id", id);
-                        synchronized (this) {
-                            if (activeWriter != null) {
-                                activeWriter.println(pong.toString());
-                            }
-                        }
-                    } else {
-                        CompletableFuture<JSONObject> waiter = pendingRequests.remove(id);
-                        if (waiter != null) {
-                            waiter.complete(msg);
-                        } else if ("changed".equals(t)) {
-                            Log.d(TAG, "HubDesk notified records changed");
-                        }
+                        if (id != 0) pong.put("re", id);
+                        sendDirect(pong);
+                    } else if ("manifest".equals(t)) {
+                        // HubDesk requests Android's manifest upon connection
+                        JSONObject manifestResp = new JSONObject();
+                        manifestResp.put("t", "manifest");
+                        if (id != 0) manifestResp.put("re", id);
+                        manifestResp.put("records", new JSONObject());
+                        sendDirect(manifestResp);
+                    } else if ("get".equals(t)) {
+                        JSONObject getResp = new JSONObject();
+                        getResp.put("t", "records");
+                        if (id != 0) getResp.put("re", id);
+                        getResp.put("records", new JSONObject());
+                        sendDirect(getResp);
+                    } else if ("put".equals(t) || "base".equals(t)) {
+                        JSONObject okResp = new JSONObject();
+                        okResp.put("t", "ok");
+                        if (id != 0) okResp.put("re", id);
+                        sendDirect(okResp);
+                    } else if ("changed".equals(t)) {
+                        Log.d(TAG, "HubDesk notified records changed");
                     }
                 }
             } catch (Exception e) {
@@ -324,6 +343,14 @@ public class HubDeskSyncClient {
             }
         });
         readerThread.start();
+    }
+
+    private void sendDirect(JSONObject msg) {
+        synchronized (this) {
+            if (activeWriter != null) {
+                activeWriter.println(msg.toString());
+            }
+        }
     }
 
     /** Sends a JSON request and waits asynchronously for the reply with matching id */

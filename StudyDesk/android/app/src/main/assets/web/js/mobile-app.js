@@ -182,7 +182,7 @@ async function loadModuleAssets(moduleId) {
 // Conceived & created for Classroom Tools by Guaira Jaramillo Nitoglia (GPL-3.0)
 // =====================================================================================
 const APP_NAME = 'StudyDesk';
-const APP_VERSION = '26.11.1-013';
+const APP_VERSION = '26.11.1-014';
 const APP_CHANNEL = 'stable';
 const REPO_OWNER = 'Natsvkashii';
 const REPO_NAME = 'ClassManager';
