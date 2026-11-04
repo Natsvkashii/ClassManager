@@ -81,13 +81,13 @@ struct BookShelfCard: View {
                     Label("Apri vuoto temporaneamente", systemImage: "doc")
                 }
 
-                Button {
-                    onEdit(book)
-                } label: {
-                    Label("Modifica libro", systemImage: "pencil")
-                }
-
                 if store.state.isTeacher {
+                    Button {
+                        onEdit(book)
+                    } label: {
+                        Label("Modifica libro", systemImage: "pencil")
+                    }
+
                     Button {
                         onManageGroups(book)
                     } label: {
@@ -97,10 +97,20 @@ struct BookShelfCard: View {
 
                 Divider()
 
-                Button(role: .destructive) {
-                    showDeleteConfirm = true
+                Button {
+                    store.exportBookToDownloads(book.id)
                 } label: {
-                    Label("Elimina libro", systemImage: "trash")
+                    Label("Esporta e condividi (.sdbook)", systemImage: "square.and.arrow.up")
+                }
+
+                if store.state.isTeacher {
+                    Divider()
+
+                    Button(role: .destructive) {
+                        showDeleteConfirm = true
+                    } label: {
+                        Label("Elimina libro", systemImage: "trash")
+                    }
                 }
             } label: {
                 Image(systemName: "ellipsis")
@@ -124,6 +134,24 @@ struct BookShelfCard: View {
         .contentShape(Rectangle())
         .onHover { h in withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) { hover = h } }
         .help("Apri «\(book.title)»")
+        .contextMenu {
+            Button("Apri") { store.requestOpenBook(book.id) }
+            Button("Apri vuoto temporaneamente") { store.openBook(book.id, context: AppStore.blankContext) }
+            if store.state.isTeacher {
+                Button("Modifica libro") { onEdit(book) }
+                Button("Cambia gruppi associati") { onManageGroups(book) }
+            }
+            Divider()
+            Button {
+                store.exportBookToDownloads(book.id)
+            } label: {
+                Label("Esporta e condividi (.sdbook)", systemImage: "square.and.arrow.up")
+            }
+            if store.state.isTeacher {
+                Divider()
+                Button("Elimina libro", role: .destructive) { showDeleteConfirm = true }
+            }
+        }
         .confirmationDialog("Sei sicuro di voler eliminare «\(book.title)»?", isPresented: $showDeleteConfirm) {
             Button("Elimina libro", role: .destructive) {
                 store.deleteBook(book.id, withChapters: true)

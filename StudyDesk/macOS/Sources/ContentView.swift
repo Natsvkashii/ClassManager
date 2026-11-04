@@ -127,16 +127,15 @@ struct ContentView: View {
 
     @ViewBuilder private var workspace: some View {
         switch store.currentTab {
-        case .home: HomeView()
-        case .library: LibraryView()
+        case .home, .library: HomeView()
         case .module:
-            if let m = store.module(store.openModuleId) { ModulePlayerView(module: m) } else { LibraryView() }
-        case .progress: ProgressOverviewView()
-        case .editor: if store.state.isTeacher { ModuleEditorView() } else { HomeView() }
+            if let m = store.module(store.openModuleId) { ModulePlayerView(module: m) } else { HomeView() }
+        case .progress:
+            if !store.state.isTeacher { ProgressOverviewView() } else { HomeView() }
+        case .editor: HomeView()
         case .groups: if store.state.isTeacher { GroupsView() } else { HomeView() }
         case .board: BoardView()
-        case .sync: SettingsView()
-        case .settings: SettingsView()
+        case .sync, .settings: SettingsView()
         case .credits: CreditsView()
         }
     }
@@ -186,22 +185,22 @@ struct SidebarView: View {
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 14) {
-                    sidebarButton(.home, "house.fill", "Home")
-                    section("Studio", [(.library, "books.vertical.fill", "Libreria"), (.progress, "chart.bar.xaxis", "Progressi"), (.board, "pencil.and.scribble", "Lavagna")])
+                    VStack(alignment: .leading, spacing: 4) {
+                        sectionTitle("Studio")
+                        LibrarySidebarButton()
+                        sidebarButton(.board, "pencil.and.scribble", "Lavagna")
+                        if store.state.isTeacher {
+                            sidebarButton(.groups, "person.3.fill", "Gruppi")
+                        }
+                        if !store.state.isTeacher {
+                            sidebarButton(.progress, "chart.bar.xaxis", "Progressi")
+                        }
+                    }
                     if !store.standaloneModules.isEmpty {
                         VStack(alignment: .leading, spacing: 4) {
                             sectionTitle(store.books.isEmpty ? "I miei moduli" : "Moduli singoli")
                             ForEach(store.standaloneModules) { m in moduleButton(m) }
                         }
-                    }
-                    if !store.books.isEmpty {
-                        VStack(alignment: .leading, spacing: 4) {
-                            sectionTitle("I miei libri")
-                            ForEach(store.books) { b in bookButton(b) }
-                        }
-                    }
-                    if store.state.isTeacher {
-                        section("Insegnante", [(.groups, "person.3.fill", "Gruppi"), (.editor, "square.and.pencil", "Editor moduli e libri")])
                     }
                     section("Sistema", [(.settings, "gearshape.fill", "Impostazioni"), (.credits, "info.circle.fill", "Crediti")])
                 }
@@ -349,6 +348,192 @@ store.requestOpenBook(b.id)
             """),
         ]
         if let u = c.url { NSWorkspace.shared.open(u) }
+    }
+}
+
+// MARK: - Pulsante Libreria con menu contestuale dei libri al passaggio del mouse
+
+struct LibrarySidebarButton: View {
+    @Environment(AppStore.self) private var store
+    @State private var showBooksMenu = false
+    @State private var isHoveringButton = false
+    @State private var isHoveringMenu = false
+    @State private var hoverTask: Task<Void, Never>? = nil
+
+    private var isSelected: Bool {
+        store.currentTab == .home && store.openBookId == nil
+    }
+
+    var body: some View {
+        Button {
+            hoverTask?.cancel()
+            showBooksMenu = false
+            withAnimation(.spring(response: 0.4, dampingFraction: 0.86)) {
+                store.openBookId = nil
+            }
+            store.currentTab = .home
+        } label: {
+            HStack(spacing: 10) {
+                Image(systemName: "books.vertical.fill")
+                    .font(.system(size: 13, weight: .semibold))
+                    .frame(width: 24, height: 24)
+                    .background(RoundedRectangle(cornerRadius: 7).fill(isSelected ? Color.white.opacity(0.22) : Theme.accent.opacity(0.12)))
+                    .foregroundStyle(isSelected ? Color.white : Theme.accent)
+                Text("Libreria")
+                    .font(.system(size: 13, weight: isSelected ? .bold : .medium))
+                    .foregroundStyle(isSelected ? Color.white : Color.primary)
+                    .lineLimit(1)
+                Spacer()
+                if !store.books.isEmpty {
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 9, weight: .bold))
+                        .foregroundStyle(isSelected ? Color.white.opacity(0.7) : Color.secondary.opacity(0.5))
+                }
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 7)
+            .background(RoundedRectangle(cornerRadius: 10).fill(isSelected ? Theme.accent : Color.clear))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .onHover { hovering in
+            isHoveringButton = hovering
+            hoverTask?.cancel()
+            if hovering {
+                hoverTask = Task {
+                    try? await Task.sleep(nanoseconds: 350_000_000)
+                    if !Task.isCancelled && !store.books.isEmpty {
+                        await MainActor.run {
+                            showBooksMenu = true
+                        }
+                    }
+                }
+            } else {
+                hoverTask = Task {
+                    try? await Task.sleep(nanoseconds: 200_000_000)
+                    if !Task.isCancelled && !isHoveringMenu {
+                        await MainActor.run {
+                            showBooksMenu = false
+                        }
+                    }
+                }
+            }
+        }
+        .popover(isPresented: $showBooksMenu, arrowEdge: .trailing) {
+            BooksFlyoutMenu(books: store.orderedBooks) { selectedBook in
+                showBooksMenu = false
+                store.requestOpenBook(selectedBook.id)
+            }
+            .onHover { hovering in
+                isHoveringMenu = hovering
+                if !hovering && !isHoveringButton {
+                    Task {
+                        try? await Task.sleep(nanoseconds: 200_000_000)
+                        if !isHoveringMenu && !isHoveringButton {
+                            await MainActor.run {
+                                showBooksMenu = false
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        .help("Apri la Libreria (tieni premuto il mouse per l'elenco dei libri)")
+    }
+}
+
+struct BooksFlyoutMenu: View {
+    @Environment(AppStore.self) private var store
+    let books: [StudyBook]
+    let onSelect: (StudyBook) -> Void
+
+    private let rowHeight: CGFloat = 46.0
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack {
+                Text("LIBRI")
+                    .font(.system(size: 10, weight: .heavy))
+                    .foregroundStyle(.secondary)
+                    .tracking(0.6)
+                Spacer()
+                Text("\(books.count)")
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundStyle(.secondary)
+            }
+            .padding(.horizontal, 12)
+            .padding(.top, 10)
+            .padding(.bottom, 6)
+
+            Divider()
+
+            let visibleCount = min(max(books.count, 1), 6)
+            let scrollHeight = CGFloat(visibleCount) * rowHeight
+
+            ScrollView {
+                LazyVStack(spacing: 2) {
+                    ForEach(books) { b in
+                        BookFlyoutRow(book: b, rowHeight: rowHeight) {
+                            onSelect(b)
+                        }
+                    }
+                }
+                .padding(.horizontal, 6)
+                .padding(.vertical, 4)
+            }
+            .frame(height: scrollHeight)
+        }
+        .frame(width: 270)
+        .background(Color(nsColor: .windowBackgroundColor))
+    }
+}
+
+struct BookFlyoutRow: View {
+    @Environment(AppStore.self) private var store
+    let book: StudyBook
+    let rowHeight: CGFloat
+    let onSelect: () -> Void
+    @State private var hover = false
+
+    var body: some View {
+        let isCurrent = store.openBookId == book.id && store.currentTab == .home
+        Button(action: onSelect) {
+            HStack(spacing: 10) {
+                BookCoverArt(book: book)
+                    .frame(width: 24, height: 32)
+                    .clipShape(RoundedRectangle(cornerRadius: 3))
+                    .shadow(color: .black.opacity(0.15), radius: 2, y: 1)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(book.title)
+                        .font(.system(size: 12.5, weight: isCurrent ? .bold : .medium))
+                        .foregroundStyle(isCurrent ? Color.accentColor : Color.primary)
+                        .lineLimit(1)
+                    Text("\(store.chapters(of: book).count) capitoli · \(Int(store.bookStats(book).fraction * 100))%")
+                        .font(.system(size: 9.5))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+
+                Spacer()
+
+                if isCurrent {
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(Color.accentColor)
+                }
+            }
+            .padding(.horizontal, 8)
+            .frame(height: rowHeight)
+            .background(
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(isCurrent ? Color.accentColor.opacity(0.12) : (hover ? Color.primary.opacity(0.06) : Color.clear))
+            )
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .onHover { h in hover = h }
+        .help("Apri «\(book.title)»")
     }
 }
 

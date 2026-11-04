@@ -87,8 +87,12 @@ async function bookCard(entry, app, urls) {
         h('button.btn.btn-sm.btn-primary', { onclick: open }, icon('book-open-reader'), 'Apri'),
         moreMenu([
           {
-            icon: 'file-export', label: 'Esporta .sdbook', onClick: async () => {
-              try { await saveBlob(await exportSdbook(entry.id), `${entry.id}.sdbook`); toast('Libro esportato.', 'ok'); } catch (e) { toast(e.message, 'bad'); }
+            icon: 'file-export', label: 'Esporta e condividi (.sdbook)', onClick: async () => {
+              try {
+                const safe = (m.title || entry.id).replace(/[/\\?%*:|"<>]/g, '-').trim();
+                await saveBlob(await exportSdbook(entry.id), `${safe}.sdbook`);
+                toast('Libro scaricato nei Download.', 'ok');
+              } catch (e) { toast(e.message, 'bad'); }
             },
           },
           {

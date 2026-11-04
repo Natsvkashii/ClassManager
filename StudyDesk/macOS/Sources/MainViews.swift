@@ -134,12 +134,11 @@ struct EmptyLibrary: View {
         Card {
             VStack(spacing: 10) {
                 Image(systemName: "tray.and.arrow.down").font(.system(size: 38)).foregroundStyle(.secondary)
-                Text("Nessun modulo installato").font(.headline)
-                Text("Importa un file .sdmod (ad es. dai Download) oppure trascinalo qui. Puoi anche crearne uno nuovo nell'Editor.")
+                Text("Nessun modulo o libro installato").font(.headline)
+                Text("Importa un file .sdbook o .sdmod (ad es. dai Download) oppure trascinalo qui.")
                     .multilineTextAlignment(.center).foregroundStyle(.secondary).frame(maxWidth: 420)
                 HStack {
-                    Button { store.importModuleWithPanel() } label: { Label("Importa modulo", systemImage: "square.and.arrow.down") }.buttonStyle(.borderedProminent)
-                    Button { store.currentTab = .editor } label: { Label("Crea modulo", systemImage: "square.and.pencil") }
+                    Button { store.importModuleWithPanel() } label: { Label("Importa libro o modulo", systemImage: "square.and.arrow.down") }.buttonStyle(.borderedProminent)
                 }
             }
             .padding(36).frame(maxWidth: .infinity)
@@ -182,8 +181,9 @@ struct LibraryView: View {
                             .onTapGesture { store.requestOpenBook(b.id) }
                             .contextMenu {
                                 Button("Apri") { store.requestOpenBook(b.id) }
+                                Button("Esporta e condividi (.sdbook)") { store.exportBookToDownloads(b.id) }
                                 if store.state.isTeacher {
-                                    Button("Esporta libro (.sdbook)…") { store.exportBook(b.id) }
+                                    Button("Esporta con nome…") { store.exportBook(b.id) }
                                     Divider()
                                     Button("Elimina libro (tieni i capitoli)", role: .destructive) { store.deleteBook(b.id, withChapters: false) }
                                     Button("Elimina libro e capitoli", role: .destructive) { store.deleteBook(b.id, withChapters: true) }

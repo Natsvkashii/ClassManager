@@ -218,7 +218,7 @@ public final class AppStore {
 
     public func deleteModule(_ id: String) {
         try? FileManager.default.removeItem(at: moduleDir(id))
-        if openModuleId == id { openModuleId = nil; currentTab = .library }
+        if openModuleId == id { openModuleId = nil; currentTab = .home }
         reloadModules()
     }
 

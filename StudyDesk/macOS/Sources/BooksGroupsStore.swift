@@ -345,6 +345,35 @@ extension AppStore {
         }
     }
 
+    /// Esporta il libro in formato .sdbook direttamente nella cartella Download dell'utente
+    /// senza dialoghi aggiuntivi, selezionandolo nel Finder pronto per la condivisione.
+    public func exportBookToDownloads(_ id: String) {
+        guard let b = book(id) else { return }
+        guard let downloadsURL = FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first else {
+            alert("Errore esportazione", "Cartella Download non trovata.")
+            return
+        }
+        let safeTitle = b.title
+            .replacingOccurrences(of: "/", with: "-")
+            .replacingOccurrences(of: ":", with: " -")
+            .replacingOccurrences(of: "\\", with: "-")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let baseName = safeTitle.isEmpty ? "Libro" : safeTitle
+        var targetURL = downloadsURL.appendingPathComponent("\(baseName).sdbook")
+        var counter = 1
+        while FileManager.default.fileExists(atPath: targetURL.path) {
+            targetURL = downloadsURL.appendingPathComponent("\(baseName) (\(counter)).sdbook")
+            counter += 1
+        }
+        do {
+            try exportBookFile(id, to: targetURL)
+            showToast("Libro scaricato nei Download: \(targetURL.lastPathComponent)")
+            NSWorkspace.shared.activateFileViewerSelecting([targetURL])
+        } catch {
+            alert("Esportazione del libro non riuscita", error.localizedDescription)
+        }
+    }
+
     /// What a .sdbook of the book is made of, read on the main actor; `BookPackage.write` builds the file anywhere.
     public func bookPackage(_ id: String) -> BookPackage? {
         guard let b = book(id) else { return nil }

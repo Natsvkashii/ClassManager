@@ -22,7 +22,8 @@ import { BLANK_CONTEXT } from '../core/context.js';
 import { summarize } from '../core/grading.js';
 import { chapterNumber } from '../core/booklogic.js';
 import { settings, saveSettings } from '../core/settings.js';
-import { getBookRec, saveBookRec, deleteBook } from '../core/books.js';
+import { getBookRec, saveBookRec, deleteBook, exportSdbook } from '../core/books.js';
+import { saveBlob } from '../core/platform.js';
 import { renderGroupPill, manageBookGroupsDialog } from './group-pill.js';
 
 const reduced = () => typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -225,7 +226,7 @@ export async function createShelf({ entries, app, urls, scroller, onChange }) {
               open(d.entry.id, { forceBlank: true });
             },
           }, icon('file'), 'Apri vuoto temporaneamente'),
-          h('button.macos-menu-item', {
+          isTeacher() ? h('button.macos-menu-item', {
             type: 'button',
             onclick: (ev) => {
               ev.stopPropagation();
@@ -235,17 +236,30 @@ export async function createShelf({ entries, app, urls, scroller, onChange }) {
                 renderGrid();
               });
             },
-          }, icon('pen'), 'Modifica libro'),
-          h('button.macos-menu-item', {
+          }, icon('pen'), 'Modifica libro') : null,
+          isTeacher() ? h('button.macos-menu-item', {
             type: 'button',
             onclick: (ev) => {
               ev.stopPropagation();
               closeMenu();
               manageBookGroupsDialog(d.entry.id, m.title, () => {});
             },
-          }, icon('people-group'), 'Cambia gruppi associati'),
+          }, icon('people-group'), 'Cambia gruppi associati') : null,
           h('div.macos-menu-divider'),
-          h('button.macos-menu-item.danger', {
+          h('button.macos-menu-item', {
+            type: 'button',
+            onclick: async (ev) => {
+              ev.stopPropagation();
+              closeMenu();
+              try {
+                const safe = (m.title || d.entry.id).replace(/[/\\?%*:|"<>]/g, '-').trim();
+                await saveBlob(await exportSdbook(d.entry.id), `${safe}.sdbook`);
+                toast('Libro scaricato nei Download.', 'ok');
+              } catch (err) { toast(err.message, 'bad'); }
+            },
+          }, icon('share-from-square'), 'Esporta e condividi (.sdbook)'),
+          isTeacher() ? h('div.macos-menu-divider') : null,
+          isTeacher() ? h('button.macos-menu-item.danger', {
             type: 'button',
             onclick: async (ev) => {
               ev.stopPropagation();
@@ -256,7 +270,7 @@ export async function createShelf({ entries, app, urls, scroller, onChange }) {
                 app.refresh();
               }
             },
-          }, icon('trash'), 'Elimina libro')
+          }, icon('trash'), 'Elimina libro') : null
         );
 
         card.append(menuEl);
