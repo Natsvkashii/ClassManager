@@ -1,52 +1,54 @@
 {
-  "version": "26.11.1-012",
+  "version": "26.11.1-013",
   "channel": "stable",
-  "tag_name": "v26.11.1-012",
+  "tag_name": "v26.11.1-013",
   "prerelease": false,
-  "published_at": "2026-11-03T21:16:20Z",
-  "name": "Classroom Tools v26.11.1-012 - macOS (Apple Silicon) & Windows",
-  "body": "# Classroom Tools v26.11.1-012 - macOS (Apple Silicon) & Windows\n\n**Classroom Tools**: Suite unificata che include ClassDesk, StudyDesk e HubDesk.\n\n## Download e Installazione\n- **macOS (Apple Silicon)**: [`Classroom-Tools-26.11.1-012-macOS-AppleSilicon.pkg`](https://github.com/Natsvkashii/ClassManager/releases/download/v26.11.1-012/Classroom-Tools-26.11.1-012-macOS-AppleSilicon.pkg)\n- **Windows**: [`Classroom-Tools-26.11.1-012-Windows-Setup.exe`](https://github.com/Natsvkashii/ClassManager/releases/download/v26.11.1-012/Classroom-Tools-26.11.1-012-Windows-Setup.exe)\n\n- **HubDesk** è sempre incluso per gestire aggiornamenti centralizzati e sincronizzazione tra dispositivi.\n- **ClassDesk** e **StudyDesk** possono essere selezionati all'installazione o scaricati dall'Hub.\n- Chi possiede una versione precedente riceve l'aggiornamento automatico senza perdita di dati.\n\n## HubDesk\n- Allineamento alla release stabile Classroom Tools 26.11.1-012.\n\n## ClassDesk\n- Rimossa la sincronizzazione con Google Calendar e i pulsanti per creare sale Google Meet.\n- Calendario in Piano lezioni e Fatturazione: pulsante di condivisione con Copia immagine, Copia solo testo, Scarica, Invia per e-mail.\n- Azioni secondarie e di eliminazione raccolte in menu «⋯» (corsi, studenti, cestino, contatti, livelli e moduli, rubriche).\n\n## StudyDesk\n- Interfaccia più semplice: azioni secondarie raccolte in menu «⋯» (lavagna, libreria, gruppi, editor di moduli e libri, barra dell'esercizio, avviso di aggiornamento).\n\n---\n© 2026 Guaira Jaramillo Nitoglia · guaira.jaramillo.nitoglia@gmail.com · GPL-3.0\n",
-  "setupUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.11.1-012/Classroom-Tools-26.11.1-012-Windows-Setup.exe",
-  "setupName": "Classroom-Tools-26.11.1-012-Windows-Setup.exe",
-  "macPkgUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.11.1-012/Classroom-Tools-26.11.1-012-macOS-AppleSilicon.pkg",
-  "macPkgName": "Classroom-Tools-26.11.1-012-macOS-AppleSilicon.pkg",
+  "published_at": "2026-11-04T05:16:55Z",
+  "name": "Classroom Tools v26.11.1-013 - macOS (Apple Silicon) & Windows",
+  "body": "# Classroom Tools v26.11.1-013 - macOS (Apple Silicon) & Windows\n\n**Classroom Tools**: Suite unificata che include ClassDesk, StudyDesk e HubDesk.\n\n## Download e Installazione\n- **macOS (Apple Silicon)**: [`Classroom-Tools-26.11.1-013-macOS-AppleSilicon.pkg`](https://github.com/Natsvkashii/ClassManager/releases/download/v26.11.1-013/Classroom-Tools-26.11.1-013-macOS-AppleSilicon.pkg)\n- **Windows**: [`Classroom-Tools-26.11.1-013-Windows-Setup.exe`](https://github.com/Natsvkashii/ClassManager/releases/download/v26.11.1-013/Classroom-Tools-26.11.1-013-Windows-Setup.exe)\n\n- **HubDesk** è sempre incluso per gestire aggiornamenti centralizzati e sincronizzazione tra dispositivi.\n- **ClassDesk** e **StudyDesk** possono essere selezionati all'installazione o scaricati dall'Hub.\n- Chi possiede una versione precedente riceve l'aggiornamento automatico senza perdita di dati.\n\n---\n© 2026 Guaira Jaramillo Nitoglia · guaira.jaramillo.nitoglia@gmail.com · GPL-3.0\n",
+  "setupUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.11.1-013/Classroom-Tools-26.11.1-013-Windows-Setup.exe",
+  "setupName": "Classroom-Tools-26.11.1-013-Windows-Setup.exe",
+  "macPkgUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.11.1-013/Classroom-Tools-26.11.1-013-macOS-AppleSilicon.pkg",
+  "macPkgName": "Classroom-Tools-26.11.1-013-macOS-AppleSilicon.pkg",
+  "apkUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.11.1-013/StudyDesk-26.11.1-013-Android.apk",
+  "apkName": "StudyDesk-26.11.1-013-Android.apk",
   "suite": {
-    "version": "26.11.1-012",
+    "version": "26.11.1-013",
     "apps": {
       "hubdesk": {
         "mac": {
-          "name": "Classroom-Tools-26.11.1-012-macOS-AppleSilicon.pkg",
-          "url": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.11.1-012/Classroom-Tools-26.11.1-012-macOS-AppleSilicon.pkg"
+          "name": "Classroom-Tools-26.11.1-013-macOS-AppleSilicon.pkg",
+          "url": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.11.1-013/Classroom-Tools-26.11.1-013-macOS-AppleSilicon.pkg"
         },
         "win": {
-          "name": "Classroom-Tools-26.11.1-012-Windows-Setup.exe",
-          "url": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.11.1-012/Classroom-Tools-26.11.1-012-Windows-Setup.exe"
+          "name": "Classroom-Tools-26.11.1-013-Windows-Setup.exe",
+          "url": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.11.1-013/Classroom-Tools-26.11.1-013-Windows-Setup.exe"
         }
       },
       "classdesk": {
         "mac": {
-          "name": "Classroom-Tools-26.11.1-012-macOS-AppleSilicon.pkg",
-          "url": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.11.1-012/Classroom-Tools-26.11.1-012-macOS-AppleSilicon.pkg"
+          "name": "Classroom-Tools-26.11.1-013-macOS-AppleSilicon.pkg",
+          "url": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.11.1-013/Classroom-Tools-26.11.1-013-macOS-AppleSilicon.pkg"
         },
         "win": {
-          "name": "Classroom-Tools-26.11.1-012-Windows-Setup.exe",
-          "url": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.11.1-012/Classroom-Tools-26.11.1-012-Windows-Setup.exe"
+          "name": "Classroom-Tools-26.11.1-013-Windows-Setup.exe",
+          "url": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.11.1-013/Classroom-Tools-26.11.1-013-Windows-Setup.exe"
         }
       },
       "studydesk": {
         "mac": {
-          "name": "Classroom-Tools-26.11.1-012-macOS-AppleSilicon.pkg",
-          "url": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.11.1-012/Classroom-Tools-26.11.1-012-macOS-AppleSilicon.pkg"
+          "name": "Classroom-Tools-26.11.1-013-macOS-AppleSilicon.pkg",
+          "url": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.11.1-013/Classroom-Tools-26.11.1-013-macOS-AppleSilicon.pkg"
         },
         "win": {
-          "name": "Classroom-Tools-26.11.1-012-Windows-Setup.exe",
-          "url": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.11.1-012/Classroom-Tools-26.11.1-012-Windows-Setup.exe"
+          "name": "Classroom-Tools-26.11.1-013-Windows-Setup.exe",
+          "url": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.11.1-013/Classroom-Tools-26.11.1-013-Windows-Setup.exe"
         }
       }
     },
     "pkg": {
-      "name": "Classroom-Tools-26.11.1-012-macOS-AppleSilicon.pkg",
-      "url": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.11.1-012/Classroom-Tools-26.11.1-012-macOS-AppleSilicon.pkg"
+      "name": "Classroom-Tools-26.11.1-013-macOS-AppleSilicon.pkg",
+      "url": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.11.1-013/Classroom-Tools-26.11.1-013-macOS-AppleSilicon.pkg"
     }
   }
 }

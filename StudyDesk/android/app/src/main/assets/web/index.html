@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#090e1a">
+  <title>StudyDesk Reader</title>
+  <link rel="stylesheet" href="vendor/fontawesome/css/all.min.css">
+  <link rel="stylesheet" href="css/mobile.css">
+</head>
+<body>
+  <div id="app">
+    <!-- Top Navigation Bar -->
+    <header class="top-bar" id="topBar">
+      <div class="top-bar-left">
+        <button class="btn-icon" id="btnBack" title="Torna indietro" style="display: none;">
+          <i class="fa fa-arrow-left"></i>
+        </button>
+        <div id="brandIcon" style="font-size: 1.25rem; color: var(--primary);">
+          <i class="fa fa-graduation-cap"></i>
+        </div>
+      </div>
+      <div class="top-bar-title" id="barTitleBox">
+        <h1 id="appTitle">StudyDesk</h1>
+        <div class="subtitle" id="appSubtitle">Libri ed Esercizi</div>
+      </div>
+      <div class="top-bar-right">
+        <button class="btn-pill" id="btnSync" title="Sincronizza con Computer">
+          <i class="fa fa-laptop"></i> <span id="syncPillText">Sincronizza</span>
+        </button>
+        <button class="btn-icon" id="btnAbout" title="Info e Aggiornamenti">
+          <i class="fa fa-gear"></i>
+        </button>
+        <button class="btn-icon" id="btnIndex" title="Indice attività" style="display: none;">
+          <i class="fa fa-list-ul"></i>
+        </button>
+      </div>
+    </header>
+
+    <!-- Update Notification Banner -->
+    <div id="updateBannerContainer" style="padding: 10px 16px 0; display: none;">
+      <div class="update-banner" id="updateBanner">
+        <div class="update-banner-icon"><i class="fa fa-cloud-arrow-down"></i></div>
+        <div class="update-banner-info">
+          <div class="update-banner-title" id="updateBannerTitle">Nuovo aggiornamento disponibile</div>
+          <div class="update-banner-sub" id="updateBannerSub">Scarica da GitHub</div>
+        </div>
+        <button class="btn-pill primary" id="btnBannerUpdate" style="padding: 6px 14px; font-size: 0.8rem;">
+          Aggiorna
+        </button>
+      </div>
+    </div>
+
+    <!-- Part Switcher Bar (Capitolo · Esercizi · Videocorso) -->
+    <nav class="part-tabs-bar" id="partTabsBar" style="display: none;">
+      <div class="part-tab active" data-part="main">
+        <i class="fa fa-book-open"></i> Capitolo
+      </div>
+      <div class="part-tab" data-part="exercises">
+        <i class="fa fa-pen"></i> Esercizi
+      </div>
+      <div class="part-tab" data-part="video">
+        <i class="fa fa-video"></i> Video
+      </div>
+    </nav>
+
+    <!-- Main Dynamic Content (Shelf or Reader) -->
+    <main class="content-area" id="contentArea">
+      <!-- Injected by mobile-app.js -->
+    </main>
+
+    <!-- Bottom Thumb Navigation Bar (Reader only) -->
+    <footer class="bottom-bar" id="bottomBar" style="display: none;">
+      <button class="btn-pill" id="btnPrev">
+        <i class="fa fa-chevron-left"></i> Precedente
+      </button>
+      <span class="step-indicator" id="stepIndicator">1 / 1</span>
+      <button class="btn-pill primary" id="btnNext">
+        Successiva <i class="fa fa-chevron-right"></i>
+      </button>
+    </footer>
+
+    <!-- Spotify-Style Fullscreen Lyrics Modal (Matching media_1793765017614_a96ecbcb.png) -->
+    <div class="lyrics-modal" id="lyricsModal">
+      <!-- Spotify Top Nav -->
+      <div class="spotify-top-nav">
+        <button class="spotify-chevron-btn" id="btnCloseLyrics" title="Chiudi trascrizione">
+          <i class="fa fa-chevron-down"></i>
+        </button>
+        <div class="spotify-tabs">
+          <span class="spotify-tab">CANVAS</span>
+          <span class="spotify-tab">ALBUM ART</span>
+          <span class="spotify-tab active">LYRICS</span>
+        </div>
+        <button class="spotify-more-btn" id="btnLyricsMore" title="Opzioni">
+          <i class="fa fa-ellipsis"></i>
+        </button>
+      </div>
+
+      <!-- Artwork thumbnail bar -->
+      <div class="spotify-artwork-bar">
+        <img id="spotifyThumb" class="spotify-thumb" src="icons/icon.svg" alt="Copertina">
+      </div>
+
+      <!-- Center scrollable lyrics body -->
+      <div class="lyrics-body" id="lyricsBody">
+        <!-- Lines and words injected dynamically -->
+      </div>
+
+      <!-- Spotify Bottom Dock -->
+      <div class="spotify-bottom-dock">
+        <!-- Track info & Heart -->
+        <div class="spotify-track-info">
+          <div style="flex: 1; min-width: 0; padding-right: 12px;">
+            <div class="spotify-track-title" id="spotifyTrackTitle">Trascrizione Audio</div>
+            <div class="spotify-track-artist" id="spotifyTrackArtist">StudyDesk</div>
+          </div>
+          <button class="spotify-heart-btn" id="spotifyHeartBtn" title="Preferito">
+            <i class="fa-regular fa-heart" id="spotifyHeartIcon"></i>
+          </button>
+        </div>
+
+        <!-- Seeker Slider -->
+        <div class="spotify-seeker-wrap">
+          <input type="range" class="spotify-slider" id="spotifyLyricsSlider" min="0" max="100" step="0.1" value="0">
+          <div class="spotify-times-row">
+            <span id="spotifyCurTime">0:00</span>
+            <span id="spotifyRemTime">-0:00</span>
+          </div>
+        </div>
+
+        <!-- Playback Controls -->
+        <div class="spotify-controls-row">
+          <button class="spotify-ctrl-btn" id="spotifyShuffleBtn" title="Casuale">
+            <i class="fa fa-shuffle"></i>
+          </button>
+          <button class="spotify-ctrl-btn" id="spotifyPrevBtn" title="-5s">
+            <i class="fa fa-backward-step"></i>
+          </button>
+          <button class="spotify-big-play-btn" id="spotifyPlayBtn" title="Riproduci / Pausa">
+            <i class="fa fa-play" id="spotifyPlayIcon"></i>
+          </button>
+          <button class="spotify-ctrl-btn" id="spotifyNextBtn" title="+5s">
+            <i class="fa fa-forward-step"></i>
+          </button>
+          <button class="spotify-ctrl-btn" id="spotifyRepeatBtn" title="Ripeti">
+            <i class="fa fa-repeat"></i>
+          </button>
+        </div>
+
+        <!-- Auxiliary Devices / Queue Row -->
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px; padding: 0 8px;">
+          <button class="spotify-ctrl-btn" style="font-size: 0.95rem; width: auto; height: auto;" id="spotifyDeviceBtn" title="Dispositivo">
+            <i class="fa fa-laptop"></i>
+          </button>
+          <button class="spotify-ctrl-btn" style="font-size: 0.95rem; width: auto; height: auto;" id="spotifyQueueBtn" title="Coda">
+            <i class="fa fa-list-ul"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Indice / Chapters Bottom Sheet Modal -->
+    <div class="bottom-sheet" id="indexSheet">
+      <div class="sheet-panel">
+        <div class="sheet-handle"></div>
+        <h3 style="margin-bottom: 12px; font-size: 1.1rem; font-weight: 700;">
+          <i class="fa fa-list-ul" style="color: var(--primary);"></i> Indice del Modulo
+        </h3>
+        <div class="sheet-list" id="indexSheetList">
+          <!-- Injected dynamically -->
+        </div>
+      </div>
+    </div>
+
+    <!-- Sync Modal -->
+    <div class="bottom-sheet" id="syncSheet">
+      <div class="sheet-panel">
+        <div class="sheet-handle"></div>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+          <h3 style="font-size: 1.1rem; font-weight: 700;">
+            <i class="fa fa-laptop" style="color: var(--primary);"></i> Sincronizzazione Computer
+          </h3>
+          <button class="btn-icon" id="btnCloseSync" style="width:32px; height:32px;"><i class="fa fa-times"></i></button>
+        </div>
+        <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:14px;">
+          Scambia libri ed esercizi in rete locale con il Mac o PC su cui è attivo HubDesk.
+        </p>
+
+        <div style="margin-bottom: 12px;">
+          <label style="font-size:0.8rem; font-weight:700; color:var(--text-muted); display:block; margin-bottom:4px;">
+            Codice sincronizzazione suite:
+          </label>
+          <input type="text" id="syncCodeInput" placeholder="Es. 123456 (vuoto se non impostato)"
+                 style="width:100%; padding:8px 12px; border-radius:8px; border:1px solid var(--border); background:var(--bg-card-subtle); color:var(--text); font-size:0.9rem;">
+        </div>
+
+        <div style="margin-bottom: 14px;">
+          <label style="font-size:0.8rem; font-weight:700; color:var(--text-muted); display:block; margin-bottom:4px;">
+            Computer rilevati in rete Wi-Fi:
+          </label>
+          <div id="peerList" style="display:flex; flex-direction:column; gap:8px;">
+            <div style="padding:10px; background:var(--bg-card-subtle); border-radius:8px; font-size:0.85rem; color:var(--text-muted);">
+              <i class="fa fa-spinner fa-spin"></i> Ricerca computer sulla rete Wi-Fi...
+            </div>
+          </div>
+        </div>
+
+        <div style="margin-bottom: 14px;">
+          <label style="font-size:0.8rem; font-weight:700; color:var(--text-muted); display:block; margin-bottom:4px;">
+            Oppure connetti direttamente via IP:
+          </label>
+          <div style="display:flex; gap:8px;">
+            <input type="text" id="manualIpInput" placeholder="192.168.1.X:51234"
+                   style="flex:1; padding:8px 12px; border-radius:8px; border:1px solid var(--border); background:var(--bg-card-subtle); color:var(--text); font-size:0.9rem;">
+            <button class="btn-pill primary" id="btnManualConnect">Connetti</button>
+          </div>
+        </div>
+
+        <!-- Computer Books Section -->
+        <div id="computerBooksSection" style="margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border-light); display: none;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+            <label style="font-size:0.85rem; font-weight:700; color:var(--text); display:flex; align-items:center; gap:6px;">
+              <i class="fa fa-book-bookmark" style="color:var(--primary);"></i> Libri sul computer:
+            </label>
+            <button class="btn-pill secondary" id="btnRefreshComputerBooks" style="padding:4px 10px; font-size:0.75rem;">
+              <i class="fa fa-rotate"></i> Aggiorna
+            </button>
+          </div>
+          <div id="computerBooksList" style="display:flex; flex-direction:column; gap:8px; max-height:220px; overflow-y:auto;">
+            <!-- Injected dynamically -->
+          </div>
+        </div>
+
+        <div id="syncLog" style="font-size:0.75rem; color:var(--text-faint); max-height:80px; overflow-y:auto; background:#000; padding:8px; border-radius:6px; font-family:monospace; display:none; margin-top:12px;"></div>
+      </div>
+    </div>
+
+    <!-- Book Context Menu Sheet (Long press on book card) -->
+    <div class="bottom-sheet" id="bookContextSheet">
+      <div class="sheet-panel">
+        <div class="sheet-handle"></div>
+        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid var(--border-light);">
+          <div id="ctxBookCoverBox" style="width: 44px; height: 56px; border-radius: 6px; background: var(--bg-card-subtle); display: flex; align-items: center; justify-content: center; overflow: hidden; flex-shrink: 0;">
+            <i class="fa fa-book" style="color: var(--primary); font-size: 1.3rem;"></i>
+          </div>
+          <div style="flex: 1; min-width: 0;">
+            <div id="ctxBookTitle" style="font-size: 1.05rem; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text);">Titolo Libro</div>
+            <div id="ctxBookSubtitle" style="font-size: 0.78rem; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Sottotitolo</div>
+          </div>
+          <button class="btn-icon" id="btnCloseContext" style="width: 32px; height: 32px; flex-shrink: 0;"><i class="fa fa-times"></i></button>
+        </div>
+        <div class="sheet-list">
+          <div class="sheet-item" id="ctxOpenBook">
+            <i class="fa fa-book-open" style="color: var(--primary); width: 22px; text-align: center;"></i>
+            <span style="font-weight: 600;">Apri libro</span>
+          </div>
+          <div class="sheet-item" id="ctxShareBook">
+            <i class="fa fa-share-nodes" style="color: #38bdf8; width: 22px; text-align: center;"></i>
+            <span style="font-weight: 600;">Condividi libro (.sdbook)</span>
+          </div>
+          <div class="sheet-item danger" id="ctxDeleteBook">
+            <i class="fa fa-trash-can" style="width: 22px; text-align: center;"></i>
+            <span style="font-weight: 600;">Elimina libro</span>
+          </div>
+          <div class="sheet-divider"></div>
+          <div class="sheet-item" id="ctxShareProgress">
+            <i class="fa fa-file-pdf" style="color: #ef4444; width: 22px; text-align: center;"></i>
+            <div style="display: flex; flex-direction: column; text-align: left;">
+              <span style="font-weight: 600;">Condividi avanzamento del libro</span>
+              <span style="font-size: 0.75rem; color: var(--text-muted);">Invia PDF con riepilogo attività e punteggi per capitolo</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PDF Generation Progress Modal -->
+    <div class="progress-modal" id="pdfProgressModal">
+      <div class="progress-box">
+        <i class="fa fa-file-pdf" style="font-size: 2.2rem; color: #ef4444; margin-bottom: 12px; display: inline-block;"></i>
+        <h3 style="font-size: 1.15rem; font-weight: 700; margin-bottom: 6px;">Generazione Report PDF</h3>
+        <p style="font-size: 0.85rem; color: var(--text-muted);">Calcolo avanzamento e creazione riepilogo...</p>
+        <div class="progress-bar-wrap">
+          <div class="progress-bar-inner" id="pdfProgressBar"></div>
+        </div>
+        <div style="font-size: 0.85rem; font-weight: 700; color: var(--text);" id="pdfProgressPct">0%</div>
+      </div>
+    </div>
+
+    <!-- Book Wi-Fi Download Modal -->
+    <div class="progress-modal" id="bookDownloadModal">
+      <div class="progress-box">
+        <i class="fa fa-cloud-arrow-down" style="font-size: 2.2rem; color: var(--primary); margin-bottom: 12px; display: inline-block;"></i>
+        <h3 style="font-size: 1.15rem; font-weight: 700; margin-bottom: 6px;" id="bookDownloadTitle">Download Libro via Wi-Fi</h3>
+        <p style="font-size: 0.82rem; color: var(--text-muted);" id="bookDownloadStatus">Scaricamento in corso...</p>
+        <div class="progress-bar-wrap">
+          <div class="progress-bar-inner" id="bookDownloadBar" style="width: 0%;"></div>
+        </div>
+        <div style="font-size: 0.85rem; font-weight: 700; color: var(--text);" id="bookDownloadPct">0%</div>
+      </div>
+    </div>
+
+    <!-- About & Settings Bottom Sheet -->
+    <div class="bottom-sheet" id="aboutSheet">
+      <div class="sheet-panel">
+        <div class="sheet-handle"></div>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+          <div style="display:flex; align-items:center; gap:10px;">
+            <div style="font-size:1.5rem; color:var(--primary);"><i class="fa fa-graduation-cap"></i></div>
+            <div>
+              <h3 style="font-size: 1.1rem; font-weight: 700;">StudyDesk Reader</h3>
+              <div style="font-size: 0.78rem; color: var(--text-muted);" id="aboutVersionText">v26.11.1-013 · Canale Stabile</div>
+            </div>
+          </div>
+          <button class="btn-icon" id="btnCloseAbout" style="width:32px; height:32px;"><i class="fa fa-times"></i></button>
+        </div>
+
+        <div style="background:var(--bg-card-subtle); border-radius:10px; padding:12px; margin-bottom:14px; font-size:0.82rem; line-height:1.5;">
+          <div style="color:var(--text); font-weight:600; margin-bottom:4px;">Ideato e sviluppato per Classroom Tools</div>
+          <div style="color:var(--text-muted);">Autore: <strong>Guaira Jaramillo Nitoglia</strong></div>
+          <div style="color:var(--text-faint); font-size:0.75rem;">Licenza GNU GPL v3.0 · Suite ClassDesk</div>
+        </div>
+
+        <!-- Update Check Box -->
+        <div style="background:var(--bg-card-subtle); border-radius:10px; padding:12px; margin-bottom:14px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+            <span style="font-size:0.85rem; font-weight:700;"><i class="fa fa-arrows-rotate" style="color:var(--primary);"></i> Aggiornamenti GitHub</span>
+            <span class="channel-badge" id="aboutChannelBadge">Stabile</span>
+          </div>
+          <p style="font-size:0.78rem; color:var(--text-muted); margin-bottom:10px;" id="updateStatusText">
+            Controlla gli aggiornamenti su GitHub come la versione PC.
+          </p>
+          <button class="btn-pill primary" id="btnCheckUpdateManual" style="width:100%; justify-content:center; padding:9px 14px;">
+            <i class="fa fa-rotate" id="checkUpdateIcon"></i> <span id="checkUpdateBtnText">Verifica aggiornamenti ora</span>
+          </button>
+        </div>
+
+        <!-- Channel Selector -->
+        <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.82rem; color:var(--text-muted); padding: 0 4px;">
+          <span>Includi versioni Beta:</span>
+          <input type="checkbox" id="checkBetaToggle" style="accent-color:var(--primary); width:18px; height:18px;">
+        </div>
+      </div>
+    </div>
+
+    <!-- Update Download Modal -->
+    <div class="progress-modal" id="updateModal">
+      <div class="progress-box">
+        <i class="fa fa-cloud-arrow-down" style="font-size: 2.2rem; color: var(--primary); margin-bottom: 12px; display: inline-block;"></i>
+        <h3 style="font-size: 1.15rem; font-weight: 700; margin-bottom: 4px;" id="updateModalTitle">Aggiornamento Disponibile</h3>
+        <p style="font-size: 0.82rem; color: var(--text-muted);" id="updateModalSub">Scaricamento da GitHub...</p>
+        
+        <div class="changelog-box" id="updateChangelog" style="display: none;"></div>
+
+        <div class="progress-bar-wrap">
+          <div class="progress-bar-inner" id="updateProgressBar"></div>
+        </div>
+        <div style="display: flex; justify-content: space-between; font-size: 0.78rem; font-weight: 600; color: var(--text-muted);">
+          <span id="updateProgressBytes">In attesa...</span>
+          <span id="updateProgressPct" style="color: var(--primary); font-weight: 700;">0%</span>
+        </div>
+
+        <div style="display: flex; gap: 10px; margin-top: 18px; justify-content: flex-end;">
+          <button class="btn-pill" id="btnCancelUpdate">Chiudi</button>
+          <button class="btn-pill primary" id="btnConfirmDownload">Installa ora</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Hidden file input for manual .sdbook import -->
+    <input type="file" id="filePicker" accept=".sdbook,.sdmod,application/zip" style="display: none;">
+  </div>
+
+  <script src="vendor/jszip.min.js"></script>
+  <script src="js/mobile-app.js"></script>
+</body>
+</html>

@@ -297,6 +297,9 @@ def main():
         build_mac(package="--no-pkg" not in args)
     elif cmd == "build-win":
         build_win()
+    elif cmd == "build-android":
+        android_script = os.path.join(ROOT, "android", "build.py")
+        subprocess.run([sys.executable, android_script], check=True)
     elif cmd == "manifest":
         write_manifest(args[1] if len(args) > 1 else "")
     else:

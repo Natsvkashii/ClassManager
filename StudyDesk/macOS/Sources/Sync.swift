@@ -502,7 +502,7 @@ struct SyncView: View {
                         }
                         ForEach(hub.peers) { p in
                             HStack {
-                                Image(systemName: p.platform == "windows" ? "pc" : "laptopcomputer")
+                                Image(systemName: p.platform == "android" ? "iphone" : (p.platform == "windows" ? "pc" : "laptopcomputer"))
                                 Text(p.name).font(.headline)
                                 if !p.platform.isEmpty { Text(p.platform).font(.caption).foregroundStyle(.secondary) }
                                 Spacer()

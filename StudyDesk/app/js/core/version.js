@@ -12,7 +12,7 @@
 
 // Version handling: YY.MM.R-BBB comparator (port of ClassDesk AppVersion) and release selection.
 export const APP_NAME = 'StudyDesk';
-export const APP_VERSION = '26.11.1-012';
+export const APP_VERSION = '26.11.1-013';
 export const APP_CHANNEL = 'stable'; // 'beta' | 'stable'
 export const APP_BUILD_TYPE = 'stable'; // 'stable' | 'beta' | 'internal'
 export const APP_AUTHOR = 'Guaira Jaramillo Nitoglia';

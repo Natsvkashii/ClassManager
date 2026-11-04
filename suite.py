@@ -104,11 +104,12 @@ def parts(v):
 
 
 def assets(v):
-    """The release: exactly one installer for macOS (Apple Silicon) and one for Windows."""
+    """The release: exactly one installer for macOS (Apple Silicon), one for Windows, and one for Android."""
     out = os.path.join(ROOT, "dist", v)
     return [
         ("Classroom-Tools-%s-macOS-AppleSilicon.pkg" % v, [os.path.join(out, "Classroom-Tools-%s-macOS-AppleSilicon.pkg" % v)]),
         ("Classroom-Tools-%s-Windows-Setup.exe" % v, [os.path.join(out, "Classroom-Tools-%s-Windows-Setup.exe" % v)]),
+        ("StudyDesk-%s-Android.apk" % v, [os.path.join(out, "StudyDesk-%s-Android.apk" % v), os.path.join(ROOT, "StudyDesk-Reader.apk")]),
     ]
 
 
@@ -347,6 +348,7 @@ def cmd_manifest():
         # Unified installers: 1 for Windows, 1 for macOS
         "setupUrl": url(v, f"Classroom-Tools-{v}-Windows-Setup.exe"), "setupName": f"Classroom-Tools-{v}-Windows-Setup.exe",
         "macPkgUrl": url(v, f"Classroom-Tools-{v}-macOS-AppleSilicon.pkg"), "macPkgName": f"Classroom-Tools-{v}-macOS-AppleSilicon.pkg",
+        "apkUrl": url(v, f"StudyDesk-{v}-Android.apk"), "apkName": f"StudyDesk-{v}-Android.apk",
         "suite": {"version": v, "apps": {
             # every app comes from the same single installer per platform
             "hubdesk": entry(f"Classroom-Tools-{v}-macOS-AppleSilicon.pkg", f"Classroom-Tools-{v}-Windows-Setup.exe"),

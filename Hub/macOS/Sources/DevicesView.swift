@@ -77,7 +77,7 @@ struct PeerRow: View {
     let peer: PeerState
     var body: some View {
         HStack(spacing: 12) {
-            Image(systemName: peer.platform == "windows" ? "pc" : "laptopcomputer")
+            Image(systemName: peer.platform == "android" ? "iphone" : (peer.platform == "windows" ? "pc" : "laptopcomputer"))
                 .font(.title2).foregroundStyle(peer.connected ? Theme.ok : .secondary).frame(width: 30)
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 6) {
@@ -96,7 +96,7 @@ struct PeerRow: View {
     }
     private var detail: String {
         var parts: [String] = []
-        if !peer.platform.isEmpty { parts.append(peer.platform == "windows" ? "Windows" : "macOS") }
+        if !peer.platform.isEmpty { parts.append(peer.platform == "android" ? "Android" : (peer.platform == "windows" ? "Windows" : "macOS")) }
         if !peer.version.isEmpty { parts.append("HubDesk \(peer.version)") }
         parts.append(peer.lastSync.map { "Ultima sincronizzazione \($0.formatted(date: .abbreviated, time: .standard))" } ?? "Mai sincronizzato")
         return parts.joined(separator: " · ")
