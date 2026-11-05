@@ -287,9 +287,6 @@ struct ModulePlayerView: View {
                 }
                 .buttonStyle(.plain)
                 .help("Indice degli esercizi del capitolo")
-                .onHover { h in
-                    if h { showOutlinePopover = true }
-                }
                 .popover(isPresented: $showOutlinePopover, arrowEdge: .bottom) {
                     outline
                         .frame(width: 330, height: 500)
