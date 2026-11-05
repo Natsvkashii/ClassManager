@@ -262,6 +262,8 @@ struct AudioPlayerView: View {
     @State private var rate: Float = 1
     @State private var showTranscript = false
     @State private var activeTimeline: [Double] = []
+    @State private var isSpeakerHovered = false
+    @State private var isFsHovered = false
     private let tick = Timer.publish(every: 0.05, on: .main, in: .common).autoconnect()
 
     nonisolated static func extractActiveTimes(from url: URL) -> [Double] {
@@ -324,18 +326,22 @@ struct AudioPlayerView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8 * scaleFactor) {
             HStack(spacing: 10 * scaleFactor) {
-                Image(systemName: "speaker.wave.2.fill").font(.system(size: 14 * scaleFactor)).foregroundStyle(Theme.warn)
+                AnimatedSpeakerIcon(isHovered: isSpeakerHovered, isPlaying: playing)
+                    .font(.system(size: 14 * scaleFactor))
+                    .foregroundStyle(Theme.warn)
+                    .onHover { isSpeakerHovered = $0 }
                 Text(media.label ?? "Ascolto").font(.system(size: 12 * scaleFactor, weight: .heavy)).foregroundStyle(Theme.warn)
                 Spacer()
                 if let t = media.transcript, !t.isEmpty {
                     Button { openFullScreen(t) } label: {
-                        Image(systemName: "arrow.up.left.and.arrow.down.right")
+                        AnimatedFullscreenIcon(isFullscreen: false, isHovered: isFsHovered)
                             .font(.system(size: 11 * scaleFactor, weight: .bold))
                             .foregroundStyle(Theme.warn)
                             .padding(6 * scaleFactor)
-                            .background(Circle().fill(Theme.warn.opacity(0.15)))
+                            .background(Circle().fill(isFsHovered ? Theme.warn.opacity(0.25) : Theme.warn.opacity(0.15)))
                     }
                     .buttonStyle(.plain)
+                    .onHover { isFsHovered = $0 }
                     .help("Trascrizione a schermo intero")
                     .accessibilityLabel("Schermo intero")
                 }
@@ -1151,7 +1157,7 @@ struct ExercisePartView: View {
                     if r.attempts > 1 { Text("\(r.attempts) tentativi").font(.caption).foregroundStyle(.secondary) }
                     Spacer()
                     Toggle(isOn: $showSolutions) { Label("Soluzioni", systemImage: "lightbulb") }.toggleStyle(.button)
-                    Button { retry() } label: { Label("Riprova", systemImage: "arrow.counterclockwise") }
+                    HoverableResetButton(title: "Riprova", action: retry)
                 } else {
                     Text("Le risposte vengono salvate automaticamente quando verifichi.").font(.caption).foregroundStyle(.secondary)
                     Spacer()
@@ -2066,12 +2072,10 @@ struct SpeakingBody: View {
                     .buttonStyle(.bordered)
                     .controlSize(.small)
 
-                    Button {
+                    HoverableResetButton(title: "Azzera") {
                         timerActive = false
                         timerSeconds = timerPreset
                         timerExpired = false
-                    } label: {
-                        Label("Azzera", systemImage: "arrow.counterclockwise")
                     }
                     .buttonStyle(.bordered)
                     .controlSize(.small)

@@ -301,13 +301,11 @@ struct ModulePlayerView: View {
                     GroupSelectorPill(book: b)
                 }
 
-                Button { store.focusMode.toggle() } label: {
-                    Image(systemName: store.focusMode ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right")
+                HoverableFullscreenButton(isFullscreen: store.focusMode) {
+                    store.focusMode.toggle()
                 }
-                .help(store.focusMode ? "Esci da schermo intero (ESC)" : "Schermo intero")
-                .keyboardShortcut("f", modifiers: [.command, .control])
 
-                Menu {
+                HoverableEllipsisMenu {
                     Button { store.saveReportWithPanel() } label: { Label("Esporta i progressi", systemImage: "square.and.arrow.up") }
                     if store.state.isTeacher {
                         Button { store.editingModuleId = module.id; store.currentTab = .editor } label: { Label("Apri nell'editor", systemImage: "square.and.pencil") }
@@ -319,10 +317,7 @@ struct ModulePlayerView: View {
                         Text("Livello 3 (140% Grande)").tag(3)
                         Text("Livello 4 (160% Molto grande)").tag(4)
                     }
-                } label: {
-                    Image(systemName: "ellipsis.circle")
                 }
-                .help("Altro: esporta i progressi, apri nell'editor, dimensione di testo ed elementi (1-4)")
             }
         }
     }
@@ -386,35 +381,12 @@ struct ModulePlayerView: View {
 
                     if parentBook != nil, bookChapters.count > 1 {
                         HStack(spacing: 4) {
-                            Button {
-                                if let prev = prevChapter {
-                                    store.openModule(prev.id)
-                                }
-                            } label: {
-                                Image(systemName: "chevron.left")
-                                    .font(.system(size: 10, weight: .bold))
-                                    .frame(width: 24, height: 24)
-                                    .background(Circle().fill(prevChapter != nil ? module.accent.opacity(0.15) : Color.secondary.opacity(0.08)))
-                                    .foregroundStyle(prevChapter != nil ? module.accent : Color.secondary.opacity(0.3))
+                            ChapterChevronButton(isLeft: true, isEnabled: prevChapter != nil, accent: module.accent, title: prevChapter?.title) {
+                                if let prev = prevChapter { store.openModule(prev.id) }
                             }
-                            .buttonStyle(.plain)
-                            .disabled(prevChapter == nil)
-                            .help(prevChapter != nil ? "Capitolo precedente: \(prevChapter!.title)" : "Sei al primo capitolo")
-
-                            Button {
-                                if let next = nextChapter {
-                                    store.openModule(next.id)
-                                }
-                            } label: {
-                                Image(systemName: "chevron.right")
-                                    .font(.system(size: 10, weight: .bold))
-                                    .frame(width: 24, height: 24)
-                                    .background(Circle().fill(nextChapter != nil ? module.accent.opacity(0.15) : Color.secondary.opacity(0.08)))
-                                    .foregroundStyle(nextChapter != nil ? module.accent : Color.secondary.opacity(0.3))
+                            ChapterChevronButton(isLeft: false, isEnabled: nextChapter != nil, accent: module.accent, title: nextChapter?.title) {
+                                if let next = nextChapter { store.openModule(next.id) }
                             }
-                            .buttonStyle(.plain)
-                            .disabled(nextChapter == nil)
-                            .help(nextChapter != nil ? "Capitolo successivo: \(nextChapter!.title)" : "Sei all'ultimo capitolo")
                         }
                     }
                 }
@@ -424,21 +396,11 @@ struct ModulePlayerView: View {
             if parts.count > 1 {
                 HStack(spacing: 4) {
                     ForEach(parts) { p in
-                        let sel = currentPart == p
-                        Button {
-                            if let first = module.sections.first(where: { $0.chapterPart == p && !$0.activities.isEmpty })?.activities.first { store.openActivityId = first.id }
-                        } label: {
-                            VStack(spacing: 2) {
-                                Image(systemName: p.symbol).font(.system(size: 12, weight: .semibold))
-                                Text(p.title).font(.system(size: 10.5, weight: sel ? .heavy : .semibold))
+                        ChapterPartTabButton(part: p, isSelected: currentPart == p, accent: module.accent) {
+                            if let first = module.sections.first(where: { $0.chapterPart == p && !$0.activities.isEmpty })?.activities.first {
+                                store.openActivityId = first.id
                             }
-                            .frame(maxWidth: .infinity).padding(.vertical, 6)
-                            .foregroundStyle(sel ? Color.white : module.accent)
-                            .background(RoundedRectangle(cornerRadius: 8).fill(sel ? module.accent : module.accent.opacity(0.10)))
-                            .contentShape(Rectangle())
                         }
-                        .buttonStyle(.plain)
-                        .help(p.title)
                     }
                 }
                 .padding(8)
@@ -832,46 +794,101 @@ struct CreditsView: View {
 struct LiquidGlassFloatingModifier: ViewModifier {
     let accent: Color
     let isHovered: Bool
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     func body(content: Content) -> some View {
         #if os(macOS)
-        Group {
-            if isHovered && !reduceMotion {
-                TimelineView(.animation) { timeline in
-                    let time = timeline.date.timeIntervalSinceReferenceDate
-                    let floatY: CGFloat = CGFloat(sin(time * 3.5) * 1.5)
-
-                    content
-                        .padding(6)
-                        .background(
-                            Circle()
-                                .fill(accent.opacity(0.18))
-                        )
-                        .overlay(
-                            Circle()
-                                .strokeBorder(accent.opacity(0.65), lineWidth: 1.0)
-                        )
-                        .shadow(color: accent.opacity(0.35), radius: 5, x: 0, y: 2)
-                        .offset(y: floatY)
-                }
-            } else {
-                content
-                    .padding(6)
-                    .background(
-                        Circle()
-                            .fill(Color.primary.opacity(0.06))
-                    )
-                    .overlay(
-                        Circle()
-                            .strokeBorder(Color.primary.opacity(0.14), lineWidth: 1.0)
-                    )
-            }
-        }
-        .animation(.spring(response: 0.3, dampingFraction: 0.75), value: isHovered)
+        content
+            .padding(6)
+            .background(
+                Circle()
+                    .fill(isHovered ? accent.opacity(0.18) : Color.primary.opacity(0.06))
+            )
+            .overlay(
+                Circle()
+                    .strokeBorder(isHovered ? accent.opacity(0.65) : Color.primary.opacity(0.14), lineWidth: 1.0)
+            )
+            .shadow(color: isHovered ? accent.opacity(0.35) : Color.clear, radius: isHovered ? 5 : 0, x: 0, y: isHovered ? 2 : 0)
+            .animation(.spring(response: 0.28, dampingFraction: 0.78), value: isHovered)
         #else
         content.padding(6)
         #endif
+    }
+}
+
+struct HoverableFullscreenButton: View {
+    let isFullscreen: Bool
+    let action: () -> Void
+    @State private var isHovered = false
+
+    var body: some View {
+        Button(action: action) {
+            AnimatedFullscreenIcon(isFullscreen: isFullscreen, isHovered: isHovered)
+        }
+        .onHover { isHovered = $0 }
+        .help(isFullscreen ? "Esci da schermo intero (ESC)" : "Schermo intero")
+        .keyboardShortcut("f", modifiers: [.command, .control])
+    }
+}
+
+struct HoverableEllipsisMenu<Content: View>: View {
+    @ViewBuilder let content: () -> Content
+    @State private var isHovered = false
+
+    var body: some View {
+        Menu {
+            content()
+        } label: {
+            AnimatedEllipsisIcon(isHovered: isHovered)
+        }
+        .onHover { isHovered = $0 }
+        .help("Altro: esporta i progressi, apri nell'editor, dimensione di testo ed elementi (1-4)")
+    }
+}
+
+struct ChapterChevronButton: View {
+    let isLeft: Bool
+    let isEnabled: Bool
+    let accent: Color
+    let title: String?
+    let action: () -> Void
+    @State private var isHovered = false
+
+    var body: some View {
+        Button(action: action) {
+            AnimatedChapterChevron(isLeft: isLeft, isHovered: isHovered, isEnabled: isEnabled)
+                .frame(width: 24, height: 24)
+                .background(Circle().fill(isEnabled ? (isHovered ? accent.opacity(0.24) : accent.opacity(0.14)) : Color.secondary.opacity(0.08)))
+                .foregroundStyle(isEnabled ? accent : Color.secondary.opacity(0.3))
+                .overlay(Circle().strokeBorder(isEnabled && isHovered ? accent.opacity(0.5) : Color.clear, lineWidth: 1))
+        }
+        .buttonStyle(.plain)
+        .disabled(!isEnabled)
+        .onHover { isHovered = $0 }
+        .help(isEnabled ? (isLeft ? "Capitolo precedente: \(title ?? "")" : "Capitolo successivo: \(title ?? "")") : (isLeft ? "Primo capitolo del libro" : "Ultimo capitolo del libro"))
+    }
+}
+
+struct ChapterPartTabButton: View {
+    let part: ChapterPart
+    let isSelected: Bool
+    let accent: Color
+    let action: () -> Void
+    @State private var isHovered = false
+
+    var body: some View {
+        Button(action: action) {
+            VStack(spacing: 2) {
+                AnimatedPartTabIcon(part: part, isHovered: isHovered, isSelected: isSelected)
+                Text(part.title).font(.system(size: 10.5, weight: isSelected ? .heavy : .semibold))
+            }
+            .frame(maxWidth: .infinity).padding(.vertical, 6)
+            .foregroundStyle(isSelected ? Color.white : accent)
+            .background(RoundedRectangle(cornerRadius: 8).fill(isSelected ? accent : (isHovered ? accent.opacity(0.18) : accent.opacity(0.10))))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .onHover { isHovered = $0 }
+        .help(part.title)
     }
 }
 

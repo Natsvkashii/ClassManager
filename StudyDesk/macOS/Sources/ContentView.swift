@@ -231,17 +231,7 @@ struct SidebarView: View {
                     }
                     .padding(.horizontal, 4)
                 }
-                Button { openFeedbackEmail() } label: {
-                    HStack(spacing: 8) {
-                        Image(systemName: "paperplane.fill").font(.system(size: 11, weight: .semibold)).foregroundStyle(Theme.accent)
-                        Text("Invia feedback").font(.system(size: 12, weight: .semibold))
-                        Spacer()
-                    }
-                    .padding(.horizontal, 10).padding(.vertical, 7)
-                    .background(RoundedRectangle(cornerRadius: 8).fill(Theme.accent.opacity(0.10)))
-                    .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
+                FeedbackButtonView(action: openFeedbackEmail)
             }
             .padding(.horizontal, 10).padding(.vertical, 8)
         }
@@ -260,33 +250,7 @@ struct SidebarView: View {
     }
 
     private func sidebarButton(_ tab: NavigationTab, _ icon: String, _ title: String) -> some View {
-        let sel = store.currentTab == tab && (tab != .home || store.openBookId == nil)
-        return Button {
-            if tab == .home {
-                withAnimation(.spring(response: 0.4, dampingFraction: 0.86)) {
-                    store.openBookId = nil
-                }
-            }
-            store.currentTab = tab
-        } label: {
-            HStack(spacing: 10) {
-                Image(systemName: icon).font(.system(size: 13, weight: .semibold)).frame(width: 24, height: 24)
-                    .background(RoundedRectangle(cornerRadius: 7).fill(sel ? Color.white.opacity(0.22) : Theme.accent.opacity(0.12)))
-                    .foregroundStyle(sel ? Color.white : Theme.accent)
-                Text(title).font(.system(size: 13, weight: sel ? .bold : .medium)).foregroundStyle(sel ? Color.white : Color.primary).lineLimit(1)
-                Spacer()
-                if tab == .progress, store.totals.pending > 0 {
-                    Text("\(store.totals.pending)").font(.system(size: 10, weight: .heavy)).padding(.horizontal, 6).padding(.vertical, 2)
-                        .background(Capsule().fill(sel ? Color.white.opacity(0.26) : Theme.violet.opacity(0.16)))
-                        .foregroundStyle(sel ? Color.white : Theme.violet)
-                        .help("Parti consegnate da valutare")
-                }
-            }
-            .padding(.horizontal, 10).padding(.vertical, 7)
-            .background(RoundedRectangle(cornerRadius: 10).fill(sel ? Theme.accent : Color.clear))
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
+        SidebarButtonView(tab: tab, icon: icon, title: title)
     }
 
     private func bookButton(_ b: StudyBook) -> some View {
@@ -356,6 +320,67 @@ store.requestOpenBook(b.id)
             """),
         ]
         if let u = c.url { NSWorkspace.shared.open(u) }
+    }
+}
+
+struct SidebarButtonView: View {
+    let tab: NavigationTab
+    let icon: String
+    let title: String
+    @Environment(AppStore.self) private var store
+    @State private var isHovered = false
+
+    var body: some View {
+        let sel = store.currentTab == tab && (tab != .home || store.openBookId == nil)
+        Button {
+            if tab == .home {
+                withAnimation(.spring(response: 0.4, dampingFraction: 0.86)) {
+                    store.openBookId = nil
+                }
+            }
+            store.currentTab = tab
+        } label: {
+            HStack(spacing: 10) {
+                AnimatedSidebarIcon(icon: icon, isHovered: isHovered, isSelected: sel)
+                    .frame(width: 24, height: 24)
+                    .background(RoundedRectangle(cornerRadius: 7).fill(sel ? Color.white.opacity(0.22) : Theme.accent.opacity(0.12)))
+                    .foregroundStyle(sel ? Color.white : Theme.accent)
+                Text(title).font(.system(size: 13, weight: sel ? .bold : .medium)).foregroundStyle(sel ? Color.white : Color.primary).lineLimit(1)
+                Spacer()
+                if tab == .progress, store.totals.pending > 0 {
+                    Text("\(store.totals.pending)").font(.system(size: 10, weight: .heavy)).padding(.horizontal, 6).padding(.vertical, 2)
+                        .background(Capsule().fill(sel ? Color.white.opacity(0.26) : Theme.violet.opacity(0.16)))
+                        .foregroundStyle(sel ? Color.white : Theme.violet)
+                        .help("Parti consegnate da valutare")
+                }
+            }
+            .padding(.horizontal, 10).padding(.vertical, 7)
+            .background(RoundedRectangle(cornerRadius: 10).fill(sel ? Theme.accent : Color.clear))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .onHover { h in isHovered = h }
+    }
+}
+
+struct FeedbackButtonView: View {
+    let action: () -> Void
+    @State private var isHovered = false
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 8) {
+                AnimatedFeedbackIcon(isHovered: isHovered)
+                    .foregroundStyle(Theme.accent)
+                Text("Invia feedback").font(.system(size: 12, weight: .semibold))
+                Spacer()
+            }
+            .padding(.horizontal, 10).padding(.vertical, 7)
+            .background(RoundedRectangle(cornerRadius: 8).fill(Theme.accent.opacity(isHovered ? 0.16 : 0.10)))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .onHover { h in isHovered = h }
     }
 }
 
