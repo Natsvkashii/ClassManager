@@ -280,40 +280,40 @@ struct ModulePlayerView: View {
         }
         .toolbar {
             ToolbarItem(placement: .navigation) {
-                HStack(spacing: 8) {
-                    let parentBook = store.book(module.book?.id) ?? store.books.first { $0.chapters.contains { $0.moduleId == module.id } }
-                    Button {
-                        if let b = parentBook {
-                            withAnimation(.spring(response: 0.4, dampingFraction: 0.86)) {
-                                store.openBookId = b.id
-                                store.currentTab = .home
-                            }
-                        } else {
-                            withAnimation(.spring(response: 0.4, dampingFraction: 0.86)) {
-                                store.openBookId = nil
-                                store.currentTab = .home
-                            }
+                let parentBook = store.book(module.book?.id) ?? store.books.first { $0.chapters.contains { $0.moduleId == module.id } }
+                Button {
+                    if let b = parentBook {
+                        withAnimation(.spring(response: 0.4, dampingFraction: 0.86)) {
+                            store.openBookId = b.id
+                            store.currentTab = .home
                         }
-                    } label: {
-                        LiquidGlassBookButton(accent: module.accent)
+                    } else {
+                        withAnimation(.spring(response: 0.4, dampingFraction: 0.86)) {
+                            store.openBookId = nil
+                            store.currentTab = .home
+                        }
                     }
-                    .buttonStyle(.plain)
-                    .help(parentBook != nil ? "Torna ai capitoli di «\(parentBook!.title)»" : "Torna alla Libreria")
+                } label: {
+                    LiquidGlassBookButton(accent: module.accent)
+                }
+                .buttonStyle(.plain)
+                .help(parentBook != nil ? "Torna ai capitoli di «\(parentBook!.title)»" : "Torna alla Libreria")
+            }
 
-                    Button {
-                        showOutlinePopover.toggle()
-                    } label: {
-                        LiquidGlassIndexButton(accent: module.accent, isOpen: showOutlinePopover)
-                    }
-                    .buttonStyle(.plain)
-                    .help("Indice degli esercizi del capitolo")
-                    .onHover { h in
-                        if h { showOutlinePopover = true }
-                    }
-                    .popover(isPresented: $showOutlinePopover, arrowEdge: .bottom) {
-                        outline
-                            .frame(width: 320, height: 490)
-                    }
+            ToolbarItem(placement: .navigation) {
+                Button {
+                    showOutlinePopover.toggle()
+                } label: {
+                    LiquidGlassIndexButton(accent: module.accent, isOpen: showOutlinePopover)
+                }
+                .buttonStyle(.plain)
+                .help("Indice degli esercizi del capitolo")
+                .onHover { h in
+                    if h { showOutlinePopover = true }
+                }
+                .popover(isPresented: $showOutlinePopover, arrowEdge: .bottom) {
+                    outline
+                        .frame(width: 320, height: 490)
                 }
             }
 
@@ -778,57 +778,61 @@ struct LiquidGlassFloatingModifier: ViewModifier {
 
     func body(content: Content) -> some View {
         #if os(macOS)
-        TimelineView(.animation(paused: !isHovered || reduceMotion)) { timeline in
-            let time = timeline.date.timeIntervalSinceReferenceDate
-            let floatY: CGFloat = isHovered && !reduceMotion ? CGFloat(sin(time * 3.2) * 2.2) : 0
-            let floatRot: Double = isHovered && !reduceMotion ? cos(time * 2.6) * 1.5 : 0
-            let floatScale: CGFloat = isHovered ? 1.05 : 1.0
+        Group {
+            if isHovered && !reduceMotion {
+                TimelineView(.animation) { timeline in
+                    let time = timeline.date.timeIntervalSinceReferenceDate
+                    let floatY: CGFloat = CGFloat(sin(time * 3.2) * 2.2)
+                    let floatRot: Double = cos(time * 2.6) * 1.5
 
-            content
-                .padding(.horizontal, 9)
-                .padding(.vertical, 6)
-                .background(
-                    ZStack {
-                        RoundedRectangle(cornerRadius: 8, style: .continuous)
-                            .fill(.ultraThinMaterial)
-                        RoundedRectangle(cornerRadius: 8, style: .continuous)
-                            .fill(
-                                LinearGradient(
-                                    colors: [
-                                        (isHovered ? accent.opacity(0.20) : Color.primary.opacity(0.04)),
-                                        (isHovered ? accent.opacity(0.08) : Color.clear)
-                                    ],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                )
-                            )
-                    }
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .strokeBorder(
-                            LinearGradient(
-                                colors: [
-                                    (isHovered ? accent.opacity(0.70) : Color.white.opacity(0.35)),
-                                    (isHovered ? accent.opacity(0.25) : Color.white.opacity(0.12))
-                                ],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            ),
-                            lineWidth: 1.0
+                    content
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 5)
+                        .background(
+                            ZStack {
+                                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                    .fill(.ultraThinMaterial)
+                                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                    .fill(
+                                        LinearGradient(
+                                            colors: [accent.opacity(0.24), accent.opacity(0.08)],
+                                            startPoint: .topLeading,
+                                            endPoint: .bottomTrailing
+                                        )
+                                    )
+                            }
                         )
-                )
-                .shadow(
-                    color: isHovered ? accent.opacity(0.35) : Color.black.opacity(0.06),
-                    radius: isHovered ? 6 : 2,
-                    x: 0,
-                    y: isHovered ? 3 : 1
-                )
-                .offset(y: floatY)
-                .rotationEffect(.degrees(floatRot))
-                .scaleEffect(floatScale)
-                .animation(.spring(response: 0.35, dampingFraction: 0.72), value: isHovered)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                .strokeBorder(
+                                    LinearGradient(
+                                        colors: [accent.opacity(0.75), Color.white.opacity(0.35)],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    ),
+                                    lineWidth: 1.0
+                                )
+                        )
+                        .shadow(color: accent.opacity(0.38), radius: 6, x: 0, y: 3)
+                        .offset(y: floatY)
+                        .rotationEffect(.degrees(floatRot))
+                        .scaleEffect(1.05)
+                }
+            } else {
+                content
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 5)
+                    .background(
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .fill(Color.primary.opacity(0.05))
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .strokeBorder(Color.primary.opacity(0.12), lineWidth: 1.0)
+                    )
+            }
         }
+        .animation(.spring(response: 0.32, dampingFraction: 0.72), value: isHovered)
         #else
         content
             .padding(.horizontal, 8)
@@ -843,7 +847,7 @@ struct LiquidGlassBookButton: View {
 
     var body: some View {
         ZStack {
-            // Libro chiuso a riposo
+            // Libro chiuso a riposo (statico)
             Image(systemName: "book.closed.fill")
                 .font(.system(size: 14, weight: .bold))
                 .foregroundStyle(accent)
@@ -872,32 +876,44 @@ struct LiquidGlassBookButton: View {
 
 struct InfiniteScrollListSymbol: View {
     let accent: Color
+    let isHovered: Bool
 
     var body: some View {
-        TimelineView(.animation) { timeline in
-            let time = timeline.date.timeIntervalSinceReferenceDate
-            let rowHeight: CGFloat = 7.0
-            let totalRows: CGFloat = 4.0
-            let cycleHeight = rowHeight * totalRows
-            let scrollOffset = CGFloat((time * 16.0).truncatingRemainder(dividingBy: Double(cycleHeight)))
+        Group {
+            if isHovered {
+                TimelineView(.animation) { timeline in
+                    let time = timeline.date.timeIntervalSinceReferenceDate
+                    let rowHeight: CGFloat = 6.5
+                    let totalRows: CGFloat = 4.0
+                    let cycleHeight = rowHeight * totalRows
+                    let scrollOffset = CGFloat((time * 18.0).truncatingRemainder(dividingBy: Double(cycleHeight)))
 
-            VStack(alignment: .leading, spacing: 3) {
-                ForEach(0..<8, id: \.self) { i in
-                    HStack(spacing: 3) {
-                        Circle()
-                            .fill(accent)
-                            .frame(width: 3, height: 3)
-                        Capsule()
-                            .fill(accent.opacity(i % 2 == 0 ? 0.95 : 0.72))
-                            .frame(width: lineWidth(for: i), height: 2)
-                    }
-                    .frame(height: 4)
+                    renderRows(scrollOffset: scrollOffset)
                 }
+            } else {
+                renderRows(scrollOffset: 0)
             }
-            .offset(y: -scrollOffset)
-            .frame(width: 18, height: 18, alignment: .topLeading)
-            .clipped()
         }
+        .frame(width: 18, height: 18, alignment: .topLeading)
+        .clipped()
+    }
+
+    @ViewBuilder
+    private func renderRows(scrollOffset: CGFloat) -> some View {
+        VStack(alignment: .leading, spacing: 2.5) {
+            ForEach(0..<8, id: \.self) { i in
+                HStack(spacing: 3) {
+                    Circle()
+                        .fill(accent)
+                        .frame(width: 3, height: 3)
+                    Capsule()
+                        .fill(accent.opacity(i % 2 == 0 ? 0.95 : 0.72))
+                        .frame(width: lineWidth(for: i), height: 2)
+                }
+                .frame(height: 4)
+            }
+        }
+        .offset(y: -scrollOffset)
     }
 
     private func lineWidth(for index: Int) -> CGFloat {
@@ -917,7 +933,7 @@ struct LiquidGlassIndexButton: View {
     @State private var isHovered = false
 
     var body: some View {
-        InfiniteScrollListSymbol(accent: accent)
+        InfiniteScrollListSymbol(accent: accent, isHovered: isHovered || isOpen)
             .frame(width: 20, height: 20)
             .modifier(LiquidGlassFloatingModifier(accent: accent, isHovered: isHovered || isOpen))
             .contentShape(Rectangle())
