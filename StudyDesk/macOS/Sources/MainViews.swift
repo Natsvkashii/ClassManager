@@ -840,115 +840,106 @@ struct LiquidGlassFloatingModifier: ViewModifier {
             if isHovered && !reduceMotion {
                 TimelineView(.animation) { timeline in
                     let time = timeline.date.timeIntervalSinceReferenceDate
-                    let floatY: CGFloat = CGFloat(sin(time * 3.2) * 2.2)
-                    let floatRot: Double = cos(time * 2.6) * 1.5
+                    let floatY: CGFloat = CGFloat(sin(time * 3.5) * 1.5)
 
                     content
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 5)
+                        .padding(6)
                         .background(
-                            ZStack {
-                                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                    .fill(.ultraThinMaterial)
-                                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                    .fill(
-                                        LinearGradient(
-                                            colors: [accent.opacity(0.24), accent.opacity(0.08)],
-                                            startPoint: .topLeading,
-                                            endPoint: .bottomTrailing
-                                        )
-                                    )
-                            }
+                            Circle()
+                                .fill(accent.opacity(0.18))
                         )
                         .overlay(
-                            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                .strokeBorder(
-                                    LinearGradient(
-                                        colors: [accent.opacity(0.75), Color.white.opacity(0.35)],
-                                        startPoint: .topLeading,
-                                        endPoint: .bottomTrailing
-                                    ),
-                                    lineWidth: 1.0
-                                )
+                            Circle()
+                                .strokeBorder(accent.opacity(0.65), lineWidth: 1.0)
                         )
-                        .shadow(color: accent.opacity(0.38), radius: 6, x: 0, y: 3)
+                        .shadow(color: accent.opacity(0.35), radius: 5, x: 0, y: 2)
                         .offset(y: floatY)
-                        .rotationEffect(.degrees(floatRot))
-                        .scaleEffect(1.05)
                 }
             } else {
                 content
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 5)
+                    .padding(6)
                     .background(
-                        RoundedRectangle(cornerRadius: 8, style: .continuous)
-                            .fill(Color.primary.opacity(0.05))
+                        Circle()
+                            .fill(Color.primary.opacity(0.06))
                     )
                     .overlay(
-                        RoundedRectangle(cornerRadius: 8, style: .continuous)
-                            .strokeBorder(Color.primary.opacity(0.12), lineWidth: 1.0)
+                        Circle()
+                            .strokeBorder(Color.primary.opacity(0.14), lineWidth: 1.0)
                     )
             }
         }
-        .animation(.spring(response: 0.32, dampingFraction: 0.72), value: isHovered)
+        .animation(.spring(response: 0.3, dampingFraction: 0.75), value: isHovered)
         #else
-        content
-            .padding(.horizontal, 8)
-            .padding(.vertical, 5)
+        content.padding(6)
         #endif
     }
 }
 
-struct InfiniteScrollListSymbol: View {
+struct CrispScrollingDotsSymbol: View {
     let accent: Color
     let isHovered: Bool
 
+    // 3 linee fisse e nitidissime al 100%: nessuna riga sborda in alto o in basso!
+    // Solo i puntini a sinistra scorrono quando c'è hover.
+    private let dotDistance: CGFloat = 6.0
+
     var body: some View {
-        Group {
-            if isHovered {
-                TimelineView(.animation) { timeline in
-                    let time = timeline.date.timeIntervalSinceReferenceDate
-                    let rowHeight: CGFloat = 6.5
-                    let totalRows: CGFloat = 4.0
-                    let cycleHeight = rowHeight * totalRows
-                    let scrollOffset = CGFloat((time * 18.0).truncatingRemainder(dividingBy: Double(cycleHeight)))
+        HStack(spacing: 4.5) {
+            // Colonna puntini scorrevoli
+            ZStack {
+                if isHovered {
+                    TimelineView(.animation) { timeline in
+                        let time = timeline.date.timeIntervalSinceReferenceDate
+                        let offset = CGFloat((time * 15.0).truncatingRemainder(dividingBy: Double(dotDistance)))
 
-                    renderRows(scrollOffset: scrollOffset)
+                        VStack(spacing: dotDistance - 3.4) {
+                            ForEach(-1..<4, id: \.self) { _ in
+                                Circle()
+                                    .fill(accent)
+                                    .frame(width: 3.4, height: 3.4)
+                            }
+                        }
+                        .offset(y: -offset)
+                    }
+                } else {
+                    // A riposo: 3 puntini fermi, perfettamente allineati
+                    VStack(spacing: dotDistance - 3.4) {
+                        Circle().fill(accent).frame(width: 3.4, height: 3.4)
+                        Circle().fill(accent).frame(width: 3.4, height: 3.4)
+                        Circle().fill(accent).frame(width: 3.4, height: 3.4)
+                    }
                 }
-            } else {
-                renderRows(scrollOffset: 0)
             }
-        }
-        .frame(width: 18, height: 18, alignment: .topLeading)
-        .clipped()
-    }
+            .frame(width: 4, height: 16)
+            .clipped()
+            .mask(
+                LinearGradient(
+                    stops: [
+                        .init(color: .clear, location: 0),
+                        .init(color: .black, location: 0.18),
+                        .init(color: .black, location: 0.82),
+                        .init(color: .clear, location: 1.0)
+                    ],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+            )
 
-    @ViewBuilder
-    private func renderRows(scrollOffset: CGFloat) -> some View {
-        VStack(alignment: .leading, spacing: 2.5) {
-            ForEach(0..<8, id: \.self) { i in
-                HStack(spacing: 3) {
-                    Circle()
-                        .fill(accent)
-                        .frame(width: 3, height: 3)
-                    Capsule()
-                        .fill(accent.opacity(i % 2 == 0 ? 0.95 : 0.72))
-                        .frame(width: lineWidth(for: i), height: 2)
-                }
-                .frame(height: 4)
+            // Colonna 3 linee fisse, nitide e stabili: zero sbavature, zero righe sopra/sotto
+            VStack(alignment: .leading, spacing: 3.8) {
+                Capsule()
+                    .fill(accent)
+                    .frame(width: 12, height: 2.2)
+                Capsule()
+                    .fill(accent)
+                    .frame(width: 8, height: 2.2)
+                Capsule()
+                    .fill(accent)
+                    .frame(width: 12, height: 2.2)
             }
+            .frame(height: 16)
         }
-        .offset(y: -scrollOffset)
-    }
-
-    private func lineWidth(for index: Int) -> CGFloat {
-        switch index % 4 {
-        case 0: return 12
-        case 1: return 8
-        case 2: return 13
-        case 3: return 9
-        default: return 11
-        }
+        .frame(width: 22, height: 18)
     }
 }
 
@@ -958,10 +949,10 @@ struct LiquidGlassIndexButton: View {
     @State private var isHovered = false
 
     var body: some View {
-        InfiniteScrollListSymbol(accent: accent, isHovered: isHovered || isOpen)
-            .frame(width: 20, height: 20)
+        CrispScrollingDotsSymbol(accent: accent, isHovered: isHovered || isOpen)
+            .frame(width: 22, height: 22)
             .modifier(LiquidGlassFloatingModifier(accent: accent, isHovered: isHovered || isOpen))
-            .contentShape(Rectangle())
+            .contentShape(Circle())
             .onHover { h in
                 withAnimation(.spring(response: 0.32, dampingFraction: 0.72)) {
                     isHovered = h
