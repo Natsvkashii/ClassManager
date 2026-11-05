@@ -19,16 +19,16 @@ public enum AuthorAttribution {
     public static let authorName = "Guaira Jaramillo Nitoglia"
     public static let authorEmail = "guaira.jaramillo.nitoglia@gmail.com"
     public static let appName = "StudyDesk"
-    public static let appVersion = "26.11.1-015"
+    public static let appVersion = "26.11.1-016"
 
     /// Centralized channel indicator: 0 = Stable, 1 = Unstable / Beta
-    public static let isUnstableBuild: Int = 0
+    public static let isUnstableBuild: Int = 1
     /// Dynamic build type: "stable", "beta", or "internal"
-    public static let buildType: String = "stable"
+    public static let buildType: String = "internal"
 
     public static var isBeta: Bool { isUnstableBuild == 1 }
     public static var appChannel: String { isUnstableBuild == 1 ? "unstable" : "stable" }
-    public static var channelDisplayName: String { buildType == "beta" ? "BETA" : isUnstableBuild == 1 ? "UNSTABLE" : "STABILE" }
+    public static var channelDisplayName: String { buildType == "beta" ? "BETA" : (buildType == "internal" ? "INTERNAL" : (isUnstableBuild == 1 ? "UNSTABLE" : "STABILE")) }
     public static var channelBadgeColor: Color { isUnstableBuild == 1 ? .orange : .green }
 
     public static let licenseName = "GNU General Public License v3.0 (GPL-3.0)"

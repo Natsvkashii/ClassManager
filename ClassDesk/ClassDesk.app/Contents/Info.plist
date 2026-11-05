@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
 	<key>AppBuildType</key>
-	<string>stable</string>
+	<string>internal</string>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>it</string>
 	<key>CFBundleDisplayName</key>
@@ -23,9 +23,9 @@
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>26.11.1-015</string>
+	<string>26.11.1-016</string>
 	<key>CFBundleVersion</key>
-	<string>26.11.1-015</string>
+	<string>26.11.1-016</string>
 	<key>LSApplicationCategoryType</key>
 	<string>public.app-category.education</string>
 	<key>LSMinimumSystemVersion</key>

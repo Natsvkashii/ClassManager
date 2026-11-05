@@ -280,26 +280,40 @@ struct ModulePlayerView: View {
         }
         .toolbar {
             ToolbarItem(placement: .navigation) {
-                Button {
-                    showOutlinePopover.toggle()
-                } label: {
-                    HStack(spacing: 5) {
-                        Image(systemName: "list.bullet")
-                            .symbolRenderingMode(.monochrome)
-                        Text("Indice").font(.system(size: 13, weight: .semibold))
-                        Image(systemName: "chevron.down").font(.system(size: 9, weight: .bold))
+                HStack(spacing: 8) {
+                    let parentBook = store.book(module.book?.id) ?? store.books.first { $0.chapters.contains { $0.moduleId == module.id } }
+                    Button {
+                        if let b = parentBook {
+                            withAnimation(.spring(response: 0.4, dampingFraction: 0.86)) {
+                                store.openBookId = b.id
+                                store.currentTab = .home
+                            }
+                        } else {
+                            withAnimation(.spring(response: 0.4, dampingFraction: 0.86)) {
+                                store.openBookId = nil
+                                store.currentTab = .home
+                            }
+                        }
+                    } label: {
+                        LiquidGlassBookButton(accent: module.accent)
                     }
-                    .padding(.horizontal, 4)
-                    .foregroundStyle(module.accent)   // the toolbar draws the capsule around it
-                }
-                .buttonStyle(.plain)
-                .help("Indice del capitolo")
-                .onHover { h in
-                    if h { showOutlinePopover = true }
-                }
-                .popover(isPresented: $showOutlinePopover, arrowEdge: .bottom) {
-                    outline
-                        .frame(width: 320, height: 490)
+                    .buttonStyle(.plain)
+                    .help(parentBook != nil ? "Torna ai capitoli di «\(parentBook!.title)»" : "Torna alla Libreria")
+
+                    Button {
+                        showOutlinePopover.toggle()
+                    } label: {
+                        LiquidGlassIndexButton(accent: module.accent, isOpen: showOutlinePopover)
+                    }
+                    .buttonStyle(.plain)
+                    .help("Indice degli esercizi del capitolo")
+                    .onHover { h in
+                        if h { showOutlinePopover = true }
+                    }
+                    .popover(isPresented: $showOutlinePopover, arrowEdge: .bottom) {
+                        outline
+                            .frame(width: 320, height: 490)
+                    }
                 }
             }
 
@@ -752,5 +766,165 @@ struct CreditsView: View {
             }
             .padding(28).frame(width: 420)
         }
+    }
+}
+
+// MARK: - Pulsanti Animati con Effetto Vetro Liquido (macOS)
+
+struct LiquidGlassFloatingModifier: ViewModifier {
+    let accent: Color
+    let isHovered: Bool
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    func body(content: Content) -> some View {
+        #if os(macOS)
+        TimelineView(.animation(paused: !isHovered || reduceMotion)) { timeline in
+            let time = timeline.date.timeIntervalSinceReferenceDate
+            let floatY: CGFloat = isHovered && !reduceMotion ? CGFloat(sin(time * 3.2) * 2.2) : 0
+            let floatRot: Double = isHovered && !reduceMotion ? cos(time * 2.6) * 1.5 : 0
+            let floatScale: CGFloat = isHovered ? 1.05 : 1.0
+
+            content
+                .padding(.horizontal, 9)
+                .padding(.vertical, 6)
+                .background(
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .fill(.ultraThinMaterial)
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .fill(
+                                LinearGradient(
+                                    colors: [
+                                        (isHovered ? accent.opacity(0.20) : Color.primary.opacity(0.04)),
+                                        (isHovered ? accent.opacity(0.08) : Color.clear)
+                                    ],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                    }
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .strokeBorder(
+                            LinearGradient(
+                                colors: [
+                                    (isHovered ? accent.opacity(0.70) : Color.white.opacity(0.35)),
+                                    (isHovered ? accent.opacity(0.25) : Color.white.opacity(0.12))
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            ),
+                            lineWidth: 1.0
+                        )
+                )
+                .shadow(
+                    color: isHovered ? accent.opacity(0.35) : Color.black.opacity(0.06),
+                    radius: isHovered ? 6 : 2,
+                    x: 0,
+                    y: isHovered ? 3 : 1
+                )
+                .offset(y: floatY)
+                .rotationEffect(.degrees(floatRot))
+                .scaleEffect(floatScale)
+                .animation(.spring(response: 0.35, dampingFraction: 0.72), value: isHovered)
+        }
+        #else
+        content
+            .padding(.horizontal, 8)
+            .padding(.vertical, 5)
+        #endif
+    }
+}
+
+struct LiquidGlassBookButton: View {
+    let accent: Color
+    @State private var isHovered = false
+
+    var body: some View {
+        ZStack {
+            // Libro chiuso a riposo
+            Image(systemName: "book.closed.fill")
+                .font(.system(size: 14, weight: .bold))
+                .foregroundStyle(accent)
+                .opacity(isHovered ? 0 : 1)
+                .scaleEffect(isHovered ? 0.7 : 1.0)
+                .rotation3DEffect(.degrees(isHovered ? -65 : 0), axis: (x: 0, y: 1, z: 0))
+
+            // Libro aperto al passaggio del mouse
+            Image(systemName: "book.fill")
+                .font(.system(size: 15, weight: .bold))
+                .foregroundStyle(accent)
+                .opacity(isHovered ? 1 : 0)
+                .scaleEffect(isHovered ? 1.05 : 0.7)
+                .rotation3DEffect(.degrees(isHovered ? 0 : 65), axis: (x: 0, y: 1, z: 0))
+        }
+        .frame(width: 20, height: 20)
+        .modifier(LiquidGlassFloatingModifier(accent: accent, isHovered: isHovered))
+        .contentShape(Rectangle())
+        .onHover { h in
+            withAnimation(.spring(response: 0.32, dampingFraction: 0.72)) {
+                isHovered = h
+            }
+        }
+    }
+}
+
+struct InfiniteScrollListSymbol: View {
+    let accent: Color
+
+    var body: some View {
+        TimelineView(.animation) { timeline in
+            let time = timeline.date.timeIntervalSinceReferenceDate
+            let rowHeight: CGFloat = 7.0
+            let totalRows: CGFloat = 4.0
+            let cycleHeight = rowHeight * totalRows
+            let scrollOffset = CGFloat((time * 16.0).truncatingRemainder(dividingBy: Double(cycleHeight)))
+
+            VStack(alignment: .leading, spacing: 3) {
+                ForEach(0..<8, id: \.self) { i in
+                    HStack(spacing: 3) {
+                        Circle()
+                            .fill(accent)
+                            .frame(width: 3, height: 3)
+                        Capsule()
+                            .fill(accent.opacity(i % 2 == 0 ? 0.95 : 0.72))
+                            .frame(width: lineWidth(for: i), height: 2)
+                    }
+                    .frame(height: 4)
+                }
+            }
+            .offset(y: -scrollOffset)
+            .frame(width: 18, height: 18, alignment: .topLeading)
+            .clipped()
+        }
+    }
+
+    private func lineWidth(for index: Int) -> CGFloat {
+        switch index % 4 {
+        case 0: return 12
+        case 1: return 8
+        case 2: return 13
+        case 3: return 9
+        default: return 11
+        }
+    }
+}
+
+struct LiquidGlassIndexButton: View {
+    let accent: Color
+    let isOpen: Bool
+    @State private var isHovered = false
+
+    var body: some View {
+        InfiniteScrollListSymbol(accent: accent)
+            .frame(width: 20, height: 20)
+            .modifier(LiquidGlassFloatingModifier(accent: accent, isHovered: isHovered || isOpen))
+            .contentShape(Rectangle())
+            .onHover { h in
+                withAnimation(.spring(response: 0.32, dampingFraction: 0.72)) {
+                    isHovered = h
+                }
+            }
     }
 }

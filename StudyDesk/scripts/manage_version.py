@@ -75,8 +75,8 @@ def current_channel():
 def set_version(version, channel):
     if not VERSION_RE.match(version):
         sys.exit(f"[!] Versione non valida: {version} (formato YY.MM.R-BBB, es. 26.10.0-002)")
-    flag = 1 if channel in ("unstable", "beta") else 0  # a beta is a prerelease too, shown as β
-    b_type = "internal" if channel == "unstable" else ("beta" if channel == "beta" else "stable")
+    flag = 1 if channel in ("unstable", "beta", "internal") else 0  # a beta is a prerelease too, shown as β
+    b_type = "internal" if channel in ("unstable", "internal") else ("beta" if channel == "beta" else "stable")
 
     s = read(MODELS_SWIFT)
     s = re.sub(r'(appVersion\s*=\s*")[^"]+(")', rf"\g<1>{version}\g<2>", s)

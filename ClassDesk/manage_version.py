@@ -644,11 +644,11 @@ if __name__ == "__main__":
         set_version(sys.argv[2])
     elif cmd == "set-channel":
         if len(sys.argv) < 3:
-            print("Error: specify channel, e.g. ./manage_version.py set-channel 0 (stable) or 1 (unstable)")
+            print("Error: specify channel, e.g. ./manage_version.py set-channel 0 (stable) or 1 (unstable/internal)")
             sys.exit(1)
         val = sys.argv[2].lower()
-        flag = 1 if val in ("1", "unstable", "beta", "true") else 0
-        sync_channel_flags(flag, "beta" if val == "beta" else None)
+        flag = 1 if val in ("1", "unstable", "beta", "true", "internal") else 0
+        sync_channel_flags(flag, "beta" if val == "beta" else ("internal" if flag == 1 else "stable"))
     elif cmd == "bump-beta":
         bump_beta()
     elif cmd == "switch-branch":
