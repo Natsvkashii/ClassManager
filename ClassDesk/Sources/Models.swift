@@ -439,6 +439,7 @@ public struct AppSettings: Codable, Equatable {
     public var autoSyncAppleCalendar: Bool = true
     public var calendarSyncMode: String = "perCourse" // "perCourse" or "single"
     public var iCloudSyncEnabled: Bool = true
+    public var customBackupDirectory: String = ""
     public var checkForUpdatesAutomatically: Bool = true
     public var includeBetaUpdates: Bool = false
     public var updateCheckFrequency: String = "startup" // "startup", "daily", "weekly", "manual"
@@ -448,7 +449,7 @@ public struct AppSettings: Codable, Equatable {
     public init() {}
 
     enum CodingKeys: String, CodingKey {
-        case language, theme, sidebarMini, firstDayOfWeek, dateFormat, timeFormat, currency, passThreshold, defaultLessonDuration, defaultHourlyRate, defaultLessonDurationHours, defaultVatPercent, autoSyncAppleCalendar, calendarSyncMode, iCloudSyncEnabled, checkForUpdatesAutomatically, includeBetaUpdates, updateCheckFrequency, lastUpdateCheckDate, onboardingCompleted
+        case language, theme, sidebarMini, firstDayOfWeek, dateFormat, timeFormat, currency, passThreshold, defaultLessonDuration, defaultHourlyRate, defaultLessonDurationHours, defaultVatPercent, autoSyncAppleCalendar, calendarSyncMode, iCloudSyncEnabled, customBackupDirectory, checkForUpdatesAutomatically, includeBetaUpdates, updateCheckFrequency, lastUpdateCheckDate, onboardingCompleted
     }
 
     public init(from decoder: Decoder) throws {
@@ -469,6 +470,7 @@ public struct AppSettings: Codable, Equatable {
         autoSyncAppleCalendar = c.flexBool(.autoSyncAppleCalendar, default: true)
         calendarSyncMode = c.flexString(.calendarSyncMode, default: "perCourse")
         iCloudSyncEnabled = c.flexBool(.iCloudSyncEnabled, default: true)
+        customBackupDirectory = c.flexString(.customBackupDirectory, default: "")
         checkForUpdatesAutomatically = c.flexBool(.checkForUpdatesAutomatically, default: true)
         includeBetaUpdates = c.flexBool(.includeBetaUpdates, default: false)
         updateCheckFrequency = c.flexString(.updateCheckFrequency, default: "startup")
@@ -493,6 +495,7 @@ public struct AppSettings: Codable, Equatable {
         autoSyncAppleCalendar = JSONDictHelper.bool(dict["autoSyncAppleCalendar"], default: true)
         calendarSyncMode = JSONDictHelper.str(dict["calendarSyncMode"], default: "perCourse")
         iCloudSyncEnabled = JSONDictHelper.bool(dict["iCloudSyncEnabled"], default: true)
+        customBackupDirectory = JSONDictHelper.str(dict["customBackupDirectory"], default: "")
         checkForUpdatesAutomatically = JSONDictHelper.bool(dict["checkForUpdatesAutomatically"], default: true)
         includeBetaUpdates = JSONDictHelper.bool(dict["includeBetaUpdates"], default: false)
         updateCheckFrequency = JSONDictHelper.str(dict["updateCheckFrequency"], default: "startup")

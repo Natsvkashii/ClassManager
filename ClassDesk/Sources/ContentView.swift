@@ -64,8 +64,8 @@ struct ClassDeskApp: App {
                 }
                 .keyboardShortcut("s", modifiers: [.command, .shift])
 
-                Button(store.t("iCloudSyncNowBtn")) {
-                    store.syncWithICloudNow()
+                Button("Esegui backup dei dati") {
+                    store.saveBackupNow(showNotification: true)
                 }
                 .keyboardShortcut("k", modifiers: [.command, .shift])
 

@@ -13,7 +13,7 @@ struct EllipsisMenu<Content: View>: View {
     var tint: Color = .secondary
     @ViewBuilder var content: () -> Content
 
-    var body: some View {
+    public var body: some View {
         Menu {
             content()
         } label: {
@@ -1554,25 +1554,6 @@ public struct BillingView: View {
                 return activeLevel
             }()
 
-            // Compute Course-Level General Overview Statistics automatically from lesson start & end times
-            let todayIso = AppStore.isoDateFormatter.string(from: Date())
-
-            let (totalScheduledHours, totalCompletedHours, totalCourseGross, totalModulesCount): (Double, Double, Double, Int) = {
-                var schedH: Double = 0.0
-                var compH: Double = 0.0
-                var gross: Double = 0.0
-                var count: Int = 0
-                for lvl in course.levels {
-                    for mod in lvl.modules {
-                        count += 1
-                        schedH += store.moduleTotalHours(course: course, module: mod)
-                        compH += store.moduleCompletedHours(course: course, module: mod, todayIso: todayIso)
-                        gross += store.moduleTotalGross(course: course, module: mod)
-                    }
-                }
-                return (schedH, compH, gross, count)
-            }()
-
             let curBilling = currentModule.billing ?? ModuleBilling()
             let curModuleCost = store.moduleTotalGross(course: course, module: currentModule)
             let curModuleHours = store.moduleTotalHours(course: course, module: currentModule)
@@ -1580,166 +1561,20 @@ public struct BillingView: View {
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
-                    // 1. GENERAL OVERVIEW SPACE (Summary card of hours, total spent, and fiscal data modal button)
-                    VStack(alignment: .leading, spacing: 14) {
-                        if course.archived || store.isInspectingArchivedCourse {
-                            HStack(spacing: 8) {
-                                Image(systemName: "lock.fill")
-                                    .foregroundStyle(.orange)
-                                Text("Corso archiviato in sola lettura. Ripristina il corso per modificare i dati di fatturazione.")
-                                    .font(.caption.bold())
-                                    .foregroundStyle(.secondary)
-                            }
-                            .padding(10)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .background(RoundedRectangle(cornerRadius: 10).fill(Color.orange.opacity(0.12)))
-                        }
-
-                        HStack(alignment: .center) {
-                            HStack(spacing: 8) {
-                                Image(systemName: "chart.bar.doc.horizontal.fill")
-                                    .font(.title3)
-                                    .foregroundStyle(pal.color)
-                                VStack(alignment: .leading, spacing: 1) {
-                                    Text("\(course.name) — \(store.t("billingTitle"))")
-                                        .font(.title3.bold())
-                                    Text("\(course.levels.count) \(store.t("levelShort")) • \(totalModulesCount) \(store.t("modulesLabel"))")
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                }
-                            }
-                            Spacer()
-                            // Button linking to Billing / Fiscal data modal popup
-                            Button {
-                                showFiscalModal = true
-                            } label: {
-                                Label(store.t("billingFiscalDataBtn"), systemImage: "doc.text.fill")
-                                    .font(.caption.bold())
-                                    .padding(.horizontal, 14)
-                                    .padding(.vertical, 8)
-                            }
-                            .buttonStyle(.borderedProminent)
-                            .tint(pal.color)
-                        }
-
-                        Divider()
-
-                        // Metrics Summary Bar
-                        HStack(spacing: 16) {
-                            // Total Hours Conducted Metric (Automatically computed from lesson start/end times)
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(store.t("totalLessonsHoursConducted"))
-                                    .font(.caption.bold())
-                                    .foregroundStyle(.secondary)
-                                HStack(alignment: .firstTextBaseline, spacing: 6) {
-                                    Text(String(format: "%.1f", totalCompletedHours))
-                                        .font(.system(size: 26, weight: .heavy))
-                                        .foregroundStyle(pal.color)
-                                    Text("h  /  \(String(format: "%.1f", totalScheduledHours)) h totali")
-                                        .font(.caption.bold())
-                                        .foregroundStyle(.secondary)
-                                }
-                            }
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(14)
-                            .background(RoundedRectangle(cornerRadius: 12).fill(pal.color.opacity(0.08)))
-
-                            // Total Spent Metric
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(store.t("totalSpentInvoiced"))
-                                    .font(.caption.bold())
-                                    .foregroundStyle(.secondary)
-                                Text(store.formatMoney(totalCourseGross))
-                                    .font(.system(size: 26, weight: .heavy))
-                                    .foregroundStyle(.green)
-                            }
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(14)
-                            .background(RoundedRectangle(cornerRadius: 12).fill(Color.green.opacity(0.08)))
-                        }
-                    }
-                    .padding(18)
-                    .appCardStyle(cornerRadius: 16)
-
-                    // 2. ALL MODULES AND LEVELS LIST (With cost & automatic hours for each module)
-                    VStack(alignment: .leading, spacing: 14) {
-                        HStack {
-                            Text("Moduli e Livelli del Corso")
-                                .font(.headline.bold())
-                            Spacer()
-                            Text("Clicca su un modulo per aprirne il calendario e i costi dettagliati")
-                                .font(.caption)
+                    if course.archived || store.isInspectingArchivedCourse {
+                        HStack(spacing: 8) {
+                            Image(systemName: "lock.fill")
+                                .foregroundStyle(.orange)
+                            Text("Corso archiviato in sola lettura. Ripristina il corso per modificare i dati di fatturazione.")
+                                .font(.caption.bold())
                                 .foregroundStyle(.secondary)
                         }
-
-                        VStack(spacing: 14) {
-                            ForEach(course.levels) { lvl in
-                                VStack(alignment: .leading, spacing: 8) {
-                                    // Level Header
-                                    HStack(spacing: 6) {
-                                        Text(lvl.code == "Altro" ? (lvl.customName.isEmpty ? store.t("otherLevelOpt") : lvl.customName) : lvl.code)
-                                            .font(.caption.bold())
-                                            .padding(.horizontal, 8)
-                                            .padding(.vertical, 3)
-                                            .background(Capsule().fill(pal.color.opacity(0.18)))
-                                            .foregroundStyle(pal.color)
-                                        if !lvl.sublevel.isEmpty {
-                                            Text("(\(lvl.sublevel))")
-                                                .font(.caption)
-                                                .foregroundStyle(.secondary)
-                                        }
-                                        Spacer()
-                                    }
-
-                                    // Module Cards Grid
-                                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 220), spacing: 12)], spacing: 12) {
-                                        ForEach(lvl.modules) { mod in
-                                            let modB = mod.billing ?? ModuleBilling()
-                                            let cost = store.moduleTotalGross(course: course, module: mod)
-                                            let modHours = store.moduleTotalHours(course: course, module: mod)
-                                            let isSelected = mod.id == currentModule.id
-
-                                            Button {
-                                                selectedModuleId = mod.id
-                                                syncGlobalToolbar(for: modB)
-                                            } label: {
-                                                VStack(alignment: .leading, spacing: 6) {
-                                                    HStack {
-                                                        Text(mod.name)
-                                                            .font(.subheadline.bold())
-                                                        Spacer()
-                                                        Text(store.formatMoney(cost))
-                                                            .font(.subheadline.bold())
-                                                            .foregroundStyle(.green)
-                                                    }
-                                                    HStack {
-                                                        Text("\(mod.dates.count) \(store.t("lessonsLower")) • \(String(format: "%.1f", modHours)) h")
-                                                            .font(.caption2)
-                                                            .foregroundStyle(.secondary)
-                                                        Spacer()
-                                                    }
-                                                }
-                                                .padding(12)
-                                                .background(
-                                                    RoundedRectangle(cornerRadius: 12)
-                                                        .fill(isSelected ? pal.color.opacity(0.12) : Color.secondary.opacity(0.04))
-                                                )
-                                                .overlay(
-                                                    RoundedRectangle(cornerRadius: 12)
-                                                        .strokeBorder(isSelected ? pal.color : Color.secondary.opacity(0.18), lineWidth: isSelected ? 2 : 1)
-                                                )
-                                            }
-                                            .buttonStyle(.plain)
-                                        }
-                                    }
-                                }
-                            }
-                        }
+                        .padding(10)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(RoundedRectangle(cornerRadius: 10).fill(Color.orange.opacity(0.12)))
                     }
-                    .padding(18)
-                    .appCardStyle(cornerRadius: 16)
 
-                    // 3. OPENED MODULE VIEW: GLOBAL TOOLBAR + BILLING CALENDAR
+                    // OPENED MODULE VIEW: GLOBAL TOOLBAR + BILLING CALENDAR
                     VStack(alignment: .leading, spacing: 16) {
                         // Module Title & Actions
                         HStack(alignment: .center) {
@@ -2382,7 +2217,7 @@ private struct LessonPricingModalSheet: View {
     let onReset: () -> Void
     let onCancel: () -> Void
 
-    var body: some View {
+    public var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack {
                 Text("Modifica Prezzo Lezione")
@@ -2477,11 +2312,17 @@ private struct LessonPricingModalSheet: View {
 
 // MARK: - Fiscal Info Modal Sheet
 
-private struct FiscalInfoModalSheet: View {
+public struct FiscalInfoModalSheet: View {
     @Environment(AppStore.self) private var store
     let course: Course
     let module: CourseModule
     let onDismiss: () -> Void
+
+    public init(course: Course, module: CourseModule, onDismiss: @escaping () -> Void) {
+        self.course = course
+        self.module = module
+        self.onDismiss = onDismiss
+    }
 
     @State private var clientIndex: Int = 0
     @State private var showContactPicker: Bool = false
@@ -2522,7 +2363,15 @@ private struct FiscalInfoModalSheet: View {
         }
     }
 
-    var body: some View {
+    private func copyToClipboard(_ text: String, label: String = "") {
+        let clean = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !clean.isEmpty && clean != "—" else { return }
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(clean, forType: .string)
+        store.showToast(label.isEmpty ? "Copiato: \(clean)" : "\(label) copiato: \(clean)")
+    }
+
+    public var body: some View {
         let ids = associatedIds
         let safeIndex = ids.isEmpty ? 0 : min(max(0, clientIndex), ids.count - 1)
         let activeContact: BillingContact? = ids.isEmpty ? nil : store.state.billingContacts.first(where: { $0.id == ids[safeIndex] })
@@ -2577,7 +2426,7 @@ private struct FiscalInfoModalSheet: View {
                 .appCardStyle(cornerRadius: 14)
             } else if let contact = activeContact {
                 VStack(alignment: .leading, spacing: 16) {
-                    // Contact Identity Banner
+                    // Contact Identity Banner: click to copy ID or Name
                     HStack(alignment: .top) {
                         VStack(alignment: .leading, spacing: 4) {
                             HStack(spacing: 6) {
@@ -2587,53 +2436,134 @@ private struct FiscalInfoModalSheet: View {
                                     .padding(.vertical, 2)
                                     .background(Capsule().fill(Color.blue.opacity(0.15)))
                                     .foregroundStyle(.blue)
-                                Text(contact.idNumber.isEmpty ? "—" : contact.idNumber)
-                                    .font(.subheadline.bold())
-                                    .foregroundStyle(.secondary)
+
+                                Button {
+                                    copyToClipboard(contact.idNumber, label: contact.idType.uppercased())
+                                } label: {
+                                    HStack(spacing: 4) {
+                                        Text(contact.idNumber.isEmpty ? "—" : contact.idNumber)
+                                            .font(.subheadline.bold())
+                                            .foregroundStyle(.secondary)
+                                            .textSelection(.enabled)
+                                        if !contact.idNumber.isEmpty && contact.idNumber != "—" {
+                                            Image(systemName: "doc.on.doc")
+                                                .font(.system(size: 9))
+                                                .foregroundStyle(.secondary.opacity(0.45))
+                                        }
+                                    }
+                                }
+                                .buttonStyle(.plain)
+                                .help(contact.idNumber.isEmpty ? "" : "Clicca per copiare \(contact.idType)")
                             }
 
-                            Text(contact.fullName.isEmpty ? "—" : contact.fullName)
-                                .font(.title3.bold())
-                                .foregroundStyle(.primary)
+                            Button {
+                                copyToClipboard(contact.fullName, label: "Nome")
+                            } label: {
+                                HStack(spacing: 6) {
+                                    Text(contact.fullName.isEmpty ? "—" : contact.fullName)
+                                        .font(.title3.bold())
+                                        .foregroundStyle(.primary)
+                                        .textSelection(.enabled)
+                                    if !contact.fullName.isEmpty && contact.fullName != "—" {
+                                        Image(systemName: "doc.on.doc")
+                                            .font(.system(size: 11))
+                                            .foregroundStyle(.secondary.opacity(0.45))
+                                    }
+                                }
+                            }
+                            .buttonStyle(.plain)
+                            .help(contact.fullName.isEmpty ? "" : "Clicca per copiare il nome")
                         }
                         Spacer()
                     }
 
                     Divider()
 
-                    // Static Details directly on white card
+                    // Static Details directly on white card: clickable to copy with 1 click
                     Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 10) {
                         GridRow {
                             Text(store.t("cityBillingLabel"))
                                 .font(.caption.bold())
                                 .foregroundStyle(.secondary)
                                 .frame(width: 130, alignment: .leading)
-                            Text(contact.city.isEmpty ? "—" : contact.city)
-                                .font(.body)
+                            Button {
+                                copyToClipboard(contact.city, label: store.t("cityBillingLabel"))
+                            } label: {
+                                HStack(spacing: 6) {
+                                    Text(contact.city.isEmpty ? "—" : contact.city)
+                                        .font(.body)
+                                        .foregroundStyle(contact.city.isEmpty ? .secondary : .primary)
+                                        .textSelection(.enabled)
+                                    if !contact.city.isEmpty && contact.city != "—" {
+                                        Image(systemName: "doc.on.doc").font(.system(size: 10)).foregroundStyle(.secondary.opacity(0.45))
+                                    }
+                                }
+                            }
+                            .buttonStyle(.plain)
+                            .help(contact.city.isEmpty ? "" : "Clicca per copiare la città")
                         }
                         GridRow {
                             Text(store.t("addressBillingLabel"))
                                 .font(.caption.bold())
                                 .foregroundStyle(.secondary)
                                 .frame(width: 130, alignment: .leading)
-                            Text(contact.address.isEmpty ? "—" : contact.address)
-                                .font(.body)
+                            Button {
+                                copyToClipboard(contact.address, label: store.t("addressBillingLabel"))
+                            } label: {
+                                HStack(spacing: 6) {
+                                    Text(contact.address.isEmpty ? "—" : contact.address)
+                                        .font(.body)
+                                        .foregroundStyle(contact.address.isEmpty ? .secondary : .primary)
+                                        .textSelection(.enabled)
+                                    if !contact.address.isEmpty && contact.address != "—" {
+                                        Image(systemName: "doc.on.doc").font(.system(size: 10)).foregroundStyle(.secondary.opacity(0.45))
+                                    }
+                                }
+                            }
+                            .buttonStyle(.plain)
+                            .help(contact.address.isEmpty ? "" : "Clicca per copiare l'indirizzo")
                         }
                         GridRow {
                             Text(store.t("phoneBillingLabel"))
                                 .font(.caption.bold())
                                 .foregroundStyle(.secondary)
                                 .frame(width: 130, alignment: .leading)
-                            Text(contact.phone.isEmpty ? "—" : contact.phone)
-                                .font(.body)
+                            Button {
+                                copyToClipboard(contact.phone, label: store.t("phoneBillingLabel"))
+                            } label: {
+                                HStack(spacing: 6) {
+                                    Text(contact.phone.isEmpty ? "—" : contact.phone)
+                                        .font(.body)
+                                        .foregroundStyle(contact.phone.isEmpty ? .secondary : .primary)
+                                        .textSelection(.enabled)
+                                    if !contact.phone.isEmpty && contact.phone != "—" {
+                                        Image(systemName: "doc.on.doc").font(.system(size: 10)).foregroundStyle(.secondary.opacity(0.45))
+                                    }
+                                }
+                            }
+                            .buttonStyle(.plain)
+                            .help(contact.phone.isEmpty ? "" : "Clicca per copiare il telefono")
                         }
                         GridRow {
                             Text(store.t("emailBillingLabel"))
                                 .font(.caption.bold())
                                 .foregroundStyle(.secondary)
                                 .frame(width: 130, alignment: .leading)
-                            Text(contact.email.isEmpty ? "—" : contact.email)
-                                .font(.body)
+                            Button {
+                                copyToClipboard(contact.email, label: store.t("emailBillingLabel"))
+                            } label: {
+                                HStack(spacing: 6) {
+                                    Text(contact.email.isEmpty ? "—" : contact.email)
+                                        .font(.body)
+                                        .foregroundStyle(contact.email.isEmpty ? .secondary : .primary)
+                                        .textSelection(.enabled)
+                                    if !contact.email.isEmpty && contact.email != "—" {
+                                        Image(systemName: "doc.on.doc").font(.system(size: 10)).foregroundStyle(.secondary.opacity(0.45))
+                                    }
+                                }
+                            }
+                            .buttonStyle(.plain)
+                            .help(contact.email.isEmpty ? "" : "Clicca per copiare l'e-mail")
                         }
                     }
 
@@ -2751,7 +2681,7 @@ private struct BillingContactPickerSheet: View {
     let onCancel: () -> Void
     @State private var query: String = ""
 
-    var body: some View {
+    public var body: some View {
         let q = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         let available = store.state.billingContacts.filter { ct in
             guard !q.isEmpty else { return true }
@@ -2881,7 +2811,7 @@ private struct BillingContactEditorSheet: View {
         _linkedCourseName = State(initialValue: contact.linkedCourseName)
     }
 
-    var body: some View {
+    public var body: some View {
         VStack(alignment: .leading, spacing: 18) {
             HStack {
                 Label(
@@ -3178,7 +3108,7 @@ private struct BillingCalendarPosterView: View {
         }
     }
 
-    var body: some View {
+    public var body: some View {
         let b = module.billing ?? ModuleBilling()
         let totalCost = store.moduleTotalGross(course: course, module: module)
         let fInfo = course.billingConfig.billingInfo
@@ -3469,50 +3399,76 @@ public struct SettingsView: View {
 
                     Divider()
 
-                    // iCloud Drive Synchronization Section
+                    // Posizione Cartella di Backup Dati
                     VStack(alignment: .leading, spacing: 10) {
                         HStack {
-                            Label(store.t("iCloudSyncHeader"), systemImage: "icloud.and.arrow.up.fill")
+                            Label("Cartella di Backup dei Dati", systemImage: "folder.badge.gearshape")
                                 .font(.headline)
-                                .foregroundStyle(.cyan)
+                                .foregroundStyle(.blue)
                             Spacer()
-                            HStack(spacing: 5) {
-                                Circle()
-                                    .fill(store.isICloudDriveAvailable ? Color.green : Color.orange)
-                                    .frame(width: 8, height: 8)
-                                Text(store.isICloudDriveAvailable ? "iCloud Drive Connesso" : "iCloud Drive Non Trovato")
-                                    .font(.caption.bold())
+                            if !store.state.settings.customBackupDirectory.isEmpty {
+                                Text("Personalizzata")
+                                    .font(.caption2.bold())
+                                    .padding(.horizontal, 7)
+                                    .padding(.vertical, 2)
+                                    .background(Capsule().fill(Color.blue.opacity(0.15)))
+                                    .foregroundStyle(.blue)
+                            } else {
+                                Text("Predefinita")
+                                    .font(.caption2.bold())
+                                    .padding(.horizontal, 7)
+                                    .padding(.vertical, 2)
+                                    .background(Capsule().fill(Color.secondary.opacity(0.15)))
                                     .foregroundStyle(.secondary)
                             }
                         }
 
-                        Toggle(store.t("iCloudSyncToggleLabel"), isOn: Binding(
-                            get: { store.state.settings.iCloudSyncEnabled },
-                            set: {
-                                store.state.settings.iCloudSyncEnabled = $0
-                                store.persist()
-                            }
-                        ))
+                        Text("Scegli dove ClassDesk salverà automaticamente la copia di backup di tutti i tuoi dati:")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+
+                        HStack(spacing: 8) {
+                            Image(systemName: "folder.fill")
+                                .foregroundStyle(.blue)
+                            Text(store.state.settings.customBackupDirectory.isEmpty ? "Application Support / ClassDesk" : store.state.settings.customBackupDirectory)
+                                .font(.caption.monospaced())
+                                .lineLimit(1)
+                                .truncationMode(.middle)
+                            Spacer()
+                        }
+                        .padding(10)
+                        .background(RoundedRectangle(cornerRadius: 8).fill(Color.secondary.opacity(0.06)))
 
                         HStack {
-                            Text("Cartella: iCloud Drive / ClassDesk / classdesk_state_v1.json")
-                                .font(.caption2)
-                                .foregroundStyle(.secondary)
-                            Spacer()
                             Button {
-                                store.syncWithICloudNow(showNotification: true)
+                                store.chooseCustomBackupDirectory()
                             } label: {
-                                Label(store.t("iCloudSyncNowBtn"), systemImage: "arrow.triangle.2.circlepath.icloud.fill")
+                                Label("Scegli cartella di backup…", systemImage: "folder.badge.plus")
                             }
                             .buttonStyle(.borderedProminent)
-                            .tint(.cyan)
+
+                            if !store.state.settings.customBackupDirectory.isEmpty {
+                                Button("Ripristina predefinita") {
+                                    store.resetBackupDirectoryToDefault()
+                                }
+                                .buttonStyle(.bordered)
+                            }
+
+                            Spacer()
+
+                            Button {
+                                store.saveBackupNow(showNotification: true)
+                            } label: {
+                                Label("Esegui backup ora", systemImage: "arrow.clockwise.circle.fill")
+                            }
+                            .buttonStyle(.bordered)
                         }
                     }
                     .padding(14)
                     .background(
                         RoundedRectangle(cornerRadius: 12)
-                            .fill(Color.cyan.opacity(0.08))
-                            .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color.cyan.opacity(0.30)))
+                            .fill(Color.blue.opacity(0.06))
+                            .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color.blue.opacity(0.24)))
                     )
 
                     // Native Apple Calendar (EventKit) Integration Section
@@ -3553,31 +3509,6 @@ public struct SettingsView: View {
                         RoundedRectangle(cornerRadius: 12)
                             .fill(Color.blue.opacity(0.08))
                             .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color.blue.opacity(0.30)))
-                    )
-
-                    HStack {
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text(store.t("updatesSectionHeader"))
-                                .font(.headline)
-                                .foregroundStyle(.purple)
-                            Text("Il sistema di verifica, frequenza e installazione degli aggiornamenti è centralizzato nella sezione 'Informazioni'.")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                        Spacer()
-                        Button {
-                            store.currentTab = .credits
-                        } label: {
-                            Label("Apri Aggiornamenti", systemImage: "arrow.triangle.2.circlepath")
-                        }
-                        .buttonStyle(.borderedProminent)
-                        .tint(.purple)
-                    }
-                    .padding(14)
-                    .background(
-                        RoundedRectangle(cornerRadius: 12)
-                            .fill(Color.purple.opacity(0.08))
-                            .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color.purple.opacity(0.30)))
                     )
 
                     Divider()
@@ -3626,44 +3557,27 @@ public struct SettingsView: View {
 
 public struct CreditsView: View {
     @Environment(AppStore.self) private var store
-    @State private var showInfoSheet: Bool = false
 
     public var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
-                // Top Header with Info 'i' Button
-                HStack(alignment: .center) {
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text(store.t("navCredits"))
-                            .font(.title2.bold())
-                        Text("Dettagli applicazione, note di rilascio e crediti")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                    }
-                    Spacer()
-
-                    // Info button 'i' in macOS style
-                    Button {
-                        showInfoSheet = true
-                    } label: {
-                        Image(systemName: "info.circle")
-                            .font(.system(size: 20, weight: .semibold))
-                            .foregroundStyle(.blue)
-                            .padding(8)
-                            .background(Circle().fill(Color.blue.opacity(0.12)))
-                    }
-                    .buttonStyle(.plain)
-                    .help("Informazioni sull'applicazione e crediti")
+                // Top Header (senza pulsante info 'i', tutte le informazioni sono direttamente visibili)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(store.t("navCredits"))
+                        .font(.title2.bold())
+                    Text("Dettagli applicazione, note di rilascio e crediti")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
                 }
 
                 // Application Info Card
                 VStack(alignment: .leading, spacing: 16) {
                     HStack(spacing: 14) {
-                        AppLogoImageView(size: 48)
+                        AppLogoImageView(size: 56)
                         VStack(alignment: .leading, spacing: 4) {
                             HStack(spacing: 8) {
                                 Text(store.t("appTitle"))
-                                    .font(.title3.bold())
+                                    .font(.title2.bold())
                                 VersionBadge()
                                 Text("v\(AuthorAttribution.appVersion)")
                                     .font(.caption.bold())
@@ -3679,11 +3593,8 @@ public struct CreditsView: View {
                                         .background(Capsule().fill(Color.orange.opacity(0.18)))
                                         .foregroundStyle(.orange)
                                 }
-                                Text("Versione installata")
-                                    .font(.caption2.bold())
-                                    .foregroundStyle(.secondary)
                             }
-                            Text("Gli aggiornamenti della suite sono centralizzati e gestiti da HubDesk.")
+                            Text(store.t("appSubtitle"))
                                 .font(.subheadline)
                                 .foregroundStyle(.secondary)
                         }
@@ -3692,6 +3603,46 @@ public struct CreditsView: View {
                 }
                 .padding(20)
                 .appCardStyle(cornerRadius: 16)
+
+                // Author & License Cards spostate direttamente nella pagina principale
+                VStack(alignment: .leading, spacing: 14) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(store.t("footerDevelopedBy"))
+                            .font(.caption2.bold())
+                            .foregroundStyle(.secondary)
+                            .textCase(.uppercase)
+                        Text(AuthorAttribution.authorName)
+                            .font(.headline.bold())
+                        Link(AuthorAttribution.authorEmail, destination: URL(string: "mailto:\(AuthorAttribution.authorEmail)")!)
+                            .font(.subheadline.bold())
+                    }
+                    .padding(14)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(Color.blue.opacity(0.08))
+                            .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color.blue.opacity(0.28)))
+                    )
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Licenza / License")
+                            .font(.caption2.bold())
+                            .foregroundStyle(.secondary)
+                            .textCase(.uppercase)
+                        Text(AuthorAttribution.licenseName)
+                            .font(.subheadline.bold())
+                        Text("ClassDesk è software libero concesso sotto i termini della GNU General Public License v3.0.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(14)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(Color.green.opacity(0.08))
+                            .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color.green.opacity(0.28)))
+                    )
+                }
 
                 // ONLY Latest Version Changelog
                 if let latestChangelog = store.state.changelog.first {
@@ -3718,10 +3669,6 @@ public struct CreditsView: View {
             }
             .padding(24)
             .frame(maxWidth: 840)
-        }
-        .sheet(isPresented: $showInfoSheet) {
-            AppInfoAndCreditsSheet()
-                .environment(store)
         }
     }
 }

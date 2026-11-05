@@ -482,7 +482,7 @@ public final class AppStore {
         showToast(t("emptyTrashBtn"))
     }
 
-    // MARK: - Persistence, Migration & iCloud Drive Synchronization
+    // MARK: - Persistence, Migration & Backup Directory Configuration
 
     public func loadFromDisk() {
         let localURL = storageFileURL
@@ -492,29 +492,12 @@ public final class AppStore {
             localState = AppState.parseFlexibleJSON(from: data)
         }
 
-        var cloudState: AppState? = nil
-        if let cloudURL = iCloudDriveFileURL,
-           FileManager.default.fileExists(atPath: cloudURL.path),
-           let cloudData = try? Data(contentsOf: cloudURL) {
-            cloudState = AppState.parseFlexibleJSON(from: cloudData)
-        }
-
-        if let l = localState, let c = cloudState {
-            if l.settings.iCloudSyncEnabled && c.lastUpdated > l.lastUpdated {
-                self.state = c
-                lastICloudSyncDate = Date()
-            } else {
-                self.state = l
-            }
-        } else if let l = localState {
+        if let l = localState {
             self.state = l
-        } else if let c = cloudState {
-            self.state = c
-            lastICloudSyncDate = Date()
         }
 
         // Empty stamp = nothing was loaded (fresh install): any record from another computer is then "newer".
-        loadedStateStamp = (localState != nil || cloudState != nil) ? state.lastUpdated : ""
+        loadedStateStamp = localState != nil ? state.lastUpdated : ""
 
         // Safety: If the loaded active course is archived, fall back to the first non-archived course
         if let activeIdx = state.courses.firstIndex(where: { $0.id == state.activeCourseId }),
@@ -553,37 +536,68 @@ public final class AppStore {
                 let cmURL = cmDir.appendingPathComponent("class_management_state_v1.json")
                 try? data.write(to: cmURL, options: .atomic)
             }
-            if state.settings.iCloudSyncEnabled, let cloudURL = iCloudDriveFileURL {
-                try? data.write(to: cloudURL, options: .atomic)
-                lastICloudSyncDate = Date()
+            // User-configured custom backup destination
+            if !state.settings.customBackupDirectory.isEmpty {
+                let backupDir = URL(fileURLWithPath: state.settings.customBackupDirectory, isDirectory: true)
+                if !FileManager.default.fileExists(atPath: backupDir.path) {
+                    try? FileManager.default.createDirectory(at: backupDir, withIntermediateDirectories: true)
+                }
+                let backupFile = backupDir.appendingPathComponent("classdesk_state_v1.json")
+                try? data.write(to: backupFile, options: .atomic)
             }
         }
         hubBridge.publish()
         suite.stateSaved()
     }
 
-    public func syncWithICloudNow(showNotification: Bool = true) {
-        guard let cloudURL = iCloudDriveFileURL else {
-            if showNotification {
-                showToast("iCloud Drive non attivo su questo Mac")
-            }
-            return
+    public func chooseCustomBackupDirectory() {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.allowsMultipleSelection = false
+        panel.canCreateDirectories = true
+        panel.prompt = "Seleziona cartella"
+        panel.message = "Scegli la cartella dove salvare i backup di ClassDesk:"
+        if panel.runModal() == .OK, let url = panel.url {
+            state.settings.customBackupDirectory = url.path
+            persist()
+            saveBackupNow(showNotification: true)
+        }
+    }
+
+    public func resetBackupDirectoryToDefault() {
+        state.settings.customBackupDirectory = ""
+        persist()
+        showToast("Cartella di backup ripristinata a quella predefinita")
+    }
+
+    public func saveBackupNow(showNotification: Bool = true) {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        guard let data = try? encoder.encode(state) else { return }
+
+        let targetDir: URL
+        if !state.settings.customBackupDirectory.isEmpty {
+            targetDir = URL(fileURLWithPath: state.settings.customBackupDirectory, isDirectory: true)
+        } else {
+            let appSupport = Self.dataDirOverride ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+            targetDir = appSupport.appendingPathComponent("ClassDesk", isDirectory: true)
         }
         let fm = FileManager.default
-        if fm.fileExists(atPath: cloudURL.path),
-           let cloudData = try? Data(contentsOf: cloudURL),
-           let cloudState = AppState.parseFlexibleJSON(from: cloudData),
-           cloudState.lastUpdated > state.lastUpdated {
-            recordUndoSnapshot()
-            self.state = cloudState
-            ensureDataMigration()
-        } else {
-            persist()
+        if !fm.fileExists(atPath: targetDir.path) {
+            try? fm.createDirectory(at: targetDir, withIntermediateDirectories: true)
         }
-        lastICloudSyncDate = Date()
+
+        let targetFile = targetDir.appendingPathComponent("classdesk_state_v1.json")
+        try? data.write(to: targetFile, options: .atomic)
+
         if showNotification {
-            showToast(t("iCloudSyncedToast"))
+            showToast("Backup salvato in: \(targetDir.lastPathComponent)")
         }
+    }
+
+    public func syncWithICloudNow(showNotification: Bool = true) {
+        saveBackupNow(showNotification: showNotification)
     }
 
     public func ensureDataMigration() {

@@ -236,9 +236,19 @@ public struct HomeView: View {
                     if let featured = featuredLesson {
                         if !subsequentLessons.isEmpty {
                             HStack(alignment: .top, spacing: 18) {
-                                // Left side: Featured card (compact, half width)
-                                featuredHeroCard(featured, isCompact: true)
-                                    .frame(maxWidth: .infinity, alignment: .topLeading)
+                                // Left side: Featured card (compact, half width) perfectly aligned with right column
+                                VStack(alignment: .leading, spacing: 10) {
+                                    HStack {
+                                        Label(featured.isLiveNow ? store.t("liveLessonNow") : "Prossima lezione", systemImage: featured.isLiveNow ? "dot.radiowaves.left.and.right" : "clock")
+                                            .font(.headline.bold())
+                                            .foregroundStyle(featured.isLiveNow ? .green : .primary)
+                                        Spacer()
+                                    }
+
+                                    featuredHeroCard(featured, isCompact: true)
+                                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                                }
+                                .frame(maxWidth: .infinity, alignment: .topLeading)
 
                                 // Right side: Subsequent 4 lessons in 2 rows x 2 columns (2x2 grid)
                                 VStack(alignment: .leading, spacing: 10) {
@@ -635,6 +645,10 @@ public struct HomeView: View {
                 .padding(.horizontal, 2)
             }
 
+            if isCompact {
+                Spacer(minLength: 6)
+            }
+
             Divider()
 
             // Actions: Join, Copy, Lesson Plan, Register
@@ -678,6 +692,7 @@ public struct HomeView: View {
             }
         }
         .padding(isCompact ? 16 : 22)
+        .frame(maxWidth: .infinity, maxHeight: isCompact ? .infinity : nil, alignment: .topLeading)
         .appCardStyle(cornerRadius: 18)
         .overlay(
             RoundedRectangle(cornerRadius: 18)
@@ -2420,6 +2435,7 @@ public struct ModuleCalendarView: View {
     @State private var collisionMoveData: (slotKey: String, toDate: String)? = nil
     @State private var showCollisionAlert: Bool = false
     @State private var quickActionSlotKey: String? = nil
+    @State private var showFiscalModal: Bool = false
 
     public var body: some View {
         guard let course = store.activeCourse,
@@ -2466,67 +2482,74 @@ public struct ModuleCalendarView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
 
                     HStack(spacing: 10) {
-                    if !course.archived {
+                        if !course.archived {
+                            Button {
+                                activeSheet = .lessonPlan(courseId: course.id, sectionId: mod.id, slotKey: nil)
+                            } label: {
+                                Label("Nuova Lezione", systemImage: "plus.circle.fill")
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .tint(pal.color)
+
+                            Button {
+                                activeSheet = .recurringGenerator
+                            } label: {
+                                Label(store.t("recurringBtn"), systemImage: "repeat")
+                            }
+                            .buttonStyle(.bordered)
+                        }
+
                         Button {
-                            activeSheet = .lessonPlan(courseId: course.id, sectionId: mod.id, slotKey: nil)
+                            store.syncCourseToAppleCalendar(course)
                         } label: {
-                            Label("Nuova Lezione", systemImage: "plus.circle.fill")
+                            Label(store.t("syncAppleCalendarBtn"), systemImage: "calendar.badge.checkmark")
                         }
                         .buttonStyle(.borderedProminent)
                         .tint(pal.color)
 
+                        if let meet = mod.googleMeetUrl, !meet.isEmpty, let meetUrl = URL(string: meet) {
+                            Link(destination: meetUrl) {
+                                Label("Partecipa alla riunione", systemImage: "video.fill")
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .tint(.green)
+                            .help("Apri la videoconferenza di questo modulo (\(meet))")
+                        }
+
+                        Spacer()
+
+                        // Sposta il pulsante Dati di fatturazione insieme al riquadro del calendario, alla sinistra del tasto condividi
                         Button {
-                            activeSheet = .recurringGenerator
+                            showFiscalModal = true
                         } label: {
-                            Label(store.t("recurringBtn"), systemImage: "repeat")
+                            Label(store.t("billingFiscalDataBtn"), systemImage: "building.columns.fill")
                         }
                         .buttonStyle(.bordered)
-                    }
 
-                    // Copy Formatted Text with Emojis for WhatsApp
-                    Button {
-                        copyWhatsAppScheduleText(course: course, module: mod, slots: slots)
-                    } label: {
-                        Label(store.t("copyTextBtn"), systemImage: "message.badge.waveform.fill")
-                    }
-                    .buttonStyle(.bordered)
-                    .tint(.green)
-
-                    // Download 1:1 Square PNG Image of the Module Calendar
-                    CalendarShareMenu(
-                        imageProvider: {
-                            renderSquareCalendarImage(course: course, module: mod, slots: slots, weeks: posterWeeks, palette: pal, lang: store.state.settings.language)
-                        },
-                        textProvider: {
-                            store.generatePlainModuleScheduleText(course: course, module: mod, slots: slots)
-                        },
-                        onDownload: {
-                            selectedExportLang = store.state.settings.language
-                            showExportLangModal = true
-                        },
-                        emailSubject: "Calendario \(course.name)"
-                    )
-
-                    Button {
-                        store.syncCourseToAppleCalendar(course)
-                    } label: {
-                        Label(store.t("syncAppleCalendarBtn"), systemImage: "calendar.badge.checkmark")
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .tint(pal.color)
-
-                    if let meet = mod.googleMeetUrl, !meet.isEmpty, let meetUrl = URL(string: meet) {
-                        Link(destination: meetUrl) {
-                            Label("Partecipa alla riunione", systemImage: "video.fill")
-                        }
-                        .buttonStyle(.borderedProminent)
-                        .tint(.green)
-                        .help("Apri la videoconferenza di questo modulo (\(meet))")
-                    }
+                        // Sposta il pulsante per condividere sul lato destro della pagina
+                        CalendarShareMenu(
+                            imageProvider: {
+                                renderSquareCalendarImage(course: course, module: mod, slots: slots, weeks: posterWeeks, palette: pal, lang: store.state.settings.language)
+                            },
+                            textProvider: {
+                                store.generatePlainModuleScheduleText(course: course, module: mod, slots: slots)
+                            },
+                            onDownload: {
+                                selectedExportLang = store.state.settings.language
+                                showExportLangModal = true
+                            },
+                            emailSubject: "Calendario \(course.name)"
+                        )
                     }
                 }
                 .padding(12)
                 .appCardStyle(cornerRadius: 12)
+                .sheet(isPresented: $showFiscalModal) {
+                    FiscalInfoModalSheet(course: course, module: mod, onDismiss: {
+                        showFiscalModal = false
+                    })
+                    .environment(store)
+                }
                 .sheet(isPresented: $showExportLangModal) {
                     ExportLanguageModalSheet(
                         title: store.t("exportLanguageTitle"),
