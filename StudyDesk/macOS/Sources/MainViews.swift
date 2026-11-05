@@ -280,27 +280,6 @@ struct ModulePlayerView: View {
         }
         .toolbar {
             ToolbarItem(placement: .navigation) {
-                let parentBook = store.book(module.book?.id) ?? store.books.first { $0.chapters.contains { $0.moduleId == module.id } }
-                Button {
-                    if let b = parentBook {
-                        withAnimation(.spring(response: 0.4, dampingFraction: 0.86)) {
-                            store.openBookId = b.id
-                            store.currentTab = .home
-                        }
-                    } else {
-                        withAnimation(.spring(response: 0.4, dampingFraction: 0.86)) {
-                            store.openBookId = nil
-                            store.currentTab = .home
-                        }
-                    }
-                } label: {
-                    LiquidGlassBookButton(accent: module.accent)
-                }
-                .buttonStyle(.plain)
-                .help(parentBook != nil ? "Torna ai capitoli di «\(parentBook!.title)»" : "Torna alla Libreria")
-            }
-
-            ToolbarItem(placement: .navigation) {
                 Button {
                     showOutlinePopover.toggle()
                 } label: {
@@ -313,7 +292,7 @@ struct ModulePlayerView: View {
                 }
                 .popover(isPresented: $showOutlinePopover, arrowEdge: .bottom) {
                     outline
-                        .frame(width: 320, height: 490)
+                        .frame(width: 330, height: 500)
                 }
             }
 
@@ -350,16 +329,95 @@ struct ModulePlayerView: View {
 
     private var outline: some View {
         let s = store.stats(module)
+        let parentBook = store.book(module.book?.id) ?? store.books.first { $0.chapters.contains { $0.moduleId == module.id } }
+        let bookChapters = parentBook != nil ? store.chapters(of: parentBook!) : []
+        let currentIndex = bookChapters.firstIndex(where: { $0.id == module.id })
+        let prevChapter = (currentIndex != nil && currentIndex! > 0) ? bookChapters[currentIndex! - 1] : nil
+        let nextChapter = (currentIndex != nil && currentIndex! < bookChapters.count - 1) ? bookChapters[currentIndex! + 1] : nil
+
         return VStack(spacing: 0) {
-            VStack(alignment: .leading, spacing: 6) {
+            VStack(alignment: .leading, spacing: 8) {
                 if !store.activeContextLabel.isEmpty, store.module(store.openModuleId)?.book != nil {
                     Label(store.activeContextLabel, systemImage: store.activeContext == nil ? "person.fill" : (store.activeContext == AppStore.blankContext ? "doc" : "person.3.fill"))
                         .font(.caption.bold()).foregroundStyle(module.accent)
                 }
-                Text(module.title).font(.headline).lineLimit(2)
-                if let sub = module.subtitle { Text(sub).font(.caption).foregroundStyle(.secondary) }
-                ProgressView(value: s.fraction).tint(module.accent)
-                Text("\(s.completedParts) di \(s.totalParts) parti · \(s.percentScore)% corrette").font(.caption2).foregroundStyle(.secondary)
+
+                HStack(alignment: .top, spacing: 6) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(module.title).font(.headline).lineLimit(2)
+                        if let sub = module.subtitle {
+                            Text(sub).font(.caption).foregroundStyle(.secondary)
+                        } else if let b = parentBook {
+                            Text(b.title).font(.caption).foregroundStyle(.secondary)
+                        }
+                    }
+                    Spacer(minLength: 4)
+
+                    if let b = parentBook {
+                        Button {
+                            showOutlinePopover = false
+                            withAnimation(.spring(response: 0.4, dampingFraction: 0.86)) {
+                                store.openBookId = b.id
+                                store.currentTab = .home
+                            }
+                        } label: {
+                            HStack(spacing: 3) {
+                                Image(systemName: "books.vertical.fill").font(.system(size: 9))
+                                Text("Tutti").font(.system(size: 10, weight: .bold))
+                            }
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 3)
+                            .background(Capsule().fill(module.accent.opacity(0.12)))
+                            .foregroundStyle(module.accent)
+                        }
+                        .buttonStyle(.plain)
+                        .help("Torna all'elenco dei capitoli di «\(b.title)»")
+                    }
+                }
+
+                // Barra di stato con accanto le frecce per spostarsi da un capitolo all'altro
+                HStack(alignment: .center, spacing: 8) {
+                    VStack(alignment: .leading, spacing: 3) {
+                        ProgressView(value: s.fraction).tint(module.accent)
+                        Text("\(s.completedParts) di \(s.totalParts) parti · \(s.percentScore)% corrette")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    if parentBook != nil, bookChapters.count > 1 {
+                        HStack(spacing: 4) {
+                            Button {
+                                if let prev = prevChapter {
+                                    store.openModule(prev.id)
+                                }
+                            } label: {
+                                Image(systemName: "chevron.left")
+                                    .font(.system(size: 10, weight: .bold))
+                                    .frame(width: 24, height: 24)
+                                    .background(Circle().fill(prevChapter != nil ? module.accent.opacity(0.15) : Color.secondary.opacity(0.08)))
+                                    .foregroundStyle(prevChapter != nil ? module.accent : Color.secondary.opacity(0.3))
+                            }
+                            .buttonStyle(.plain)
+                            .disabled(prevChapter == nil)
+                            .help(prevChapter != nil ? "Capitolo precedente: \(prevChapter!.title)" : "Sei al primo capitolo")
+
+                            Button {
+                                if let next = nextChapter {
+                                    store.openModule(next.id)
+                                }
+                            } label: {
+                                Image(systemName: "chevron.right")
+                                    .font(.system(size: 10, weight: .bold))
+                                    .frame(width: 24, height: 24)
+                                    .background(Circle().fill(nextChapter != nil ? module.accent.opacity(0.15) : Color.secondary.opacity(0.08)))
+                                    .foregroundStyle(nextChapter != nil ? module.accent : Color.secondary.opacity(0.3))
+                            }
+                            .buttonStyle(.plain)
+                            .disabled(nextChapter == nil)
+                            .help(nextChapter != nil ? "Capitolo successivo: \(nextChapter!.title)" : "Sei all'ultimo capitolo")
+                        }
+                    }
+                }
             }
             .padding(14)
             Divider()
@@ -838,39 +896,6 @@ struct LiquidGlassFloatingModifier: ViewModifier {
             .padding(.horizontal, 8)
             .padding(.vertical, 5)
         #endif
-    }
-}
-
-struct LiquidGlassBookButton: View {
-    let accent: Color
-    @State private var isHovered = false
-
-    var body: some View {
-        ZStack {
-            // Libro chiuso a riposo (statico)
-            Image(systemName: "book.closed.fill")
-                .font(.system(size: 14, weight: .bold))
-                .foregroundStyle(accent)
-                .opacity(isHovered ? 0 : 1)
-                .scaleEffect(isHovered ? 0.7 : 1.0)
-                .rotation3DEffect(.degrees(isHovered ? -65 : 0), axis: (x: 0, y: 1, z: 0))
-
-            // Libro aperto al passaggio del mouse
-            Image(systemName: "book.fill")
-                .font(.system(size: 15, weight: .bold))
-                .foregroundStyle(accent)
-                .opacity(isHovered ? 1 : 0)
-                .scaleEffect(isHovered ? 1.05 : 0.7)
-                .rotation3DEffect(.degrees(isHovered ? 0 : 65), axis: (x: 0, y: 1, z: 0))
-        }
-        .frame(width: 20, height: 20)
-        .modifier(LiquidGlassFloatingModifier(accent: accent, isHovered: isHovered))
-        .contentShape(Rectangle())
-        .onHover { h in
-            withAnimation(.spring(response: 0.32, dampingFraction: 0.72)) {
-                isHovered = h
-            }
-        }
     }
 }
 
