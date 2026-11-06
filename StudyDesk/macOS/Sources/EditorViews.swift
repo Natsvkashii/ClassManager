@@ -27,6 +27,7 @@ enum PartTemplates {
         ("info", "Lettura / testo / dialogo"), ("choice", "Scelta multipla"), ("truefalse", "Vero / falso"),
         ("gapfill", "Completa le frasi"), ("match", "Collega"), ("categorize", "Classifica"), ("order", "Metti in ordine"),
         ("table", "Tabella da completare"), ("open", "Risposta scritta libera"), ("speaking", "Attività orale"),
+        ("html", "HTML / CSS Personalizzato")
     ]
 
     static func make(_ type: String, id: String) -> Exercise {
@@ -48,6 +49,10 @@ enum PartTemplates {
         case "table": e.headers = ["", "volere"]; e.rows = [["io", "[[voglio]]"], ["tu", "[[vuoi]]"]]
         case "open": e.prompts = [FlexItem(text: "Scrivi qualche frase.", lines: 3)]; e.sample = ""
         case "speaking": e.content = "Lavora in coppia: …"; e.record = true
+        case "html":
+            e.instructions = "Esercizio o contenuto HTML/CSS personalizzato."
+            e.html = "<div class=\"custom-box\">\n  <h3>Attività interattiva</h3>\n  <p>Puoi inserire qualsiasi elemento <strong>HTML5</strong> e stile <strong>CSS3</strong> personalizzato.</p>\n</div>"
+            e.css = ".custom-box {\n  background: var(--card-bg);\n  border: 1px solid var(--border-color);\n  border-radius: 12px;\n  padding: 18px;\n}"
         default: break
         }
         return e
@@ -528,6 +533,7 @@ struct PartEditor: View {
         case "match": return "pairs: [[idSinistra, idDestra], …]. Immagini: \"image\": \"assets/img/…\"."
         case "categorize": return "category: nome categoria o [nomi] accettati."
         case "order": return "Elenca gli elementi nell'ordine giusto: verranno mescolati."
+        case "html": return "Campi 'html', 'css', 'js', 'height'. Variabili CSS: var(--accent), var(--card-bg)."
         default: return "Markdown leggero: **grassetto**, *corsivo*."
         }
     }

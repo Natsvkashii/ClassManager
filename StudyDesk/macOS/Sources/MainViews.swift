@@ -228,6 +228,7 @@ struct ModulePlayerView: View {
     @Environment(\.colorScheme) private var scheme
     let module: StudyModule
     @State private var showOutlinePopover = false
+    @State private var previewActivityId: String? = nil
     /// Exercise scale level (1: 100%, 2: 120%, 3: 140%, 4: 160%).
     @AppStorage("studydesk.exerciseScale") private var exerciseScale = 1
 
@@ -243,10 +244,16 @@ struct ModulePlayerView: View {
     private var activities: [Activity] { module.sections.flatMap(\.activities) }
     private var parts: [ChapterPart] { ChapterPart.allCases.filter { p in module.sections.contains { $0.chapterPart == p && !$0.activities.isEmpty } } }
     private var currentPart: ChapterPart {
-        guard let a = current else { return .main }
+        let committed = activities.first { $0.id == store.openActivityId } ?? activities.first
+        guard let a = committed else { return .main }
         return module.sections.first { $0.activities.contains { $0.id == a.id } }?.chapterPart ?? .main
     }
-    private var current: Activity? { activities.first { $0.id == store.openActivityId } ?? activities.first }
+    private var current: Activity? {
+        if let previewId = previewActivityId, let act = activities.first(where: { $0.id == previewId }) {
+            return act
+        }
+        return activities.first { $0.id == store.openActivityId } ?? activities.first
+    }
 
     var body: some View {
         HStack(spacing: 0) {
@@ -268,8 +275,14 @@ struct ModulePlayerView: View {
                     .onChange(of: a.id) { _, _ in proxy.scrollTo("top", anchor: .top) }
                 }
                 .id(a.id)
-                .onAppear { store.setLastOpened(module.id, a.id) }
-                .onChange(of: a.id) { _, v in store.setLastOpened(module.id, v) }
+                .onAppear {
+                    if let aid = store.openActivityId ?? activities.first?.id {
+                        store.setLastOpened(module.id, aid)
+                    }
+                }
+                .onChange(of: store.openActivityId) { _, v in
+                    if let v { store.setLastOpened(module.id, v) }
+                }
             }
         }
         .navigationTitle(module.title)
@@ -277,6 +290,11 @@ struct ModulePlayerView: View {
         .onExitCommand { if store.focusMode { store.focusMode = false } }
         .background {
             if store.focusMode { Button("") { store.focusMode = false }.keyboardShortcut(.cancelAction).opacity(0) }
+        }
+        .onChange(of: showOutlinePopover) { _, isOpen in
+            if !isOpen {
+                previewActivityId = nil
+            }
         }
         .toolbar {
             ToolbarItem(placement: .navigation) {
@@ -436,9 +454,12 @@ struct ModulePlayerView: View {
     }
 
     private func activityRow(_ a: Activity) -> some View {
-        let sel = current?.id == a.id
+        let isCommitted = (store.openActivityId == a.id) || (store.openActivityId == nil && activities.first?.id == a.id)
+        let isPreview = previewActivityId == a.id
+        let sel = isPreview || (previewActivityId == nil && isCommitted)
         let done = store.activityDone(module, a)
         return Button {
+            previewActivityId = nil
             store.openActivityId = a.id
             showOutlinePopover = false
         } label: {
@@ -447,14 +468,41 @@ struct ModulePlayerView: View {
                     .background(RoundedRectangle(cornerRadius: 6).fill(sel ? Color.white.opacity(0.25) : Color.primary.opacity(0.06)))
                 Text(a.title).font(.system(size: 12.5, weight: sel ? .bold : .medium)).lineLimit(2).multilineTextAlignment(.leading)
                 Spacer(minLength: 4)
-                if done { Image(systemName: "checkmark.circle.fill").font(.system(size: 12)).foregroundStyle(sel ? .white : Theme.ok) }
+                if isPreview && !isCommitted {
+                    Text("Anteprima")
+                        .font(.system(size: 9.5, weight: .bold))
+                        .padding(.horizontal, 5)
+                        .padding(.vertical, 2)
+                        .background(Capsule().fill(Color.white.opacity(0.25)))
+                        .foregroundStyle(.white)
+                } else if done {
+                    Image(systemName: "checkmark.circle.fill").font(.system(size: 12)).foregroundStyle(sel ? .white : Theme.ok)
+                }
             }
             .foregroundStyle(sel ? Color.white : Color.primary)
             .padding(.horizontal, 8).padding(.vertical, 6)
-            .background(RoundedRectangle(cornerRadius: 8).fill(sel ? module.accent : Color.clear))
+            .background(
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(sel ? module.accent : (isCommitted ? module.accent.opacity(0.12) : Color.clear))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 8)
+                    .strokeBorder(isCommitted && !sel ? module.accent.opacity(0.4) : Color.clear, lineWidth: 1)
+            )
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .onHover { isHovered in
+            if isHovered {
+                withAnimation(.easeInOut(duration: 0.15)) {
+                    previewActivityId = a.id
+                }
+            } else if previewActivityId == a.id {
+                withAnimation(.easeInOut(duration: 0.15)) {
+                    previewActivityId = nil
+                }
+            }
+        }
     }
 
     private func activityHeader(_ a: Activity) -> some View {

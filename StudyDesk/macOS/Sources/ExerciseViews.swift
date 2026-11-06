@@ -15,6 +15,7 @@ import AppKit
 import AVKit
 import AVFoundation
 import Combine
+import WebKit
 
 // MARK: - Shared building blocks
 
@@ -49,31 +50,36 @@ struct RichText: View {
         return copy
     }
 
+    @ViewBuilder
     var body: some View {
-        let paragraphs = text.replacingOccurrences(of: "__", with: "**").components(separatedBy: "\n")
-        let effectiveFont: Font = if let font {
-            font
+        if isHTMLContent(text) {
+            HTMLContentView(html: text, moduleId: moduleId)
         } else {
-            isItalic ? .system(size: baseSize * scaleFactor).italic() : .system(size: baseSize * scaleFactor)
-        }
-        VStack(alignment: .leading, spacing: 6 * scaleFactor) {
-            ForEach(Array(paragraphs.enumerated()), id: \.offset) { _, p in
-                if p.trimmingCharacters(in: .whitespaces).isEmpty {
-                    Spacer().frame(height: 4 * scaleFactor)
-                } else if p.contains("![") && p.contains("](") {
-                    renderParagraphWithImages(p, effectiveFont: effectiveFont)
-                } else if p.hasPrefix("- ") {
-                    HStack(alignment: .firstTextBaseline, spacing: 6 * scaleFactor) {
-                        Text("•").foregroundStyle(.secondary)
-                        Text(md(String(p.dropFirst(2)))).font(effectiveFont)
+            let paragraphs = text.replacingOccurrences(of: "__", with: "**").components(separatedBy: "\n")
+            let effectiveFont: Font = if let font {
+                font
+            } else {
+                isItalic ? .system(size: baseSize * scaleFactor).italic() : .system(size: baseSize * scaleFactor)
+            }
+            VStack(alignment: .leading, spacing: 6 * scaleFactor) {
+                ForEach(Array(paragraphs.enumerated()), id: \.offset) { _, p in
+                    if p.trimmingCharacters(in: .whitespaces).isEmpty {
+                        Spacer().frame(height: 4 * scaleFactor)
+                    } else if p.contains("![") && p.contains("](") {
+                        renderParagraphWithImages(p, effectiveFont: effectiveFont)
+                    } else if p.hasPrefix("- ") {
+                        HStack(alignment: .firstTextBaseline, spacing: 6 * scaleFactor) {
+                            Text("•").foregroundStyle(.secondary)
+                            Text(md(String(p.dropFirst(2)))).font(effectiveFont)
+                        }
+                    } else {
+                        Text(md(p)).font(effectiveFont)
                     }
-                } else {
-                    Text(md(p)).font(effectiveFont)
                 }
             }
+            .textSelection(.enabled)
+            .fixedSize(horizontal: false, vertical: true)
         }
-        .textSelection(.enabled)
-        .fixedSize(horizontal: false, vertical: true)
     }
 
     private struct RichSegment: Identifiable {
@@ -1124,7 +1130,7 @@ struct ExercisePartView: View {
 
     private var typeBadge: some View {
         let names = ["crossword": "Cruciverba", "choice": "Scelta", "truefalse": "Vero/Falso", "gapfill": "Completa", "match": "Collega", "categorize": "Classifica",
-                     "order": "Ordina", "table": "Tabella", "open": "Scrittura", "speaking": "Parlato", "info": "Lettura"]
+                     "order": "Ordina", "table": "Tabella", "open": "Scrittura", "speaking": "Parlato", "info": "Lettura", "html": "HTML / CSS", "custom": "Interattivo"]
         return Pill(text: names[part.type] ?? part.type, color: part.needsReview ? Theme.violet : accent)
     }
 
@@ -1142,6 +1148,7 @@ struct ExercisePartView: View {
         case "open": OpenBody(part: part, ctx: ctx, answer: $answer)
         case "speaking": SpeakingBody(part: part, ctx: ctx, answer: $answer)
         case "crossword": CrosswordBody(part: part, ctx: ctx, answer: $answer)
+        case "html", "custom": HTMLBody(part: part, ctx: ctx, answer: $answer)
         default: Text("Tipo di esercizio non supportato: \(part.type)").foregroundStyle(.secondary)
         }
     }
@@ -1273,6 +1280,298 @@ struct OptionChip: View {
     }
 }
 
+// MARK: - HTML & CSS Support
+
+public func isHTMLContent(_ text: String) -> Bool {
+    let t = text.trimmingCharacters(in: .whitespacesAndNewlines)
+    if t.hasPrefix("<!DOCTYPE html") || t.hasPrefix("<html") { return true }
+    if t.contains("<style>") || t.contains("</style>") { return true }
+    if t.contains("<div") && t.contains("</div>") { return true }
+    if t.contains("<section") && t.contains("</section>") { return true }
+    if t.contains("<table") && t.contains("</table>") { return true }
+    if t.contains("<iframe") && t.contains("</iframe>") { return true }
+    return false
+}
+
+public struct HTMLContentView: View {
+    @Environment(AppStore.self) private var store
+    @Environment(\.colorScheme) private var colorScheme
+    let html: String
+    var css: String? = nil
+    var js: String? = nil
+    var fixedHeight: Double? = nil
+    var moduleId: String? = nil
+    var accent: Color? = nil
+    var onAnswerReceived: ((String) -> Void)? = nil
+
+    @State private var dynamicHeight: CGFloat = 120
+
+    private var effectiveBaseURL: URL? {
+        if let mid = moduleId ?? store.openModuleId {
+            return store.moduleDir(mid)
+        }
+        return nil
+    }
+
+    public var body: some View {
+        let effectiveAccent = accent ?? store.module(store.openModuleId ?? "")?.accent ?? Theme.accent
+        let accentHex = effectiveAccent.hexString
+        let isDark = colorScheme == .dark
+
+        HTMLWebView(
+            htmlContent: html,
+            customCSS: css,
+            customJS: js,
+            baseURL: effectiveBaseURL,
+            accentColorHex: accentHex,
+            isDarkMode: isDark,
+            dynamicHeight: $dynamicHeight,
+            onAnswer: onAnswerReceived
+        )
+        .frame(height: fixedHeight.map { CGFloat($0) } ?? max(dynamicHeight, 60))
+        .frame(maxWidth: .infinity)
+        .clipShape(RoundedRectangle(cornerRadius: 10))
+    }
+}
+
+struct HTMLWebView: NSViewRepresentable {
+    let htmlContent: String
+    let customCSS: String?
+    let customJS: String?
+    let baseURL: URL?
+    let accentColorHex: String
+    let isDarkMode: Bool
+    @Binding var dynamicHeight: CGFloat
+    var onAnswer: ((String) -> Void)? = nil
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(self)
+    }
+
+    func makeNSView(context: Context) -> WKWebView {
+        let config = WKWebViewConfiguration()
+        let userContentController = WKUserContentController()
+        userContentController.add(context.coordinator, name: "studydeskHeight")
+        userContentController.add(context.coordinator, name: "studydeskAnswer")
+        config.userContentController = userContentController
+
+        let webView = WKWebView(frame: .zero, configuration: config)
+        webView.navigationDelegate = context.coordinator
+        webView.setValue(false, forKey: "drawsBackground")
+        context.coordinator.webView = webView
+        return webView
+    }
+
+    func updateNSView(_ webView: WKWebView, context: Context) {
+        context.coordinator.parent = self
+        let fullHTML = wrapHTML(
+            html: htmlContent,
+            css: customCSS,
+            js: customJS,
+            accentHex: accentColorHex,
+            isDark: isDarkMode
+        )
+        if context.coordinator.lastRenderedHTML != fullHTML {
+            context.coordinator.lastRenderedHTML = fullHTML
+            webView.loadHTMLString(fullHTML, baseURL: baseURL)
+        }
+    }
+
+    private func wrapHTML(html: String, css: String?, js: String?, accentHex: String, isDark: Bool) -> String {
+        let trimmed = html.trimmingCharacters(in: .whitespacesAndNewlines)
+        let isFullDoc = trimmed.hasPrefix("<!DOCTYPE html") || trimmed.hasPrefix("<html")
+
+        let textColor = isDark ? "#f3f4f6" : "#1f2937"
+        let borderColor = isDark ? "rgba(255,255,255,0.14)" : "rgba(0,0,0,0.12)"
+        let cardBg = isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.03)"
+        let inputBg = isDark ? "rgba(255,255,255,0.09)" : "#ffffff"
+
+        let baseCSS = """
+        :root {
+            --accent: \(accentHex);
+            --text-color: \(textColor);
+            --border-color: \(borderColor);
+            --card-bg: \(cardBg);
+            --input-bg: \(inputBg);
+            color-scheme: \(isDark ? "dark" : "light");
+        }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            padding: 8px 4px;
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            font-size: 14.5px;
+            line-height: 1.6;
+            color: var(--text-color);
+            background: transparent;
+            word-break: break-word;
+            -webkit-font-smoothing: antialiased;
+        }
+        a { color: var(--accent); text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        img, video, audio { max-width: 100%; height: auto; border-radius: 8px; }
+        table { border-collapse: collapse; width: 100%; margin: 12px 0; }
+        th, td { border: 1px solid var(--border-color); padding: 8px 12px; text-align: left; }
+        th { background: var(--card-bg); font-weight: 600; }
+        pre, code { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 13px; }
+        pre { background: var(--card-bg); padding: 12px; border-radius: 8px; overflow-x: auto; }
+        blockquote { border-left: 3px solid var(--accent); margin: 12px 0; padding: 6px 14px; opacity: 0.9; }
+        input[type="text"], textarea, select {
+            background: var(--input-bg);
+            color: var(--text-color);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 6px 10px;
+            font-size: 14px;
+            font-family: inherit;
+        }
+        input[type="text"]:focus, textarea:focus, select:focus {
+            outline: 2px solid var(--accent);
+            border-color: var(--accent);
+        }
+        button.btn {
+            background: var(--accent);
+            color: #ffffff;
+            border: none;
+            border-radius: 6px;
+            padding: 8px 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: opacity 0.15s ease;
+        }
+        button.btn:hover { opacity: 0.85; }
+        \(css ?? "")
+        """
+
+        let scriptSnippet = """
+        <script>
+        function notifyHeight() {
+            try {
+                var h = Math.max(document.body.scrollHeight, document.documentElement.scrollHeight, document.body.offsetHeight);
+                if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.studydeskHeight) {
+                    window.webkit.messageHandlers.studydeskHeight.postMessage(h);
+                }
+            } catch(e) {}
+        }
+        window.addEventListener('load', notifyHeight);
+        window.addEventListener('resize', notifyHeight);
+        if (typeof ResizeObserver !== 'undefined') {
+            new ResizeObserver(notifyHeight).observe(document.body);
+        }
+        function submitAnswer(val) {
+            try {
+                if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.studydeskAnswer) {
+                    window.webkit.messageHandlers.studydeskAnswer.postMessage(typeof val === 'string' ? val : JSON.stringify(val));
+                }
+            } catch(e) {}
+        }
+        </script>
+        """
+
+        if isFullDoc {
+            var doc = html
+            if let headRange = doc.range(of: "</head>", options: .caseInsensitive) {
+                let injected = "<style>\(baseCSS)</style>\(scriptSnippet)\n"
+                doc.insert(contentsOf: injected, at: headRange.lowerBound)
+            } else {
+                doc = "<style>\(baseCSS)</style>\(scriptSnippet)\n" + doc
+            }
+            if let customScript = js, !customScript.isEmpty {
+                doc += "\n<script>\(customScript)</script>"
+            }
+            return doc
+        }
+
+        return """
+        <!DOCTYPE html>
+        <html>
+        <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+        <style>
+        \(baseCSS)
+        </style>
+        \(scriptSnippet)
+        </head>
+        <body>
+        \(html)
+        \(js.map { "<script>\($0)</script>" } ?? "")
+        </body>
+        </html>
+        """
+    }
+
+    class Coordinator: NSObject, WKNavigationDelegate, WKScriptMessageHandler {
+        var parent: HTMLWebView
+        weak var webView: WKWebView?
+        var lastRenderedHTML: String = ""
+
+        init(_ parent: HTMLWebView) {
+            self.parent = parent
+        }
+
+        func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+            webView.evaluateJavaScript("Math.max(document.body.scrollHeight, document.documentElement.scrollHeight, document.body.offsetHeight)") { [weak self] (result, _) in
+                if let height = result as? CGFloat, height > 20 {
+                    DispatchQueue.main.async {
+                        self?.parent.dynamicHeight = max(height + 16, 50)
+                    }
+                }
+            }
+        }
+
+        func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
+            if navigationAction.navigationType == .linkActivated, let url = navigationAction.request.url {
+                decisionHandler(.cancel)
+                NSWorkspace.shared.open(url)
+            } else {
+                decisionHandler(.allow)
+            }
+        }
+
+        func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+            if message.name == "studydeskHeight" {
+                if let height = message.body as? CGFloat, height > 20 {
+                    DispatchQueue.main.async {
+                        self.parent.dynamicHeight = max(height + 16, 50)
+                    }
+                } else if let num = message.body as? NSNumber {
+                    DispatchQueue.main.async {
+                        self.parent.dynamicHeight = max(CGFloat(truncating: num) + 16, 50)
+                    }
+                }
+            } else if message.name == "studydeskAnswer" {
+                if let str = message.body as? String {
+                    DispatchQueue.main.async {
+                        self.parent.onAnswer?(str)
+                    }
+                }
+            }
+        }
+    }
+}
+
+struct HTMLBody: View {
+    let part: Exercise
+    let ctx: PartContext
+    @Binding var answer: AnswerValue?
+
+    var body: some View {
+        let content = part.html ?? part.content ?? "<p>Nessun codice HTML specificato.</p>"
+        HTMLContentView(
+            html: content,
+            css: part.css,
+            js: part.js,
+            fixedHeight: part.height,
+            moduleId: ctx.moduleId,
+            accent: ctx.accent,
+            onAnswerReceived: { val in
+                answer = .strings([val])
+            }
+        )
+    }
+}
+
 // MARK: - Type bodies
 
 struct InfoBody: View {
@@ -1280,7 +1579,29 @@ struct InfoBody: View {
     let ctx: PartContext
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            if let c = part.content { RichText(c) }
+            if let html = part.html, !html.isEmpty {
+                HTMLContentView(
+                    html: html,
+                    css: part.css,
+                    js: part.js,
+                    fixedHeight: part.height,
+                    moduleId: ctx.moduleId,
+                    accent: ctx.accent
+                )
+            } else if let c = part.content {
+                if isHTMLContent(c) {
+                    HTMLContentView(
+                        html: c,
+                        css: part.css,
+                        js: part.js,
+                        fixedHeight: part.height,
+                        moduleId: ctx.moduleId,
+                        accent: ctx.accent
+                    )
+                } else {
+                    RichText(c)
+                }
+            }
             if let d = part.dialogue, !d.isEmpty {
                 VStack(alignment: .leading, spacing: 6) {
                     ForEach(Array(d.enumerated()), id: \.offset) { _, line in

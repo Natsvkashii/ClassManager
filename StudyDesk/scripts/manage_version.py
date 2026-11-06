@@ -219,6 +219,7 @@ def build_mac(package=True):
     subprocess.run(["swiftc", "-disable-sandbox", "-module-cache-path", cache,
                     "-framework", "SwiftUI", "-framework", "AppKit", "-framework", "AVKit",
                     "-framework", "AVFoundation", "-framework", "UniformTypeIdentifiers",
+                    "-framework", "WebKit",
                     "-O", "-o", os.path.join(macos_dir, "StudyDesk")] + sources, check=True)
 
     write(os.path.join(APP_BUNDLE, "Contents", "Info.plist"), info_plist(ver))

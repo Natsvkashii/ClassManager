@@ -315,11 +315,17 @@ public struct Exercise: Codable, Hashable, Identifiable {
     public var cols: Int?
     public var entries: [CrosswordEntry]?
     public var solutionWord: CrosswordSolution?
+    // html / css / interactive
+    public var html: String?
+    public var css: String?
+    public var js: String?
+    public var height: Double?
 
     enum CodingKeys: String, CodingKey {
         case id, label, type, instructions, media, points, content, dialogue, table, questions, labels, statements, items, wordBank, layout
         case left, right, pairs, categories, headers, rows, prompts, sample, record, cols, entries, solutionWord
         case candidate, role, chooseTrack, choosePrompt, minWords, maxWords, timer
+        case html, css, js, height
     }
 
     public init(from decoder: Decoder) throws {
@@ -356,6 +362,10 @@ public struct Exercise: Codable, Hashable, Identifiable {
         minWords = try? c.decodeIfPresent(Int.self, forKey: .minWords)
         maxWords = try? c.decodeIfPresent(Int.self, forKey: .maxWords)
         timer = try? c.decodeIfPresent(Int.self, forKey: .timer)
+        html = try c.decodeIfPresent(String.self, forKey: .html)
+        css = try c.decodeIfPresent(String.self, forKey: .css)
+        js = try c.decodeIfPresent(String.self, forKey: .js)
+        height = try c.decodeIfPresent(Double.self, forKey: .height)
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -379,10 +389,14 @@ public struct Exercise: Codable, Hashable, Identifiable {
         try c.encodeIfPresent(minWords, forKey: .minWords)
         try c.encodeIfPresent(maxWords, forKey: .maxWords)
         try c.encodeIfPresent(timer, forKey: .timer)
+        try c.encodeIfPresent(html, forKey: .html)
+        try c.encodeIfPresent(css, forKey: .css)
+        try c.encodeIfPresent(js, forKey: .js)
+        try c.encodeIfPresent(height, forKey: .height)
     }
 
     public var isAutoGraded: Bool { ["choice", "truefalse", "gapfill", "match", "categorize", "order", "table", "crossword"].contains(type) }
-    public var needsReview: Bool { type == "open" || type == "speaking" }
+    public var needsReview: Bool { type == "open" || type == "speaking" || (type == "html" && points != nil && points! > 0) }
 }
 
 public struct Activity: Codable, Hashable, Identifiable {

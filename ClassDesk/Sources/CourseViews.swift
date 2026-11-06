@@ -227,75 +227,113 @@ public struct HomeView: View {
         let featuredLesson = liveLesson ?? upcomingLessons.first
         let subsequentLessons = featuredLesson != nil ? upcomingLessons.filter { $0.id != featuredLesson!.id }.prefix(4) : []
 
-        return ScrollView {
-            VStack(alignment: .leading, spacing: 24) {
-                if store.activeCourses.isEmpty {
-                    emptyCoursesCard
-                } else {
-                    // Featured Hero Card + 4 Subsequent Lessons Grid side-by-side
-                    if let featured = featuredLesson {
-                        if !subsequentLessons.isEmpty {
-                            HStack(alignment: .top, spacing: 18) {
-                                // Left side: Featured card (compact, half width) perfectly aligned with right column
-                                VStack(alignment: .leading, spacing: 10) {
-                                    HStack {
-                                        Label(featured.isLiveNow ? store.t("liveLessonNow") : "Prossima lezione", systemImage: featured.isLiveNow ? "dot.radiowaves.left.and.right" : "clock")
-                                            .font(.headline.bold())
-                                            .foregroundStyle(featured.isLiveNow ? .green : .primary)
-                                        Spacer()
-                                    }
+        return GeometryReader { geo in
+            let isNarrow = geo.size.width < 960
 
-                                    featuredHeroCard(featured, isCompact: true)
-                                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                                }
-                                .frame(maxWidth: .infinity, alignment: .topLeading)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 24) {
+                    if store.activeCourses.isEmpty {
+                        emptyCoursesCard
+                    } else {
+                        // Featured Hero Card + 4 Subsequent Lessons Grid side-by-side or stacked on narrow screens
+                        if let featured = featuredLesson {
+                            if !subsequentLessons.isEmpty {
+                                if isNarrow {
+                                    // Modalità compatta/ristretta: layout verticale a tutta larghezza per evitare deformazioni
+                                    VStack(alignment: .leading, spacing: 20) {
+                                        VStack(alignment: .leading, spacing: 10) {
+                                            HStack {
+                                                Label(featured.isLiveNow ? store.t("liveLessonNow") : "Prossima lezione", systemImage: featured.isLiveNow ? "dot.radiowaves.left.and.right" : "clock")
+                                                    .font(.headline.bold())
+                                                    .foregroundStyle(featured.isLiveNow ? .green : .primary)
+                                                Spacer()
+                                            }
 
-                                // Right side: Subsequent 4 lessons in 2 rows x 2 columns (2x2 grid)
-                                VStack(alignment: .leading, spacing: 10) {
-                                    HStack {
-                                        Label(store.t("subsequentLessonsHeading"), systemImage: "calendar.badge.clock")
-                                            .font(.headline.bold())
-                                        Spacer()
-                                        Text("\(min(subsequentLessons.count, 4)) \(store.t("lessonsLower"))")
-                                            .font(.caption)
-                                            .foregroundStyle(.secondary)
-                                    }
+                                            featuredHeroCard(featured, isCompact: false)
+                                        }
 
-                                    LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)], spacing: 10) {
-                                        ForEach(Array(subsequentLessons.prefix(4))) { item in
-                                            subsequentLessonCard(item)
+                                        VStack(alignment: .leading, spacing: 10) {
+                                            HStack {
+                                                Label(store.t("subsequentLessonsHeading"), systemImage: "calendar.badge.clock")
+                                                    .font(.headline.bold())
+                                                Spacer()
+                                                Text("\(min(subsequentLessons.count, 4)) \(store.t("lessonsLower"))")
+                                                    .font(.caption)
+                                                    .foregroundStyle(.secondary)
+                                            }
+
+                                            LazyVGrid(columns: [GridItem(.adaptive(minimum: 240, maximum: 420), spacing: 12)], spacing: 12) {
+                                                ForEach(Array(subsequentLessons.prefix(4))) { item in
+                                                    subsequentLessonCard(item)
+                                                }
+                                            }
                                         }
                                     }
+                                } else {
+                                    // Modalità ampia: visualizzazione affiancata con altezze e testate perfettamente allineate
+                                    HStack(alignment: .top, spacing: 18) {
+                                        // Left side: Featured card (compact, half width) perfectly aligned with right column
+                                        VStack(alignment: .leading, spacing: 10) {
+                                            HStack {
+                                                Label(featured.isLiveNow ? store.t("liveLessonNow") : "Prossima lezione", systemImage: featured.isLiveNow ? "dot.radiowaves.left.and.right" : "clock")
+                                                    .font(.headline.bold())
+                                                    .foregroundStyle(featured.isLiveNow ? .green : .primary)
+                                                Spacer()
+                                            }
+
+                                            featuredHeroCard(featured, isCompact: true)
+                                                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                                        }
+                                        .frame(maxWidth: .infinity, alignment: .topLeading)
+
+                                        // Right side: Subsequent 4 lessons in 2 rows x 2 columns (2x2 grid)
+                                        VStack(alignment: .leading, spacing: 10) {
+                                            HStack {
+                                                Label(store.t("subsequentLessonsHeading"), systemImage: "calendar.badge.clock")
+                                                    .font(.headline.bold())
+                                                Spacer()
+                                                Text("\(min(subsequentLessons.count, 4)) \(store.t("lessonsLower"))")
+                                                    .font(.caption)
+                                                    .foregroundStyle(.secondary)
+                                            }
+
+                                            LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)], spacing: 10) {
+                                                ForEach(Array(subsequentLessons.prefix(4))) { item in
+                                                    subsequentLessonCard(item)
+                                                }
+                                            }
+                                        }
+                                        .frame(maxWidth: .infinity, alignment: .topLeading)
+                                    }
                                 }
-                                .frame(maxWidth: .infinity, alignment: .topLeading)
+                            } else {
+                                featuredHeroCard(featured, isCompact: false)
                             }
                         } else {
-                            featuredHeroCard(featured, isCompact: false)
-                        }
-                    } else {
-                        noUpcomingLessonsCard
-                    }
-
-                    // Active Courses Overview
-                    VStack(alignment: .leading, spacing: 14) {
-                        HStack {
-                            Label(store.t("yourCoursesHeading"), systemImage: "folder")
-                                .font(.headline.bold())
-                            Spacer()
-                            Text("\(store.activeCourses.count) corsi")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
+                            noUpcomingLessonsCard
                         }
 
-                        LazyVGrid(columns: [GridItem(.adaptive(minimum: 290, maximum: 420), spacing: 16)], spacing: 16) {
-                            ForEach(store.activeCourses) { course in
-                                courseCard(course)
+                        // Active Courses Overview
+                        VStack(alignment: .leading, spacing: 14) {
+                            HStack {
+                                Label(store.t("yourCoursesHeading"), systemImage: "folder")
+                                    .font(.headline.bold())
+                                Spacer()
+                                Text("\(store.activeCourses.count) corsi")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+
+                            LazyVGrid(columns: [GridItem(.adaptive(minimum: 290, maximum: 420), spacing: 16)], spacing: 16) {
+                                ForEach(store.activeCourses) { course in
+                                    courseCard(course)
+                                }
                             }
                         }
                     }
                 }
+                .padding(24)
             }
-            .padding(24)
         }
         .onReceive(countdownTimer) { tick in
             currentTime = tick
@@ -503,78 +541,146 @@ public struct HomeView: View {
 
         return VStack(alignment: .leading, spacing: isCompact ? 12 : 18) {
             // Top Bar: Live / Next Badge, Course Badge, Enrolled count
-            HStack(spacing: 8) {
-                if item.isLiveNow {
-                    HStack(spacing: 5) {
-                        Circle()
-                            .fill(Color.white)
-                            .frame(width: 7, height: 7)
-                        Text(store.t("liveLessonNow").uppercased())
-                            .font(.system(size: 10, weight: .black))
+            if isCompact {
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack(spacing: 6) {
+                        if item.isLiveNow {
+                            HStack(spacing: 5) {
+                                Circle().fill(Color.white).frame(width: 7, height: 7)
+                                Text(store.t("liveLessonNow").uppercased())
+                                    .font(.system(size: 10, weight: .black))
+                                    .lineLimit(1)
+                            }
+                            .padding(.horizontal, 8).padding(.vertical, 3)
+                            .background(Capsule().fill(Color.green))
+                            .foregroundStyle(.white)
+                            .fixedSize()
+                        } else {
+                            HStack(spacing: 5) {
+                                Image(systemName: "clock").font(.system(size: 10, weight: .bold))
+                                Text(store.t("nextLessonHeading").uppercased())
+                                    .font(.system(size: 10, weight: .black))
+                                    .lineLimit(1)
+                            }
+                            .padding(.horizontal, 8).padding(.vertical, 3)
+                            .background(Capsule().fill(Color.blue.opacity(0.12)))
+                            .foregroundStyle(.blue)
+                            .fixedSize()
+                        }
+
+                        Text(item.badge)
+                            .font(.caption2.bold())
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 7).padding(.vertical, 3)
+                            .background(RoundedRectangle(cornerRadius: 5).fill(pal.color))
+                            .lineLimit(1)
+                            .fixedSize()
+
+                        Text(item.course.name)
+                            .font(.caption.bold())
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+
+                        Spacer()
                     }
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 3)
-                    .background(Capsule().fill(Color.green))
-                    .foregroundStyle(.white)
-                } else {
-                    HStack(spacing: 5) {
-                        Image(systemName: "clock")
-                            .font(.system(size: 10, weight: .bold))
-                        Text(store.t("nextLessonHeading").uppercased())
-                            .font(.system(size: 10, weight: .black))
+
+                    HStack(spacing: 6) {
+                        let remainingText = countdownString(for: item, now: currentTime)
+                        if !remainingText.isEmpty {
+                            HStack(spacing: 4) {
+                                Image(systemName: item.isLiveNow ? "dot.radiowaves.left.and.right" : "timer")
+                                    .font(.system(size: 10, weight: .bold))
+                                Text(remainingText)
+                                    .font(.system(size: 11, weight: .heavy).monospacedDigit())
+                                    .lineLimit(1)
+                            }
+                            .padding(.horizontal, 8).padding(.vertical, 3)
+                            .background(Capsule().fill(item.isLiveNow ? Color.green.opacity(0.18) : pal.color.opacity(0.15)))
+                            .overlay(Capsule().strokeBorder(item.isLiveNow ? Color.green.opacity(0.5) : pal.color.opacity(0.4), lineWidth: 1))
+                            .foregroundStyle(item.isLiveNow ? Color.green : pal.color)
+                            .fixedSize()
+                        }
+
+                        HStack(spacing: 4) {
+                            Image(systemName: "person.2").font(.caption2)
+                            Text(store.count(item.studentCount, one: "enrolledOneLower", many: "enrolledLower"))
+                                .font(.caption2.bold())
+                                .lineLimit(1)
+                        }
+                        .padding(.horizontal, 7).padding(.vertical, 3)
+                        .background(RoundedRectangle(cornerRadius: 6).fill(Color.secondary.opacity(0.1)))
+                        .fixedSize()
+
+                        Spacer()
                     }
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 3)
-                    .background(Capsule().fill(Color.blue.opacity(0.12)))
-                    .foregroundStyle(.blue)
                 }
-
-                Text(item.badge)
-                    .font(.caption2.bold())
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 7)
-                    .padding(.vertical, 3)
-                    .background(RoundedRectangle(cornerRadius: 5).fill(pal.color))
-
-                Text(item.course.name)
-                    .font(.caption.bold())
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-
-                Spacer()
-
-                // Live Countdown Timer Badge before next lesson
-                let remainingText = countdownString(for: item, now: currentTime)
-                if !remainingText.isEmpty {
-                    HStack(spacing: 4) {
-                        Image(systemName: item.isLiveNow ? "dot.radiowaves.left.and.right" : "timer")
-                            .font(.system(size: 10, weight: .bold))
-                        Text(remainingText)
-                            .font(.system(size: 11, weight: .heavy).monospacedDigit())
+            } else {
+                HStack(spacing: 8) {
+                    if item.isLiveNow {
+                        HStack(spacing: 5) {
+                            Circle().fill(Color.white).frame(width: 7, height: 7)
+                            Text(store.t("liveLessonNow").uppercased())
+                                .font(.system(size: 10, weight: .black))
+                                .lineLimit(1)
+                        }
+                        .padding(.horizontal, 8).padding(.vertical, 3)
+                        .background(Capsule().fill(Color.green))
+                        .foregroundStyle(.white)
+                        .fixedSize()
+                    } else {
+                        HStack(spacing: 5) {
+                            Image(systemName: "clock").font(.system(size: 10, weight: .bold))
+                            Text(store.t("nextLessonHeading").uppercased())
+                                .font(.system(size: 10, weight: .black))
+                                .lineLimit(1)
+                        }
+                        .padding(.horizontal, 8).padding(.vertical, 3)
+                        .background(Capsule().fill(Color.blue.opacity(0.12)))
+                        .foregroundStyle(.blue)
+                        .fixedSize()
                     }
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 3)
-                    .background(
-                        Capsule()
-                            .fill(item.isLiveNow ? Color.green.opacity(0.18) : pal.color.opacity(0.15))
-                    )
-                    .overlay(
-                        Capsule()
-                            .strokeBorder(item.isLiveNow ? Color.green.opacity(0.5) : pal.color.opacity(0.4), lineWidth: 1)
-                    )
-                    .foregroundStyle(item.isLiveNow ? Color.green : pal.color)
-                    .help("Tempo rimanente prima della prossima lezione")
-                }
 
-                HStack(spacing: 4) {
-                    Image(systemName: "person.2")
-                        .font(.caption2)
-                    Text(store.count(item.studentCount, one: "enrolledOneLower", many: "enrolledLower"))
+                    Text(item.badge)
                         .font(.caption2.bold())
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 7).padding(.vertical, 3)
+                        .background(RoundedRectangle(cornerRadius: 5).fill(pal.color))
+                        .lineLimit(1)
+                        .fixedSize()
+
+                    Text(item.course.name)
+                        .font(.caption.bold())
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+
+                    Spacer()
+
+                    let remainingText = countdownString(for: item, now: currentTime)
+                    if !remainingText.isEmpty {
+                        HStack(spacing: 4) {
+                            Image(systemName: item.isLiveNow ? "dot.radiowaves.left.and.right" : "timer")
+                                .font(.system(size: 10, weight: .bold))
+                            Text(remainingText)
+                                .font(.system(size: 11, weight: .heavy).monospacedDigit())
+                                .lineLimit(1)
+                        }
+                        .padding(.horizontal, 8).padding(.vertical, 3)
+                        .background(Capsule().fill(item.isLiveNow ? Color.green.opacity(0.18) : pal.color.opacity(0.15)))
+                        .overlay(Capsule().strokeBorder(item.isLiveNow ? Color.green.opacity(0.5) : pal.color.opacity(0.4), lineWidth: 1))
+                        .foregroundStyle(item.isLiveNow ? Color.green : pal.color)
+                        .fixedSize()
+                    }
+
+                    HStack(spacing: 4) {
+                        Image(systemName: "person.2").font(.caption2)
+                        Text(store.count(item.studentCount, one: "enrolledOneLower", many: "enrolledLower"))
+                            .font(.caption2.bold())
+                            .lineLimit(1)
+                    }
+                    .padding(.horizontal, 7).padding(.vertical, 3)
+                    .background(RoundedRectangle(cornerRadius: 6).fill(Color.secondary.opacity(0.1)))
+                    .fixedSize()
                 }
-                .padding(.horizontal, 7)
-                .padding(.vertical, 3)
-                .background(RoundedRectangle(cornerRadius: 6).fill(Color.secondary.opacity(0.1)))
             }
 
             // Title & Lesson Number
@@ -652,43 +758,51 @@ public struct HomeView: View {
             Divider()
 
             // Actions: Join, Copy, Lesson Plan, Register
-            HStack(spacing: 8) {
+            HStack(spacing: isCompact ? 6 : 8) {
                 if let meet = item.meetUrl, !meet.isEmpty, let url = URL(string: meet) {
                     Button {
                         NSWorkspace.shared.open(url)
                     } label: {
                         Label(store.t("joinLessonBtn"), systemImage: "video.fill")
                             .font(.caption.bold())
+                            .lineLimit(1)
                     }
                     .buttonStyle(.borderedProminent)
                     .tint(.green)
+                    .fixedSize()
                 }
 
                 Button {
                     store.copyLessonStudentInvitation(course: item.course, module: item.module, slotKey: item.slotKey)
                 } label: {
-                    Label(store.t("copyLessonInviteBtn"), systemImage: "square.and.arrow.up")
+                    Label(isCompact ? "Copia invito" : store.t("copyLessonInviteBtn"), systemImage: "square.and.arrow.up")
                         .font(.caption.bold())
+                        .lineLimit(1)
                 }
                 .buttonStyle(.bordered)
+                .fixedSize()
 
                 Button {
                     activeSheet = .lessonPlan(courseId: item.course.id, sectionId: item.module.id, slotKey: item.slotKey)
                 } label: {
                     Label(store.t("lessonPlanTitle"), systemImage: "text.book.closed")
                         .font(.caption.bold())
+                        .lineLimit(1)
                 }
                 .buttonStyle(.bordered)
+                .fixedSize()
 
-                Spacer()
+                Spacer(minLength: 2)
 
                 Button {
                     store.switchCourse(item.course.id, tab: .attendance)
                 } label: {
                     Label(store.t("openCourseBtn"), systemImage: "checklist")
                         .font(.caption.bold())
+                        .lineLimit(1)
                 }
                 .buttonStyle(.bordered)
+                .fixedSize()
             }
         }
         .padding(isCompact ? 16 : 22)
