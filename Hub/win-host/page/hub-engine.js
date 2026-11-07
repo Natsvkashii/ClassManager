@@ -284,8 +284,8 @@ async function createEngine(opts = {}) {
     if (!conn._eventHooked) { conn._eventHooked = true; conn.on('event', (m) => onEvent(conn, m)); }
     conn.on('close', () => { if (conns.get(info.deviceId) === conn) { conns.delete(info.deviceId); log(`«${info.name}» scollegato`); peersChanged(); } });
     log(`«${info.name}» collegato (${outgoing ? 'in uscita' : 'in ingresso'})`);
-    toClients({ t: 'peer-joined', device: info.deviceId, name: info.name });
     peersChanged();
+    toClients({ t: 'peer-joined', device: info.deviceId, name: info.name });
     syncPeer(info.deviceId).catch(() => {});
   }
 

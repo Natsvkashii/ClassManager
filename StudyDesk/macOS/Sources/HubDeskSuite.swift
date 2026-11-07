@@ -169,6 +169,15 @@ public final class HubDeskClient {
         case "board":
             if let msg = m["msg"] as? [String: Any] { BoardModel.shared.receiveShared(msg, from: m["from"] as? String, name: m["fromName"] as? String) }
         case "peer-joined":
+            if let dev = m["device"] as? String {
+                if let i = peers.firstIndex(where: { $0.id == dev }) {
+                    var p = peers[i]
+                    p.connected = true
+                    peers[i] = p
+                } else if let name = m["name"] as? String {
+                    peers.append(HubPeer(["deviceId": dev, "name": name, "connected": true]))
+                }
+            }
             BoardModel.shared.sendSnapshot()
         default: break
         }

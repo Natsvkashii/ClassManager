@@ -202,7 +202,16 @@ function createService() {
     else if (m.t === 'closed') { state.connected = false; emit(); }
     else if (m.t === 'records' && (!m.app || m.app === 'studydesk')) { state.connected = true; reconcile(); }
     else if (m.t === 'board') { state.connected = true; fire(subs.board, m); }
-    else if (m.t === 'peer-joined') { state.connected = true; fire(subs.peer, m); }
+    else if (m.t === 'peer-joined') {
+      state.connected = true;
+      if (m.device) {
+        const p = state.peers.find((x) => x.deviceId === m.device);
+        if (p) p.connected = true;
+        else state.peers.push({ deviceId: m.device, name: m.name || m.device, connected: true });
+        emit();
+      }
+      fire(subs.peer, m);
+    }
   };
 
   async function syncLink() {

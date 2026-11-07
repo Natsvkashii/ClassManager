@@ -277,7 +277,7 @@ textarea.input { resize: vertical; min-height: 5rem; }
 .opts { display: flex; flex-wrap: wrap; gap: .5rem; }
 .opt {
   display: inline-flex; align-items: center; gap: .5rem; padding: .5rem .85rem; border-radius: .7rem; border: 1.5px solid var(--border-strong); background: var(--surface);
-  cursor: pointer; font-weight: 600; font-size: .9rem; transition: border-color .12s, background .12s;
+  cursor: pointer; font-weight: 400; font-size: .9rem; transition: border-color .12s, background .12s;
 }
 .opt:hover { border-color: var(--accent); }
 .opt.sel { border-color: var(--accent); background: var(--accent-soft); color: var(--accent-ink); }

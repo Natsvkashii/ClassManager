@@ -1159,7 +1159,10 @@ final class BoardCanvasView: NSView, NSTextViewDelegate {
         var attrs: [NSAttributedString.Key: Any] = [.font: L.font, .foregroundColor: NSColor(hex: t.color), .paragraphStyle: para]
         if t.underline { attrs[.underlineStyle] = NSUnderlineStyle.single.rawValue }
         ed.typingAttributes = attrs
-        ed.textStorage?.setAttributes(attrs, range: NSRange(location: 0, length: (ed.string as NSString).length))
+        let len = (ed.string as NSString).length
+        if len > 0 {
+            ed.textStorage?.setAttributes(attrs, range: NSRange(location: 0, length: len))
+        }
         ed.insertionPointColor = NSColor(hex: t.color)
         let top: CGFloat
         if t.cell {

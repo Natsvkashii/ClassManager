@@ -77,7 +77,14 @@ export async function initHubDesk() {
       sendBoard({ ...snapshotOf(sharedBoard), reply: true });
     }
   });
-  a.onPeerJoined(() => sendSnapshot());
+  a.onPeerJoined((m) => {
+    if (m && m.device && hub.status && hub.status.connectedPeers) {
+      if (!hub.status.connectedPeers.some((p) => p.deviceId === m.device)) {
+        hub.status.connectedPeers.push({ deviceId: m.device, name: m.name || m.device });
+      }
+    }
+    sendSnapshot();
+  });
   // every save of groups / results: the main process writes the records that changed
   let t = null;
   window.addEventListener('studydesk:db-write', () => { clearTimeout(t); t = setTimeout(() => a.touch().catch(() => {}), 400); });

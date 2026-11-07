@@ -503,12 +503,12 @@ static DWORD WINAPI HubLinkThread(LPVOID) {
                     if (line.find("\"t\":\"hello\"") != std::string::npos) g_hubHello = line;
                     else if (line.find("\"t\":\"peers\"") != std::string::npos) g_hubPeers = line;
                     LeaveCriticalSection(&g_hubLock);
-                    HubDeliver("window.__sd_hub_on && window.__sd_hub_on(" + line + ")");
+                    HubDeliver("window.__sd_hub_deliver ? window.__sd_hub_deliver(\"" + JsonEscape(line) + "\") : (window.__sd_hub_on && window.__sd_hub_on(" + line + "))");
                 }
             }
         }
         EnterCriticalSection(&g_hubLock); closesocket(s); g_hubSock = INVALID_SOCKET; g_hubHello.clear(); g_hubPeers.clear(); LeaveCriticalSection(&g_hubLock);
-        HubDeliver("window.__sd_hub_on && window.__sd_hub_on({t:'closed'})");
+        HubDeliver("window.__sd_hub_deliver ? window.__sd_hub_deliver(\"{\\\"t\\\":\\\"closed\\\"}\") : (window.__sd_hub_on && window.__sd_hub_on({t:'closed'}))");
         for (int i = 0; i < 25 && !g_hubStop; i++) Sleep(200);
     }
     return 0;
@@ -520,6 +520,13 @@ static const char *BRIDGE_JS = R"JS(
   const fetchFiles = async (list) => Promise.all((list || []).map(async (f) => ({ name: f.name, data: await (await fetch(f.url)).arrayBuffer() })));
   const noop = () => () => {};
   const openCbs = [];
+  window.__sd_hub_deliver = function(jsonStr) {
+    try {
+      if (window.__sd_hub_on) window.__sd_hub_on(JSON.parse(jsonStr));
+    } catch (e) {
+      console.error('__sd_hub_deliver error', e);
+    }
+  };
   window.__sd_on_open = async (list) => {
     const files = await fetchFiles(list);
     openCbs.forEach((cb) => { try { cb(files); } catch (e) { console.error(e); } });
@@ -714,7 +721,19 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int) {
         return p.empty() ? "[]" : ListFiles(p);
     });
     w.bind("__sd_hub_send", [](std::string req) -> std::string {
-        std::string line = ParseJsonArg(req, 0) + "\n"; bool ok = false;
+        std::string line;
+        size_t first = req.find_first_not_of(" \t\r\n[");
+        if (first != std::string::npos && req[first] == '{') {
+            size_t last = req.find_last_not_of(" \t\r\n]");
+            if (last != std::string::npos && last >= first) {
+                line = req.substr(first, last - first + 1);
+            }
+        }
+        if (line.empty()) {
+            line = ParseJsonArg(req, 0);
+        }
+        line += "\n";
+        bool ok = false;
         EnterCriticalSection(&g_hubLock);
         if (g_hubSock != INVALID_SOCKET) {
             size_t sent = 0; ok = true;

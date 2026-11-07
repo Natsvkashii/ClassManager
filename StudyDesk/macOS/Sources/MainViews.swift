@@ -316,10 +316,6 @@ struct ModulePlayerView: View {
                     GroupSelectorPill(book: b)
                 }
 
-                HoverableFullscreenButton(isFullscreen: store.focusMode) {
-                    store.focusMode.toggle()
-                }
-
                 HoverableEllipsisMenu {
                     Button { store.saveReportWithPanel() } label: { Label("Esporta i progressi", systemImage: "square.and.arrow.up") }
                     if store.state.isTeacher {

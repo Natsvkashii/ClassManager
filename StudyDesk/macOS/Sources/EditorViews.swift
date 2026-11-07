@@ -72,6 +72,13 @@ extension FlexItem {
     }
 }
 
+@Observable
+class EditorClipboard {
+    static let shared = EditorClipboard()
+    var copiedPart: Exercise? = nil
+    var copiedActivity: Activity? = nil
+}
+
 struct ModuleEditorView: View {
     @Environment(AppStore.self) private var store
     @State private var draft: StudyModule? = nil
@@ -187,10 +194,24 @@ struct ModuleEditorView: View {
                 treeRow("Modulo: \(d.title)", "shippingbox.fill", .module, level: 0)
                 ForEach(Array(d.sections.enumerated()), id: \.offset) { si, s in
                     treeRow(s.title, sfSymbol(forSectionIcon: s.icon), .section(si), level: 0)
+                        .contextMenu {
+                            if EditorClipboard.shared.copiedActivity != nil {
+                                Button { pasteActivity(si) } label: { Label("Incolla attività", systemImage: "doc.on.clipboard") }
+                            }
+                        }
                     ForEach(Array(s.activities.enumerated()), id: \.offset) { ai, a in
                         treeRow("\(a.number.flatMap { $0.isEmpty ? nil : "\($0). " } ?? "")\(a.title)", "doc.text", .activity(si, ai), level: 1)
+                            .contextMenu {
+                                Button { copyActivity(a) } label: { Label("Copia attività", systemImage: "doc.on.doc") }
+                                if EditorClipboard.shared.copiedPart != nil {
+                                    Button { pastePart(si, ai) } label: { Label("Incolla esercizio", systemImage: "doc.on.clipboard") }
+                                }
+                            }
                         ForEach(Array(a.parts.enumerated()), id: \.offset) { pi, p in
                             treeRow("\(p.label.flatMap { $0.isEmpty ? nil : "\($0) · " } ?? "")\(PartTemplates.types.first { $0.0 == p.type }?.1 ?? p.type)", "smallcircle.filled.circle", .part(si, ai, pi), level: 2)
+                                .contextMenu {
+                                    Button { copyPart(p) } label: { Label("Copia esercizio", systemImage: "doc.on.doc") }
+                                }
                         }
                     }
                 }
@@ -273,7 +294,12 @@ struct ModuleEditorView: View {
                 }
             }
             .formStyle(.grouped)
-            Button { addActivity(si) } label: { Label("Aggiungi attività", systemImage: "plus") }.buttonStyle(.borderedProminent)
+            HStack {
+                Button { addActivity(si) } label: { Label("Aggiungi attività", systemImage: "plus") }.buttonStyle(.borderedProminent)
+                if EditorClipboard.shared.copiedActivity != nil {
+                    Button { pasteActivity(si) } label: { Label("Incolla attività", systemImage: "doc.on.clipboard") }.buttonStyle(.bordered)
+                }
+            }
         }
     }
 
@@ -285,6 +311,7 @@ struct ModuleEditorView: View {
                 Spacer()
                 Button { moveActivity(si, ai, -1) } label: { Image(systemName: "arrow.up") }.disabled(ai == 0)
                 Button { moveActivity(si, ai, 1) } label: { Image(systemName: "arrow.down") }.disabled(ai == draft!.sections[si].activities.count - 1)
+                Button { copyActivity(a) } label: { Label("Copia attività", systemImage: "doc.on.doc") }.buttonStyle(.bordered)
                 Button("Elimina attività", role: .destructive) { mutate { $0.sections[si].activities.remove(at: ai) }; node = .section(si) }
             }
             Form {
@@ -298,17 +325,28 @@ struct ModuleEditorView: View {
             HStack {
                 Text("Parti").font(.headline)
                 Spacer()
+                if EditorClipboard.shared.copiedPart != nil || NSPasteboard.general.string(forType: .string) != nil {
+                    Button { pastePart(si, ai) } label: { Label("Incolla esercizio", systemImage: "doc.on.clipboard") }.buttonStyle(.bordered)
+                }
                 Menu {
                     ForEach(PartTemplates.types, id: \.0) { t in Button(t.1) { addPart(si, ai, type: t.0) } }
                 } label: { Label("Aggiungi parte", systemImage: "plus") }
                 .fixedSize()
             }
             ForEach(Array(a.parts.enumerated()), id: \.offset) { pi, p in
-                Button { node = .part(si, ai, pi) } label: {
-                    HStack { Text(p.label ?? "–").bold(); Text(PartTemplates.types.first { $0.0 == p.type }?.1 ?? p.type); Spacer(); Image(systemName: "chevron.right") }
-                        .padding(10).background(RoundedRectangle(cornerRadius: 8).fill(Color.primary.opacity(0.04)))
+                HStack(spacing: 8) {
+                    Button { node = .part(si, ai, pi) } label: {
+                        HStack { Text(p.label ?? "–").bold(); Text(PartTemplates.types.first { $0.0 == p.type }?.1 ?? p.type); Spacer(); Image(systemName: "chevron.right") }
+                            .padding(10).background(RoundedRectangle(cornerRadius: 8).fill(Color.primary.opacity(0.04)))
+                    }
+                    .buttonStyle(.plain)
+
+                    Button { copyPart(p) } label: {
+                        Image(systemName: "doc.on.doc").foregroundStyle(Color.accentColor)
+                    }
+                    .buttonStyle(.borderless)
+                    .help("Copia questo esercizio")
                 }
-                .buttonStyle(.plain)
             }
         }
     }
@@ -404,6 +442,63 @@ struct ModuleEditorView: View {
         node = .part(si, ai, draft!.sections[si].activities[ai].parts.count - 1)
     }
 
+    private func copyPart(_ part: Exercise) {
+        EditorClipboard.shared.copiedPart = part
+        if let data = try? JSONEncoder().encode(part), let str = String(data: data, encoding: .utf8) {
+            let pb = NSPasteboard.general
+            pb.clearContents()
+            pb.setString(str, forType: .string)
+        }
+        store.showToast("Esercizio copiato negli appunti")
+    }
+
+    private func pastePart(_ si: Int, _ ai: Int) {
+        var partToPaste: Exercise? = EditorClipboard.shared.copiedPart
+        if partToPaste == nil {
+            if let str = NSPasteboard.general.string(forType: .string),
+               let data = str.data(using: .utf8),
+               let decoded = try? JSONDecoder().decode(Exercise.self, from: data) {
+                partToPaste = decoded
+            }
+        }
+        guard var p = partToPaste else {
+            store.showToast("Nessun esercizio da incollare")
+            return
+        }
+        let a = draft!.sections[si].activities[ai]
+        let label = String(UnicodeScalar(UInt8(65 + min(a.parts.count, 25))))
+        p.id = "\(a.id)-\(label.lowercased())-\(UUID().uuidString.prefix(4).lowercased())"
+        p.label = label
+        mutate { $0.sections[si].activities[ai].parts.append(p) }
+        node = .part(si, ai, draft!.sections[si].activities[ai].parts.count - 1)
+        store.showToast("Esercizio incollato con successo")
+    }
+
+    private func copyActivity(_ activity: Activity) {
+        EditorClipboard.shared.copiedActivity = activity
+        store.showToast("Attività copiata negli appunti")
+    }
+
+    private func pasteActivity(_ si: Int) {
+        guard var act = EditorClipboard.shared.copiedActivity else {
+            store.showToast("Nessuna attività da incollare")
+            return
+        }
+        let n = draft!.sections[si].activities.count + 1
+        act.id = "\(draft!.sections[si].id)-a\(UUID().uuidString.prefix(6).lowercased())"
+        act.number = String(n)
+        act.parts = act.parts.enumerated().map { idx, pt in
+            var p = pt
+            let label = String(UnicodeScalar(UInt8(65 + min(idx, 25))))
+            p.id = "\(act.id)-\(label.lowercased())-\(UUID().uuidString.prefix(4).lowercased())"
+            p.label = label
+            return p
+        }
+        mutate { $0.sections[si].activities.append(act) }
+        node = .activity(si, draft!.sections[si].activities.count - 1)
+        store.showToast("Attività incollata con successo")
+    }
+
     private func moveSection(_ si: Int, _ d: Int) { mutate { $0.sections.swapAt(si, si + d) }; node = .section(si + d) }
     private func moveActivity(_ si: Int, _ ai: Int, _ d: Int) { mutate { $0.sections[si].activities.swapAt(ai, ai + d) }; node = .activity(si, ai + d) }
 
@@ -488,6 +583,19 @@ struct PartEditor: View {
                 Text("Parte \(part.label ?? "")").font(.title3.bold())
                 Pill(text: PartTemplates.types.first { $0.0 == part.type }?.1 ?? part.type)
                 Spacer()
+                Button {
+                    EditorClipboard.shared.copiedPart = part
+                    if let data = try? JSONEncoder().encode(part), let str = String(data: data, encoding: .utf8) {
+                        let pb = NSPasteboard.general
+                        pb.clearContents()
+                        pb.setString(str, forType: .string)
+                    }
+                    store.showToast("Esercizio copiato negli appunti")
+                } label: {
+                    Label("Copia esercizio", systemImage: "doc.on.doc")
+                }
+                .buttonStyle(.bordered)
+
                 Button("Elimina parte", role: .destructive, action: onDelete)
             }
             Form {

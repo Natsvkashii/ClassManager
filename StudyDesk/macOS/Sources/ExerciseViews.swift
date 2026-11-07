@@ -206,6 +206,109 @@ struct Pill: View {
     }
 }
 
+struct ZoomableImageView: View {
+    let img: NSImage
+    let onClose: () -> Void
+
+    @State private var scale: CGFloat = 1.0
+    @State private var lastScale: CGFloat = 1.0
+    @State private var offset: CGSize = .zero
+    @State private var lastOffset: CGSize = .zero
+
+    var body: some View {
+        VStack(spacing: 0) {
+            GeometryReader { geo in
+                ZStack {
+                    Image(nsImage: img)
+                        .resizable()
+                        .scaledToFit()
+                        .scaleEffect(scale)
+                        .offset(offset)
+                        .gesture(
+                            MagnificationGesture()
+                                .onChanged { val in
+                                    let delta = val / lastScale
+                                    lastScale = val
+                                    scale = max(0.5, min(scale * delta, 6.0))
+                                }
+                                .onEnded { _ in
+                                    lastScale = 1.0
+                                    if scale < 1.0 {
+                                        withAnimation(.spring()) {
+                                            scale = 1.0
+                                            offset = .zero
+                                            lastOffset = .zero
+                                        }
+                                    }
+                                }
+                        )
+                        .simultaneousGesture(
+                            DragGesture()
+                                .onChanged { val in
+                                    if scale > 1.0 {
+                                        offset = CGSize(
+                                            width: lastOffset.width + val.translation.width,
+                                            height: lastOffset.height + val.translation.height
+                                        )
+                                    }
+                                }
+                                .onEnded { _ in
+                                    if scale > 1.0 {
+                                        lastOffset = offset
+                                    } else {
+                                        withAnimation(.spring()) {
+                                            offset = .zero
+                                            lastOffset = .zero
+                                        }
+                                    }
+                                }
+                        )
+                        .onTapGesture(count: 2) {
+                            withAnimation(.spring()) {
+                                if scale > 1.0 {
+                                    scale = 1.0
+                                    offset = .zero
+                                    lastOffset = .zero
+                                } else {
+                                    scale = 2.0
+                                }
+                            }
+                        }
+                        .frame(width: geo.size.width, height: geo.size.height)
+                }
+                .clipped()
+            }
+            .padding()
+
+            HStack(spacing: 16) {
+                if scale > 1.01 {
+                    Button {
+                        withAnimation(.spring()) {
+                            scale = 1.0
+                            offset = .zero
+                            lastOffset = .zero
+                        }
+                    } label: {
+                        Label("Reimposta zoom", systemImage: "arrow.counterclockwise")
+                    }
+                    .buttonStyle(.bordered)
+                }
+                Text("Zoom: \(Int(round(scale * 100)))%")
+                    .font(.caption.monospacedDigit())
+                    .foregroundStyle(.secondary)
+                Text("Pizzica con due dita sul trackpad per ingrandire")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Button("Chiudi") { onClose() }
+                    .keyboardShortcut(.cancelAction)
+            }
+            .padding(.horizontal, 20)
+            .padding(.bottom, 14)
+        }
+    }
+}
+
 struct ModuleImage: View {
     @Environment(AppStore.self) private var store
     let moduleId: String
@@ -227,11 +330,8 @@ struct ModuleImage: View {
                 .onTapGesture { zoom = true }
                 .help("Clic per ingrandire")
                 .sheet(isPresented: $zoom) {
-                    VStack(spacing: 0) {
-                        Image(nsImage: img).resizable().scaledToFit().padding()
-                        Button("Chiudi") { zoom = false }.keyboardShortcut(.cancelAction).padding(.bottom)
-                    }
-                    .frame(minWidth: 700, idealWidth: min(img.size.width, 1300), minHeight: 500, idealHeight: min(img.size.height + 60, 900))
+                    ZoomableImageView(img: img) { zoom = false }
+                        .frame(minWidth: 700, idealWidth: min(img.size.width, 1300), minHeight: 500, idealHeight: min(img.size.height + 60, 900))
                 }
         } else {
             Label("Immagine non trovata", systemImage: "photo").foregroundStyle(.secondary).font(.caption)
@@ -1266,7 +1366,7 @@ struct OptionChip: View {
                 if let t = item.text, !t.isEmpty {
                     HStack(spacing: 6) {
                         if selected { Image(systemName: state == .wrong ? "xmark.circle.fill" : "checkmark.circle.fill") }
-                        Text(t).font(.system(size: 13 * scale, weight: .semibold)).multilineTextAlignment(.leading)
+                        Text(t).font(.system(size: 13 * scale, weight: .regular)).multilineTextAlignment(.leading)
                     }
                 }
             }
@@ -1667,7 +1767,15 @@ struct ChoiceBody: View {
         VStack(alignment: .leading, spacing: 14) {
             ForEach(Array(qs.enumerated()), id: \.offset) { qi, q in
                 VStack(alignment: .leading, spacing: 8) {
-                    if let p = q.prompt { HStack(alignment: .firstTextBaseline) { if qs.count > 1 { Text("\(qi + 1).").bold() }; RichText(p).fontWeight(.semibold) } }
+                    if let p = q.prompt {
+                        HStack(alignment: .firstTextBaseline) {
+                            let hasNum = p.range(of: #"^\s*(\*\*)?\s*\d+[\.\)]"#, options: .regularExpression) != nil
+                            if qs.count > 1 && !hasNum {
+                                Text("\(qi + 1).").bold()
+                            }
+                            RichText(p).fontWeight(.semibold)
+                        }
+                    }
                     if let m = q.media { MediaList(moduleId: ctx.moduleId, media: m) }
                     if q.answer.isMultiple { Text("Più risposte possibili").font(.caption).foregroundStyle(.secondary) }
                     FlowLayout(spacing: 8, lineSpacing: 8) {
@@ -1786,6 +1894,66 @@ struct GapLine: View {
     }
 }
 
+struct GapNSTextField: NSViewRepresentable {
+    @Binding var text: String
+    var isEnabled: Bool
+    var font: NSFont
+    var textColor: NSColor
+
+    class Coordinator: NSObject, NSTextFieldDelegate {
+        var parent: GapNSTextField
+        var isEditing = false
+
+        init(_ parent: GapNSTextField) {
+            self.parent = parent
+        }
+
+        func controlTextDidChange(_ obj: Notification) {
+            guard let textField = obj.object as? NSTextField else { return }
+            isEditing = true
+            parent.text = textField.stringValue
+            isEditing = false
+        }
+    }
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(self)
+    }
+
+    func makeNSView(context: Context) -> NSTextField {
+        let tf = NSTextField()
+        tf.isBordered = false
+        tf.drawsBackground = false
+        tf.focusRingType = .none
+        tf.font = font
+        tf.textColor = textColor
+        tf.stringValue = text
+        tf.isEditable = isEnabled
+        tf.isSelectable = true
+        tf.delegate = context.coordinator
+        tf.lineBreakMode = .byTruncatingTail
+        tf.cell?.wraps = false
+        tf.cell?.isScrollable = true
+        return tf
+    }
+
+    func updateNSView(_ nsView: NSTextField, context: Context) {
+        context.coordinator.parent = self
+        nsView.font = font
+        nsView.textColor = textColor
+        nsView.isEditable = isEnabled
+
+        if !context.coordinator.isEditing && nsView.stringValue != text {
+            let editor = nsView.currentEditor()
+            let range = editor?.selectedRange
+            nsView.stringValue = text
+            if let range, let ed = editor, range.location <= (text as NSString).length {
+                ed.selectedRange = range
+            }
+        }
+    }
+}
+
 struct GapField: View {
     let value: String
     let answers: [String]
@@ -1804,16 +1972,18 @@ struct GapField: View {
         }
         let width = max(70 * ctx.scaleFactor, CGFloat((answers.map(\.count).max() ?? 8) * Int(9 * ctx.scaleFactor) + Int(20 * ctx.scaleFactor)))
         HStack(spacing: 4 * ctx.scaleFactor) {
-            TextField("", text: $text)
-                .textFieldStyle(.plain)
-                .font(.system(size: 14 * ctx.scaleFactor, weight: .semibold))
-                .foregroundStyle(color)
-                .frame(width: min(width, 360 * ctx.scaleFactor))
-                .padding(.horizontal, 6 * ctx.scaleFactor).padding(.vertical, 3 * ctx.scaleFactor)
-                .background(RoundedRectangle(cornerRadius: 5).fill(color.opacity(0.10)))
-                .overlay(alignment: .bottom) { Rectangle().fill(color).frame(height: 2) }
-                .allowsHitTesting(!ctx.checked)
-                .onChange(of: text) { _, v in if v != value { onChange(v) } }
+            GapNSTextField(
+                text: $text,
+                isEnabled: !ctx.checked,
+                font: .systemFont(ofSize: 14 * ctx.scaleFactor, weight: .semibold),
+                textColor: NSColor(color)
+            )
+            .frame(width: min(width, 360 * ctx.scaleFactor), height: 20 * ctx.scaleFactor)
+            .padding(.horizontal, 6 * ctx.scaleFactor).padding(.vertical, 3 * ctx.scaleFactor)
+            .background(RoundedRectangle(cornerRadius: 5).fill(color.opacity(0.10)))
+            .overlay(alignment: .bottom) { Rectangle().fill(color).frame(height: 2) }
+            .allowsHitTesting(!ctx.checked)
+            .onChange(of: text) { _, v in if v != value { onChange(v) } }
             if (ctx.showSolutions || (ctx.checked && st == .close)) && st != .right, let a = answers.first {
                 Text(a).font(.system(size: 12 * ctx.scaleFactor, weight: .bold)).foregroundStyle(Theme.ok)
             }

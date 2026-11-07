@@ -174,7 +174,9 @@ static std::wstring CmdLine(const std::wstring &file, const std::vector<std::str
 }
 static DWORD RunWait(const std::wstring &file, const std::vector<std::string> &args) {
     std::wstring cmd = CmdLine(file, args); STARTUPINFOW si = {sizeof(si)}; PROCESS_INFORMATION pi = {};
-    if (!CreateProcessW(NULL, &cmd[0], NULL, NULL, FALSE, CREATE_NO_WINDOW, NULL, NULL, &si, &pi)) return 9999;
+    if (!CreateProcessW(NULL, &cmd[0], NULL, NULL, FALSE, CREATE_NO_WINDOW, NULL, NULL, &si, &pi)) {
+        DWORD err = GetLastError(); return err ? err : 9999;
+    }
     WaitForSingleObject(pi.hProcess, 15 * 60 * 1000); DWORD code = 1; GetExitCodeProcess(pi.hProcess, &code);
     CloseHandle(pi.hThread); CloseHandle(pi.hProcess); return code;
 }
@@ -219,6 +221,10 @@ static bool Http(const std::string &url, std::string *body, const std::wstring *
     if (!s) return false;
     HINTERNET c = WinHttpConnect(s, host, uc.nPort, 0);
     HINTERNET r = c ? WinHttpOpenRequest(c, L"GET", path, NULL, WINHTTP_NO_REFERER, WINHTTP_DEFAULT_ACCEPT_TYPES, uc.nScheme == INTERNET_SCHEME_HTTPS ? WINHTTP_FLAG_SECURE : 0) : NULL;
+    if (r) {
+        DWORD redirect = WINHTTP_OPTION_REDIRECT_POLICY_ALWAYS;
+        WinHttpSetOption(r, WINHTTP_OPTION_REDIRECT_POLICY, &redirect, sizeof(redirect));
+    }
     bool ok = false; HANDLE out = INVALID_HANDLE_VALUE;
     const wchar_t *hdrs = file ? L"Accept: */*\r\n" : L"Accept: application/vnd.github+json\r\n";
     if (r && WinHttpSendRequest(r, hdrs, (DWORD)-1L, WINHTTP_NO_REQUEST_DATA, 0, 0, 0) && WinHttpReceiveResponse(r, NULL)) {
@@ -304,8 +310,10 @@ static std::string TcpListen(int port, bool loopback) {
     return "{\"id\":" + std::to_string(sid) + ",\"port\":" + std::to_string(real) + "}";
 }
 static int TcpConnect(const std::string &host, int port) {
+    std::string cleanHost = host;
+    while (!cleanHost.empty() && cleanHost.back() == '.') cleanHost.pop_back();
     addrinfo hints = {}, *res = nullptr; hints.ai_family = AF_INET; hints.ai_socktype = SOCK_STREAM;
-    if (getaddrinfo(host.c_str(), std::to_string(port).c_str(), &hints, &res) != 0 || !res) return -1;
+    if (getaddrinfo(cleanHost.c_str(), std::to_string(port).c_str(), &hints, &res) != 0 || !res) return -1;
     SOCKET s = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
     bool ok = s != INVALID_SOCKET && connect(s, res->ai_addr, (int)res->ai_addrlen) == 0;
     freeaddrinfo(res);
@@ -335,7 +343,21 @@ static VOID WINAPI MdnsResolved(DWORD status, PVOID rawCtx, PDNS_SERVICE_INSTANC
         std::string txt = "{";
         for (DWORD i = 0; i < inst->dwPropertyCount; i++) txt += (i ? "," : "") + Q(U(inst->keys[i])) + ":" + Q(U(inst->values[i] ? inst->values[i] : L""));
         txt += "}";
-        char ip[64] = ""; if (inst->ip4Address) { in_addr a; a.s_addr = *inst->ip4Address; inet_ntop(AF_INET, &a, ip, sizeof(ip)); }
+        char ip[64] = "";
+        if (inst->ip4Address) {
+            in_addr a; a.s_addr = *inst->ip4Address; inet_ntop(AF_INET, &a, ip, sizeof(ip));
+        } else if (inst->pszHostName) {
+            std::wstring hostName = inst->pszHostName;
+            while (!hostName.empty() && hostName.back() == L'.') hostName.pop_back();
+            ADDRINFOW hints = {}, *res = nullptr;
+            hints.ai_family = AF_INET;
+            hints.ai_socktype = SOCK_STREAM;
+            if (GetAddrInfoW(hostName.c_str(), NULL, &hints, &res) == 0 && res) {
+                sockaddr_in *sin = (sockaddr_in *)res->ai_addr;
+                inet_ntop(AF_INET, &sin->sin_addr, ip, sizeof(ip));
+                FreeAddrInfoW(res);
+            }
+        }
         TcpEvent("{\"ev\":\"found\",\"name\":" + Q(U(inst->pszInstanceName ? inst->pszInstanceName : L"")) + ",\"host\":" + Q(U(inst->pszHostName ? inst->pszHostName : L"")) +
                  ",\"addr\":" + Q(ip) + ",\"port\":" + std::to_string(inst->wPort) + ",\"txt\":" + txt + "}");
     }
