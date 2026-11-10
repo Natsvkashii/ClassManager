@@ -417,18 +417,33 @@ struct ModulePlayerView: View {
                 .padding(8)
                 Divider()
             }
-            ScrollView {
-                VStack(alignment: .leading, spacing: 10) {
-                    if currentPart == .main, let obj = module.objectives, !obj.isEmpty { objectivesBox(obj) }
-                    ForEach(module.sections.filter { $0.chapterPart == currentPart || parts.count <= 1 }) { sec in
-                        VStack(alignment: .leading, spacing: 2) {
-                            Label(sec.title.uppercased(), systemImage: sfSymbol(forSectionIcon: sec.icon))
-                                .font(.system(size: 10.5, weight: .heavy)).foregroundStyle(.secondary).padding(.horizontal, 8).padding(.vertical, 4)
-                            ForEach(sec.activities) { a in activityRow(a) }
+            ScrollViewReader { proxy in
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 10) {
+                        if currentPart == .main, let obj = module.objectives, !obj.isEmpty { objectivesBox(obj) }
+                        ForEach(module.sections.filter { $0.chapterPart == currentPart || parts.count <= 1 }) { sec in
+                            VStack(alignment: .leading, spacing: 2) {
+                                Label(sec.title.uppercased(), systemImage: sfSymbol(forSectionIcon: sec.icon))
+                                    .font(.system(size: 10.5, weight: .heavy)).foregroundStyle(.secondary).padding(.horizontal, 8).padding(.vertical, 4)
+                                ForEach(sec.activities) { a in
+                                    activityRow(a)
+                                        .id(a.id)
+                                }
+                            }
+                        }
+                    }
+                    .padding(8)
+                }
+                .onAppear {
+                    let targetId = store.openActivityId ?? activities.first?.id
+                    if let targetId {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                            withAnimation(.easeInOut(duration: 0.2)) {
+                                proxy.scrollTo(targetId, anchor: .center)
+                            }
                         }
                     }
                 }
-                .padding(8)
             }
         }
     }

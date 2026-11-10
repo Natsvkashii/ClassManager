@@ -1358,7 +1358,7 @@ struct OptionChip: View {
         let color: Color = switch state {
         case .right, .missed: Theme.ok
         case .wrong: Theme.bad
-        case .normal: selected ? accent : Color.secondary.opacity(0.35)
+        case .normal: selected ? Theme.accent : Color.secondary.opacity(0.35)
         }
         Button(action: action) {
             VStack(spacing: 4) {
@@ -1373,7 +1373,7 @@ struct OptionChip: View {
             .padding(.horizontal, (item.image == nil ? 12 : 6) * scale).padding(.vertical, (item.image == nil ? 7 : 6) * scale)
             .background(RoundedRectangle(cornerRadius: 10).fill(selected || state != .normal ? color.opacity(0.14) : Color.clear))
             .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(color, style: StrokeStyle(lineWidth: 1.5, dash: state == .missed ? [4] : [])))
-            .foregroundStyle(state == .normal ? (selected ? accent : Color.primary) : color)
+            .foregroundStyle(state == .normal ? (selected ? Theme.accent : Color.primary) : color)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -1526,8 +1526,8 @@ struct HTMLWebView: NSViewRepresentable {
             font-family: inherit;
         }
         input[type="text"]:focus, textarea:focus, select:focus {
-            outline: 2px solid var(--accent);
-            border-color: var(--accent);
+            outline: 2px solid #0ea5e9;
+            border-color: #0ea5e9;
         }
         button.btn {
             background: var(--accent);
@@ -1968,7 +1968,7 @@ struct GapField: View {
         case .close: Theme.warn
         case .wrong: Theme.bad
         case .empty where ctx.checked && !answers.isEmpty: Theme.bad
-        default: ctx.accent
+        default: Theme.accent
         }
         let width = max(70 * ctx.scaleFactor, CGFloat((answers.map(\.count).max() ?? 8) * Int(9 * ctx.scaleFactor) + Int(20 * ctx.scaleFactor)))
         HStack(spacing: 4 * ctx.scaleFactor) {
@@ -2005,12 +2005,12 @@ struct WordBankView: View {
                 let isUsed = usedNorm.contains(Grading.normalize(w))
                 Text(w).font(.system(size: 13, weight: .semibold)).strikethrough(isUsed).opacity(isUsed ? 0.45 : 1)
                     .padding(.horizontal, 9).padding(.vertical, 4)
-                    .background(RoundedRectangle(cornerRadius: 7).fill(accent.opacity(0.10)))
-                    .foregroundStyle(accent)
+                    .background(RoundedRectangle(cornerRadius: 7).fill(Theme.accent.opacity(0.10)))
+                    .foregroundStyle(Theme.accent)
             }
         }
         .padding(10)
-        .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(accent.opacity(0.4), style: StrokeStyle(lineWidth: 1.2, dash: [3])))
+        .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Theme.accent.opacity(0.4), style: StrokeStyle(lineWidth: 1.2, dash: [3])))
     }
 }
 
@@ -2357,8 +2357,8 @@ struct OpenBody: View {
                                 .font(.system(size: 12 * ctx.scaleFactor, weight: isSel ? .bold : .regular))
                                 .padding(.horizontal, 10)
                                 .padding(.vertical, 6)
-                                .background(RoundedRectangle(cornerRadius: 8).fill(isSel ? ctx.accent.opacity(0.14) : Color.primary.opacity(0.04)))
-                                .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(isSel ? ctx.accent : Color.secondary.opacity(0.22), lineWidth: isSel ? 1.5 : 1))
+                                .background(RoundedRectangle(cornerRadius: 8).fill(isSel ? Theme.accent.opacity(0.14) : Color.primary.opacity(0.04)))
+                                .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(isSel ? Theme.accent : Color.secondary.opacity(0.22), lineWidth: isSel ? 1.5 : 1))
                             }
                             .buttonStyle(.plain)
                         }
@@ -2525,8 +2525,8 @@ struct SpeakingBody: View {
                                     .font(.system(size: 10.5, weight: timerPreset == sec ? .bold : .medium))
                                     .padding(.horizontal, 7)
                                     .padding(.vertical, 3)
-                                    .background(RoundedRectangle(cornerRadius: 6).fill(timerPreset == sec ? ctx.accent.opacity(0.18) : Color.primary.opacity(0.04)))
-                                    .foregroundStyle(timerPreset == sec ? ctx.accent : Color.primary)
+                                    .background(RoundedRectangle(cornerRadius: 6).fill(timerPreset == sec ? Theme.accent.opacity(0.18) : Color.primary.opacity(0.04)))
+                                    .foregroundStyle(timerPreset == sec ? Theme.accent : Color.primary)
                             }
                             .buttonStyle(.plain)
                         }
@@ -2536,7 +2536,7 @@ struct SpeakingBody: View {
                 HStack(spacing: 14) {
                     Text(formatTimer(timerSeconds))
                         .font(.system(size: 26, weight: .bold, design: .monospaced))
-                        .foregroundStyle(timerExpired ? Theme.bad : (timerActive ? ctx.accent : Color.primary))
+                        .foregroundStyle(timerExpired ? Theme.bad : (timerActive ? Theme.accent : Color.primary))
 
                     if timerExpired {
                         Label("Tempo scaduto!", systemImage: "bell.fill")
@@ -2714,7 +2714,7 @@ struct CrosswordBody: View {
     private func cellView(_ p: Pos, _ exp: String, _ val: String, _ num: Int?, _ highlighted: Bool, _ entries: [CrosswordEntry]) -> some View {
         let shown = ctx.showSolutions && val.isEmpty ? exp : val
         let ok = Grading.stripAccents(val.uppercased()) == Grading.stripAccents(exp.uppercased())
-        let color: Color = !ctx.checked ? ctx.accent : (val.isEmpty ? Theme.bad.opacity(0.6) : (ok ? Theme.ok : Theme.bad))
+        let color: Color = !ctx.checked ? Theme.accent : (val.isEmpty ? Theme.bad.opacity(0.6) : (ok ? Theme.ok : Theme.bad))
         return ZStack(alignment: .topLeading) {
             Rectangle().fill(Color(nsColor: .textBackgroundColor))
             Rectangle().fill(highlighted ? Theme.warn.opacity(0.22) : (ctx.checked ? color.opacity(0.14) : Color.clear))

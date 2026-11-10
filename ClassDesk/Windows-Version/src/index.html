@@ -16,7 +16,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ClassDesk v26.11.1-016</title>
+    <title>ClassDesk v26.11.1-017</title>
     <link rel="icon" type="image/png" href="logo.png">
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -237,7 +237,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                     <span class="sidebar-text" id="sidebarFeedbackBtnText">Invia Feedback</span>
                 </button>
                 <div class="sidebar-footer-card p-1.5 rounded-xl bg-slate-50 dark:bg-navy-950/40 text-[10px] text-center text-slate-400 dark:text-slate-500 font-semibold">
-                    <span id="sidebarVersionBadge">ClassDesk v26.11.1-016</span>
+                    <span id="sidebarVersionBadge">ClassDesk v26.11.1-017</span>
                 </div>
             </div>
         </aside>
@@ -287,7 +287,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 <div class="w-full px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-2">
                     <p class="flex items-center gap-2">
                         <span id="footerPlatformDesc" class="text-slate-400 dark:text-slate-500">Piattaforma Accademica Multi-Livello QCER</span>
-                        <span id="footerVersionBadge" class="px-2 py-0.5 rounded-md bg-sky-100 dark:bg-navy-800 text-sky-700 dark:text-sky-300 text-[10px] font-bold">v26.11.1-016</span>
+                        <span id="footerVersionBadge" class="px-2 py-0.5 rounded-md bg-sky-100 dark:bg-navy-800 text-sky-700 dark:text-sky-300 text-[10px] font-bold">v26.11.1-017</span>
                     </p>
                     <p><span id="footerDevelopedBy">Concepito e Sviluppato da</span> <span class="font-semibold text-sky-700 dark:text-sky-400">Guaira Jaramillo Nitoglia</span> (<a href="mailto:guaira.jaramillo.nitoglia@gmail.com" class="underline hover:text-sky-600">guaira.jaramillo.nitoglia@gmail.com</a>)</p>
                 </div>
@@ -1591,7 +1591,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
 
         // Build Channel Configuration: 0 = stable, 1 = unstable
         const IS_UNSTABLE_BUILD = 1;
-        const BUILD_TYPE = "internal"; // "stable" | "beta" | "internal"
+        const BUILD_TYPE = "beta"; // "stable" | "beta" | "internal"
 
         function channelBadgeHtml(bt) {
             const b = (bt || BUILD_TYPE || 'internal').toLowerCase();
@@ -1601,7 +1601,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
         }
 
         const INITIAL_DATA = {
-            version: "26.11.1-016",
+            version: "26.11.1-017",
             channel: IS_UNSTABLE_BUILD === 1 ? "unstable" : "stable",
             buildType: BUILD_TYPE,
             deletedItems: [],
@@ -4888,10 +4888,15 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                                             return `
                                                 <tr class="hover:bg-sky-50/40 dark:hover:bg-navy-800/50 transition">
                                                     <td class="sticky-col bg-white dark:bg-navy-900 px-4 py-2.5 font-bold text-slate-900 dark:text-white border-r border-sky-100 dark:border-slate-800">
-                                                        <button onclick="app.openStudentDetailModal('${st.id}')" class="hover:text-sky-600 dark:hover:text-sky-400 text-left truncate block w-full">
-                                                            ${this.escapeHtml(st.name)}
-                                                        </button>
-                                                        <div class="w-full h-1.5 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden flex mt-1.5" title="Presenti: ${pCount} • Giustificati: ${gCount} • Assenti: ${aCount}">
+                                                        <div class="flex items-center justify-between gap-1">
+                                                            <button onclick="app.openStudentDetailModal('${st.id}')" class="hover:text-sky-600 dark:hover:text-sky-400 text-left truncate block font-bold text-slate-900 dark:text-white">
+                                                                ${this.escapeHtml(st.name)}
+                                                            </button>
+                                                            <span data-student-attendance-counts="${st.id}" class="text-[9px] font-semibold text-slate-400 whitespace-nowrap">
+                                                                ${pCount}P · ${gCount}G · ${aCount}A
+                                                            </span>
+                                                        </div>
+                                                        <div data-student-attendance-bar="${st.id}" class="w-full h-1.5 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden flex mt-1.5" title="Presenti: ${pCount} • Giustificati: ${gCount} • Assenti: ${aCount}">
                                                             <div class="h-full bg-emerald-500" style="width:${pPct}%"></div>
                                                             <div class="h-full bg-amber-400" style="width:${gPct}%"></div>
                                                             <div class="h-full bg-rose-500" style="width:${aPct}%"></div>
@@ -5080,6 +5085,35 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                     else if (next === "A") btnClass = "w-9 h-8 rounded-lg text-xs transition bg-rose-500 text-white font-extrabold shadow-2xs";
                     else if (next === "G") btnClass = "w-9 h-8 rounded-lg text-xs transition bg-amber-500 text-white font-extrabold shadow-2xs";
                     btn.className = btnClass;
+
+                    // Recompute and update student status bar & counts in DOM
+                    const dates = sec.dates || [];
+                    const stAtt = sec.attendance[studentId] || {};
+                    const totalDates = Math.max(1, dates.length);
+                    let pCount = 0, gCount = 0, aCount = 0;
+                    dates.forEach(dk => {
+                        const v = stAtt[dk];
+                        if (v === "P") pCount++;
+                        else if (v === "G") gCount++;
+                        else if (v === "A") aCount++;
+                    });
+                    const pPct = (pCount / totalDates) * 100;
+                    const gPct = (gCount / totalDates) * 100;
+                    const aPct = (aCount / totalDates) * 100;
+
+                    const countsEl = document.querySelector(`[data-student-attendance-counts="${CSS.escape(studentId)}"]`);
+                    if (countsEl) {
+                        countsEl.textContent = `${pCount}P · ${gCount}G · ${aCount}A`;
+                    }
+                    const barEl = document.querySelector(`[data-student-attendance-bar="${CSS.escape(studentId)}"]`);
+                    if (barEl) {
+                        barEl.setAttribute('title', `Presenti: ${pCount} • Giustificati: ${gCount} • Assenti: ${aCount}`);
+                        barEl.innerHTML = `
+                            <div class="h-full bg-emerald-500" style="width:${pPct}%"></div>
+                            <div class="h-full bg-amber-400" style="width:${gPct}%"></div>
+                            <div class="h-full bg-rose-500" style="width:${aPct}%"></div>
+                        `;
+                    }
                 } else {
                     this.renderMainView();
                 }
@@ -7001,7 +7035,8 @@ Removing, obfuscating, or altering these credits violates the author's attributi
 
             getModuleRecurrenceWeekdays(course, sec) {
                 if (Array.isArray(sec.weekdays) && sec.weekdays.length > 0) {
-                    return [...sec.weekdays].sort((a, b) => a - b);
+                    // Normalize Apple weekdays (1=Sun, 2=Mon... 7=Sat) to JS getDay() (0=Sun, 1=Mon... 6=Sat)
+                    return [...sec.weekdays].map(d => (d >= 1 && d <= 7 ? (d === 1 ? 0 : d - 1) : d)).sort((a, b) => a - b);
                 }
                 const set = new Set();
                 (sec.dates || []).forEach(slot => {
@@ -11909,17 +11944,14 @@ Dettagli di Sistema:
 
                 container.innerHTML = `
                     <div class="max-w-3xl mx-auto space-y-5 text-xs">
-                        <!-- Top Header with 'i' Info Button -->
+                        <!-- Top Header -->
                         <div class="flex items-center justify-between gap-4">
                             <div>
                                 <h2 class="text-xl font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
                                     <span>${this.t("navCredits")}</span>
                                 </h2>
-                                <p class="text-slate-500 mt-0.5">Gestione aggiornamenti automatici silenziosi, verifica manuale di emergenza e dettagli versione</p>
+                                <p class="text-slate-500 mt-0.5">Dettagli applicazione, autore, licenza e gestione aggiornamenti</p>
                             </div>
-                            <button type="button" onclick="app.openInfoAndCreditsModal()" class="w-9 h-9 rounded-full bg-sky-100 dark:bg-navy-800 text-sky-600 dark:text-sky-300 border border-sky-200 dark:border-slate-700 hover:bg-sky-200 dark:hover:bg-navy-700 flex items-center justify-center font-bold text-sm shadow-2xs transition" title="Informazioni sull'applicazione e crediti">
-                                <i class="fa-solid fa-info"></i>
-                            </button>
                         </div>
 
                         <!-- MAIN ELEMENT: Update System Card -->
@@ -11943,6 +11975,21 @@ Dettagli di Sistema:
                                     <i class="fa-solid fa-arrows-rotate ${this.updateCheckInProgress ? 'fa-spin' : ''}"></i>
                                     <span>${this.updateCheckInProgress ? 'Verifica in corso...' : 'Verifica manuale'}</span>
                                 </button>
+                            </div>
+
+                            <!-- Author Attribution & License Cards (Integrated on main screen) -->
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div class="p-4 rounded-xl bg-sky-50/70 dark:bg-navy-800 border border-sky-200/70 dark:border-slate-700 space-y-1">
+                                    <p class="text-[10px] uppercase tracking-wider font-extrabold text-slate-400">${this.t("footerDevelopedBy")}</p>
+                                    <p class="text-sm font-extrabold text-slate-900 dark:text-white">Guaira Jaramillo Nitoglia</p>
+                                    <a href="mailto:guaira.jaramillo.nitoglia@gmail.com" class="text-sky-600 dark:text-sky-400 font-bold hover:underline">guaira.jaramillo.nitoglia@gmail.com</a>
+                                </div>
+
+                                <div class="p-4 rounded-xl bg-emerald-50/70 dark:bg-emerald-950/40 border border-emerald-200/70 dark:border-emerald-800 space-y-1">
+                                    <p class="text-[10px] uppercase tracking-wider font-extrabold text-emerald-600 dark:text-emerald-400">Licenza d'uso / License</p>
+                                    <p class="text-sm font-extrabold text-slate-900 dark:text-white">GNU General Public License v3.0 (GPL-3.0)</p>
+                                    <p class="text-[11px] text-slate-600 dark:text-slate-300">Software libero concesso sotto i termini della GNU General Public License v3.0 con piena libertà di esecuzione, studio e modifica.</p>
+                                </div>
                             </div>
 
                             <!-- Update Settings -->
@@ -12079,67 +12126,7 @@ Dettagli di Sistema:
             }
 
             openInfoAndCreditsModal() {
-                const curVer = INITIAL_DATA.version || this.state.version || "26.10.1-1";
-                const latestChangelog = (this.state.changelog && this.state.changelog.length > 0) ? this.state.changelog[0] : null;
-
-                this.openModal(`
-                    <div class="p-6 space-y-4 text-xs max-w-lg">
-                        <div class="flex items-center justify-between border-b border-sky-100 dark:border-slate-800 pb-3">
-                            <h3 class="text-base font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
-                                <i class="fa-solid fa-circle-info text-sky-600"></i>
-                                <span>Informazioni sull'applicazione</span>
-                            </h3>
-                            <button type="button" onclick="app.closeModal()" class="w-8 h-8 rounded-lg hover:bg-slate-100 dark:hover:bg-navy-800 flex items-center justify-center text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark"></i></button>
-                        </div>
-
-                        <!-- Brand Header -->
-                        <div class="flex items-center gap-3.5">
-                            <div class="w-14 h-14 flex items-center justify-center shrink-0">
-                                <img src="logo.png" alt="ClassDesk" class="w-14 h-14 object-contain">
-                            </div>
-                            <div>
-                                <div class="flex items-center gap-2">
-                                    <h4 class="text-lg font-extrabold text-slate-900 dark:text-white">${this.t("appTitle")}</h4>
-                                    <span class="px-2 py-0.5 rounded-full bg-sky-100 dark:bg-navy-800 text-sky-700 dark:text-sky-300 font-bold text-xs">v${this.escapeHtml(curVer)}</span>
-                                </div>
-                                <p class="text-slate-500">${this.t("appSubtitle")}</p>
-                            </div>
-                        </div>
-
-                        <!-- Author Attribution (Strictly Preserved) -->
-                        <div class="p-4 rounded-xl bg-sky-50/70 dark:bg-navy-800 border border-sky-200/70 dark:border-slate-700 space-y-1">
-                            <p class="text-[10px] uppercase tracking-wider font-extrabold text-slate-400">${this.t("footerDevelopedBy")}</p>
-                            <p class="text-sm font-extrabold text-slate-900 dark:text-white">Guaira Jaramillo Nitoglia</p>
-                            <a href="mailto:guaira.jaramillo.nitoglia@gmail.com" class="text-sky-600 dark:text-sky-400 font-bold hover:underline">guaira.jaramillo.nitoglia@gmail.com</a>
-                        </div>
-
-                        <!-- License -->
-                        <div class="p-4 rounded-xl bg-emerald-50/70 dark:bg-emerald-950/40 border border-emerald-200/70 dark:border-emerald-800 space-y-1">
-                            <p class="text-[10px] uppercase tracking-wider font-extrabold text-emerald-600 dark:text-emerald-400">Licenza d'uso / License</p>
-                            <p class="text-sm font-extrabold text-slate-900 dark:text-white">GNU General Public License v3.0 (GPL-3.0)</p>
-                            <p class="text-slate-600 dark:text-slate-300">ClassDesk è software libero concesso sotto i termini della GNU General Public License v3.0 con piena libertà di esecuzione, studio e modifica sotto la medesima licenza.</p>
-                        </div>
-
-                        <!-- Installed Version Changelog -->
-                        ${latestChangelog ? `
-                            <div class="p-4 rounded-xl bg-slate-50 dark:bg-navy-800/60 border border-sky-100 dark:border-slate-800 space-y-2">
-                                <div class="flex items-center justify-between">
-                                    <span class="px-2.5 py-0.5 rounded-lg bg-sky-600 text-white font-extrabold">Changelog v${this.escapeHtml(latestChangelog.version)}</span>
-                                    <span class="text-slate-400 font-semibold">${this.escapeHtml(latestChangelog.date)}</span>
-                                </div>
-                                <ul class="list-disc pl-5 space-y-1 text-slate-600 dark:text-slate-300">
-                                    ${(latestChangelog.changes || []).map(ch => `<li>${this.escapeHtml(ch)}</li>`).join("")}
-                                </ul>
-                            </div>
-                        ` : ''}
-
-                        <div class="flex justify-end pt-2">
-                            <button type="button" onclick="app.closeModal()" class="px-4 py-2 rounded-xl bg-slate-200 dark:bg-navy-700 hover:bg-slate-300 dark:hover:bg-navy-600 font-bold text-slate-800 dark:text-white transition">
-                                Chiudi
-                            </button>
-                        </div>
-                    </div>
-                `, "max-w-lg");
+                this.switchTab("credits");
             }
 
             /**
@@ -12852,8 +12839,10 @@ Dettagli di Sistema:
                 const course = this.getActiveCourse();
                 const sec = this.getActiveSection(course);
                 if (!course || !sec) return;
-                const today = new Date().toISOString().substring(0, 10);
+                const now = new Date();
+                const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
                 const daysMon = this.t("daysShortMon");
+                const activeWeekdays = this.getModuleRecurrenceWeekdays(course, sec);
 
                 this.openModal(`
                     <form onsubmit="app.executeRecurringGenerator(event)" class="p-6 space-y-4 text-xs">
@@ -12884,7 +12873,7 @@ Dettagli di Sistema:
                             <div class="flex flex-wrap gap-2">
                                 ${[1, 2, 3, 4, 5, 6, 0].map((dow, idx) => `
                                     <label class="px-3 py-1.5 rounded-xl border border-sky-200 dark:border-slate-700 flex items-center gap-1.5 cursor-pointer">
-                                        <input type="checkbox" name="recDow" value="${dow}" ${dow === 1 || dow === 3 ? 'checked' : ''} class="accent-sky-600">
+                                        <input type="checkbox" name="recDow" value="${dow}" ${activeWeekdays.includes(dow) ? 'checked' : ''} class="accent-sky-600">
                                         <span class="font-bold">${daysMon[idx]}</span>
                                     </label>
                                 `).join("")}
@@ -12913,7 +12902,7 @@ Dettagli di Sistema:
 
                 sec.startTime = sTime;
                 sec.endTime = eTime;
-                sec.weekdays = dows;
+                sec.weekdays = dows.map(d => (d === 0 ? 1 : d + 1)).sort((a, b) => a - b);
                 if (!Array.isArray(course.lessons)) course.lessons = [];
 
                 const cur = new Date(startStr + "T12:00:00");

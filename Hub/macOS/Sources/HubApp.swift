@@ -42,8 +42,15 @@ final class WindowController: NSObject {
     }
     func show() {
         NSApp.setActivationPolicy(.regular)
-        if window == nil { NSApp.windows.first(where: { $0.canBecomeMain }).map { attach($0) } }
-        window?.makeKeyAndOrderFront(nil)
+        let win = window ?? NSApp.windows.first(where: { $0.canBecomeMain })
+        if let win {
+            if window !== win { attach(win) }
+            if win.isMiniaturized {
+                win.deminiaturize(nil)
+            }
+            win.makeKeyAndOrderFront(nil)
+            win.orderFrontRegardless()
+        }
         NSApp.activate(ignoringOtherApps: true)
     }
 }
@@ -114,8 +121,9 @@ final class HubDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        WindowController.shared.show()
         HubModel.shared.onShowWindow?()
-        return false
+        return true
     }
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
     func applicationWillTerminate(_ n: Notification) { HubModel.shared.engine.shutdown() }

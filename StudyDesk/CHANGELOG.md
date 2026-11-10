@@ -1,5 +1,10 @@
 # Changelog
 
+## v26.11.1-017 (Beta) – 6 novembre 2026
+- Navigazione capitolo: aprendo l'indice attività l'elenco si visualizza e scorre automaticamente a partire dall'esercizio correntemente aperto, per una consultazione rapida e immediata.
+- Colori uniformi e non ambigui negli esercizi: le selezioni di opzioni, la digitazione nelle caselle di testo, la banca parole e gli elementi interattivi utilizzano un colore azzurro standard per tutti i libri (evitando malinterpretazioni con il rosso dei libri che poteva far pensare a un errore prima della verifica).
+- Supporto codice HTML e CSS arricchito per gli esercizi interattivi personalizzati.
+
 ## v26.11.1-015 (Stabile) – 4 novembre 2026
 - Nuova navigazione: rinominata la sezione Home in Libreria; menu contestuale a comparsa con anteprima di massimo 6 libri (e scorrimento) al passaggio del mouse o pressione prolungata; lavagna posizionata sotto la Libreria e gruppi sotto la lavagna.
 - Esportazione libro nel formato originale (.zip/.book) con download diretto dai tre puntini.

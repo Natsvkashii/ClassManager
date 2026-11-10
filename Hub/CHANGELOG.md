@@ -1,5 +1,9 @@
 # HubDesk – Changelog
 
+## 26.11.1-017 (Beta)
+- Risolto il ripristino della finestra minimizzata nel Dock su macOS (deminiaturizzazione automatica e attivazione immediata).
+- Allineamento alla release beta pubblica 26.11.1-017 di Classroom Tools.
+
 ## 26.11.1-015 (Stabile)
 - Aggiornamenti automatici separati per ogni app della suite: non appena l'utente chiude un'app con aggiornamento pendente, HubDesk lo installa silenziosamente in background senza riaprirla.
 - Rilevamento immediato della chiusura delle applicazioni tramite notifiche di sistema.

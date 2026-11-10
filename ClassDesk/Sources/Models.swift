@@ -18,12 +18,12 @@ public enum AuthorAttribution {
     public static let authorName = "Guaira Jaramillo Nitoglia"
     public static let authorEmail = "guaira.jaramillo.nitoglia@gmail.com"
     public static let appName = "ClassDesk"
-    public static let appVersion = "26.11.1-016"
+    public static let appVersion = "26.11.1-017"
 
     /// Centralized channel indicator: 0 = Stable, 1 = Unstable / Beta
     public static let isUnstableBuild: Int = 1
     /// Dynamic build type: "stable", "beta", or "internal"
-    public static let buildType: String = "internal"
+    public static let buildType: String = "beta"
 
     public static var isBeta: Bool {
         return isUnstableBuild == 1
@@ -1919,6 +1919,12 @@ public struct AppState: Codable, Equatable {
     ]
 
     public static let defaultChangelog: [ChangelogEntry] = [
+        ChangelogEntry(version: "26.11.1-017", date: "2026-11-06", changes: [
+            "Barre superiori native con trasparenza liquida macOS 27: selezione rapida di livello e modulo tramite menu a comparsa.",
+            "Allineamento generatore di lezioni ricorrenti e calendario tra Windows e macOS.",
+            "Registro presenze Windows: calcolo in tempo reale del conteggio ore e presenze sotto i nomi studente.",
+            "Integrazione dei dettagli autore, licenza e crediti direttamente nella schermata principale."
+        ]),
         ChangelogEntry(version: "26.11.0-007", date: "2026-11-01", changes: [
             "Centralizzazione suite: rimosse le impostazioni di verifica aggiornamenti e configurazione sincronizzazione; tutto è centralizzato in HubDesk.",
             "Riapertura automatica delle applicazioni e del centro di controllo al termine degli aggiornamenti.",

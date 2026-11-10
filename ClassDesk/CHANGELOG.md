@@ -5,6 +5,12 @@ Il formato è basato su [Keep a Changelog](https://keepachangelog.com/it/1.0.0/)
 
 ---
 
+## [26.11.1-017] — 2026-11-06 (Beta)
+- Registro presenze Windows: calcolo in tempo reale e visualizzazione della barra di stato e del conteggio (P, G, A) direttamente sotto il nome dello studente.
+- Generazione calendario e ricorrenze sincronizzata: allineata la logica di calcolo delle lezioni ricorrenti tra Windows e macOS con normalizzazione dei giorni della settimana.
+- Integrazione completa dei dettagli applicazione, autore e licenza GPL-3.0 nella schermata principale con rimozione del modale e pulsante informativo ridondante su Windows.
+- Nuove barre superiori per livello e modulo con menu contestuali a comparsa e stile nativo macOS 27 con trasparenza liquida.
+
 ## [26.11.1-015] — 2026-11-04 (Stabile)
 - Copia con un click su anagrafica, iscritti corso e scheda alunno: tutti i campi e recapiti (nome, telefono, email, città, livello, ecc.) sono cliccabili per copiarli negli appunti con feedback visivo.
 - Scheda studente: rimossi i riquadri di input non modificabili, sostituiti da testo pulito e copiabile sotto ogni etichetta.

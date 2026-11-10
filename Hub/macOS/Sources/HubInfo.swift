@@ -15,10 +15,10 @@ import Foundation
 // Version, constants and the YY.MM.R-BBB comparator.
 
 public enum HubInfo {
-    public static let appVersion = "26.11.1-016"
+    public static let appVersion = "26.11.1-017"
     public static let isUnstableBuild: Int = 1
     /// Build type variable: "stable", "beta", or "internal"
-    public static let buildType: String = "internal"
+    public static let buildType: String = "beta"
     public static let bundleId = "com.guairajaramillo.hubdesk"
     public static let repo = "Natsvkashii/ClassManager"
     public static let releasesURL = "https://api.github.com/repos/Natsvkashii/ClassManager/releases"
