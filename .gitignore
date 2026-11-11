@@ -37,6 +37,9 @@ Versions/
 *.pdb
 *.lib
 ClassDesk/Windows-Version/native/assets_bundle.h
+ClassDesk/Windows-Version/native/app.ico
+ClassDesk/Windows-Version/native/app.manifest
+ClassDesk/Windows-Version/native/app.rc
 
 # StudyDesk (Electron, Capacitor, macOS build outputs)
 StudyDesk/android/app/build/

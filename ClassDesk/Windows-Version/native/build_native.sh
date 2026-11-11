@@ -44,6 +44,15 @@ fi
 
 echo "--> Using compiler: $ZIG_BIN ($("$ZIG_BIN" version))"
 
+# 2b. Prepare Windows Resource Script (.rc) with Manifest and Icon
+echo "--> Preparing Windows resources (manifest with asInvoker and application icon)..."
+cp -f "$SCRIPT_DIR/../assets/AppIcon.ico" "$SCRIPT_DIR/app.ico"
+cp -f "$SCRIPT_DIR/../assets/app.manifest" "$SCRIPT_DIR/app.manifest"
+cat << 'EOF' > "$SCRIPT_DIR/app.rc"
+1 ICON "app.ico"
+1 24 "app.manifest"
+EOF
+
 # 3. Compile Native Executable (Optimized PE32+ GUI)
 echo "--> Compiling $SETUP_NAME with x86_64-windows target and -O3 optimization..."
 "$ZIG_BIN" c++ \
@@ -53,6 +62,7 @@ echo "--> Compiling $SETUP_NAME with x86_64-windows target and -O3 optimization.
     -I"$SCRIPT_DIR" \
     -I"$SCRIPT_DIR/include" \
     "$SCRIPT_DIR/app_native.cpp" \
+    "$SCRIPT_DIR/app.rc" \
     -o "$SETUP_PATH" \
     -lole32 \
     -loleaut32 \

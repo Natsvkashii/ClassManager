@@ -52,9 +52,13 @@
 #ifndef BUNDLED_APP_VERSION
 #define BUNDLED_APP_VERSION L"0.0.0-000"
 #endif
+#ifndef BUNDLED_BUILD_TYPE
+#define BUNDLED_BUILD_TYPE L"beta"
+#endif
 
 static const wchar_t *APP_NAME = L"StudyDesk";
 static const wchar_t *APP_VERSION = BUNDLED_APP_VERSION;
+static const wchar_t *APP_BUILD_TYPE = BUNDLED_BUILD_TYPE;
 static const wchar_t *APP_HOST = L"studydesk.app";
 static const wchar_t *FILES_HOST = L"files.studydesk.app";
 static const wchar_t *WEBVIEW2_DOWNLOAD_URL = L"https://go.microsoft.com/fwlink/p/?LinkId=2124703";
@@ -354,6 +358,7 @@ static int Install(const std::wstring &self, bool silent) {
         RegStr(k, L"DisplayIcon", icon); RegStr(k, L"InstallLocation", InstallDir());
         RegStr(k, L"UninstallString", L"\"" + InstalledExe() + L"\" --uninstall"); RegStr(k, L"QuietUninstallString", L"\"" + InstalledExe() + L"\" --uninstall --silent");
         RegDword(k, L"NoModify", 1); RegDword(k, L"NoRepair", 1);
+        RegStr(k, L"BuildType", APP_BUILD_TYPE);
         RegCloseKey(k);
     }
     // .sdmod / .sdbook open in StudyDesk

@@ -45,7 +45,11 @@
 #ifndef BUNDLED_APP_VERSION
 #define BUNDLED_APP_VERSION L"0.0.0-000"
 #endif
+#ifndef BUNDLED_APP_BUILD_TYPE
+#define BUNDLED_APP_BUILD_TYPE L"beta"
+#endif
 static const wchar_t *APP_VERSION = BUNDLED_APP_VERSION;
+static const wchar_t *APP_BUILD_TYPE = BUNDLED_APP_BUILD_TYPE;
 static const wchar_t *UNINSTALL_KEY = L"Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\HubDesk";
 static const wchar_t *RUN_KEY = L"Software\\Microsoft\\Windows\\CurrentVersion\\Run";
 static const UINT WM_TRAY = WM_APP + 41;
@@ -175,7 +179,29 @@ static std::wstring CmdLine(const std::wstring &file, const std::vector<std::str
 static DWORD RunWait(const std::wstring &file, const std::vector<std::string> &args) {
     std::wstring cmd = CmdLine(file, args); STARTUPINFOW si = {sizeof(si)}; PROCESS_INFORMATION pi = {};
     if (!CreateProcessW(NULL, &cmd[0], NULL, NULL, FALSE, CREATE_NO_WINDOW, NULL, NULL, &si, &pi)) {
-        DWORD err = GetLastError(); return err ? err : 9999;
+        DWORD err = GetLastError();
+        if (err == ERROR_ELEVATION_REQUIRED) {
+            std::wstring param;
+            for (size_t i = 0; i < args.size(); ++i) {
+                if (i > 0) param += L" ";
+                param += L"\"" + W(args[i]) + L"\"";
+            }
+            SHELLEXECUTEINFOW sei = {sizeof(sei)};
+            sei.cbSize = sizeof(sei);
+            sei.fMask = SEE_MASK_NOCLOSEPROCESS;
+            sei.lpVerb = L"runas";
+            sei.lpFile = file.c_str();
+            sei.lpParameters = param.empty() ? NULL : param.c_str();
+            sei.nShow = SW_HIDE;
+            if (ShellExecuteExW(&sei) && sei.hProcess) {
+                WaitForSingleObject(sei.hProcess, 15 * 60 * 1000);
+                DWORD code = 0;
+                GetExitCodeProcess(sei.hProcess, &code);
+                CloseHandle(sei.hProcess);
+                return code;
+            }
+        }
+        return err ? err : 9999;
     }
     WaitForSingleObject(pi.hProcess, 15 * 60 * 1000); DWORD code = 1; GetExitCodeProcess(pi.hProcess, &code);
     CloseHandle(pi.hThread); CloseHandle(pi.hProcess); return code;
@@ -207,6 +233,27 @@ static std::wstring AppVersion(const std::wstring &keyName, const std::wstring &
         std::wstring dn = RegString(HKEY_CURRENT_USER, base + L"\\" + sub, L"DisplayName");
         if (!_wcsicmp(dn.c_str(), name.c_str()) || (dn.size() > name.size() && !_wcsnicmp(dn.c_str(), (name + L" ").c_str(), name.size() + 1))) {
             found = RegString(HKEY_CURRENT_USER, base + L"\\" + sub, L"DisplayVersion"); if (!found.empty()) break;
+        }
+    }
+    RegCloseKey(k); return found;
+}
+static std::wstring AppBuildType(const std::wstring &keyName, const std::wstring &name) {
+    const std::wstring base = L"Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall";
+    if (!keyName.empty()) {
+        std::wstring v = RegString(HKEY_CURRENT_USER, base + L"\\" + keyName, L"BuildType");
+        if (!v.empty()) return v;
+    }
+    if (!name.empty()) {
+        std::wstring v = RegString(HKEY_CURRENT_USER, base + L"\\" + name, L"BuildType");
+        if (!v.empty()) return v;
+    }
+    HKEY k; if (RegOpenKeyExW(HKEY_CURRENT_USER, base.c_str(), 0, KEY_READ, &k) != ERROR_SUCCESS) return L"";
+    std::wstring found; wchar_t sub[256];
+    for (DWORD i = 0;; i++) {
+        DWORD len = 256; if (RegEnumKeyExW(k, i, sub, &len, NULL, NULL, NULL, NULL) != ERROR_SUCCESS) break;
+        std::wstring dn = RegString(HKEY_CURRENT_USER, base + L"\\" + sub, L"DisplayName");
+        if (!_wcsicmp(dn.c_str(), name.c_str()) || (dn.size() > name.size() && !_wcsnicmp(dn.c_str(), (name + L" ").c_str(), name.size() + 1))) {
+            found = RegString(HKEY_CURRENT_USER, base + L"\\" + sub, L"BuildType"); if (!found.empty()) break;
         }
     }
     RegCloseKey(k); return found;
@@ -546,6 +593,7 @@ static int Install(const std::wstring &self, bool silent) {
         S(L"InstallLocation", InstallDir());
         S(L"UninstallString", L"\"" + InstalledExe() + L"\" --uninstall");
         S(L"QuietUninstallString", L"\"" + InstalledExe() + L"\" --uninstall --silent");
+        S(L"BuildType", APP_BUILD_TYPE);
         DWORD one = 1; RegSetValueExW(k, L"NoModify", 0, REG_DWORD, (const BYTE *)&one, 4); RegSetValueExW(k, L"NoRepair", 0, REG_DWORD, (const BYTE *)&one, 4);
         RegCloseKey(k);
     }
@@ -698,6 +746,7 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int) {
     w.bind("__hd_temp", [](std::string) -> std::string { wchar_t t[MAX_PATH]; GetTempPathW(MAX_PATH, t); std::wstring s = t; if (!s.empty() && s.back() == L'\\') s.pop_back(); return Q(U(s)); });
     w.bind("__hd_exists", [](std::string r) -> std::string { return Exists(W(Arg(r, 0))) ? "true" : "false"; });
     w.bind("__hd_app_version", [](std::string r) -> std::string { return Q(U(AppVersion(W(Arg(r, 0)), W(Arg(r, 1))))); });
+    w.bind("__hd_app_build_type", [](std::string r) -> std::string { return Q(U(AppBuildType(W(Arg(r, 0)), W(Arg(r, 1))))); });
     w.bind("__hd_running", [](std::string r) -> std::string { return PidsOf(W(Arg(r, 0))).empty() ? "false" : "true"; });
     w.bind("__hd_close_app", [&w](const std::string &seq, const std::string &r, void *) { std::wstring exe = W(Arg(r, 0)); std::thread([&w, seq, exe]() { CloseApp(exe); w.resolve(seq, 0, "true"); }).detach(); }, nullptr);
     w.bind("__hd_run", [&w](const std::string &seq, const std::string &r, void *) {
@@ -796,7 +845,7 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int) {
     w.bind("__hd_autostart", [](std::string r) -> std::string { SetAutostart(Arg(r, 0) == "1"); return "true"; });
 
     std::string page; ReadWhole(AppDir() + L"\\page\\hubdesk-native.js", page);
-    std::string initJs = "window.__hd_info = { version: " + Q(U(APP_VERSION)) + " };\n" + page;
+    std::string initJs = "window.__hd_info = { version: " + Q(U(APP_VERSION)) + ", buildType: " + Q(U(APP_BUILD_TYPE)) + " };\n" + page;
     if (!reqPage.empty() && !background) {
         initJs += "\nwindow.addEventListener('DOMContentLoaded', () => { setTimeout(() => { if (window.__hd_nav) window.__hd_nav(" + Q(U(reqPage)) + "); }, 150); });";
     }

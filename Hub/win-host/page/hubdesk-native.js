@@ -84,18 +84,22 @@
         window.__hd_rm(legacyDir).catch(() => {});
       }
     }
+    const defaultBt = (window.__hd_info && window.__hd_info.buildType) || 'beta';
     if (!(await window.__hd_exists(exe(app)))) {
       if (app === 'notedesk') {
         const legExe = winJoin(programsDir, 'NotesDesk', 'NotesDesk.exe');
         if (await window.__hd_exists(legExe)) {
           const v = await window.__hd_app_version('NotesDesk', 'NotesDesk');
-          return { version: v || '0.0.0-000', path: legExe };
+          const bt = (window.__hd_app_build_type ? await window.__hd_app_build_type('NotesDesk', 'NotesDesk') : '') || defaultBt;
+          return { version: v || '0.0.0-000', path: legExe, buildType: bt };
         }
       }
       return null;
     }
-    const v = app === 'hubdesk' ? SELF_VERSION : await window.__hd_app_version(app === 'classdesk' ? 'ClassDesk' : app === 'studydesk' ? 'StudyDesk' : app === 'notedesk' ? 'NoteDesk' : '', DISPLAY[app]);
-    return { version: v || '0.0.0-000', path: exe(app) };
+    const isHub = app === 'hubdesk';
+    const v = isHub ? SELF_VERSION : await window.__hd_app_version(app === 'classdesk' ? 'ClassDesk' : app === 'studydesk' ? 'StudyDesk' : app === 'notedesk' ? 'NoteDesk' : '', DISPLAY[app]);
+    const bt = isHub ? defaultBt : ((window.__hd_app_build_type ? await window.__hd_app_build_type(app === 'classdesk' ? 'ClassDesk' : app === 'studydesk' ? 'StudyDesk' : app === 'notedesk' ? 'NoteDesk' : '', DISPLAY[app]) : '') || defaultBt);
+    return { version: v || '0.0.0-000', path: exe(app), buildType: bt };
   }
 
   const driver = {
@@ -158,7 +162,7 @@
   let appState = { welcomeDone: false, autoUpdate: true, openAtLogin: true, notice: '' };
   // same fields as Electron's publicApp() (main.js)
   let dataDir = ''; // %APPDATA%\DeskHub, shown in Impostazioni › Informazioni
-  const publicApp = () => ({ ...appState, version: SELF_VERSION, platform: 'win32', dataDir, demo: false, firstRun: !appState.welcomeDone });
+  const publicApp = () => ({ ...appState, version: SELF_VERSION, buildType: (window.__hd_info && window.__hd_info.buildType) || 'beta', platform: 'win32', dataDir, demo: false, firstRun: !appState.welcomeDone });
   let engine = null; // page/hub-engine.js (port of net/hub-net.js on the native sockets and mDNS)
   const engineState = () => engine.getState();
   let manager = null;

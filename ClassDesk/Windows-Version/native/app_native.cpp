@@ -665,6 +665,8 @@ static int RunSetupInstaller(const wchar_t* currentExePath, bool isSilent) {
         RegSetValueExW(hKey, L"UninstallString", 0, REG_SZ, (const BYTE*)uninstVal.c_str(), (DWORD)(uninstVal.size() + 1) * sizeof(wchar_t));
         RegSetValueExW(hKey, L"NoModify", 0, REG_DWORD, (const BYTE*)&dword1, sizeof(DWORD));
         RegSetValueExW(hKey, L"NoRepair", 0, REG_DWORD, (const BYTE*)&dword1, sizeof(DWORD));
+        const wchar_t* bType = (_wcsicmp(APP_CHANNEL, L"STABLE") == 0) ? L"stable" : L"beta";
+        RegSetValueExW(hKey, L"BuildType", 0, REG_SZ, (const BYTE*)bType, (DWORD)(wcslen(bType) + 1) * sizeof(wchar_t));
         RegCloseKey(hKey);
     }
     Sleep(250);

@@ -88,6 +88,16 @@ function createWindowsDriver({ selfVersion } = {}) {
     if (id === 'notedesk') { const k = await findUninstallKey('NotesDesk'); if (k) return regValue(k, 'DisplayVersion'); }
     return null;
   }
+  async function buildTypeOf(id) {
+    if (id === 'hubdesk') return 'beta';
+    const keys = id === 'classdesk' ? [`${UNINSTALL}\\ClassDesk`]
+      : id === 'notedesk' ? [`${UNINSTALL}\\NoteDesk`, `${UNINSTALL}\\NotesDesk`]
+      : [`${UNINSTALL}\\StudyDesk`];
+    for (const k of keys) { const b = await regValue(k, 'BuildType'); if (b) return b; }
+    if (id !== 'classdesk') { const k = await findUninstallKey(DISPLAY[id]); if (k) { const b = await regValue(k, 'BuildType'); if (b) return b; } }
+    if (id === 'notedesk') { const k = await findUninstallKey('NotesDesk'); if (k) { const b = await regValue(k, 'BuildType'); if (b) return b; } }
+    return 'beta';
+  }
   return {
     platform: 'win',
     exePath: exe,
@@ -103,13 +113,13 @@ function createWindowsDriver({ selfVersion } = {}) {
           const legExe = path.join(PROGRAMS(), 'NotesDesk', 'NotesDesk.exe');
           if (fs.existsSync(legExe)) {
             const v = await version(id);
-            return { version: v || '0.0.0-000', path: legExe };
+            return { version: v || '0.0.0-000', path: legExe, buildType: await buildTypeOf(id) };
           }
         }
         return null;
       }
       const v = await version(id);
-      return { version: v || '0.0.0-000', path: exe(id) };
+      return { version: v || '0.0.0-000', path: exe(id), buildType: await buildTypeOf(id) };
     },
     async isRunning(id) {
       const { stdout } = await run('tasklist', ['/FI', `IMAGENAME eq ${path.basename(exe(id))}`, '/NH']);

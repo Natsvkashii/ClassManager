@@ -105,7 +105,7 @@ def parts(v):
         ("StudyDesk-%s-mac.zip" % v, glob.glob(os.path.join(STUDYDESK, "dist", "StudyDesk-%s-mac.zip" % v))),
         ("NoteDesk-%s-mac.zip" % v, glob.glob(os.path.join(NOTEDESK, "dist", "NoteDesk-%s-mac.zip" % v)) + glob.glob(os.path.join(NOTEDESK, "dist", "NotesDesk-%s-mac.zip" % v))),
         ("HubDesk-%s-mac.zip" % v, glob.glob(os.path.join(HUB, "dist", "HubDesk-%s-mac.zip" % v))),
-        ("hubdesk", [os.path.join(HUB, "electron", "dist", "ClassDesk-Suite-%s-Setup.exe" % v)]),
+        ("hubdesk", glob.glob(os.path.join(HUB, "dist", "HubDesk-%s-win-x64.exe" % v)) + [os.path.join(HUB, "electron", "dist", "ClassDesk-Suite-%s-Setup.exe" % v)]),
         ("classdesk", [os.path.join(CLASSDESK, "ClassDesk-%s-win-x64.exe" % v)]),
         ("studydesk", glob.glob(os.path.join(STUDYDESK, "dist", "StudyDesk-%s-win-x64.exe" % v))),
         ("notedesk", glob.glob(os.path.join(NOTEDESK, "dist", "NoteDesk-%s-win-x64.exe" % v)) + glob.glob(os.path.join(NOTEDESK, "dist", "NotesDesk-%s-win-x64.exe" % v))),

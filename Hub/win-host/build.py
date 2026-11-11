@@ -34,7 +34,7 @@ def build(out=None):
     open(os.path.join(work, "app.rc"), "w").write('1 ICON "app.ico"\n1 24 "app.manifest"\n')
     exe = os.path.join(work, "HubDesk.exe")
     subprocess.run([zig, "c++", "-target", "x86_64-windows", "-municode", "-Wl,--subsystem,windows", "-O2", "-std=c++17",
-                    f'-DBUNDLED_APP_VERSION=L"{v}"', "-I", INCLUDE, os.path.join(HERE, "hubdesk_native.cpp"), os.path.join(work, "app.rc"),
+                    f'-DBUNDLED_APP_VERSION=L"{v}"', '-DBUNDLED_APP_BUILD_TYPE=L"beta"', "-I", INCLUDE, os.path.join(HERE, "hubdesk_native.cpp"), os.path.join(work, "app.rc"),
                     "-o", exe, "-lole32", "-loleaut32", "-luser32", "-lshlwapi", "-lshell32", "-lcomctl32", "-ladvapi32",
                     "-lwinhttp", "-lgdi32", "-lws2_32", "-lversion", "-ldnsapi"], check=True, cwd=work)
     files = []

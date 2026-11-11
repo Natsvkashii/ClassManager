@@ -48,7 +48,7 @@ def build(out=None):
     exe = os.path.join(work, "NoteDesk.exe")
     cpp_src = os.path.join(HERE, "main.cpp") if os.path.exists(os.path.join(HERE, "main.cpp")) else os.path.join(HERE, "notesdesk_native.cpp")
     subprocess.run([zig, "c++", "-target", "x86_64-windows", "-municode", "-Wl,--subsystem,windows", "-O2", "-std=c++17",
-                    f'-DBUNDLED_APP_VERSION=L"{v}"', "-I", INCLUDE, cpp_src, os.path.join(work, "app.rc"),
+                    f'-DBUNDLED_APP_VERSION=L"{v}"', '-DBUNDLED_BUILD_TYPE=L"beta"', "-I", INCLUDE, cpp_src, os.path.join(work, "app.rc"),
                     "-o", exe, "-lole32", "-loleaut32", "-luser32", "-lshlwapi", "-lshell32", "-lcomctl32", "-lcomdlg32", "-ladvapi32",
                     "-lversion", "-lgdi32", "-lws2_32", "-lcrypt32"], check=True, cwd=work)
     app = os.path.join(ROOT, "app")

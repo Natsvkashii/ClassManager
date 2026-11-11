@@ -197,11 +197,30 @@ static std::wstring installOne(const AppSpec &a, const std::wstring &work) {
     std::wstring args = (!_wcsicmp(a.id, L"classdesk") || !_wcsicmp(a.id, L"notedesk")) ? L"--silent" : L"/S";
     std::wstring cmd = L"\"" + file + L"\" " + args;
     STARTUPINFOW si = {sizeof(si)}; PROCESS_INFORMATION pi = {};
-    if (!CreateProcessW(nullptr, &cmd[0], nullptr, nullptr, FALSE, CREATE_NO_WINDOW, nullptr, work.c_str(), &si, &pi))
-        return L"impossibile avviare l'installazione (errore " + std::to_wstring(GetLastError()) + L")";
+    DWORD code = 0;
+    if (!CreateProcessW(nullptr, &cmd[0], nullptr, nullptr, FALSE, CREATE_NO_WINDOW, nullptr, work.c_str(), &si, &pi)) {
+        DWORD err = GetLastError();
+        if (err == ERROR_ELEVATION_REQUIRED) {
+            SHELLEXECUTEINFOW sei = {sizeof(sei)};
+            sei.cbSize = sizeof(sei);
+            sei.fMask = SEE_MASK_NOCLOSEPROCESS;
+            sei.lpVerb = L"runas";
+            sei.lpFile = file.c_str();
+            sei.lpParameters = args.c_str();
+            sei.nShow = SW_HIDE;
+            if (ShellExecuteExW(&sei) && sei.hProcess) {
+                WaitForSingleObject(sei.hProcess, 10 * 60 * 1000);
+                GetExitCodeProcess(sei.hProcess, &code);
+                CloseHandle(sei.hProcess);
+                goto install_done;
+            }
+        }
+        return L"impossibile avviare l'installazione (errore " + std::to_wstring(err) + L")";
+    }
     WaitForSingleObject(pi.hProcess, 10 * 60 * 1000);
-    DWORD code = 0; GetExitCodeProcess(pi.hProcess, &code);
+    GetExitCodeProcess(pi.hProcess, &code);
     CloseHandle(pi.hThread); CloseHandle(pi.hProcess);
+install_done:
     DeleteFileW(file.c_str());
     if (!_wcsicmp(a.id, L"notedesk")) {
         std::wstring legDir = programsDir() + L"NotesDesk";

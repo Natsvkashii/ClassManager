@@ -25,7 +25,7 @@ def build(out=None):
     shutil.copy(os.path.join(HERE, "app.manifest"), os.path.join(work, "app.manifest"))
     exe = os.path.join(work, "StudyDesk.exe")
     subprocess.run([zig, "c++", "-target", "x86_64-windows", "-municode", "-Wl,--subsystem,windows", "-O2", "-std=c++17",
-                    f'-DBUNDLED_APP_VERSION=L"{v}"', "-I", INCLUDE, os.path.join(HERE, "studydesk_native.cpp"), os.path.join(work, "app.rc"),
+                    f'-DBUNDLED_APP_VERSION=L"{v}"', '-DBUNDLED_BUILD_TYPE=L"beta"', "-I", INCLUDE, os.path.join(HERE, "studydesk_native.cpp"), os.path.join(work, "app.rc"),
                     "-o", exe, "-lole32", "-loleaut32", "-luser32", "-lshlwapi", "-lshell32", "-lcomctl32", "-lcomdlg32", "-ladvapi32",
                     "-lversion", "-lgdi32", "-lws2_32"], check=True, cwd=work)
     app = os.path.join(ROOT, "app")
