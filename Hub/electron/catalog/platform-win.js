@@ -23,12 +23,13 @@ const PROGRAMS = () => path.join(localAppData(), 'Programs');
 const EXES = {
   classdesk: () => path.join(PROGRAMS(), 'ClassDesk', 'ClassDesk.exe'),
   studydesk: () => path.join(PROGRAMS(), 'studydesk', 'StudyDesk.exe'),
+  notedesk: () => path.join(PROGRAMS(), 'NoteDesk', 'NoteDesk.exe'),
   hubdesk: () => path.join(PROGRAMS(), 'hubdesk', 'HubDesk.exe'),
 };
 const UNINSTALL = 'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall';
-const APP_IDS = { studydesk: 'com.guairajaramillo.studydesk', hubdesk: 'com.guairajaramillo.hubdesk' };
-const DISPLAY = { classdesk: 'ClassDesk', studydesk: 'StudyDesk', hubdesk: 'HubDesk' };
-const INSTALL_ARGS = { classdesk: ['--silent'], studydesk: ['/S'], hubdesk: ['--silent'] };
+const APP_IDS = { studydesk: 'com.guairajaramillo.studydesk', notedesk: 'com.guairajaramillo.notedesk', hubdesk: 'com.guairajaramillo.hubdesk' };
+const DISPLAY = { classdesk: 'ClassDesk', studydesk: 'StudyDesk', notedesk: 'NoteDesk', hubdesk: 'HubDesk' };
+const INSTALL_ARGS = { classdesk: ['--silent'], studydesk: ['/S'], notedesk: ['--silent', '/S'], hubdesk: ['--silent'] };
 
 /** electron-builder's NSIS uninstall key: uuid v5 of the appId in the electron-builder namespace (written as a plain lowercase
  *  uuid, e.g. `62a14aa4-bbf3-55e8-a0a6-0808efbc406b`; older builds used `{…}` in upper case, so both are tried). */
@@ -78,18 +79,35 @@ function createWindowsDriver({ selfVersion } = {}) {
   const exe = (id) => EXES[id]();
   async function version(id) {
     if (id === 'hubdesk' && selfVersion) return selfVersion;
-    const guid = id === 'classdesk' ? '' : nsisGuid(APP_IDS[id]);
+    const guid = (id === 'classdesk' || id === 'notedesk') ? '' : nsisGuid(APP_IDS[id]);
     const keys = id === 'classdesk' ? [`${UNINSTALL}\\ClassDesk`]
+      : id === 'notedesk' ? [`${UNINSTALL}\\NoteDesk`, `${UNINSTALL}\\NotesDesk`]
       : [`${UNINSTALL}\\${guid.slice(1, -1).toLowerCase()}`, `${UNINSTALL}\\${guid}`, `${UNINSTALL}\\${APP_IDS[id]}`];
     for (const k of keys) { const v = await regValue(k, 'DisplayVersion'); if (v) return v; }
     if (id !== 'classdesk') { const k = await findUninstallKey(DISPLAY[id]); if (k) return regValue(k, 'DisplayVersion'); }
+    if (id === 'notedesk') { const k = await findUninstallKey('NotesDesk'); if (k) return regValue(k, 'DisplayVersion'); }
     return null;
   }
   return {
     platform: 'win',
     exePath: exe,
     async detect(id) {
-      if (!fs.existsSync(exe(id))) return null;
+      if (id === 'notedesk') {
+        const legacyDir = path.join(PROGRAMS(), 'NotesDesk');
+        if (fs.existsSync(exe('notedesk')) && fs.existsSync(legacyDir)) {
+          try { fs.rmSync(legacyDir, { recursive: true, force: true }); } catch (_) {}
+        }
+      }
+      if (!fs.existsSync(exe(id))) {
+        if (id === 'notedesk') {
+          const legExe = path.join(PROGRAMS(), 'NotesDesk', 'NotesDesk.exe');
+          if (fs.existsSync(legExe)) {
+            const v = await version(id);
+            return { version: v || '0.0.0-000', path: legExe };
+          }
+        }
+        return null;
+      }
       const v = await version(id);
       return { version: v || '0.0.0-000', path: exe(id) };
     },
@@ -110,8 +128,20 @@ function createWindowsDriver({ selfVersion } = {}) {
         installer = path.join(path.dirname(file), `${id}-setup.exe`);
         await exec(file, [`--extract=${id}`, `--out=${installer}`]).catch((e) => { throw new Error(`estrazione di ${DISPLAY[id]} non riuscita (${e.message})`); });
       }
+      if (id === 'notedesk') {
+        const legacyDir = path.join(PROGRAMS(), 'NotesDesk');
+        if (fs.existsSync(legacyDir)) {
+          try { fs.rmSync(legacyDir, { recursive: true, force: true }); } catch (_) {}
+        }
+      }
       await closeApp(id);
       await exec(installer, INSTALL_ARGS[id]);
+      if (id === 'notedesk') {
+        const legacyDir = path.join(PROGRAMS(), 'NotesDesk');
+        if (fs.existsSync(legacyDir)) {
+          try { fs.rmSync(legacyDir, { recursive: true, force: true }); } catch (_) {}
+        }
+      }
     },
     /** HubDesk self-update: starts the suite installer silently and returns at once (the caller quits). */
     runInstallerDetached(id, file) {
@@ -127,6 +157,10 @@ function createWindowsDriver({ selfVersion } = {}) {
         // native StudyDesk (26.11.0-005+) uninstalls itself; the Electron one has its NSIS uninstaller
         const nsis = path.join(path.dirname(exe('studydesk')), 'Uninstall StudyDesk.exe');
         if (fs.existsSync(nsis)) { cmd = nsis; args = ['/S']; } else { cmd = exe('studydesk'); args = ['--uninstall', '--silent']; }
+      }
+      else if (id === 'notedesk') {
+        const nsis = path.join(path.dirname(exe('notedesk')), 'Uninstall NoteDesk.exe');
+        if (fs.existsSync(nsis)) { cmd = nsis; args = ['/S']; } else { cmd = exe('notedesk'); args = ['--uninstall', '--silent']; }
       }
       else throw new Error('HubDesk non si disinstalla da qui');
       if (!fs.existsSync(cmd)) throw new Error('Programma di disinstallazione non trovato');

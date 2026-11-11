@@ -224,6 +224,7 @@ struct LibraryView: View {
 // MARK: - Module player
 
 struct ModulePlayerView: View {
+    @State private var showTeacherNotes = false
     @Environment(AppStore.self) private var store
     @Environment(\.colorScheme) private var scheme
     let module: StudyModule
@@ -531,6 +532,41 @@ struct ModulePlayerView: View {
                 }
             }
             Spacer()
+            if let notes = a.teacherNotes, !notes.isEmpty {
+                Button {
+                    showTeacherNotes.toggle()
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: "info.circle.fill")
+                        Text("Guida docente")
+                    }
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(module.accent)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(RoundedRectangle(cornerRadius: 8).fill(module.accent.opacity(0.12)))
+                }
+                .buttonStyle(.plain)
+                .popover(isPresented: $showTeacherNotes, arrowEdge: .top) {
+                    VStack(alignment: .leading, spacing: 10) {
+                        HStack {
+                            Image(systemName: "info.circle.fill")
+                                .foregroundStyle(module.accent)
+                            Text("Indicazioni per l'insegnante")
+                                .font(.headline)
+                            Spacer()
+                        }
+                        Divider()
+                        ScrollView {
+                            RichText(notes, moduleId: module.id)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                        .frame(maxHeight: 350)
+                    }
+                    .padding(14)
+                    .frame(width: 440)
+                }
+            }
         }
     }
 

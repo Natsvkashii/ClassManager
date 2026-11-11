@@ -47,3 +47,13 @@ StudyDesk/macOS/StudyDesk.app/
 *.sdbook
 !StudyDesk/tests/fixtures/*.sdmod
 !StudyDesk/tests/fixtures/*.sdbook
+
+# NoteDesk (macOS build outputs)
+NoteDesk/macOS/NoteDesk.app/
+NoteDesk/dist/
+
+# Android Local Dev Update Server (Internal Only - Not for public repo)
+Hub/android-update-server/
+scripts/push_to_android_server.py
+*UpdateServer*.apk
+

@@ -34,7 +34,7 @@ struct AppsPage: View {
                 }
                 statusLine(apps)
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 290, maximum: 460), spacing: 16, alignment: .top)], alignment: .leading, spacing: 16) {
-                    ForEach([SuiteApp.classdesk, .studydesk, .hubdesk]) { AppCardView(app: $0) }
+                    ForEach([SuiteApp.classdesk, .studydesk, .notedesk, .hubdesk]) { AppCardView(app: $0) }
                 }
             }
             .padding(24)

@@ -696,7 +696,7 @@ struct SyncedTranscriptView: View {
                                         onSeek(max(0, word.start - 0.05))
                                     } label: {
                                         Text(word.text)
-                                            .font(.system(size: 13 * scaleFactor, weight: isCurrent ? .black : .semibold))
+                                            .font(.system(size: 13 * scaleFactor, weight: .bold))
                                             .foregroundStyle(wordColor)
                                             .padding(.horizontal, 4 * scaleFactor)
                                             .padding(.vertical, 2 * scaleFactor)
@@ -967,7 +967,7 @@ struct SpotifyFullScreenLyricsView: View {
                                                 onSeek(max(0, word.start - 0.05))
                                             } label: {
                                                 Text(word.text)
-                                                    .font(.system(size: 32, weight: isWordActive ? .black : .bold))
+                                                    .font(.system(size: 32, weight: .bold))
                                                     .foregroundStyle(spoken ? Color.white : Color.white.opacity(0.30))
                                                     .padding(.horizontal, 3)
                                                     .padding(.vertical, 2)

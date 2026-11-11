@@ -39,14 +39,30 @@
 #define SUITE_VERSION L"0.0.0-000"
 #endif
 
+#define IDR_PAYLOAD_HUBDESK   101
+#define IDR_PAYLOAD_CLASSDESK 102
+#define IDR_PAYLOAD_STUDYDESK 103
+#define IDR_PAYLOAD_NOTEDESK  104
+
 struct Entry { std::string id; uint64_t off = 0, size = 0; };
-struct App { const char *id; const wchar_t *name, *desc, *exeName, *processName; const wchar_t *args; bool required; };
-static const App APPS[] = {
-    {"hubdesk",   L"HubDesk",   L"Il centro della suite: installa e aggiorna le app, collega i computer in rete. Sempre installato.", L"hubdesk\\HubDesk.exe",     L"HubDesk.exe",   L"/S",       true},
-    {"classdesk", L"ClassDesk", L"Corsi, studenti, lezioni, presenze, valutazioni e fatturazione.",                                   L"ClassDesk\\ClassDesk.exe", L"ClassDesk.exe", L"--silent", false},
-    {"studydesk", L"StudyDesk", L"Libri ed esercizi interattivi, gruppi e lavagna condivisa.",                                        L"studydesk\\StudyDesk.exe", L"StudyDesk.exe", L"/S",       false},
+struct AppSpec {
+    const wchar_t *id;
+    const wchar_t *name;
+    const wchar_t *desc;
+    int payloadResId;
+    const wchar_t *installSubdir;
+    const wchar_t *exeName;
+    bool required;
 };
-static const int NAPPS = 3;
+typedef AppSpec App;
+
+static const AppSpec APPS[] = {
+    { L"hubdesk",   L"HubDesk",   L"Centro di controllo, catalogo e sincronizzazione in aula", IDR_PAYLOAD_HUBDESK,   L"HubDesk",   L"HubDesk.exe",   true  },
+    { L"classdesk", L"ClassDesk", L"Registro elettronico, corsi, presenze e fatturazione",     IDR_PAYLOAD_CLASSDESK, L"ClassDesk", L"ClassDesk.exe", false },
+    { L"studydesk", L"StudyDesk", L"Libri interattivi, esercizi multimediali e lettore",       IDR_PAYLOAD_STUDYDESK, L"StudyDesk", L"StudyDesk.exe", false },
+    { L"notedesk",  L"NoteDesk",  L"Quaderni digitali, PDF annotabili e lavagna didattica",    IDR_PAYLOAD_NOTEDESK,  L"NoteDesk",  L"NoteDesk.exe",  false },
+};
+static const int NAPPS = 4;
 
 static std::wstring g_self;
 static std::vector<Entry> g_entries;
@@ -82,8 +98,29 @@ static bool readPayload() {
 }
 static const Entry *entryOf(const char *id) { for (auto &e : g_entries) if (e.id == id) return &e; return nullptr; }
 
-static bool extractTo(const char *id, const std::wstring &out) {
-    const Entry *e = entryOf(id);
+static bool extractResourceTo(int resId, const std::wstring &out) {
+    HRSRC hr = FindResourceW(nullptr, MAKEINTRESOURCEW(resId), RT_RCDATA);
+    if (!hr) hr = FindResourceW(nullptr, MAKEINTRESOURCEW(resId), L"PAYLOAD");
+    if (!hr) return false;
+    HGLOBAL hg = LoadResource(nullptr, hr);
+    if (!hg) return false;
+    DWORD sz = SizeofResource(nullptr, hr);
+    void *ptr = LockResource(hg);
+    if (!ptr || sz == 0) return false;
+    HANDLE o = CreateFileW(out.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
+    if (o == INVALID_HANDLE_VALUE) return false;
+    DWORD wr = 0;
+    bool ok = WriteFile(o, ptr, sz, &wr, nullptr) && (wr == sz);
+    CloseHandle(o);
+    if (!ok) DeleteFileW(out.c_str());
+    return ok;
+}
+
+static bool extractTo(const std::wstring &id, int resId, const std::wstring &out) {
+    if (resId > 0 && extractResourceTo(resId, out)) return true;
+    std::string narrowId(id.begin(), id.end());
+    const Entry *e = entryOf(narrowId.c_str());
+    if (!e && narrowId == "notedesk") e = entryOf("notesdesk");
     if (!e) return false;
     HANDLE in = CreateFileW(g_self.c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, 0, nullptr);
     if (in == INVALID_HANDLE_VALUE) return false;
@@ -107,7 +144,15 @@ static std::wstring programsDir() {
     wchar_t p[MAX_PATH]; SHGetFolderPathW(nullptr, CSIDL_LOCAL_APPDATA, nullptr, 0, p);
     return std::wstring(p) + L"\\Programs\\";
 }
-static bool isInstalled(const App &a) { return GetFileAttributesW((programsDir() + a.exeName).c_str()) != INVALID_FILE_ATTRIBUTES; }
+static bool isInstalled(const AppSpec &a) {
+    std::wstring p = programsDir() + a.installSubdir + L"\\" + a.exeName;
+    if (GetFileAttributesW(p.c_str()) != INVALID_FILE_ATTRIBUTES) return true;
+    if (!_wcsicmp(a.id, L"notedesk")) {
+        std::wstring leg = programsDir() + L"NotesDesk\\NotesDesk.exe";
+        if (GetFileAttributesW(leg.c_str()) != INVALID_FILE_ATTRIBUTES) return true;
+    }
+    return false;
+}
 static std::wstring widen(const std::string &s) {
     if (s.empty()) return L"";
     int n = MultiByteToWideChar(CP_UTF8, 0, s.c_str(), (int)s.size(), nullptr, 0);
@@ -131,22 +176,26 @@ static BOOL CALLBACK closeWindowsOf(HWND w, LPARAM pid) {
     return TRUE;
 }
 /** Closes the app (its windows first, so it saves its data; then ends what is left after 8 s). */
-static void closeApp(const App &a) {
-    auto pids = pidsOf(a.processName);
+static void closeApp(const AppSpec &a) {
+    auto pids = pidsOf(a.exeName);
+    if (!_wcsicmp(a.id, L"notedesk")) {
+        for (DWORD p : pidsOf(L"NotesDesk.exe")) pids.push_back(p);
+    }
     if (pids.empty()) return;
     for (DWORD p : pids) EnumWindows(closeWindowsOf, (LPARAM)p);
-    for (int i = 0; i < 80 && !pidsOf(a.processName).empty(); i++) Sleep(100);
-    for (DWORD p : pidsOf(a.processName)) { HANDLE h = OpenProcess(PROCESS_TERMINATE, FALSE, p); if (h) { TerminateProcess(h, 0); CloseHandle(h); } }
+    for (int i = 0; i < 80 && (!pidsOf(a.exeName).empty() || (!_wcsicmp(a.id, L"notedesk") && !pidsOf(L"NotesDesk.exe").empty())); i++) Sleep(100);
+    for (DWORD p : pids) { HANDLE h = OpenProcess(PROCESS_TERMINATE, FALSE, p); if (h) { TerminateProcess(h, 0); CloseHandle(h); } }
     Sleep(500);
 }
 
 /** Extracts and runs the installer of one app silently. Returns an empty string or the error. */
-static std::wstring installOne(const App &a, const std::wstring &work) {
-    std::wstring file = work + L"\\" + widen(a.id) + L"-setup.exe";
-    if (!extractTo(a.id, file)) return L"il pacchetto di " + std::wstring(a.name) + L" manca nell'installer";
-    bool wasRunning = !pidsOf(a.processName).empty();
+static std::wstring installOne(const AppSpec &a, const std::wstring &work) {
+    std::wstring file = work + L"\\" + a.id + L"-setup.exe";
+    if (!extractTo(a.id, a.payloadResId, file)) return L"il pacchetto di " + std::wstring(a.name) + L" manca nell'installer";
+    bool wasRunning = !pidsOf(a.exeName).empty() || (!_wcsicmp(a.id, L"notedesk") && !pidsOf(L"NotesDesk.exe").empty());
     closeApp(a);
-    std::wstring cmd = L"\"" + file + L"\" " + a.args;
+    std::wstring args = (!_wcsicmp(a.id, L"classdesk") || !_wcsicmp(a.id, L"notedesk")) ? L"--silent" : L"/S";
+    std::wstring cmd = L"\"" + file + L"\" " + args;
     STARTUPINFOW si = {sizeof(si)}; PROCESS_INFORMATION pi = {};
     if (!CreateProcessW(nullptr, &cmd[0], nullptr, nullptr, FALSE, CREATE_NO_WINDOW, nullptr, work.c_str(), &si, &pi))
         return L"impossibile avviare l'installazione (errore " + std::to_wstring(GetLastError()) + L")";
@@ -154,10 +203,20 @@ static std::wstring installOne(const App &a, const std::wstring &work) {
     DWORD code = 0; GetExitCodeProcess(pi.hProcess, &code);
     CloseHandle(pi.hThread); CloseHandle(pi.hProcess);
     DeleteFileW(file.c_str());
+    if (!_wcsicmp(a.id, L"notedesk")) {
+        std::wstring legDir = programsDir() + L"NotesDesk";
+        wchar_t legBuf[MAX_PATH + 2] = {};
+        wcsncpy(legBuf, legDir.c_str(), MAX_PATH);
+        SHFILEOPSTRUCTW fos = {};
+        fos.wFunc = FO_DELETE;
+        fos.pFrom = legBuf;
+        fos.fFlags = FOF_NO_UI | FOF_NOCONFIRMATION | FOF_SILENT;
+        SHFileOperationW(&fos);
+    }
     if (code != 0) return L"l'installazione è terminata con codice " + std::to_wstring(code);
     for (int i = 0; i < 100 && !isInstalled(a); i++) Sleep(100); // the NSIS uninstaller copy finishes after the exit
     if (wasRunning && isInstalled(a)) {
-        std::wstring exe = programsDir() + a.exeName;
+        std::wstring exe = programsDir() + a.installSubdir + L"\\" + a.exeName;
         STARTUPINFOW rsi = {sizeof(rsi)}; PROCESS_INFORMATION rpi = {};
         std::wstring rcmd = L"\"" + exe + L"\"";
         if (CreateProcessW(nullptr, &rcmd[0], nullptr, nullptr, FALSE, 0, nullptr, nullptr, &rsi, &rpi)) {
@@ -216,21 +275,21 @@ static LRESULT CALLBACK wndProc(HWND w, UINT m, WPARAM wp, LPARAM lp) {
     switch (m) {
     case WM_CREATE: {
         g_wnd = w;
-        label(L"ClassDesk Suite", 28, 22, 440, 34, g_title);
-        label((std::wstring(L"Versione ") + SUITE_VERSION + L" · scegli le app da installare o aggiornare.").c_str(), 28, 60, 440, 20, g_font);
+        label(L"ClassDesk Suite", 28, 20, 440, 32, g_title);
+        label((std::wstring(L"Versione ") + SUITE_VERSION + L" · scegli le app da installare o aggiornare.").c_str(), 28, 54, 440, 20, g_font);
         for (int i = 0; i < NAPPS; i++) {
             const App &a = APPS[i];
             std::wstring t = std::wstring(a.name) + (isInstalled(a) ? L"  (installata: verrà aggiornata)" : L"");
-            g_check[i] = CreateWindowW(L"BUTTON", t.c_str(), WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_AUTOCHECKBOX, S(28), S(96 + i * 78), S(440), S(24), w, (HMENU)(INT_PTR)(ID_CHECK + i), nullptr, nullptr);
+            g_check[i] = CreateWindowW(L"BUTTON", t.c_str(), WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_AUTOCHECKBOX, S(28), S(82 + i * 68), S(440), S(22), w, (HMENU)(INT_PTR)(ID_CHECK + i), nullptr, nullptr);
             SendMessageW(g_check[i], WM_SETFONT, (WPARAM)g_bold, TRUE);
             SendMessageW(g_check[i], BM_SETCHECK, BST_CHECKED, 0);
             if (a.required) EnableWindow(g_check[i], FALSE);
-            label(a.desc, 48, 122 + i * 78, 420, 46, g_font);
+            label(a.desc, 48, 106 + i * 68, 420, 38, g_font);
         }
-        g_progress = CreateWindowW(PROGRESS_CLASSW, nullptr, WS_CHILD | WS_VISIBLE, S(28), S(338), S(440), S(10), w, nullptr, nullptr, nullptr);
-        g_status = label(L"HubDesk resta sempre installato: dopo potrai aggiungere o togliere le altre app da HubDesk.", 28, 356, 440, 52, g_font);
-        g_cancel = CreateWindowW(L"BUTTON", L"Annulla", WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON, S(248), S(418), S(100), S(30), w, (HMENU)ID_CANCEL, nullptr, nullptr);
-        g_install = CreateWindowW(L"BUTTON", L"Installa", WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON, S(358), S(418), S(110), S(30), w, (HMENU)ID_INSTALL, nullptr, nullptr);
+        g_progress = CreateWindowW(PROGRESS_CLASSW, nullptr, WS_CHILD | WS_VISIBLE, S(28), S(360), S(440), S(10), w, nullptr, nullptr, nullptr);
+        g_status = label(L"HubDesk resta sempre installato: dopo potrai aggiungere o togliere le altre app da HubDesk.", 28, 378, 440, 44, g_font);
+        g_cancel = CreateWindowW(L"BUTTON", L"Annulla", WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON, S(248), S(430), S(100), S(30), w, (HMENU)ID_CANCEL, nullptr, nullptr);
+        g_install = CreateWindowW(L"BUTTON", L"Installa", WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON, S(358), S(430), S(110), S(30), w, (HMENU)ID_INSTALL, nullptr, nullptr);
         SendMessageW(g_cancel, WM_SETFONT, (WPARAM)g_font, TRUE);
         SendMessageW(g_install, WM_SETFONT, (WPARAM)g_bold, TRUE);
         if (g_check[1]) SetFocus(g_check[1]);
@@ -293,20 +352,31 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int) {
     std::wstring ex = argValue(argc, argv, L"--extract=");
     if (!ex.empty()) {
         std::wstring out = argValue(argc, argv, L"--out=");
-        std::string id(ex.begin(), ex.end());
-        return payload && !out.empty() && extractTo(id.c_str(), out) ? 0 : 3;
+        int resId = 0;
+        for (int i = 0; i < NAPPS; i++) {
+            if (!_wcsicmp(APPS[i].id, ex.c_str())) { resId = APPS[i].payloadResId; break; }
+        }
+        return (payload || resId > 0) && !out.empty() && extractTo(ex, resId, out) ? 0 : 3;
     }
-    if (!payload) {
+    bool hasRes = false;
+    for (int i = 0; i < NAPPS; i++) {
+        if (FindResourceW(nullptr, MAKEINTRESOURCEW(APPS[i].payloadResId), RT_RCDATA) ||
+            FindResourceW(nullptr, MAKEINTRESOURCEW(APPS[i].payloadResId), L"PAYLOAD")) {
+            hasRes = true; break;
+        }
+    }
+    if (!payload && !hasRes) {
         MessageBoxW(nullptr, L"Il file di installazione è incompleto o danneggiato. Scaricalo di nuovo da GitHub.", L"ClassDesk Suite", MB_ICONERROR);
         return 2;
     }
+    payload = payload || hasRes;
     if (hasArg(argc, argv, L"--silent") || hasArg(argc, argv, L"/S")) {
         std::wstring comps = argValue(argc, argv, L"--components=");
         std::wstring work = makeWorkDir();
         int failed = 0;
         for (int i = 0; i < NAPPS; i++) {
             const App &a = APPS[i];
-            std::wstring id = widen(a.id);
+            std::wstring id = a.id;
             bool want = a.required || (comps.empty() ? isInstalled(a) : (L"," + comps + L",").find(L"," + id + L",") != std::wstring::npos);
             if (!want) continue;
             if (!installOne(a, work).empty()) failed++;
@@ -326,7 +396,7 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int) {
     wc.hbrBackground = (HBRUSH)GetStockObject(WHITE_BRUSH); wc.hCursor = LoadCursor(nullptr, IDC_ARROW);
     wc.hIcon = LoadIconW(inst, MAKEINTRESOURCEW(1));
     RegisterClassW(&wc);
-    RECT r = {0, 0, S(496), S(466)}; AdjustWindowRect(&r, WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX, FALSE);
+    RECT r = {0, 0, S(496), S(476)}; AdjustWindowRect(&r, WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX, FALSE);
     HWND w = CreateWindowW(wc.lpszClassName, L"Installazione ClassDesk Suite", WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX,
                            CW_USEDEFAULT, CW_USEDEFAULT, r.right - r.left, r.bottom - r.top, nullptr, nullptr, inst, nullptr);
     ShowWindow(w, SW_SHOW);

@@ -1,0 +1,26 @@
+{
+  "name": "notedesk",
+  "productName": "NoteDesk",
+  "version": "26.11.2-004",
+  "description": "NoteDesk – quaderno digitale e annotatore PDF professionale per la suite Classroom Tools, ispirato a GoodNotes 6",
+  "author": {
+    "name": "Guaira Jaramillo Nitoglia",
+    "email": "guaira.jaramillo.nitoglia@gmail.com"
+  },
+  "license": "GPL-3.0-only",
+  "private": true,
+  "scripts": {
+    "status": "python3 scripts/manage_version.py status",
+    "build:mac": "python3 macOS/build.py",
+    "build:pkg": "python3 scripts/manage_version.py build"
+  },
+  "build": {
+    "appId": "com.guairajaramillo.notedesk",
+    "productName": "NoteDesk",
+    "copyright": "© 2026 Guaira Jaramillo Nitoglia – GPL-3.0",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    }
+  }
+}

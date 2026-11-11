@@ -106,7 +106,6 @@ public final class HubDeskClient {
     public func start() {
         guard !started else { return }
         started = true
-        BoardModel.shared.hubClient = self
         link.onState = { [weak self] up in _ = MainActor.assumeIsolated { self?.linkChanged(up) } }
         link.onMessage = { [weak self] m in _ = MainActor.assumeIsolated { self?.handle(m) } }
         link.start()
@@ -147,27 +146,21 @@ public final class HubDeskClient {
     }
 
     private func linkChanged(_ up: Bool) {
-        let was = boardActive
         linkConnected = up
         refreshStatus()
         if up { reconcile(full: true) } else { peers = DeskHubPaths.peers().map(HubPeer.init).map { var p = $0; p.connected = false; return p } }
-        if boardActive && !was { BoardModel.shared.sendSnapshot() }
     }
 
     private func handle(_ m: [String: Any]) {
         switch m["t"] as? String {
         case "hello":
-            let was = boardActive
             if m["ok"] as? Bool == true { peers = (m["peers"] as? [[String: Any]] ?? []).map(HubPeer.init); linkConnected = true }
-            if boardActive && !was { BoardModel.shared.sendSnapshot() }
         case "peers":
-            let before = connectedPeers.count
             peers = (m["peers"] as? [[String: Any]] ?? []).map(HubPeer.init)
-            if boardActive && connectedPeers.count > before { BoardModel.shared.sendSnapshot() }
         case "records":
             if (m["app"] as? String ?? "studydesk") == "studydesk" { reconcile(full: true) }
         case "board":
-            if let msg = m["msg"] as? [String: Any] { BoardModel.shared.receiveShared(msg, from: m["from"] as? String, name: m["fromName"] as? String) }
+            break
         case "peer-joined":
             if let dev = m["device"] as? String {
                 if let i = peers.firstIndex(where: { $0.id == dev }) {
@@ -178,15 +171,14 @@ public final class HubDeskClient {
                     peers.append(HubPeer(["deviceId": dev, "name": name, "connected": true]))
                 }
             }
-            BoardModel.shared.sendSnapshot()
         default: break
         }
     }
 
     // MARK: Board relay
 
-    /// The board is shared: link up, at least one connected peer, "autoBoard" on.
-    public var boardActive: Bool { BoardRelay.shouldShare(connected: linkConnected, peers: peers.map(\.connected), autoBoard: autoBoard, paused: BoardModel.shared.sharingPaused) }
+    /// The board has been separated into NoteDesk.
+    public var boardActive: Bool { false }
     public func sendBoard(_ msg: [String: Any]) { link.send(["t": "board", "msg": msg]) }
 
     // MARK: Records mirror

@@ -19,7 +19,7 @@ public enum AuthorAttribution {
     public static let authorName = "Guaira Jaramillo Nitoglia"
     public static let authorEmail = "guaira.jaramillo.nitoglia@gmail.com"
     public static let appName = "StudyDesk"
-    public static let appVersion = "26.11.1-017"
+    public static let appVersion = "26.11.2-004"
 
     /// Centralized channel indicator: 0 = Stable, 1 = Unstable / Beta
     public static let isUnstableBuild: Int = 1
@@ -407,6 +407,7 @@ public struct Activity: Codable, Hashable, Identifiable {
     public var page: Int?
     public var skills: [String]?
     public var media: [Media]?
+    public var teacherNotes: String?
     public var parts: [Exercise]
 }
 

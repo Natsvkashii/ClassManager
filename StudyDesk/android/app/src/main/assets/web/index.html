@@ -64,6 +64,17 @@
       </div>
     </nav>
 
+    <!-- Home Segmented Tab Switcher: Libri (StudyDesk) · Quaderni & Lavagna (NoteDesk) -->
+    <nav class="shelf-segmented-nav" id="shelfSegmentedNav">
+      <button class="shelf-segment-btn active" id="tabBooks" data-shelf="books">
+        <i class="fa fa-book-bookmark"></i> Libri <span class="shelf-brand-tag">StudyDesk</span>
+      </button>
+      <button class="shelf-segment-btn" id="tabNotebooks" data-shelf="notebooks">
+        <i class="fa fa-pen-nib"></i> Quaderni &amp; Lavagna <span class="shelf-brand-tag">NoteDesk</span>
+        <span class="tab-badge" id="notebooksCountBadge">0</span>
+      </button>
+    </nav>
+
     <!-- Main Dynamic Content (Shelf or Reader) -->
     <main class="content-area" id="contentArea">
       <!-- Injected by mobile-app.js -->
@@ -366,6 +377,68 @@
           <button class="btn-pill primary" id="btnConfirmDownload">Installa ora</button>
         </div>
       </div>
+    </div>
+
+    <!-- NoteDesk Read-Only Notebook & Whiteboard Viewer -->
+    <div class="notebook-viewer-overlay" id="notebookViewer" style="display: none;">
+      <!-- Viewer Top Navigation Bar -->
+      <header class="notebook-viewer-topbar" id="notebookViewerTopBar">
+        <div class="viewer-top-left">
+          <button class="btn-icon" id="btnBackFromNotebook" title="Torna ai quaderni">
+            <i class="fa fa-arrow-left"></i>
+          </button>
+          <div class="viewer-doc-info">
+            <div class="viewer-title-row">
+              <h2 id="viewerDocTitle" class="viewer-title">Titolo Quaderno</h2>
+            </div>
+            <div class="viewer-meta-row">
+              <span class="readonly-badge"><i class="fa fa-lock"></i> Solo lettura · NoteDesk</span>
+              <span id="viewerDocTemplate" class="viewer-template-badge">A Righe</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="viewer-top-right">
+          <!-- Page Pager Navigation -->
+          <div class="viewer-pager-group" id="viewerPagerGroup">
+            <button class="viewer-icon-btn" id="btnViewerPrevPage" title="Pagina precedente">
+              <i class="fa fa-chevron-left"></i>
+            </button>
+            <span class="viewer-page-indicator" id="viewerPageIndicator">Pag. 1 / 1</span>
+            <button class="viewer-icon-btn" id="btnViewerNextPage" title="Pagina successiva">
+              <i class="fa fa-chevron-right"></i>
+            </button>
+          </div>
+
+          <!-- Zoom Level Controls -->
+          <div class="viewer-zoom-group">
+            <button class="viewer-icon-btn" id="btnViewerZoomOut" title="Rimpicciolisci">
+              <i class="fa fa-minus"></i>
+            </button>
+            <span class="viewer-zoom-level" id="viewerZoomLevel">100%</span>
+            <button class="viewer-icon-btn" id="btnViewerZoomIn" title="Ingrandisci">
+              <i class="fa fa-plus"></i>
+            </button>
+            <button class="viewer-icon-btn" id="btnViewerZoomFit" title="Adatta">
+              <i class="fa fa-expand"></i>
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <!-- Viewport & Canvas Stage with touch pan and pinch-zoom -->
+      <div class="notebook-viewport-wrap" id="notebookViewportWrap">
+        <div class="notebook-canvas-stage" id="notebookCanvasStage">
+          <canvas id="notedeskReadonlyCanvas" width="800" height="1100"></canvas>
+        </div>
+      </div>
+
+      <!-- Bottom Page Thumbnail Strip (for notebooks with multiple pages) -->
+      <footer class="notebook-thumb-strip" id="notebookThumbStrip" style="display: none;">
+        <div class="thumb-strip-scroll" id="thumbStripScroll">
+          <!-- Page thumbnails injected dynamically -->
+        </div>
+      </footer>
     </div>
 
     <!-- Hidden file input for manual .sdbook import -->

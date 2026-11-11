@@ -46,7 +46,7 @@ struct StudyDeskApp: App {
             ContentView()
                 .environment(store)
                 .preferredColorScheme(store.state.settings.theme == "light" ? .light : (store.state.settings.theme == "dark" ? .dark : nil))
-                .frame(minWidth: 980, minHeight: 650)
+                .frame(minWidth: 540, minHeight: 480)
         }
         .windowResizability(.contentSize)
         .windowToolbarStyle(.unified(showsTitle: true))
@@ -71,6 +71,32 @@ extension Notification.Name {
     static let createNewModule = Notification.Name("createNewModule")
 }
 
+/// Launches NoteDesk (the dedicated whiteboard & digital notebook app) if installed.
+@discardableResult
+@MainActor
+func openNoteDeskApp() -> Bool {
+    let bundleId = "com.guairajaramillo.notedesk"
+    let appUrl = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleId)
+        ?? (FileManager.default.fileExists(atPath: "/Applications/NoteDesk.app") ? URL(fileURLWithPath: "/Applications/NoteDesk.app") : nil)
+        ?? NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.guairajaramillo.notesdesk")
+        ?? (FileManager.default.fileExists(atPath: "/Applications/NotesDesk.app") ? URL(fileURLWithPath: "/Applications/NotesDesk.app") : nil)
+    if let url = appUrl {
+        let config = NSWorkspace.OpenConfiguration()
+        NSWorkspace.shared.openApplication(at: url, configuration: config, completionHandler: nil)
+        return true
+    }
+    if let schemeUrl = URL(string: "notedesk://") {
+        if NSWorkspace.shared.open(schemeUrl) { return true }
+    }
+    return false
+}
+
+@discardableResult
+@MainActor
+func openNotesDeskApp() -> Bool {
+    return openNoteDeskApp()
+}
+
 struct ContentView: View {
     @Environment(AppStore.self) private var store
     @Environment(\.colorScheme) private var colorScheme
@@ -80,7 +106,7 @@ struct ContentView: View {
     var body: some View {
         NavigationSplitView {
             SidebarView()
-                .navigationSplitViewColumnWidth(min: 224, ideal: 252, max: 295)
+                .navigationSplitViewColumnWidth(min: 175, ideal: 215, max: 260)
         } detail: {
             VStack(spacing: 0) {
                 if updateManager.updateAvailable && !updateManager.bannerDismissed, let rel = updateManager.latestRelease {
@@ -88,7 +114,7 @@ struct ContentView: View {
                 }
                 workspace
                     .id(store.currentTab)
-                    .transition(store.currentTab == .board ? .identity : .opacity.combined(with: .offset(y: 8)))
+                    .transition(.opacity.combined(with: .offset(y: 8)))
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                     .background(colorScheme == .dark ? Theme.canvasDark : Theme.canvasLight)
                     .animation(reduceMotion ? nil : .easeOut(duration: 0.25), value: store.currentTab)
@@ -122,6 +148,12 @@ struct ContentView: View {
         .onChange(of: store.focusMode) { _, on in
             if let w = NSApp.keyWindow ?? NSApp.windows.first, w.styleMask.contains(.fullScreen) != on { w.toggleFullScreen(nil) }
         }
+        .onChange(of: store.currentTab) { _, tab in
+            if tab == .board {
+                openNoteDeskApp()
+                store.currentTab = .home
+            }
+        }
         .onAppear {
             openPendingFiles()
             // HubDesk: local channel, records mirror and shared whiteboard; install HubDesk in the background when it is missing.
@@ -142,7 +174,12 @@ struct ContentView: View {
             if !store.state.isTeacher { ProgressOverviewView() } else { HomeView() }
         case .editor: HomeView()
         case .groups: if store.state.isTeacher { GroupsView() } else { HomeView() }
-        case .board: BoardView()
+        case .board:
+            HomeView()
+                .onAppear {
+                    openNoteDeskApp()
+                    store.currentTab = .home
+                }
         case .sync, .settings: SettingsView()
         case .credits: CreditsView()
         }
@@ -184,7 +221,7 @@ struct SidebarView: View {
                 AppLogoView(size: 36)
                 VStack(alignment: .leading, spacing: 0) {
                     Text("StudyDesk").font(.system(size: 15, weight: .heavy))
-                    Text("ESERCIZI INTERATTIVI").font(.system(size: 8.5, weight: .bold)).foregroundStyle(.secondary).tracking(0.6)
+                    Text("LIBRI ED ESERCIZI INTERATTIVI").font(.system(size: 8.5, weight: .bold)).foregroundStyle(.secondary).tracking(0.6)
                 }
                 Spacer()
             }
@@ -196,7 +233,6 @@ struct SidebarView: View {
                     VStack(alignment: .leading, spacing: 4) {
                         sectionTitle("Studio")
                         sidebarButton(.home, "books.vertical.fill", "Libreria")
-                        sidebarButton(.board, "pencil.and.scribble", "Lavagna")
                         if store.state.isTeacher {
                             sidebarButton(.groups, "person.3.fill", "Gruppi")
                         }

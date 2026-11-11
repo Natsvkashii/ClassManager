@@ -184,6 +184,7 @@ function registerIpc() {
   handle('apps:open', (_e, id) => { manager.open(String(id)); return true; });
   handle('apps:update-all', () => manager.updateAll());
   handle('apps:set-channel', async (_e, c) => { await engine.updateSettings({ channel: c === 'stable' ? 'stable' : 'unstable' }); return manager.setChannel(c); });
+  handle('apps:dev-server-update', () => manager.devServerUpdate());
   handle('apps:notes', (_e, id) => { const s = manager.state[String(id)]; const a = s && s.available; return a ? { version: a.version, name: a.name, notes: a.notes, prerelease: a.prerelease } : null; });
   handle('net:settings', (_e, patch) => {
     const allowed = {}; for (const k of ['syncCode', 'syncEnabled', 'deviceName', 'autoBoard']) if (k in patch) allowed[k] = patch[k];

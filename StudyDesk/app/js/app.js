@@ -28,7 +28,6 @@ import { renderProgress } from './views/progress.js';
 import { renderEditor } from './views/editor.js';
 import { renderGroups } from './views/groups.js';
 import { renderSettings } from './views/settings.js';
-import { renderBoard } from './views/board.js';
 import { renderSync } from './views/sync.js';
 import { initSync } from './core/syncstore.js';
 import { startHubWatch } from './core/hubbridge.js';
@@ -38,14 +37,13 @@ import { renderCredits, creditsBody } from './views/credits.js';
 const navItems = () => [
   ['Studio', [
     ['home', 'Libreria', 'book-open'],
-    ['board', 'Lavagna', 'chalkboard'],
     ...(isTeacher() ? [['groups', 'Gruppi', 'users']] : []),
     ...(!isTeacher() ? [['progress', 'Progressi', 'chart-line']] : []),
   ]],
   ['Sistema', [['settings', 'Impostazioni', 'gear'], ['credits', 'Crediti', 'circle-info']]],
 ];
-const ROUTES = { home: renderHome, library: renderHome, module: renderPlayer, progress: renderProgress, editor: renderHome, groups: renderGroups, board: renderBoard, sync: renderSettings, settings: renderSettings, credits: renderCredits };
-const TITLES = { home: 'Libreria', library: 'Libreria', module: 'Modulo', progress: 'Progressi', editor: 'Libreria', groups: 'Gruppi', board: 'Lavagna', sync: 'Impostazioni', settings: 'Impostazioni', credits: 'Crediti' };
+const ROUTES = { home: renderHome, library: renderHome, module: renderPlayer, progress: renderProgress, editor: renderHome, groups: renderGroups, board: renderHome, sync: renderSettings, settings: renderSettings, credits: renderCredits };
+const TITLES = { home: 'Libreria', library: 'Libreria', module: 'Modulo', progress: 'Progressi', editor: 'Libreria', groups: 'Gruppi', board: 'Libreria', sync: 'Impostazioni', settings: 'Impostazioni', credits: 'Crediti' };
 const TEACHER_ONLY = ['groups'];
 
 export const app = {
@@ -101,7 +99,7 @@ function buildShell() {
   };
   document.body.classList.toggle('nav-hidden', !!settings().navHidden);
   app.sidebar = h('aside.sidebar', { class: settings().sidebarMini ? 'mini' : '' },
-    h('div', h('div.brand', h('div.brand-wrap', h('div.brand-logo', icon('graduation-cap')), h('div.brand-name', 'StudyDesk', h('small', 'Esercizi interattivi'))),
+    h('div', h('div.brand', h('div.brand-wrap', h('div.brand-logo', icon('graduation-cap')), h('div.brand-name', 'StudyDesk', h('small', 'Libri ed esercizi interattivi'))),
       h('button.btn.btn-ghost.btn-icon.mini-toggle', {
         title: 'Comprimi barra laterale', 'aria-label': 'Comprimi barra laterale',
         onclick: () => { const m = app.sidebar.classList.toggle('mini'); saveSettings({ sidebarMini: m }); },

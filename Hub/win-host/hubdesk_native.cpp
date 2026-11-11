@@ -220,7 +220,9 @@ static bool Http(const std::string &url, std::string *body, const std::wstring *
     HINTERNET s = WinHttpOpen(L"HubDesk", WINHTTP_ACCESS_TYPE_AUTOMATIC_PROXY, WINHTTP_NO_PROXY_NAME, WINHTTP_NO_PROXY_BYPASS, 0);
     if (!s) return false;
     HINTERNET c = WinHttpConnect(s, host, uc.nPort, 0);
-    HINTERNET r = c ? WinHttpOpenRequest(c, L"GET", path, NULL, WINHTTP_NO_REFERER, WINHTTP_DEFAULT_ACCEPT_TYPES, uc.nScheme == INTERNET_SCHEME_HTTPS ? WINHTTP_FLAG_SECURE : 0) : NULL;
+    bool secure = (uc.nScheme == INTERNET_SCHEME_HTTPS);
+    DWORD flags = secure ? WINHTTP_FLAG_SECURE : 0;
+    HINTERNET r = c ? WinHttpOpenRequest(c, L"GET", path, NULL, WINHTTP_NO_REFERER, WINHTTP_DEFAULT_ACCEPT_TYPES, flags) : NULL;
     if (r) {
         DWORD redirect = WINHTTP_OPTION_REDIRECT_POLICY_ALWAYS;
         WinHttpSetOption(r, WINHTTP_OPTION_REDIRECT_POLICY, &redirect, sizeof(redirect));
@@ -245,6 +247,59 @@ static bool Http(const std::string &url, std::string *body, const std::wstring *
     if (out != INVALID_HANDLE_VALUE) { CloseHandle(out); if (!ok) DeleteFileW(file->c_str()); }
     if (r) WinHttpCloseHandle(r); if (c) WinHttpCloseHandle(c); WinHttpCloseHandle(s);
     return ok;
+}
+
+// ---------------------------------------------------------------- Dev Update Server UDP Discovery
+static std::string DiscoverDevServer() {
+    SOCKET s = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+    if (s == INVALID_SOCKET) return "";
+    BOOL broadcast = TRUE;
+    setsockopt(s, SOL_SOCKET, SO_BROADCAST, (const char *)&broadcast, sizeof(broadcast));
+    DWORD timeout = 1500;
+    setsockopt(s, SOL_SOCKET, SO_RCVTIMEO, (const char *)&timeout, sizeof(timeout));
+
+    sockaddr_in baddr = {};
+    baddr.sin_family = AF_INET;
+    baddr.sin_port = htons(47841);
+    baddr.sin_addr.s_addr = inet_addr("255.255.255.255");
+
+    const char *msg = "CLASSROOM_DEV_DISCOVER";
+    sendto(s, msg, (int)strlen(msg), 0, (sockaddr *)&baddr, sizeof(baddr));
+
+    baddr.sin_addr.s_addr = inet_addr("192.168.10.255");
+    sendto(s, msg, (int)strlen(msg), 0, (sockaddr *)&baddr, sizeof(baddr));
+
+    char buf[2048] = {};
+    sockaddr_in from = {};
+    int fromlen = sizeof(from);
+    int n = recvfrom(s, buf, sizeof(buf) - 1, 0, (sockaddr *)&from, &fromlen);
+    closesocket(s);
+    if (n > 0) {
+        buf[n] = 0;
+        char ipStr[INET_ADDRSTRLEN] = {};
+        inet_ntop(AF_INET, &from.sin_addr, ipStr, sizeof(ipStr));
+        int port = 47840;
+        std::string resp(buf);
+        size_t ppos = resp.find("\"port\":");
+        if (ppos != std::string::npos) {
+            int p = atoi(resp.c_str() + ppos + 7);
+            if (p > 0) port = p;
+        }
+        size_t ipos = resp.find("\"ip\":\"");
+        if (ipos != std::string::npos) {
+            size_t endq = resp.find("\"", ipos + 6);
+            if (endq != std::string::npos) {
+                std::string customIp = resp.substr(ipos + 6, endq - (ipos + 6));
+                if (!customIp.empty() && customIp != "0.0.0.0") {
+                    return "http://" + customIp + ":" + std::to_string(port);
+                }
+            }
+        }
+        if (strlen(ipStr) > 0 && strcmp(ipStr, "0.0.0.0") != 0) {
+            return "http://" + std::string(ipStr) + ":" + std::to_string(port);
+        }
+    }
+    return "";
 }
 
 // ---------------------------------------------------------------- TCP for the network engine in the page (engine port: plan §3)
@@ -551,7 +606,7 @@ static LRESULT CALLBACK WndSub(HWND h, UINT m, WPARAM wp, LPARAM lp, UINT_PTR, D
     if (m == WM_TRAY && (LOWORD(lp) == WM_LBUTTONUP || LOWORD(lp) == WM_LBUTTONDBLCLK || LOWORD(lp) == NIN_BALLOONUSERCLICK)) { ShowMain("apps"); return 0; }
     if (m == WM_TRAY && (LOWORD(lp) == WM_RBUTTONUP || LOWORD(lp) == WM_CONTEXTMENU)) {
         HMENU menu = CreatePopupMenu();
-        AppendMenuW(menu, MF_STRING, 1, L"Apri HubDesk"); AppendMenuW(menu, MF_STRING, 2, L"ClassDesk"); AppendMenuW(menu, MF_STRING, 3, L"StudyDesk");
+        AppendMenuW(menu, MF_STRING, 1, L"Apri HubDesk"); AppendMenuW(menu, MF_STRING, 2, L"ClassDesk"); AppendMenuW(menu, MF_STRING, 3, L"StudyDesk"); AppendMenuW(menu, MF_STRING, 4, L"NoteDesk");
         AppendMenuW(menu, MF_SEPARATOR, 0, NULL); AppendMenuW(menu, MF_STRING, 9, L"Esci da HubDesk");
         POINT pt; GetCursorPos(&pt); SetForegroundWindow(h);
         int cmd = TrackPopupMenu(menu, TPM_RETURNCMD | TPM_RIGHTBUTTON, pt.x, pt.y, 0, h, NULL);
@@ -561,6 +616,11 @@ static LRESULT CALLBACK WndSub(HWND h, UINT m, WPARAM wp, LPARAM lp, UINT_PTR, D
         if (cmd == 1) ShowMain("apps");
         else if (cmd == 2) ShellExecuteW(NULL, L"open", (progs + L"ClassDesk\\ClassDesk.exe").c_str(), NULL, NULL, SW_SHOWNORMAL);
         else if (cmd == 3) ShellExecuteW(NULL, L"open", (progs + L"studydesk\\StudyDesk.exe").c_str(), NULL, NULL, SW_SHOWNORMAL);
+        else if (cmd == 4) {
+            std::wstring p = progs + L"NoteDesk\\NoteDesk.exe";
+            if (!Exists(p)) p = progs + L"NotesDesk\\NotesDesk.exe";
+            ShellExecuteW(NULL, L"open", p.c_str(), NULL, NULL, SW_SHOWNORMAL);
+        }
         else if (cmd == 9) Quit();
         return 0;
     }
@@ -655,13 +715,18 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int) {
     w.bind("__hd_open_external", [](std::string r) -> std::string { std::string u = Arg(r, 0); if (u.rfind("https://", 0) == 0 || u.rfind("mailto:", 0) == 0) ShellExecuteW(NULL, L"open", W(u).c_str(), NULL, NULL, SW_SHOWNORMAL); return "true"; });
     w.bind("__hd_http_get", [&w](const std::string &seq, const std::string &r, void *) {
         std::string url = Arg(r, 0);
-        std::thread([&w, seq, url]() { std::string body; bool ok = url.rfind("https://", 0) == 0 && Http(url, &body, nullptr, nullptr); w.resolve(seq, 0, ok ? Q(body) : "null"); }).detach();
+        std::thread([&w, seq, url]() {
+            std::string body;
+            bool ok = (url.rfind("http://", 0) == 0 || url.rfind("https://", 0) == 0) && Http(url, &body, nullptr, nullptr);
+            w.resolve(seq, 0, ok ? Q(body) : "null");
+        }).detach();
     }, nullptr);
     w.bind("__hd_download", [&w](const std::string &seq, const std::string &r, void *) {
         std::string url = Arg(r, 0), id = Arg(r, 2); std::wstring file = W(Arg(r, 1));
         std::thread([&w, seq, url, file, id]() {
             int last = -1;
-            bool ok = url.rfind("https://github.com/", 0) == 0 && Http(url, nullptr, &file, [&](double p) {
+            bool isAllowed = (url.rfind("http://", 0) == 0 || url.rfind("https://", 0) == 0);
+            bool ok = isAllowed && Http(url, nullptr, &file, [&](double p) {
                 int pc = (int)(p * 100); if (pc == last) return; last = pc;
                 char pbuf[32]; snprintf(pbuf, sizeof(pbuf), "%.4f", p);
                 std::replace(pbuf, pbuf + strlen(pbuf), ',', '.');
@@ -669,6 +734,12 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int) {
                 w.dispatch([&w, js]() { if (g_view) w.eval(js); });
             });
             w.resolve(seq, 0, ok ? "true" : "false");
+        }).detach();
+    }, nullptr);
+    w.bind("__hd_discover_dev_server", [&w](const std::string &seq, const std::string &, void *) {
+        std::thread([&w, seq]() {
+            std::string res = DiscoverDevServer();
+            w.resolve(seq, 0, Q(res));
         }).detach();
     }, nullptr);
     w.bind("__hd_rm", [](std::string r) -> std::string { std::wstring p = W(Arg(r, 0)); wchar_t t[MAX_PATH]; GetTempPathW(MAX_PATH, t); if (p.rfind(t, 0) == 0) DeleteTree(p); return "true"; });

@@ -147,6 +147,14 @@
             <button data-chan="unstable" class="${S.apps.channel === 'unstable' ? 'on' : ''}">Instabile (Beta)</button>
           </div>
         </div>
+        ${S.apps.channel === 'unstable' ? `
+        <div class="setting" style="margin-top: 8px;">
+          <div><b>Aggiornamento locale di sviluppo</b><span class="small muted">Verifica e installa l'aggiornamento dal server locale</span></div>
+          <button class="btn" data-act="dev-server-update" ${S.devUpdating ? 'disabled' : ''} style="display: inline-flex; align-items: center; gap: 6px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+            ${S.devUpdating ? 'Aggiornamento dal server locale in corso...' : 'Aggiorna da Server Locale (Dev)'}
+          </button>
+        </div>` : ''}
       </div>
       <div class="card card-pad"><h2>Informazioni</h2>
         <div class="setting"><div><b>Versione</b></div><span class="mono">${channelBadge(a.buildType || 'internal')} ${esc(a.version)}</span></div>
@@ -154,7 +162,7 @@
         <div class="setting"><div><b>Identificativo dispositivo</b></div><span class="mono">${esc(S.engine.self.deviceId)}</span></div></div>
       <div class="card card-pad"><h2>Crediti</h2>
         <div class="credits mt"><img src="assets/hubdesk.png" alt="">
-          <div><b>Guaira Jaramillo Nitoglia</b><div class="small muted">Ideatore, progettista e autore della suite ClassDesk · ClassDesk, StudyDesk e HubDesk</div>
+          <div><b>Guaira Jaramillo Nitoglia</b><div class="small muted">Ideatore, progettista e autore della suite ClassDesk · ClassDesk, StudyDesk, NoteDesk e HubDesk</div>
             <div class="small"><a href="mailto:guaira.jaramillo.nitoglia@gmail.com" data-ext>guaira.jaramillo.nitoglia@gmail.com</a> · Licenza GPL-3.0</div></div></div></div></div>`;
   }
 
@@ -196,6 +204,24 @@
       case 'reinstall': S.menu = ''; return done(await api.apps.reinstall(id));
       case 'uninstall': S.menu = ''; if (confirm('Disinstallare? I dati restano sul computer.')) done(await api.apps.uninstall(id)); return;
       case 'open': return api.apps.open(id);
+      case 'dev-server-update': {
+        S.devUpdating = true;
+        render();
+        try {
+          const res = await api.apps.devServerUpdate();
+          if (!res || res.ok === false) {
+            modal(`<h2>Sviluppo Interno</h2><p class="muted">Questo pulsante è utilizzato esclusivamente per lo sviluppo interno dell'applicazione e non è destinato al pubblico. Anche premendolo non eseguirà alcuna operazione.</p><div class="row end"><button class="btn btn-primary" data-act="close-modal">OK</button></div>`);
+          } else {
+            toast('Aggiornamento dal server locale completato');
+          }
+        } catch (e) {
+          modal(`<h2>Sviluppo Interno</h2><p class="muted">Questo pulsante è utilizzato esclusivamente per lo sviluppo interno dell'applicazione e non è destinato al pubblico. Anche premendolo non eseguirà alcuna operazione.</p><div class="row end"><button class="btn btn-primary" data-act="close-modal">OK</button></div>`);
+        } finally {
+          S.devUpdating = false;
+          render();
+        }
+        return;
+      }
       case 'notes': S.menu = ''; render(); return notes(id);
       case 'check': return api.apps.check();
       case 'update-all': return api.apps.updateAll();

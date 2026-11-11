@@ -1,54 +1,52 @@
 {
-  "version": "26.11.1-017",
+  "version": "26.11.2-004",
   "channel": "unstable",
-  "tag_name": "v26.11.1-017",
+  "tag_name": "v26.11.2-004",
   "prerelease": true,
-  "published_at": "2026-11-10T00:23:08Z",
-  "name": "Classroom Tools v26.11.1-017 - macOS (Apple Silicon) & Windows (Beta)",
-  "body": "# Classroom Tools v26.11.1-017 (Beta) - macOS (Apple Silicon) & Windows\n\n**Classroom Tools**: Suite unificata che include ClassDesk, StudyDesk e HubDesk.\n\n## Download e Installazione\n- **macOS (Apple Silicon)**: [`Classroom-Tools-26.11.1-017-macOS-AppleSilicon.pkg`](https://github.com/Natsvkashii/ClassManager/releases/download/v26.11.1-017/Classroom-Tools-26.11.1-017-macOS-AppleSilicon.pkg)\n- **Windows**: [`Classroom-Tools-26.11.1-017-Windows-Setup.exe`](https://github.com/Natsvkashii/ClassManager/releases/download/v26.11.1-017/Classroom-Tools-26.11.1-017-Windows-Setup.exe)\n\n- **HubDesk** è sempre incluso per gestire aggiornamenti centralizzati e sincronizzazione tra dispositivi.\n- **ClassDesk** e **StudyDesk** possono essere selezionati all'installazione o scaricati dall'Hub.\n- Chi possiede una versione precedente riceve l'aggiornamento automatico senza perdita di dati.\n\n## HubDesk\n- Risolto il ripristino della finestra minimizzata nel Dock su macOS (deminiaturizzazione automatica e attivazione immediata).\n- Allineamento alla release beta pubblica 26.11.1-017 di Classroom Tools.\n\n## ClassDesk\n- Registro presenze Windows: calcolo in tempo reale e visualizzazione della barra di stato e del conteggio (P, G, A) direttamente sotto il nome dello studente.\n- Generazione calendario e ricorrenze sincronizzata: allineata la logica di calcolo delle lezioni ricorrenti tra Windows e macOS con normalizzazione dei giorni della settimana.\n- Integrazione completa dei dettagli applicazione, autore e licenza GPL-3.0 nella schermata principale con rimozione del modale e pulsante informativo ridondante su Windows.\n- Nuove barre superiori per livello e modulo con menu contestuali a comparsa e stile nativo macOS 27 con trasparenza liquida.\n\n## StudyDesk\n- Navigazione capitolo: aprendo l'indice attività l'elenco si visualizza e scorre automaticamente a partire dall'esercizio correntemente aperto, per una consultazione rapida e immediata.\n- Colori uniformi e non ambigui negli esercizi: le selezioni di opzioni, la digitazione nelle caselle di testo, la banca parole e gli elementi interattivi utilizzano un colore azzurro standard per tutti i libri (evitando malinterpretazioni con il rosso dei libri che poteva far pensare a un errore prima della verifica).\n- Supporto codice HTML e CSS arricchito per gli esercizi interattivi personalizzati.\n\n---\n© 2026 Guaira Jaramillo Nitoglia · guaira.jaramillo.nitoglia@gmail.com · GPL-3.0\n",
-  "setupUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.11.1-017/Classroom-Tools-26.11.1-017-Windows-Setup.exe",
-  "setupName": "Classroom-Tools-26.11.1-017-Windows-Setup.exe",
-  "macPkgUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.11.1-017/Classroom-Tools-26.11.1-017-macOS-AppleSilicon.pkg",
-  "macPkgName": "Classroom-Tools-26.11.1-017-macOS-AppleSilicon.pkg",
-  "apkUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.11.1-017/StudyDesk-26.11.1-017-Android.apk",
-  "apkName": "StudyDesk-26.11.1-017-Android.apk",
+  "published_at": "2026-11-11T04:15:41Z",
+  "name": "ClassDesk v26.11.2-004 (Beta / Unstable)",
+  "body": "# Classroom Tools v26.11.2-004 (Interna) - macOS (Apple Silicon) & Windows\n\n**Classroom Tools**: Suite unificata che include ClassDesk, StudyDesk, NoteDesk e HubDesk.\n\n## Download e Installazione\n- **macOS (Apple Silicon)**: [`Classroom-Tools-26.11.2-004-macOS-AppleSilicon.pkg`](https://github.com/Natsvkashii/ClassManager/releases/download/v26.11.2-004/Classroom-Tools-26.11.2-004-macOS-AppleSilicon.pkg)\n- **Windows**: [`Classroom-Tools-26.11.2-004-Windows-Setup.exe`](https://github.com/Natsvkashii/ClassManager/releases/download/v26.11.2-004/Classroom-Tools-26.11.2-004-Windows-Setup.exe)\n\n- **HubDesk** è sempre incluso per gestire aggiornamenti centralizzati e sincronizzazione tra dispositivi.\n- **ClassDesk**, **StudyDesk** e **NoteDesk** possono essere selezionati all'installazione o scaricati dall'Hub.\n- Chi possiede una versione precedente riceve l'aggiornamento automatico senza perdita di dati.\n\n---\n© 2026 Guaira Jaramillo Nitoglia · guaira.jaramillo.nitoglia@gmail.com · GPL-3.0\n",
+  "setupUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.11.2-004/ClassDesk-Suite-26.11.2-004-Setup.exe",
+  "setupName": "ClassDesk-Suite-26.11.2-004-Setup.exe",
+  "macPkgUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.11.2-004/ClassDesk-Suite-26.11.2-004-Installer.pkg",
+  "macPkgName": "ClassDesk-Suite-26.11.2-004-Installer.pkg",
+  "apkUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.11.2-004/StudyDesk-26.11.2-004-Android.apk",
+  "apkName": "StudyDesk-26.11.2-004-Android.apk",
   "suite": {
-    "version": "26.11.1-017",
+    "version": "26.11.2-004",
     "apps": {
       "hubdesk": {
         "mac": {
-          "name": "Classroom-Tools-26.11.1-017-macOS-AppleSilicon.pkg",
-          "url": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.11.1-017/Classroom-Tools-26.11.1-017-macOS-AppleSilicon.pkg"
+          "name": "HubDesk-26.11.2-004-mac.zip",
+          "url": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.11.2-004/HubDesk-26.11.2-004-mac.zip"
         },
         "win": {
-          "name": "Classroom-Tools-26.11.1-017-Windows-Setup.exe",
-          "url": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.11.1-017/Classroom-Tools-26.11.1-017-Windows-Setup.exe"
+          "name": "ClassDesk-Suite-26.11.2-004-Setup.exe",
+          "url": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.11.2-004/ClassDesk-Suite-26.11.2-004-Setup.exe"
         }
       },
       "classdesk": {
         "mac": {
-          "name": "Classroom-Tools-26.11.1-017-macOS-AppleSilicon.pkg",
-          "url": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.11.1-017/Classroom-Tools-26.11.1-017-macOS-AppleSilicon.pkg"
+          "name": "ClassDesk-26.11.2-004-macOS.zip",
+          "url": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.11.2-004/ClassDesk-26.11.2-004-macOS.zip"
         },
         "win": {
-          "name": "Classroom-Tools-26.11.1-017-Windows-Setup.exe",
-          "url": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.11.1-017/Classroom-Tools-26.11.1-017-Windows-Setup.exe"
+          "name": "ClassDesk-26.11.2-004-win-x64.exe",
+          "url": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.11.2-004/ClassDesk-26.11.2-004-win-x64.exe"
         }
       },
       "studydesk": {
         "mac": {
-          "name": "Classroom-Tools-26.11.1-017-macOS-AppleSilicon.pkg",
-          "url": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.11.1-017/Classroom-Tools-26.11.1-017-macOS-AppleSilicon.pkg"
+          "name": "StudyDesk-26.11.2-004-mac.zip",
+          "url": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.11.2-004/StudyDesk-26.11.2-004-mac.zip"
         },
         "win": {
-          "name": "Classroom-Tools-26.11.1-017-Windows-Setup.exe",
-          "url": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.11.1-017/Classroom-Tools-26.11.1-017-Windows-Setup.exe"
+          "name": "StudyDesk-26.11.2-004-win-x64.exe",
+          "url": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.11.2-004/StudyDesk-26.11.2-004-win-x64.exe"
         }
       }
-    },
-    "pkg": {
-      "name": "Classroom-Tools-26.11.1-017-macOS-AppleSilicon.pkg",
-      "url": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.11.1-017/Classroom-Tools-26.11.1-017-macOS-AppleSilicon.pkg"
     }
-  }
+  },
+  "macZipUrl": "https://github.com/Natsvkashii/ClassManager/releases/download/v26.11.2-004/ClassDesk-26.11.2-004-macOS.zip",
+  "macZipName": "ClassDesk-26.11.2-004-macOS.zip"
 }

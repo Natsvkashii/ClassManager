@@ -1,5 +1,9 @@
 # Changelog
 
+## v26.11.2-004 (Beta) – 10 novembre 2026
+- Trascrizione sincronizzata stabile: eliminato ogni scatto o spostamento orizzontale delle parole durante la riproduzione audio karaoke sia a finestra ridotta che a schermo intero (Spotify style), preservando allineamento tipografico costante senza salti di larghezza.
+- Integrazione completa con la nuova applicazione NoteDesk e rimozione del vecchio codice lavagna monolitico non più utilizzato.
+
 ## v26.11.1-017 (Beta) – 6 novembre 2026
 - Navigazione capitolo: aprendo l'indice attività l'elenco si visualizza e scorre automaticamente a partire dall'esercizio correntemente aperto, per una consultazione rapida e immediata.
 - Colori uniformi e non ambigui negli esercizi: le selezioni di opzioni, la digitazione nelle caselle di testo, la banca parole e gli elementi interattivi utilizzano un colore azzurro standard per tutti i libri (evitando malinterpretazioni con il rosso dei libri che poteva far pensare a un errore prima della verifica).

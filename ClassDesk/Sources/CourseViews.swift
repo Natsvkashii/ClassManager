@@ -1193,55 +1193,71 @@ public struct AttendanceView: View {
 
         return AnyView(
             VStack(alignment: .leading, spacing: 14) {
-                // Action Toolbar (Mac Calendar Sync & Enroll Students removed per user spec; "Seleziona" placed at rightmost end)
-                HStack(spacing: 10) {
-                    HStack(spacing: 6) {
-                        Text("\(students.count)").bold()
-                        Text(store.t(students.count == 1 ? "enrolledOneLower" : "enrolledLower")).foregroundStyle(.secondary)
-                        Text("•").foregroundStyle(.secondary)
-                        Text("\(slots.count)").bold()
-                        Text(store.t(slots.count == 1 ? "lessonOneLower" : "lessonsLower")).foregroundStyle(.secondary)
-                        Text("•").foregroundStyle(.secondary)
-                        HStack(spacing: 3) {
-                            Image(systemName: "clock.fill")
-                                .font(.system(size: 10))
-                            Text("Ore Totali Modulo: \(String(format: "%.1fh", store.moduleTotalHours(course: course, module: mod)))")
-                                .bold()
+                // Action Toolbar (2 rows: Row 1 = summary stats; Row 2 = action buttons)
+                VStack(alignment: .leading, spacing: 10) {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 6) {
+                            Text("\(students.count)").bold()
+                            Text(store.t(students.count == 1 ? "enrolledOneLower" : "enrolledLower")).foregroundStyle(.secondary)
+                            Text("•").foregroundStyle(.secondary)
+                            Text("\(slots.count)").bold()
+                            Text(store.t(slots.count == 1 ? "lessonOneLower" : "lessonsLower")).foregroundStyle(.secondary)
+                            Text("•").foregroundStyle(.secondary)
+                            HStack(spacing: 3) {
+                                Image(systemName: "clock.fill")
+                                    .font(.system(size: 10))
+                                Text("Ore Totali Modulo: \(String(format: "%.1fh", store.moduleTotalHours(course: course, module: mod)))")
+                                    .bold()
+                            }
+                            .lineLimit(1)
+                            .fixedSize(horizontal: true, vertical: false)
+                            paidHoursBadge(course: course, mod: mod)
+                            if !mod.description.isEmpty {
+                                Text("• \(mod.description)")
+                                    .foregroundStyle(.secondary)
+                                    .lineLimit(1)
+                                    .fixedSize(horizontal: true, vertical: false)
+                            }
                         }
-                        paidHoursBadge(course: course, mod: mod)
-                        if !mod.description.isEmpty {
-                            Text("• \(mod.description)").foregroundStyle(.secondary)
-                        }
+                        .font(.caption)
+                        .lineLimit(1)
                     }
-                    .font(.caption)
-
-                    Spacer()
+                    .frame(maxWidth: .infinity, alignment: .leading)
 
                     if !course.archived {
-                        Button {
-                            activeSheet = .lessonPlan(courseId: course.id, sectionId: mod.id, slotKey: nil)
-                        } label: {
-                            Label(store.t("addDateBtn"), systemImage: "calendar.badge.plus")
-                        }
-                        .buttonStyle(.borderedProminent)
-                        .tint(pal.color)
-
-                        Button {
-                            activeSheet = .recurringGenerator
-                        } label: {
-                            Label(store.t("recurringBtn"), systemImage: "repeat")
-                        }
-
-                        Button {
-                            store.attendanceDateEditMode.toggle()
-                            if !store.attendanceDateEditMode {
-                                store.selectedDatesForDelete.removeAll()
+                        HStack(spacing: 8) {
+                            Button {
+                                activeSheet = .lessonPlan(courseId: course.id, sectionId: mod.id, slotKey: nil)
+                            } label: {
+                                Label(store.t("addDateBtn"), systemImage: "calendar.badge.plus")
                             }
-                        } label: {
-                            Label(
-                                store.attendanceDateEditMode ? store.t("exitEditDatesModeBtn") : store.t("editDatesModeBtn"),
-                                systemImage: store.attendanceDateEditMode ? "checkmark.circle.fill" : "checkmark.circle"
-                            )
+                            .buttonStyle(.borderedProminent)
+                            .tint(pal.color)
+                            .fixedSize(horizontal: true, vertical: false)
+
+                            Button {
+                                activeSheet = .recurringGenerator
+                            } label: {
+                                Label(store.t("recurringBtn"), systemImage: "repeat")
+                            }
+                            .buttonStyle(.bordered)
+                            .fixedSize(horizontal: true, vertical: false)
+
+                            Button {
+                                store.attendanceDateEditMode.toggle()
+                                if !store.attendanceDateEditMode {
+                                    store.selectedDatesForDelete.removeAll()
+                                }
+                            } label: {
+                                Label(
+                                    store.attendanceDateEditMode ? store.t("exitEditDatesModeBtn") : store.t("editDatesModeBtn"),
+                                    systemImage: store.attendanceDateEditMode ? "checkmark.circle.fill" : "checkmark.circle"
+                                )
+                            }
+                            .buttonStyle(.bordered)
+                            .fixedSize(horizontal: true, vertical: false)
+
+                            Spacer()
                         }
                     }
                 }
@@ -1419,6 +1435,9 @@ public struct AttendanceView: View {
                                                             Text("\(store.formatTimeDisplay(sTime))-\(store.formatTimeDisplay(eTime))")
                                                                 .font(.system(size: 9, weight: .semibold))
                                                                 .foregroundStyle(.secondary)
+                                                                .lineLimit(1)
+                                                                .minimumScaleFactor(0.8)
+                                                                .fixedSize(horizontal: true, vertical: false)
 
                                                             if let t = les?.title, !t.isEmpty {
                                                                 Text(t)
@@ -1566,6 +1585,8 @@ public struct AttendanceView: View {
                         .bold()
                         .foregroundStyle(.green)
                 }
+                .lineLimit(1)
+                .fixedSize(horizontal: true, vertical: false)
                 Text("•").foregroundStyle(.secondary)
                 if missingH > 0 {
                     HStack(spacing: 3) {
@@ -1579,6 +1600,8 @@ public struct AttendanceView: View {
                     .padding(.horizontal, 6)
                     .padding(.vertical, 1)
                     .background(RoundedRectangle(cornerRadius: 4).fill(Color.orange.opacity(0.12)))
+                    .lineLimit(1)
+                    .fixedSize(horizontal: true, vertical: false)
                 } else {
                     HStack(spacing: 3) {
                         Image(systemName: "checkmark.circle.fill")
@@ -1591,6 +1614,8 @@ public struct AttendanceView: View {
                     .padding(.horizontal, 6)
                     .padding(.vertical, 1)
                     .background(RoundedRectangle(cornerRadius: 4).fill(Color.green.opacity(0.12)))
+                    .lineLimit(1)
+                    .fixedSize(horizontal: true, vertical: false)
                 }
             } else {
                 Text("•").foregroundStyle(.secondary)
@@ -1600,6 +1625,8 @@ public struct AttendanceView: View {
                     Text("Ore Pagate: 0.0h")
                         .foregroundStyle(.secondary)
                 }
+                .lineLimit(1)
+                .fixedSize(horizontal: true, vertical: false)
             }
         }
     }

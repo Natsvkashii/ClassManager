@@ -25,6 +25,45 @@ const APPS = [
     asset: { win: /^StudyDesk-(.+)-win-x64\.exe$/i, mac: /^StudyDesk-(.+)-mac\.zip$/i },
   },
   {
+    id: 'notedesk',
+    name: 'NoteDesk',
+    tagline: 'Quaderni digitali, PDF annotabili, evidenziatore smart e lavagna didattica',
+    description:
+      'Prendi appunti a mano libera con penna stilografica, penna a sfera, pennello, matita, pennarello ed evidenziatore intelligente che risalta i neri. Importa ed esporta PDF multipagina e usa la lavagna didattica sincronizzata.',
+    color: '#D97706',
+    accentLight: '#FEF3C7',
+    iconAsset: 'assets/notedesk.png',
+    asset: {
+      win: /^(?:NoteDesk|NotesDesk)-(.+)-win-(?:x64|setup)\.exe$/i,
+      mac: /^(?:NoteDesk|NotesDesk)-(.+)-mac\.zip$/i,
+    },
+    mac: {
+      bundleId: 'com.guairajaramillo.notedesk',
+      appName: 'NoteDesk.app',
+      installDir: '/Applications',
+      devPath: ['NoteDesk', 'macOS', 'NoteDesk.app'],
+    },
+    win: {
+      exeName: 'NoteDesk.exe',
+      installSubdir: 'NoteDesk',
+      registryKey: 'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\NoteDesk',
+      legacyDirs: ['NotesDesk'],
+    },
+    linux: {
+      binName: 'notedesk',
+      desktopFile: 'notedesk.desktop',
+    },
+    artifacts: {
+      mac: { pattern: /^NoteDesk-(.+)-mac\.zip$/i, kind: 'zip-app' },
+      win: { pattern: /^NoteDesk-(.+)-win-(?:x64|setup)\.exe$/i, kind: 'exe-S' },
+      linux: { pattern: /^NoteDesk-(.+)-linux-x86_64\.AppImage$/i, kind: 'appimage' },
+    },
+    devArtifactDirs: [
+      ['NoteDesk', 'dist'],
+      ['NoteDesk', 'build'],
+    ],
+  },
+  {
     id: 'hubdesk', name: 'HubDesk', description: 'Il centro della suite: installa, aggiorna e sincronizza le tue app.',
     asset: { win: /^ClassDesk-Suite-(.+)-Setup\.exe$/i, mac: /^HubDesk-(.+)-mac\.zip$/i },
   },

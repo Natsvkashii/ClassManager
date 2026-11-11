@@ -135,7 +135,7 @@ def build_mac():
                     "-O", "-o", os.path.join(macos_dir, "HubDesk")] + sources, check=True)
 
     write(os.path.join(APP_BUNDLE, "Contents", "Info.plist"), info_plist(ver))
-    for f in ("AppIcon.icns", "logo.png", "classdesk-icon.icns", "studydesk-icon.png"):
+    for f in ("AppIcon.icns", "logo.png", "classdesk-icon.icns", "studydesk-icon.png", "notedesk-icon.png", "notedesk.png"):
         p = os.path.join(RES, f)
         if os.path.exists(p):
             shutil.copy(p, res_dir)

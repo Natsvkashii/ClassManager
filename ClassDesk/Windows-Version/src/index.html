@@ -16,7 +16,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ClassDesk v26.11.1-017</title>
+    <title>ClassDesk v26.11.2-004</title>
     <link rel="icon" type="image/png" href="logo.png">
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -236,9 +236,6 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                     <i class="fa-solid fa-paper-plane group-hover:translate-x-0.5 transition-transform text-sky-600 dark:text-sky-400"></i>
                     <span class="sidebar-text" id="sidebarFeedbackBtnText">Invia Feedback</span>
                 </button>
-                <div class="sidebar-footer-card p-1.5 rounded-xl bg-slate-50 dark:bg-navy-950/40 text-[10px] text-center text-slate-400 dark:text-slate-500 font-semibold">
-                    <span id="sidebarVersionBadge">ClassDesk v26.11.1-017</span>
-                </div>
             </div>
         </aside>
 
@@ -281,17 +278,6 @@ Removing, obfuscating, or altering these credits violates the author's attributi
 
             <!-- Dynamic View Container (Scrolls independently within full-height desktop window) -->
             <main id="mainViewContainer" class="flex-1 w-full overflow-y-auto overflow-x-hidden px-4 sm:px-6 lg:px-8 py-5 custom-scrollbar"></main>
-
-            <!-- Footer Attribution (Pinned at bottom, perfectly in view) -->
-            <footer class="shrink-0 bg-white dark:bg-navy-900 border-t border-sky-100 dark:border-slate-800 py-2.5 text-center text-xs text-slate-500 dark:text-slate-400 w-full">
-                <div class="w-full px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-2">
-                    <p class="flex items-center gap-2">
-                        <span id="footerPlatformDesc" class="text-slate-400 dark:text-slate-500">Piattaforma Accademica Multi-Livello QCER</span>
-                        <span id="footerVersionBadge" class="px-2 py-0.5 rounded-md bg-sky-100 dark:bg-navy-800 text-sky-700 dark:text-sky-300 text-[10px] font-bold">v26.11.1-017</span>
-                    </p>
-                    <p><span id="footerDevelopedBy">Concepito e Sviluppato da</span> <span class="font-semibold text-sky-700 dark:text-sky-400">Guaira Jaramillo Nitoglia</span> (<a href="mailto:guaira.jaramillo.nitoglia@gmail.com" class="underline hover:text-sky-600">guaira.jaramillo.nitoglia@gmail.com</a>)</p>
-                </div>
-            </footer>
         </div>
     </div>
 
@@ -1601,7 +1587,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
         }
 
         const INITIAL_DATA = {
-            version: "26.11.1-017",
+            version: "26.11.2-004",
             channel: IS_UNSTABLE_BUILD === 1 ? "unstable" : "stable",
             buildType: BUILD_TYPE,
             deletedItems: [],
@@ -4763,40 +4749,41 @@ Removing, obfuscating, or altering these credits violates the author's attributi
 
                 container.innerHTML = `
                     <div class="space-y-4">
-                        <!-- Compact Action Toolbar -->
-                        <div class="bg-white dark:bg-navy-900 rounded-2xl border border-sky-100 dark:border-slate-800 p-3.5 shadow-xs flex flex-wrap items-center justify-between gap-3">
-                            <div class="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-3">
-                                <span><strong class="text-slate-800 dark:text-slate-100">${modStudents.length}</strong> ${this.t(modStudents.length === 1 ? "enrolledOneLower" : "enrolledLower")}</span>
-                                <span>•</span>
-                                <span><strong class="text-slate-800 dark:text-slate-100">${dates.length}</strong> ${this.t("lessonsLower")}</span>
-                                <span>•</span>
-                                <span><strong class="text-slate-800 dark:text-slate-100">Ore Totali Modulo: ${totalModHours.toFixed(1)}h</strong></span>
-                                <span>•</span>
+                        <!-- Compact Action Toolbar (2 rows on small screens / clean wrap) -->
+                        <div class="bg-white dark:bg-navy-900 rounded-2xl border border-sky-100 dark:border-slate-800 p-3.5 shadow-xs flex flex-col gap-2.5">
+                            <div class="text-xs text-slate-500 dark:text-slate-400 flex flex-wrap items-center gap-x-3 gap-y-1">
+                                <span class="whitespace-nowrap"><strong class="text-slate-800 dark:text-slate-100">${modStudents.length}</strong> ${this.t(modStudents.length === 1 ? "enrolledOneLower" : "enrolledLower")}</span>
+                                <span class="text-slate-300 dark:text-slate-600">•</span>
+                                <span class="whitespace-nowrap"><strong class="text-slate-800 dark:text-slate-100">${dates.length}</strong> ${this.t("lessonsLower")}</span>
+                                <span class="text-slate-300 dark:text-slate-600">•</span>
+                                <span class="whitespace-nowrap"><strong class="text-slate-800 dark:text-slate-100">Ore Totali Modulo: ${totalModHours.toFixed(1)}h</strong></span>
                                 ${paidH > 0 ? `
-                                    <span><strong class="text-emerald-600 dark:text-emerald-400">Ore Pagate: ${paidH.toFixed(1)}h</strong></span>
-                                    <span>•</span>
-                                    <span><strong class="${missingH > 0 ? 'text-amber-500' : 'text-emerald-600'}">${missingH > 0 ? `Mancano da fare: ${missingH.toFixed(1)}h` : 'Ore Pagate Coperte'}</strong></span>
+                                    <span class="text-slate-300 dark:text-slate-600">•</span>
+                                    <span class="whitespace-nowrap"><strong class="text-emerald-600 dark:text-emerald-400">Ore Pagate: ${paidH.toFixed(1)}h</strong></span>
+                                    <span class="text-slate-300 dark:text-slate-600">•</span>
+                                    <span class="whitespace-nowrap"><strong class="${missingH > 0 ? 'text-amber-500' : 'text-emerald-600'}">${missingH > 0 ? `Mancano da fare: ${missingH.toFixed(1)}h` : 'Ore Pagate Coperte'}</strong></span>
                                 ` : `
-                                    <span><strong class="text-slate-400">Ore Pagate: 0.0h</strong></span>
+                                    <span class="text-slate-300 dark:text-slate-600">•</span>
+                                    <span class="whitespace-nowrap"><strong class="text-slate-400">Ore Pagate: 0.0h</strong></span>
                                 `}
-                                ${activeSection.description ? `<span class="hidden sm:inline">• ${this.escapeHtml(activeSection.description)}</span>` : ''}
+                                ${activeSection.description ? `<span class="hidden sm:inline whitespace-nowrap text-slate-400">• ${this.escapeHtml(activeSection.description)}</span>` : ''}
                             </div>
 
                             ${!isReadOnly ? `
                                 <div class="flex flex-wrap items-center gap-2">
-                                    <button onclick="app.openAddDateModal()" class="px-3 py-1.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold flex items-center gap-1.5">
+                                    <button onclick="app.openAddDateModal()" class="px-3 py-1.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold flex items-center gap-1.5 shrink-0">
                                         <i class="fa-solid fa-calendar-plus"></i> ${this.t("addDateBtn")}
                                     </button>
-                                    <button onclick="app.openRecurringGeneratorModal()" class="px-3 py-1.5 rounded-xl border border-sky-200 dark:border-slate-700 hover:bg-sky-50 dark:hover:bg-navy-800 text-xs font-bold flex items-center gap-1.5">
+                                    <button onclick="app.openRecurringGeneratorModal()" class="px-3 py-1.5 rounded-xl border border-sky-200 dark:border-slate-700 hover:bg-sky-50 dark:hover:bg-navy-800 text-xs font-bold flex items-center gap-1.5 shrink-0">
                                         <i class="fa-solid fa-repeat text-sky-600"></i> ${this.t("recurringBtn")}
                                     </button>
-                                    <button onclick="app.toggleAttendanceDateEditMode()" class="px-3 py-1.5 rounded-xl border ${this.attendanceDateEditMode ? 'bg-amber-500 text-white border-amber-500 shadow-xs' : 'border-sky-200 dark:border-slate-700 hover:bg-sky-50 dark:hover:bg-navy-800 text-slate-700 dark:text-slate-200'} text-xs font-bold flex items-center gap-1.5 transition">
+                                    <button onclick="app.toggleAttendanceDateEditMode()" class="px-3 py-1.5 rounded-xl border ${this.attendanceDateEditMode ? 'bg-amber-500 text-white border-amber-500 shadow-xs' : 'border-sky-200 dark:border-slate-700 hover:bg-sky-50 dark:hover:bg-navy-800 text-slate-700 dark:text-slate-200'} text-xs font-bold flex items-center gap-1.5 transition shrink-0">
                                         <i class="fa-solid ${this.attendanceDateEditMode ? 'fa-check' : 'fa-circle-check text-sky-600'}"></i>
                                         ${this.attendanceDateEditMode ? this.t("exitEditDatesModeBtn") : this.t("editDatesModeBtn")}
                                     </button>
                                 </div>
                             ` : `
-                                <span class="px-2.5 py-1 rounded-lg bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 text-[11px] font-bold flex items-center gap-1.5">
+                                <span class="px-2.5 py-1 rounded-lg bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 text-[11px] font-bold flex items-center gap-1.5 self-start">
                                     <i class="fa-solid fa-lock"></i> Sola lettura
                                 </span>
                             `}
@@ -4846,7 +4833,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                                                                 <span class="px-2 py-0.5 rounded ${isTodayCol ? 'bg-sky-600 text-white' : 'bg-sky-100 dark:bg-navy-900'}">${idx + 1}</span>
                                                             </div>
                                                             <div class="text-[11px] ${isTodayCol ? 'text-sky-700 dark:text-sky-300 font-black' : 'text-slate-800 dark:text-slate-100'} underline decoration-dotted underline-offset-2 mt-1">${this.escapeHtml(this.formatShortWeekdayDate(dOnly))}</div>
-                                                            <div class="text-[9px] font-bold text-slate-400 mt-0.5">${this.formatTimeDisplay(sTime)}-${this.formatTimeDisplay(eTime)}</div>
+                                                            <div class="text-[9px] font-bold text-slate-400 mt-0.5 whitespace-nowrap">${this.formatTimeDisplay(sTime)}-${this.formatTimeDisplay(eTime)}</div>
                                                             ${lessonObj?.title ? `<div class="text-[10px] font-bold text-emerald-700 dark:text-emerald-300 max-w-[130px] truncate mt-1">${this.escapeHtml(lessonObj.title)}</div>` : ''}
                                                         </button>
                                                         ${!isReadOnly && this.attendanceDateEditMode ? `
@@ -9605,6 +9592,12 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                     currentLevel = course.levels[0];
                     currentModule = course.levels[0].modules[0];
                 }
+                if (currentModule) {
+                    this.selectedBillingModuleId = currentModule.id;
+                }
+                if (course) {
+                    this.selectedBillingCourseId = course.id;
+                }
 
                 // Initialize module billing defaults if missing
                 if (currentModule && !currentModule.billing) {
@@ -9860,6 +9853,12 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                                             <span class="text-[11px] text-emerald-700 dark:text-emerald-400 font-bold block">${this.t("moduleBillingCost")}</span>
                                             <span class="text-lg font-black text-emerald-600 dark:text-emerald-400">${this.formatMoney(curModuleCost)}</span>
                                         </div>
+                                        <button type="button" onclick="app.openFiscalDataModal()"
+                                            class="px-3.5 py-2 rounded-xl border border-sky-200 dark:border-slate-700 hover:bg-sky-50 dark:hover:bg-navy-800 text-slate-700 dark:text-slate-200 font-extrabold flex items-center gap-1.5 transition text-xs shrink-0"
+                                            title="${this.t('billingFiscalDataBtn')}">
+                                            <i class="fa-solid fa-building-columns text-sky-600 dark:text-sky-400"></i>
+                                            <span>${this.t("billingFiscalDataBtn")}</span>
+                                        </button>
                                         ${this.calendarShareButtonHtml(course.id, currentModule.id)}
                                     </div>
                                 </div>
@@ -10015,6 +10014,12 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                         ` : ''}
                     </div>
                 `;
+            }
+
+            openFiscalDataModal(courseId = null, moduleId = null) {
+                const cId = courseId || this.selectedBillingCourseId || this.getActiveCourse()?.id;
+                const mId = moduleId || this.selectedBillingModuleId || this.getActiveSection()?.id;
+                this.openFiscalInfoModal(cId, mId);
             }
 
             openFiscalInfoModal(courseId, moduleId = null, clientIndex = 0) {

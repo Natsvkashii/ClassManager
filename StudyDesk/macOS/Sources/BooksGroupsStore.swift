@@ -424,7 +424,6 @@ extension AppStore {
     }
 
     public func deleteGroup(_ id: String) {
-        BoardLibrary.deleteGroup(id)
         state.groups.removeAll { $0.id == id }
         state.syncTombstones["group:\(id)"] = AppDateFormatters.iso.string(from: Date())
         try? FileManager.default.removeItem(at: reportsDir.appendingPathComponent(id))

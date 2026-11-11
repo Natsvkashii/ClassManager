@@ -134,6 +134,35 @@ export async function renderPlayer(host, params, app) {
       h('div', h('h2', a.title), h('div.row', { style: { marginTop: '.35rem' } },
         a.page ? h('span.badge.gray', icon('book'), `pag. ${a.page}`) : null,
         (a.skills || []).map((s) => h('span.badge', s))))));
+    if (a.teacherNotes) {
+      let notesOpen = false;
+      const notesBox = h('div.teacher-notes-box', {
+        style: {
+          display: 'none',
+          margin: '0.75rem 0 1rem',
+          padding: '0.85rem 1.1rem',
+          background: 'rgba(14, 165, 233, 0.08)',
+          borderLeft: '4px solid var(--module, #0ea5e9)',
+          borderRadius: '0.5rem'
+        }
+      },
+        h('div.row', { style: { alignItems: 'center', gap: '0.5rem', marginBottom: '0.4rem', fontWeight: 'bold', color: 'var(--module, #0ea5e9)' } },
+          icon('circle-info'), " Indicazioni per l'insegnante"),
+        h('div.prose', { html: md(a.teacherNotes) }));
+
+      const teacherBtn = h('button.btn.btn-sm.btn-subtle', {
+        style: { marginLeft: 'auto' },
+        onclick: () => {
+          notesOpen = !notesOpen;
+          notesBox.style.display = notesOpen ? 'block' : 'none';
+        },
+        title: "Indicazioni per l'insegnante"
+      }, icon('circle-info'), " Guida docente");
+
+      const headRow = main.querySelector('.activity-head .row');
+      if (headRow) headRow.append(teacherBtn);
+      main.append(notesBox);
+    }
     if (a.instructions) main.append(h('p.muted', { html: inline(a.instructions, url) }));
     if (a.media?.length) main.append(renderMedia(a.media, { url }));
     for (const part of a.parts) {

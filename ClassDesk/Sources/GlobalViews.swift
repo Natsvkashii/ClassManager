@@ -1611,6 +1611,13 @@ public struct BillingView: View {
                                     .font(.subheadline.bold())
                                     .foregroundStyle(pal.color)
                                 Spacer()
+                                Button {
+                                    showFiscalModal = true
+                                } label: {
+                                    Label(store.t("billingFiscalDataBtn"), systemImage: "building.columns.fill")
+                                }
+                                .buttonStyle(.bordered)
+
                                 // Share menu (copy image / copy text / download / e-mail)
                                 CalendarShareMenu(
                                     imageProvider: {
@@ -1627,17 +1634,26 @@ public struct BillingView: View {
                                 )
                             }
 
-                            HStack(spacing: 12) {
+                            HStack(spacing: 10) {
                                 VStack(alignment: .leading, spacing: 3) {
-                                    Text("Tariffa Oraria (\(store.state.settings.currency))").font(.caption.bold())
+                                    Text("Tariffa Oraria (\(store.state.settings.currency))")
+                                        .font(.caption.bold())
+                                        .lineLimit(1)
+                                        .minimumScaleFactor(0.8)
                                     TextField("10", value: $batchHourlyRate, format: .number).textFieldStyle(.roundedBorder)
                                 }
                                 VStack(alignment: .leading, spacing: 3) {
-                                    Text("IVA (%)").font(.caption.bold())
+                                    Text("IVA (%)")
+                                        .font(.caption.bold())
+                                        .lineLimit(1)
+                                        .minimumScaleFactor(0.8)
                                     TextField("15", value: $batchVatPercent, format: .number).textFieldStyle(.roundedBorder)
                                 }
                                 VStack(alignment: .leading, spacing: 3) {
-                                    Text("Tipo Sconto").font(.caption.bold())
+                                    Text("Tipo Sconto")
+                                        .font(.caption.bold())
+                                        .lineLimit(1)
+                                        .minimumScaleFactor(0.8)
                                     Picker("", selection: $batchDiscountType) {
                                         Text("Percentuale (%)").tag("percent")
                                         Text("Fisso (\(store.state.settings.currency))").tag("fixed")
@@ -1645,12 +1661,18 @@ public struct BillingView: View {
                                     .labelsHidden()
                                 }
                                 VStack(alignment: .leading, spacing: 3) {
-                                    Text("Valore Sconto").font(.caption.bold())
+                                    Text("Valore Sconto")
+                                        .font(.caption.bold())
+                                        .lineLimit(1)
+                                        .minimumScaleFactor(0.8)
                                     TextField("0", value: $batchDiscountValue, format: .number).textFieldStyle(.roundedBorder)
                                 }
                                 VStack(alignment: .leading, spacing: 3) {
                                     HStack(spacing: 4) {
-                                        Text("Importo Pagato (\(store.state.settings.currency))").font(.caption.bold())
+                                        Text("Importo Pagato (\(store.state.settings.currency))")
+                                            .font(.caption.bold())
+                                            .lineLimit(1)
+                                            .minimumScaleFactor(0.8)
                                         if currentModule.billing?.studentPaidAmount == batchPaidAmount && batchPaidAmount > 0 {
                                             Image(systemName: "checkmark.circle.fill")
                                                 .font(.system(size: 10))
@@ -1687,7 +1709,11 @@ public struct BillingView: View {
                                     }
                                     .buttonStyle(.borderedProminent)
                                     .tint(pal.color)
+                                    .lineLimit(1)
+                                    .fixedSize(horizontal: true, vertical: false)
                                 }
+                                .lineLimit(1)
+                                .fixedSize(horizontal: true, vertical: false)
                             }
 
                             // Dynamic hours calculation badge: paid hours vs scheduled hours
@@ -1900,12 +1926,16 @@ public struct BillingView: View {
                 HStack {
                     Text("L\(lItem.lessonNum)")
                         .font(.system(size: 9, weight: .heavy))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.75)
                         .padding(.horizontal, 4)
                         .padding(.vertical, 1)
                         .background(RoundedRectangle(cornerRadius: 3).fill(Color.white.opacity(0.25)))
                     Spacer()
                     Text("\(store.formatTimeDisplay(lItem.time)) (\(String(format: "%.1f", durH))h)")
                         .font(.system(size: 8, weight: .bold))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.75)
                 }
 
                 Text(store.formatMoney(gross))

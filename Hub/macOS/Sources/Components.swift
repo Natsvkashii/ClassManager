@@ -123,7 +123,7 @@ public enum HubResources {
     @MainActor static func icon(_ app: SuiteApp, installed: URL?) -> NSImage? {
         if app == .hubdesk, let u = dir?.appendingPathComponent("logo.png"), let i = NSImage(contentsOf: u) { return i }
         if let installed, FileManager.default.fileExists(atPath: installed.path) { return NSWorkspace.shared.icon(forFile: installed.path) }
-        for n in ["\(app.rawValue)-icon.icns", "\(app.rawValue)-icon.png"] {
+        for n in ["\(app.rawValue)-icon.icns", "\(app.rawValue)-icon.png", "\(app.rawValue).png", "\(app.rawValue).icns"] {
             if let u = dir?.appendingPathComponent(n), let i = NSImage(contentsOf: u) { return i }
         }
         return nil

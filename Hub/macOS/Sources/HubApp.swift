@@ -150,7 +150,7 @@ struct HubDeskApp: App {
             RootView()
                 .environment(model)
                 .background(WindowAccessor())
-                .frame(minWidth: 860, minHeight: 560)
+                .frame(minWidth: 520, minHeight: 460)
         }
         .defaultSize(width: 1040, height: 700)
         .commands {

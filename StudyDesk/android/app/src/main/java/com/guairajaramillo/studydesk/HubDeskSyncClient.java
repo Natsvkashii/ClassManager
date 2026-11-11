@@ -13,18 +13,24 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.io.BufferedReader;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
+import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
+import java.net.HttpURLConnection;
 import java.net.InetAddress;
 import java.net.Socket;
+import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Queue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -88,6 +94,11 @@ public class HubDeskSyncClient {
     public interface BookDownloadCallback {
         void onProgress(int percent, long downloadedBytes, long totalBytes, String status);
         void onSuccess(String fileName, String bookTitle);
+        void onError(String message);
+    }
+
+    public interface NotebooksCallback {
+        void onNotebooksReceived(JSONArray notebooks);
         void onError(String message);
     }
 
@@ -527,7 +538,7 @@ public class HubDeskSyncClient {
     }
 
     /**
-     * Executes synchronization of student progress and scores with the computer.
+     * Executes synchronization of student progress, scores, and NoteDesk notebooks/whiteboards with the computer.
      */
     public synchronized void sync(final String host, final int port, final String syncCode, final String deviceId,
                                   final String localRecordsJson, final SyncProgressCallback callback) {
@@ -540,7 +551,7 @@ public class HubDeskSyncClient {
 
                 // Send local student progress to computer
                 if (localRecordsJson != null && !localRecordsJson.isEmpty()) {
-                    postProgress(callback, "Invio progressi ed esercizi al computer...", 60, 100);
+                    postProgress(callback, "Invio progressi ed esercizi al computer...", 50, 100);
                     JSONObject localRecs = new JSONObject(localRecordsJson);
                     if (localRecs.length() > 0) {
                         JSONObject putReq = new JSONObject();
@@ -550,14 +561,249 @@ public class HubDeskSyncClient {
                     }
                 }
 
+                postProgress(callback, "Sincronizzazione quaderni e lavagna NoteDesk...", 75, 100);
+                JSONArray notebooks = fetchNotebooksFromServer(host, port, syncCode);
+
                 postProgress(callback, "Sincronizzazione completata con successo!", 100, 100);
                 JSONObject result = new JSONObject();
                 result.put("computerName", "Computer");
-                mainHandler.post(() -> callback.onComplete(true, "Sincronizzazione completata", result.toString()));
+                result.put("notebooks", notebooks);
+                result.put("notebookCount", notebooks.length());
+                final String msg = notebooks.length() > 0
+                        ? "Sincronizzazione completata (" + notebooks.length() + " quaderni/lavagne NoteDesk)"
+                        : "Sincronizzazione completata";
+                mainHandler.post(() -> callback.onComplete(true, msg, result.toString()));
 
             } catch (Exception e) {
                 Log.e(TAG, "Sync error", e);
                 mainHandler.post(() -> callback.onComplete(false, e.getMessage(), null));
+            }
+        });
+    }
+
+    /**
+     * Queries NoteDesk whiteboards and notebooks from the connected computer
+     * via both HTTP (/api/records) and HubDesk TCP socket protocol.
+     */
+    public JSONArray fetchNotebooksFromServer(final String host, final int port, final String syncCode) {
+        JSONArray result = new JSONArray();
+        Map<String, JSONObject> collectedMap = new HashMap<>();
+
+        // 1. Try HTTP API endpoint: GET http://<host>:<port>/api/records?app=notedesk&since=0
+        String[] appNames = new String[] { "notedesk", "notesdesk", "studydesk" };
+        int[] portsToTry = new int[] { port, 8080, 51234 };
+        for (String app : appNames) {
+            for (int p : portsToTry) {
+                try {
+                    String urlStr = "http://" + host + ":" + p + "/api/records?app=" + app + "&since=0";
+                    URL url = new URL(urlStr);
+                    HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+                    conn.setConnectTimeout(2000);
+                    conn.setReadTimeout(3000);
+                    conn.setRequestMethod("GET");
+                    conn.setRequestProperty("Accept", "application/json");
+                    int respCode = conn.getResponseCode();
+                    if (respCode == 200) {
+                        InputStream in = conn.getInputStream();
+                        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+                        byte[] buf = new byte[8192];
+                        int len;
+                        while ((len = in.read(buf)) != -1) baos.write(buf, 0, len);
+                        in.close();
+                        conn.disconnect();
+                        String jsonStr = baos.toString("UTF-8");
+                        parseAndCollectRecords(jsonStr, collectedMap);
+                        break;
+                    } else {
+                        conn.disconnect();
+                    }
+                } catch (Exception ignored) {}
+            }
+        }
+
+        // 2. Query persistent TCP Socket connection
+        try {
+            ensureConnection(host, port, syncCode, "android-mobile");
+
+            // Request MANIFEST
+            JSONObject manifestReq = new JSONObject();
+            manifestReq.put("t", "manifest");
+            JSONObject manifestResp = sendRequest(manifestReq, 10);
+            JSONObject remoteRecords = manifestResp.optJSONObject("records");
+            if (remoteRecords != null) {
+                List<String> targetKeys = new ArrayList<>();
+                JSONArray names = remoteRecords.names();
+                if (names != null) {
+                    for (int i = 0; i < names.length(); i++) {
+                        String k = names.getString(i);
+                        String lower = k.toLowerCase();
+                        if (lower.contains("notebook:") || lower.contains("notedesk") || lower.contains("notesdesk")
+                                || lower.contains("board:") || lower.endsWith("notebooks") || lower.endsWith("folders")) {
+                            targetKeys.add(k);
+                        }
+                    }
+                }
+
+                if (!targetKeys.isEmpty()) {
+                    JSONObject getReq = new JSONObject();
+                    getReq.put("t", "get");
+                    JSONArray keysArr = new JSONArray();
+                    for (String k : targetKeys) keysArr.put(k);
+                    getReq.put("keys", keysArr);
+
+                    JSONObject getResp = sendRequest(getReq, 15);
+                    JSONObject recs = getResp.optJSONObject("records");
+                    if (recs != null) {
+                        JSONArray recNames = recs.names();
+                        if (recNames != null) {
+                            for (int r = 0; r < recNames.length(); r++) {
+                                String rk = recNames.getString(r);
+                                JSONObject rec = recs.optJSONObject(rk);
+                                if (rec == null) continue;
+                                JSONObject val = rec.optJSONObject("value");
+                                if (val == null) continue;
+
+                                extractNotebookFromValue(rk, val, collectedMap);
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "TCP socket query for notebooks: " + e.getMessage());
+        }
+
+        for (JSONObject nb : collectedMap.values()) {
+            result.put(nb);
+        }
+        return result;
+    }
+
+    private void parseAndCollectRecords(String jsonStr, Map<String, JSONObject> collectedMap) {
+        if (jsonStr == null || jsonStr.trim().isEmpty()) return;
+        try {
+            String trimmed = jsonStr.trim();
+            if (trimmed.startsWith("[")) {
+                JSONArray arr = new JSONArray(trimmed);
+                for (int i = 0; i < arr.length(); i++) {
+                    Object item = arr.get(i);
+                    if (item instanceof JSONObject) {
+                        JSONObject obj = (JSONObject) item;
+                        if (obj.has("key") && obj.has("value")) {
+                            extractNotebookFromValue(obj.optString("key"), obj.optJSONObject("value"), collectedMap);
+                        } else {
+                            extractNotebookFromValue(obj.optString("id", "nb-" + i), obj, collectedMap);
+                        }
+                    }
+                }
+            } else if (trimmed.startsWith("{")) {
+                JSONObject root = new JSONObject(trimmed);
+                if (root.has("records")) {
+                    Object recs = root.get("records");
+                    if (recs instanceof JSONArray) {
+                        JSONArray arr = (JSONArray) recs;
+                        for (int i = 0; i < arr.length(); i++) {
+                            Object item = arr.get(i);
+                            if (item instanceof JSONObject) {
+                                JSONObject obj = (JSONObject) item;
+                                if (obj.has("key") && obj.has("value")) {
+                                    extractNotebookFromValue(obj.optString("key"), obj.optJSONObject("value"), collectedMap);
+                                } else {
+                                    extractNotebookFromValue(obj.optString("id", "nb-" + i), obj, collectedMap);
+                                }
+                            }
+                        }
+                    } else if (recs instanceof JSONObject) {
+                        JSONObject recsObj = (JSONObject) recs;
+                        JSONArray names = recsObj.names();
+                        if (names != null) {
+                            for (int i = 0; i < names.length(); i++) {
+                                String k = names.getString(i);
+                                JSONObject v = recsObj.optJSONObject(k);
+                                if (v != null) {
+                                    JSONObject val = v.optJSONObject("value");
+                                    extractNotebookFromValue(k, val != null ? val : v, collectedMap);
+                                }
+                            }
+                        }
+                    }
+                } else if (root.has("notebooks") && root.get("notebooks") instanceof JSONArray) {
+                    JSONArray nbs = root.getJSONArray("notebooks");
+                    for (int i = 0; i < nbs.length(); i++) {
+                        JSONObject nb = nbs.optJSONObject(i);
+                        if (nb != null) {
+                            extractNotebookFromValue(nb.optString("id", "nb-" + i), nb, collectedMap);
+                        }
+                    }
+                } else {
+                    JSONArray names = root.names();
+                    if (names != null) {
+                        for (int i = 0; i < names.length(); i++) {
+                            String k = names.getString(i);
+                            JSONObject v = root.optJSONObject(k);
+                            if (v != null) {
+                                JSONObject val = v.optJSONObject("value");
+                                extractNotebookFromValue(k, val != null ? val : v, collectedMap);
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "Error parsing HTTP records response", e);
+        }
+    }
+
+    private void extractNotebookFromValue(String key, JSONObject val, Map<String, JSONObject> collectedMap) {
+        if (val == null) return;
+        try {
+            // Check if this is the notebooks manifest pushed by NoteDesk
+            if ((key.endsWith("notebooks") || key.equals("notebooks")) && val.has("notebooks")) {
+                JSONArray nbs = val.optJSONArray("notebooks");
+                if (nbs != null) {
+                    for (int i = 0; i < nbs.length(); i++) {
+                        JSONObject item = nbs.optJSONObject(i);
+                        if (item != null) {
+                            String id = item.optString("id");
+                            if (!id.isEmpty() && !collectedMap.containsKey(id)) {
+                                collectedMap.put(id, item);
+                            }
+                        }
+                    }
+                }
+                return;
+            }
+
+            // Normal notebook or whiteboard object
+            String id = val.optString("id");
+            if (id.isEmpty()) {
+                id = key.replaceAll("^(studydesk/|notedesk/|notesdesk/)", "");
+                val.put("id", id);
+            }
+
+            // Check if whiteboard
+            if (key.contains("board:") || val.has("boardId") || val.optBoolean("isSharedWhiteboard", false)) {
+                val.put("isSharedWhiteboard", true);
+                if (!val.has("title")) val.put("title", "Lavagna Condivisa");
+                if (!val.has("template")) val.put("template", "chalkboard");
+                if (!val.has("colorHex")) val.put("colorHex", "#10B981");
+            }
+
+            collectedMap.put(id, val);
+        } catch (Exception ignored) {}
+    }
+
+    /**
+     * Asynchronously fetches all notebooks and whiteboards from NoteDesk / HubDesk on PC
+     */
+    public void fetchNotebooks(final String host, final int port, final String syncCode, final NotebooksCallback callback) {
+        executor.execute(() -> {
+            try {
+                JSONArray notebooks = fetchNotebooksFromServer(host, port, syncCode);
+                mainHandler.post(() -> callback.onNotebooksReceived(notebooks));
+            } catch (Exception e) {
+                Log.e(TAG, "Error fetching notebooks", e);
+                mainHandler.post(() -> callback.onError(e.getMessage()));
             }
         });
     }

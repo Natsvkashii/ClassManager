@@ -39,6 +39,8 @@ if os.path.exists(LOCAL_BIN) and LOCAL_BIN not in os.environ.get("PATH", ""):
 REPO = "Natsvkashii/ClassManager"
 CLASSDESK = os.path.join(ROOT, "ClassDesk")
 STUDYDESK = os.path.join(ROOT, "StudyDesk")
+NOTEDESK = os.path.join(ROOT, "NoteDesk") if os.path.exists(os.path.join(ROOT, "NoteDesk")) else os.path.join(ROOT, "NotesDesk")
+NOTESDESK = NOTEDESK
 HUB = os.path.join(ROOT, "Hub")
 
 
@@ -54,6 +56,11 @@ def suite_version():
 
 def versions():
     out = {"studydesk": suite_version()}
+    if os.path.exists(os.path.join(NOTEDESK, "package.json")):
+        nm = re.search(r'"version"\s*:\s*"([^"]+)"', open(os.path.join(NOTEDESK, "package.json"), encoding="utf-8").read())
+        v_str = nm.group(1) if nm else "?"
+        out["notedesk"] = v_str
+        out["notesdesk"] = v_str
     m = re.search(r'"version"\s*:\s*"([^"]+)"', open(os.path.join(HUB, "electron", "package.json"), encoding="utf-8").read()) \
         if os.path.exists(os.path.join(HUB, "electron", "package.json")) else None
     out["hubdesk-win"] = m.group(1) if m else "?"
@@ -96,10 +103,12 @@ def parts(v):
     return [
         ("ClassDesk-%s-macOS.zip" % v, [os.path.join(CLASSDESK, "ClassDesk-%s-macOS.zip" % v)]),
         ("StudyDesk-%s-mac.zip" % v, glob.glob(os.path.join(STUDYDESK, "dist", "StudyDesk-%s-mac.zip" % v))),
+        ("NoteDesk-%s-mac.zip" % v, glob.glob(os.path.join(NOTEDESK, "dist", "NoteDesk-%s-mac.zip" % v)) + glob.glob(os.path.join(NOTEDESK, "dist", "NotesDesk-%s-mac.zip" % v))),
         ("HubDesk-%s-mac.zip" % v, glob.glob(os.path.join(HUB, "dist", "HubDesk-%s-mac.zip" % v))),
         ("hubdesk", [os.path.join(HUB, "electron", "dist", "ClassDesk-Suite-%s-Setup.exe" % v)]),
         ("classdesk", [os.path.join(CLASSDESK, "ClassDesk-%s-win-x64.exe" % v)]),
         ("studydesk", glob.glob(os.path.join(STUDYDESK, "dist", "StudyDesk-%s-win-x64.exe" % v))),
+        ("notedesk", glob.glob(os.path.join(NOTEDESK, "dist", "NoteDesk-%s-win-x64.exe" % v)) + glob.glob(os.path.join(NOTEDESK, "dist", "NotesDesk-%s-win-x64.exe" % v))),
     ]
 
 
@@ -120,29 +129,47 @@ def check_names(v):
 
 
 def build_win_setup(v):
-    """ClassDesk-Suite-<v>-Setup.exe: the native installer (Hub/installer-win) + the three Windows installers appended."""
+    """ClassDesk-Suite-<v>-Setup.exe: the native installer (Hub/installer-win) + the four Windows installers bundled."""
     zig = shutil.which("zig") or os.path.expanduser("~/.local/bin/zig")
     src = os.path.join(HUB, "installer-win")
     found = {n: next((s for s in srcs if os.path.exists(s)), None) for n, srcs in parts(v)}
-    missing = [i for i in ("hubdesk", "classdesk", "studydesk") if not found.get(i)]
+    missing = [i for i in ("hubdesk", "classdesk", "studydesk", "notedesk") if not found.get(i)]
     if missing:
         print("!! Windows installer not built, missing:", ", ".join(missing))
         return
-    stub = os.path.join(tempfile.mkdtemp(prefix="suite-setup-"), "stub.exe")
+    work_dir = tempfile.mkdtemp(prefix="suite-setup-")
+    stub = os.path.join(work_dir, "stub.exe")
+    rc_file = os.path.join(work_dir, "suite_with_payloads.rc")
+
+    shutil.copyfile(os.path.join(src, "suite.ico"), os.path.join(work_dir, "suite.ico"))
+    shutil.copyfile(os.path.join(src, "suite.manifest"), os.path.join(work_dir, "suite.manifest"))
+    for k in ("hubdesk", "classdesk", "studydesk", "notedesk"):
+        shutil.copyfile(found[k], os.path.join(work_dir, f"{k}.exe"))
+
+    rc_content = """1 ICON "suite.ico"
+1 24 "suite.manifest"
+101 RCDATA "hubdesk.exe"
+102 RCDATA "classdesk.exe"
+103 RCDATA "studydesk.exe"
+104 RCDATA "notedesk.exe"
+"""
+    with open(rc_file, "w", encoding="utf-8") as f:
+        f.write(rc_content)
+
     run([zig, "c++", "-target", "x86_64-windows", "-municode", "-Wl,--subsystem,windows", "-Os",
-         f'-DSUITE_VERSION=L"{v}"', "suite_setup.cpp", "suite.rc", "-o", stub,
-         "-luser32", "-lshell32", "-lcomctl32", "-lgdi32"], cwd=src)
+         f'-DSUITE_VERSION=L"{v}"', os.path.join(src, "suite_setup.cpp"), rc_file, "-o", stub,
+         "-luser32", "-lshell32", "-lcomctl32", "-lgdi32"], cwd=work_dir)
     target = os.path.join(dist_dir(v), "ClassDesk-Suite-%s-Setup.exe" % v)
     with open(target, "wb") as o:
         o.write(open(stub, "rb").read())
         index = b""
-        for i in ("hubdesk", "classdesk", "studydesk"):
+        for i in ("hubdesk", "classdesk", "studydesk", "notedesk"):
             off = o.tell()
             with open(found[i], "rb") as f:
                 shutil.copyfileobj(f, o, 1 << 20)
             index += i.encode().ljust(16, b"\0") + struct.pack("<QQ", off, o.tell() - off)
-        o.write(index + struct.pack("<I", 3) + b"CDSUITE1")
-    shutil.rmtree(os.path.dirname(stub), ignore_errors=True)
+        o.write(index + struct.pack("<I", 4) + b"CDSUITE1")
+    shutil.rmtree(work_dir, ignore_errors=True)
     print("suite setup:", target)
     classroom_target = os.path.join(dist_dir(v), "Classroom-Tools-%s-Windows-Setup.exe" % v)
     shutil.copyfile(target, classroom_target)
@@ -163,6 +190,8 @@ def cmd_set(v, channel):
     run([sys.executable, "manage_version.py", "set-version", v], cwd=CLASSDESK)
     run([sys.executable, "manage_version.py", "set-channel", channel], cwd=CLASSDESK)
     run([sys.executable, "scripts/manage_version.py", "set", v, "--channel", channel], cwd=STUDYDESK)
+    if os.path.exists(os.path.join(NOTEDESK, "scripts", "manage_version.py")):
+        run([sys.executable, "scripts/manage_version.py", "set", v, "--channel", channel], cwd=NOTEDESK)
     run([sys.executable, "scripts/manage_version.py", "set", v, "--channel", channel], cwd=HUB)
     pj = os.path.join(HUB, "electron", "package.json")
     if os.path.exists(pj):
@@ -189,7 +218,7 @@ def extract_app(zip_path, dest_dir):
 
 
 def build_suite_pkg(v):
-    """ClassDesk-Suite-<v>-Installer.pkg: HubDesk (required) + ClassDesk + StudyDesk (selectable), into /Applications."""
+    """ClassDesk-Suite-<v>-Installer.pkg: HubDesk (required) + ClassDesk + StudyDesk + NoteDesk (selectable), into /Applications."""
     out = dist_dir(v)
     work = tempfile.mkdtemp(prefix="suite-pkg-")
     comps = [
@@ -199,6 +228,8 @@ def build_suite_pkg(v):
          "Gestione di corsi, studenti, lezioni, presenze e fatturazione.", False),
         ("studydesk", "StudyDesk", "com.guairajaramillo.studydesk", "StudyDesk-%s-mac.zip" % v,
          "Libri ed esercizi interattivi, gruppi e lavagna.", False),
+        ("notedesk", "NoteDesk", "com.guairajaramillo.notedesk", "NoteDesk-%s-mac.zip" % v,
+         "Quaderni digitali, PDF annotabili, evidenziatore smart e lavagna didattica.", False),
     ]
     found = {n: next((s for s in srcs if os.path.exists(s)), None) for n, srcs in parts(v)}
     choices, refs, outline = [], [], []
@@ -216,8 +247,9 @@ def build_suite_pkg(v):
         # postinstall: the app belongs to the user who installs it, so HubDesk can update it later without the administrator password
         scripts = os.path.join(work, cid, "scripts")
         os.makedirs(scripts, exist_ok=True)
+        extra_clean = 'if [ -d "/Applications/NotesDesk.app" ]; then rm -rf "/Applications/NotesDesk.app"; fi\n' if cid == "notedesk" else ""
         open(os.path.join(scripts, "postinstall"), "w").write(f"""#!/bin/sh
-U=$(/usr/bin/stat -f%Su /dev/console)
+{extra_clean}U=$(/usr/bin/stat -f%Su /dev/console)
 if [ -n "$U" ] && [ "$U" != "root" ] && [ -d "/Applications/{title}.app" ]; then
   /usr/sbin/chown -R "$U":staff "/Applications/{title}.app"
 fi
@@ -263,18 +295,23 @@ def cmd_build(skip_win):
     v = suite_version()
     run([sys.executable, "manage_version.py", "build", "--no-pkg"], cwd=CLASSDESK)
     run([sys.executable, "scripts/manage_version.py", "build", "--no-pkg"], cwd=STUDYDESK)
+    if os.path.exists(os.path.join(NOTEDESK, "scripts", "manage_version.py")):
+        run([sys.executable, "scripts/manage_version.py", "build", "--no-pkg"], cwd=NOTEDESK)
     run([sys.executable, "scripts/manage_version.py", "build"], cwd=HUB)
     if not skip_win:
         if "--studydesk-electron" in sys.argv:   # old Electron StudyDesk (until the native one is tested everywhere)
             run([sys.executable, "scripts/manage_version.py", "build-win"], cwd=STUDYDESK)
         else:                                     # native StudyDesk (C++ + WebView2, ~3 MB): StudyDesk/windows/native
             run([sys.executable, "windows/native/build.py"], cwd=STUDYDESK)
+        if os.path.exists(os.path.join(NOTEDESK, "windows", "native", "build.py")):
+            run([sys.executable, "windows/native/build.py"], cwd=NOTEDESK)
         if "--hubdesk-electron" in sys.argv:     # old Electron HubDesk fallback
             run(["npm", "run", "dist:win"], cwd=os.path.join(HUB, "electron"))
         else:                                     # native HubDesk (C++ + WebView2, ~2 MB): Hub/win-host
             os.environ["SUITE_VERSION"] = v
             run([sys.executable, os.path.join(HUB, "win-host", "build.py"), os.path.join(HUB, "electron", "dist", "ClassDesk-Suite-%s-Setup.exe" % v)])
-        if shutil.which("zig"):
+        if shutil.which("zig") or os.path.exists(os.path.expanduser("~/.local/bin/zig")):
+            os.environ["PATH"] = os.path.expanduser("~/.local/bin") + os.pathsep + os.environ.get("PATH", "")
             run(["bash", "Windows-Version/native/build_native.sh"], cwd=CLASSDESK, check=False)
         else:
             print("!! zig not installed: ClassDesk for Windows (ClassDesk-%s-win-x64.exe) not built" % v)
@@ -307,16 +344,17 @@ def changelog_section(path, v):
 def notes_text(v):
     channel_str = release_label(v)
     parts = [f"# Classroom Tools v{v}{channel_str} - macOS (Apple Silicon) & Windows", "",
-             "**Classroom Tools**: Suite unificata che include ClassDesk, StudyDesk e HubDesk.", "",
+             "**Classroom Tools**: Suite unificata che include ClassDesk, StudyDesk, NoteDesk e HubDesk.", "",
              "## Download e Installazione",
              f"- **macOS (Apple Silicon)**: [`Classroom-Tools-{v}-macOS-AppleSilicon.pkg`]({url(v, f'Classroom-Tools-{v}-macOS-AppleSilicon.pkg')})",
              f"- **Windows**: [`Classroom-Tools-{v}-Windows-Setup.exe`]({url(v, f'Classroom-Tools-{v}-Windows-Setup.exe')})",
              "",
              "- **HubDesk** è sempre incluso per gestire aggiornamenti centralizzati e sincronizzazione tra dispositivi.",
-             "- **ClassDesk** e **StudyDesk** possono essere selezionati all'installazione o scaricati dall'Hub.",
+             "- **ClassDesk**, **StudyDesk** e **NoteDesk** possono essere selezionati all'installazione o scaricati dall'Hub.",
              "- Chi possiede una versione precedente riceve l'aggiornamento automatico senza perdita di dati.", ""]
     for title, path in (("HubDesk", os.path.join(HUB, "CHANGELOG.md")), ("ClassDesk", os.path.join(CLASSDESK, "CHANGELOG.md")),
-                        ("StudyDesk", os.path.join(STUDYDESK, "CHANGELOG.md"))):
+                        ("StudyDesk", os.path.join(STUDYDESK, "CHANGELOG.md")),
+                        ("NoteDesk", os.path.join(NOTEDESK, "CHANGELOG.md"))):
         sec = changelog_section(path, v)
         if sec:
             parts += [f"## {title}", sec, ""]
@@ -331,9 +369,9 @@ def cmd_notes():
     print("release notes:", p)
 
 
-def cmd_manifest():
-    v = suite_version()
-    channel = channel_of(v)
+def cmd_manifest(v=None, channel=None):
+    v = v or suite_version()
+    channel = channel or channel_of(v)
     body = notes_text(v)
     def entry(mac=None, win=None):
         e = {}
@@ -354,6 +392,8 @@ def cmd_manifest():
             "hubdesk": entry(f"Classroom-Tools-{v}-macOS-AppleSilicon.pkg", f"Classroom-Tools-{v}-Windows-Setup.exe"),
             "classdesk": entry(f"Classroom-Tools-{v}-macOS-AppleSilicon.pkg", f"Classroom-Tools-{v}-Windows-Setup.exe"),
             "studydesk": entry(f"Classroom-Tools-{v}-macOS-AppleSilicon.pkg", f"Classroom-Tools-{v}-Windows-Setup.exe"),
+            "notedesk": entry(f"NoteDesk-{v}-mac.zip", f"NoteDesk-{v}-win-x64.exe"),
+            "notesdesk": entry(f"NoteDesk-{v}-mac.zip", f"NoteDesk-{v}-win-x64.exe"),
         }, "pkg": {"name": f"Classroom-Tools-{v}-macOS-AppleSilicon.pkg", "url": url(v, f"Classroom-Tools-{v}-macOS-AppleSilicon.pkg")}},
     }
     for p in (os.path.join(ROOT, "update-manifest.json"), os.path.join(CLASSDESK, "update-manifest.json")):

@@ -21,6 +21,7 @@ contextBridge.exposeInMainWorld('hubdesk', {
     check: () => inv('apps:check'), install: (id) => inv('apps:install', id), reinstall: (id) => inv('apps:reinstall', id),
     uninstall: (id) => inv('apps:uninstall', id), open: (id) => inv('apps:open', id), updateAll: () => inv('apps:update-all'),
     setChannel: (c) => inv('apps:set-channel', c), notes: (id) => inv('apps:notes', id),
+    devServerUpdate: () => inv('apps:dev-server-update'),
   },
   net: {
     settings: (p) => inv('net:settings', p), syncNow: (id) => inv('net:sync-now', id), syncAll: () => inv('net:sync-all'), forget: (id) => inv('net:forget', id),

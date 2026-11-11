@@ -605,28 +605,23 @@ struct BookEditorView: View {
     }
 }
 
-// MARK: - Whiteboards saved in the group (Lavagna → «Salva in un gruppo»)
+// MARK: - Whiteboards saved in NoteDesk
 
 struct GroupBoardsTab: View {
     @Environment(AppStore.self) private var store
     let groupId: String
-    @State private var boards: [SavedBoard] = []
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text("Lavagne salvate").font(.headline)
+                Text("Lavagne e Appunti").font(.headline)
                 Spacer()
-                Button { store.currentTab = .board } label: { Label("Apri la Lavagna", systemImage: "pencil.and.scribble") }.buttonStyle(.borderedProminent)
+                Button {
+                    openNoteDeskApp()
+                } label: { Label("Apri NoteDesk", systemImage: "pencil.and.scribble") }.buttonStyle(.borderedProminent)
             }
-            if boards.isEmpty {
-                ContentUnavailableView("Nessuna lavagna salvata in questo gruppo", systemImage: "pencil.and.scribble",
-                                       description: Text("Sulla Lavagna usa il pulsante di salvataggio e scegli «Salva in un gruppo»."))
-            } else {
-                SavedBoardsGrid(boards: boards, onOpen: { rec in BoardModel.shared.pendingOpen = rec; store.currentTab = .board }, onChange: reload)
-            }
+            ContentUnavailableView("Lavagne e appunti gestiti in NoteDesk", systemImage: "pencil.and.scribble",
+                                   description: Text("Le lavagne digitali e i quaderni sono ora gestiti nell'applicazione dedicata NoteDesk."))
         }
-        .onAppear(perform: reload)
     }
-    private func reload() { boards = BoardLibrary.list(groupId: groupId) }
 }

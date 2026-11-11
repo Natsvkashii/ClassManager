@@ -16,21 +16,75 @@ import AppKit
 // App catalog (HUBDESK.md §2): which apps exist, what is installed, what the releases offer.
 
 public enum SuiteApp: String, CaseIterable, Identifiable {
-    case classdesk, studydesk, hubdesk
-    public var id: String { rawValue }
-    public var name: String { ["classdesk": "ClassDesk", "studydesk": "StudyDesk", "hubdesk": "HubDesk"][rawValue]! }
-    public var bundleId: String {
-        ["classdesk": "com.guairajaramillonitoglia.classmanagement", "studydesk": "com.guairajaramillo.studydesk", "hubdesk": "com.guairajaramillo.hubdesk"][rawValue]!
+    case classdesk = "classdesk"
+    case studydesk = "studydesk"
+    case notedesk = "notedesk"
+    case hubdesk = "hubdesk"
+
+    public init?(rawValue: String) {
+        switch rawValue.lowercased() {
+        case "classdesk": self = .classdesk
+        case "studydesk": self = .studydesk
+        case "notedesk", "notesdesk": self = .notedesk
+        case "hubdesk": self = .hubdesk
+        default: return nil
+        }
     }
-    public var appFileName: String { name + ".app" }
+
+    public var id: String { rawValue }
+    public var name: String { ["classdesk": "ClassDesk", "studydesk": "StudyDesk", "notedesk": "NoteDesk", "hubdesk": "HubDesk"][rawValue]! }
+    public var bundleId: String {
+        ["classdesk": "com.guairajaramillonitoglia.classmanagement", "studydesk": "com.guairajaramillo.studydesk", "notedesk": "com.guairajaramillo.notedesk", "hubdesk": "com.guairajaramillo.hubdesk"][rawValue]!
+    }
+    public var appFileName: String {
+        switch self {
+        case .classdesk: return "ClassDesk.app"
+        case .studydesk: return "StudyDesk.app"
+        case .notedesk: return "NoteDesk.app"
+        case .hubdesk: return "HubDesk.app"
+        }
+    }
+    public var macZipPrefix: String {
+        switch self {
+        case .classdesk: return "ClassDesk-"
+        case .studydesk: return "StudyDesk-"
+        case .notedesk: return "NoteDesk-"
+        case .hubdesk: return "HubDesk-"
+        }
+    }
+    public var winExePrefix: String {
+        switch self {
+        case .classdesk: return "ClassDesk-"
+        case .studydesk: return "StudyDesk-"
+        case .notedesk: return "NoteDesk-"
+        case .hubdesk: return "HubDesk-"
+        }
+    }
+    public var localBuildZipDir: String {
+        switch self {
+        case .classdesk: return "ClassDesk"
+        case .studydesk: return "StudyDesk/dist"
+        case .notedesk: return "NoteDesk/dist"
+        case .hubdesk: return "Hub/dist"
+        }
+    }
+    public var localDevAppRelPath: String {
+        switch self {
+        case .classdesk: return "ClassDesk/ClassDesk.app"
+        case .studydesk: return "StudyDesk/macOS/StudyDesk.app"
+        case .notedesk: return "NoteDesk/macOS/NoteDesk.app"
+        case .hubdesk: return "Hub/dist/HubDesk.app"
+        }
+    }
     public var summary: String {
         switch self {
         case .classdesk: return "Registro, corsi, presenze e valutazioni per l'insegnante."
-        case .studydesk: return "Esercizi, libri, lavagna condivisa e risultati degli studenti."
+        case .studydesk: return "Libri ed esercizi interattivi, gruppi e risultati degli studenti."
+        case .notedesk: return "Lavagna condivisa, quaderni digitali, annotazione PDF e strumenti di scrittura avanzati."
         case .hubdesk: return "Gestisce le app della suite e tiene sincronizzati i tuoi dispositivi."
         }
     }
-    public var symbol: String { ["classdesk": "graduationcap.fill", "studydesk": "book.fill", "hubdesk": "point.3.connected.trianglepath.dotted"][rawValue]! }
+    public var symbol: String { ["classdesk": "graduationcap.fill", "studydesk": "book.fill", "notedesk": "pencil.and.scribble", "hubdesk": "point.3.connected.trianglepath.dotted"][rawValue]! }
     /// The single suite installer (from 26.11.0-004 the only macOS file of a release).
     public static func isSuitePkg(_ n: String) -> Bool {
         (n.hasPrefix("ClassDesk-Suite-") && n.hasSuffix("-Installer.pkg")) ||
@@ -41,6 +95,7 @@ public enum SuiteApp: String, CaseIterable, Identifiable {
         switch self {
         case .classdesk: return n.hasPrefix("ClassDesk-") && n.hasSuffix("-macOS.zip") && !n.hasPrefix("ClassDesk-Suite")
         case .studydesk: return n.hasPrefix("StudyDesk-") && n.hasSuffix("-mac.zip")
+        case .notedesk: return (n.hasPrefix("NoteDesk-") || n.hasPrefix("NotesDesk-")) && n.hasSuffix("-mac.zip")
         case .hubdesk: return n.hasPrefix("HubDesk-") && n.hasSuffix("-mac.zip")
         }
     }
@@ -92,7 +147,11 @@ public enum Catalog {
         let apps = suite["apps"] as? [String: Any] ?? [:]
         var out: [SuiteApp: Available] = [:]
         for app in SuiteApp.allCases {
-            guard let a = apps[app.rawValue] as? [String: Any], let mac = a["mac"] as? [String: Any],
+            var a = apps[app.rawValue] as? [String: Any]
+            if a == nil && app == .notedesk {
+                a = apps["notesdesk"] as? [String: Any]
+            }
+            guard let a, let mac = a["mac"] as? [String: Any],
                   let name = mac["name"] as? String, let u = (mac["url"] as? String).flatMap(URL.init(string:)) else { continue }
             let v = (a["version"] as? String) ?? (SuiteApp.isSuitePkg(name) ? nil : AppVersion.fromAssetName(name)?.raw) ?? (suite["version"] as? String) ?? ""
             out[app] = Available(version: v, assetName: name, url: u, notes: notes, prerelease: pre, tag: tag)

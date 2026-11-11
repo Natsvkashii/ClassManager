@@ -6,7 +6,7 @@
 
 // --- Database (IndexedDB) ---
 const DB_NAME = 'StudyDeskMobile';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 let db = null;
 
 function openDb() {
@@ -20,6 +20,7 @@ function openDb() {
       if (!d.objectStoreNames.contains('assets')) d.createObjectStore('assets', { keyPath: 'key' });
       if (!d.objectStoreNames.contains('progress')) d.createObjectStore('progress', { keyPath: 'key' });
       if (!d.objectStoreNames.contains('kv')) d.createObjectStore('kv', { keyPath: 'k' });
+      if (!d.objectStoreNames.contains('notebooks')) d.createObjectStore('notebooks', { keyPath: 'id' });
     };
     req.onsuccess = (e) => { db = e.target.result; resolve(db); };
     req.onerror = (e) => reject(e);
@@ -47,11 +48,28 @@ const dbAll = async (store) => new Promise(async (res) => {
   req.onerror = () => res([]);
 });
 
+const dbDelete = async (store, key) => new Promise(async (res, rej) => {
+  const t = (await openDb()).transaction(store, 'readwrite');
+  t.objectStore(store).delete(key);
+  t.oncomplete = () => res();
+  t.onerror = (e) => rej(e);
+});
+
+// Notebook DB helpers
+const getAllNotebooks = async () => dbAll('notebooks');
+const getNotebookFromDB = async (id) => dbGet('notebooks', id);
+const saveNotebookToDB = async (nb) => dbPut('notebooks', nb);
+const deleteNotebookFromDB = async (id) => dbDelete('notebooks', id);
+
 // App State
 let currentBook = null;
 let currentModule = null;
 let currentPart = 'main'; // 'main' | 'exercises' | 'video'
 let currentActIndex = 0;
+let currentShelfTab = 'books'; // 'books' | 'notebooks'
+let activeNotebook = null;
+let activeNotebookPageIndex = 0;
+let viewerZoom = 1.0;
 let discoveredPeers = new Map();
 let currentAudio = null;
 let audioWordTimes = [];
@@ -74,6 +92,31 @@ const btnPrev = $('btnPrev');
 const btnNext = $('btnNext');
 const stepIndicator = $('stepIndicator');
 const filePicker = $('filePicker');
+
+// NoteDesk Shelf & Viewer References
+const shelfSegmentedNav = $('shelfSegmentedNav');
+const tabBooks = $('tabBooks');
+const tabNotebooks = $('tabNotebooks');
+const notebooksCountBadge = $('notebooksCountBadge');
+
+const notebookViewer = $('notebookViewer');
+const notebookViewerTopBar = $('notebookViewerTopBar');
+const btnBackFromNotebook = $('btnBackFromNotebook');
+const viewerDocTitle = $('viewerDocTitle');
+const viewerDocTemplate = $('viewerDocTemplate');
+const viewerPagerGroup = $('viewerPagerGroup');
+const btnViewerPrevPage = $('btnViewerPrevPage');
+const viewerPageIndicator = $('viewerPageIndicator');
+const btnViewerNextPage = $('btnViewerNextPage');
+const btnViewerZoomOut = $('btnViewerZoomOut');
+const viewerZoomLevel = $('viewerZoomLevel');
+const btnViewerZoomIn = $('btnViewerZoomIn');
+const btnViewerZoomFit = $('btnViewerZoomFit');
+const notebookViewportWrap = $('notebookViewportWrap');
+const notebookCanvasStage = $('notebookCanvasStage');
+const notedeskReadonlyCanvas = $('notedeskReadonlyCanvas');
+const notebookThumbStrip = $('notebookThumbStrip');
+const thumbStripScroll = $('thumbStripScroll');
 
 // Modals & Sheets
 const lyricsModal = $('lyricsModal');
@@ -499,6 +542,33 @@ if (btnCancelUpdate) {
 async function bootstrap() {
   await openDb();
 
+  // Initialize sample notebooks & whiteboards if database is empty
+  const existingNotebooks = await getAllNotebooks();
+  if (!existingNotebooks || existingNotebooks.length === 0) {
+    await seedSampleNotebooks();
+  }
+
+  // Setup tab switcher event listeners
+  if (tabBooks) {
+    tabBooks.onclick = () => {
+      if (currentShelfTab !== 'books') {
+        currentShelfTab = 'books';
+        renderBookshelf();
+      }
+    };
+  }
+  if (tabNotebooks) {
+    tabNotebooks.onclick = () => {
+      if (currentShelfTab !== 'notebooks') {
+        currentShelfTab = 'notebooks';
+        renderNotebooksShelf();
+      }
+    };
+  }
+
+  // Setup NoteDesk viewer controls
+  setupNoteDeskViewerEvents();
+
   // Check if a book was shared with the app on startup
   if (window.androidBridge && typeof window.androidBridge.getPendingSharedBook === 'function') {
     const raw = window.androidBridge.getPendingSharedBook();
@@ -909,6 +979,1327 @@ window.onPdfGenerated = function(success) {
   }, 600);
 };
 
+// =====================================================================================
+// NoteDesk — Whiteboards & Notebooks Read-Only Viewer Engine
+// Conceived & created for Classroom Tools by Guaira Jaramillo Nitoglia (GPL-3.0)
+// =====================================================================================
+
+function normalizeRect(r, fallbackX = 0, fallbackY = 0, fallbackW = 100, fallbackH = 100) {
+  if (!r) return { x: fallbackX, y: fallbackY, width: fallbackW, height: fallbackH };
+  // Format 1: [ [x, y], [w, h] ] or [x, y, w, h]
+  if (Array.isArray(r)) {
+    const x = Array.isArray(r[0]) ? Number(r[0][0]) || 0 : Number(r[0]) || 0;
+    const y = Array.isArray(r[0]) ? Number(r[0][1]) || 0 : Number(r[1]) || 0;
+    const w = Array.isArray(r[1]) ? Number(r[1][0]) || fallbackW : Number(r[2]) || fallbackW;
+    const h = Array.isArray(r[1]) ? Number(r[1][1]) || fallbackH : Number(r[3]) || fallbackH;
+    return { x, y, width: w, height: h };
+  }
+  // Format 2: { origin: { x, y }, size: { width, height } }
+  if (r.origin && r.size) {
+    return {
+      x: Number(r.origin.x) || 0,
+      y: Number(r.origin.y) || 0,
+      width: Number(r.size.width) || fallbackW,
+      height: Number(r.size.height) || fallbackH
+    };
+  }
+  // Format 3: { x, y, width, height } (or w, h)
+  return {
+    x: Number(r.x ?? fallbackX) || 0,
+    y: Number(r.y ?? fallbackY) || 0,
+    width: Number(r.width ?? r.w ?? fallbackW) || fallbackW,
+    height: Number(r.height ?? r.h ?? fallbackH) || fallbackH
+  };
+}
+
+function normalizeDate(d) {
+  if (!d) return new Date();
+  if (typeof d === 'string') {
+    const parsed = Date.parse(d);
+    if (!isNaN(parsed)) return new Date(parsed);
+  }
+  if (typeof d === 'number') {
+    // If it's around 500,000,000 - 1,200,000,000, it's CFAbsoluteTime (seconds since 2001-01-01)
+    if (d > 500000000 && d < 1200000000) {
+      return new Date((d + 978307200) * 1000);
+    }
+    // Unix epoch seconds
+    if (d > 1000000000 && d < 10000000000) {
+      return new Date(d * 1000);
+    }
+    // Unix epoch milliseconds
+    if (d >= 10000000000) {
+      return new Date(d);
+    }
+  }
+  return new Date();
+}
+
+function formatItalianDate(d) {
+  const date = normalizeDate(d);
+  const months = ['gen', 'feb', 'mar', 'apr', 'mag', 'giu', 'lug', 'ago', 'set', 'ott', 'nov', 'dic'];
+  return `${date.getDate()} ${months[date.getMonth()]} ${date.getFullYear()}`;
+}
+
+function getTemplateLabel(t) {
+  switch (t) {
+    case 'ruled': return 'A Righe';
+    case 'grid': return 'A Quadretti';
+    case 'dotted': return 'Puntinato';
+    case 'cornell': return 'Metodo Cornell';
+    case 'planner': return 'Pianificatore';
+    case 'chalkboard': return 'Lavagna Slate';
+    case 'blank': return 'Foglio Bianco';
+    default: return 'Standard';
+  }
+}
+
+function drawRoundRect(ctx, x, y, w, h, r = 8) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  ctx.lineTo(x + r, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+}
+
+function drawStar(ctx, cx, cy, spikes, outerRadius, innerRadius) {
+  let rot = Math.PI / 2 * 3;
+  let x = cx;
+  let y = cy;
+  const step = Math.PI / spikes;
+
+  ctx.beginPath();
+  ctx.moveTo(cx, cy - outerRadius);
+  for (let i = 0; i < spikes; i++) {
+    x = cx + Math.cos(rot) * outerRadius;
+    y = cy + Math.sin(rot) * outerRadius;
+    ctx.lineTo(x, y);
+    rot += step;
+
+    x = cx + Math.cos(rot) * innerRadius;
+    y = cy + Math.sin(rot) * innerRadius;
+    ctx.lineTo(x, y);
+    rot += step;
+  }
+  ctx.lineTo(cx, cy - outerRadius);
+  ctx.closePath();
+}
+
+function drawPaperPattern(ctx, template, w, h, isDark) {
+  const strokeColor = isDark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.08)';
+
+  if (template === 'chalkboard' || isDark) {
+    ctx.fillStyle = '#18231C'; // Rich chalkboard dark slate
+  } else if (template === 'ruled') {
+    ctx.fillStyle = '#FAF7F0'; // Warm notebook cream
+  } else {
+    ctx.fillStyle = '#FFFFFF';
+  }
+  ctx.fillRect(0, 0, w, h);
+
+  ctx.strokeStyle = strokeColor;
+  ctx.lineWidth = 1;
+
+  if (template === 'grid') {
+    const step = 20;
+    ctx.beginPath();
+    for (let x = 0; x < w; x += step) {
+      ctx.moveTo(x, 0); ctx.lineTo(x, h);
+    }
+    for (let y = 0; y < h; y += step) {
+      ctx.moveTo(0, y); ctx.lineTo(w, y);
+    }
+    ctx.stroke();
+  } else if (template === 'ruled') {
+    const step = 28;
+    ctx.beginPath();
+    for (let y = 60; y < h - 40; y += step) {
+      ctx.moveTo(40, y); ctx.lineTo(w - 40, y);
+    }
+    ctx.stroke();
+
+    // Red left margin line
+    ctx.strokeStyle = isDark ? 'rgba(255, 100, 100, 0.35)' : 'rgba(239, 68, 68, 0.28)';
+    ctx.beginPath();
+    ctx.moveTo(90, 0); ctx.lineTo(90, h);
+    ctx.stroke();
+  } else if (template === 'dotted') {
+    ctx.fillStyle = isDark ? 'rgba(255, 255, 255, 0.22)' : 'rgba(0, 0, 0, 0.2)';
+    const step = 20;
+    for (let x = step; x < w; x += step) {
+      for (let y = step; y < h; y += step) {
+        ctx.beginPath();
+        ctx.arc(x, y, 1.2, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+  } else if (template === 'cornell') {
+    const step = 26;
+    ctx.beginPath();
+    for (let y = 70; y < 920; y += step) {
+      ctx.moveTo(225, y); ctx.lineTo(w - 30, y);
+    }
+    ctx.stroke();
+
+    ctx.lineWidth = 1.8;
+    ctx.strokeStyle = isDark ? 'rgba(255, 255, 255, 0.25)' : 'rgba(0, 0, 0, 0.2)';
+    ctx.beginPath();
+    ctx.moveTo(220, 0); ctx.lineTo(220, 920);
+    ctx.moveTo(0, 50); ctx.lineTo(w, 50);
+    ctx.moveTo(0, 920); ctx.lineTo(w, 920);
+    ctx.stroke();
+
+    ctx.font = 'bold 11px system-ui, -apple-system, sans-serif';
+    ctx.fillStyle = isDark ? '#94A3B8' : '#64748B';
+    ctx.fillText('SPUNTI & DOMANDE', 24, 38);
+    ctx.fillText('NOTE PRINCIPALI', 236, 38);
+    ctx.fillText('RIEPILOGO SINTETICO', 24, 908);
+  } else if (template === 'planner') {
+    const colWidth = w / 7;
+    ctx.beginPath();
+    for (let i = 1; i < 7; i++) {
+      ctx.moveTo(i * colWidth, 0); ctx.lineTo(i * colWidth, h);
+    }
+    ctx.moveTo(0, 48); ctx.lineTo(w, 48);
+    ctx.stroke();
+
+    const days = ['LUN', 'MAR', 'MER', 'GIO', 'VEN', 'SAB', 'DOM'];
+    ctx.font = 'bold 12px system-ui, -apple-system, sans-serif';
+    ctx.fillStyle = isDark ? '#FFFFFF' : '#334155';
+    days.forEach((d, i) => {
+      ctx.fillText(d, i * colWidth + 14, 30);
+    });
+  } else if (template === 'chalkboard') {
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.04)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (let x = 0; x < w; x += 32) {
+      ctx.moveTo(x, 0); ctx.lineTo(x, h);
+    }
+    for (let y = 0; y < h; y += 32) {
+      ctx.moveTo(0, y); ctx.lineTo(w, y);
+    }
+    ctx.stroke();
+
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
+    ctx.lineWidth = 3;
+    ctx.strokeRect(6, 6, w - 12, h - 12);
+  }
+}
+
+function drawHighlighterStroke(ctx, stroke) {
+  if (!stroke || !stroke.points || stroke.points.length === 0) return;
+  const pts = stroke.points;
+  const size = (Number(stroke.size || stroke.thicknessMM) || 4.0) * 4.2;
+
+  ctx.lineWidth = size;
+  ctx.lineCap = 'square';
+  ctx.lineJoin = 'bevel';
+  ctx.strokeStyle = stroke.colorHex || stroke.color || '#FDE047';
+
+  ctx.beginPath();
+  ctx.moveTo(pts[0].x, pts[0].y);
+  if (pts.length === 1) {
+    ctx.lineTo(pts[0].x + 1, pts[0].y);
+  } else {
+    for (let i = 1; i < pts.length; i++) {
+      ctx.lineTo(pts[i].x, pts[i].y);
+    }
+  }
+  ctx.stroke();
+}
+
+function drawInkStroke(ctx, stroke) {
+  if (!stroke || !stroke.points || stroke.points.length === 0) return;
+  const pts = stroke.points;
+  const baseSize = Number(stroke.size || stroke.thicknessMM) || 2.5;
+  const tool = stroke.tool || 'ballPen';
+  const color = stroke.colorHex || stroke.color || '#000000';
+
+  ctx.save();
+  ctx.strokeStyle = color;
+  ctx.fillStyle = color;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+
+  if (pts.length === 1) {
+    ctx.beginPath();
+    ctx.arc(pts[0].x, pts[0].y, Math.max(1, baseSize / 2), 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+    return;
+  }
+
+  if (tool === 'pencil') {
+    ctx.lineWidth = baseSize;
+    ctx.globalAlpha = (Number(stroke.opacity) || 0.85) * 0.92;
+    ctx.beginPath();
+    ctx.moveTo(pts[0].x, pts[0].y);
+    for (let i = 1; i < pts.length; i++) {
+      const midX = (pts[i - 1].x + pts[i].x) / 2;
+      const midY = (pts[i - 1].y + pts[i].y) / 2;
+      ctx.quadraticCurveTo(pts[i - 1].x, pts[i - 1].y, midX, midY);
+    }
+    ctx.stroke();
+
+    for (let i = 0; i < pts.length; i += 2) {
+      const rx = (Math.sin(i * 12.3) - 0.5) * baseSize * 0.8;
+      const ry = (Math.cos(i * 7.9) - 0.5) * baseSize * 0.8;
+      ctx.fillRect(pts[i].x + rx, pts[i].y + ry, 1, 1);
+    }
+  } else if (tool === 'fountainPen') {
+    for (let i = 1; i < pts.length; i++) {
+      const p1 = pts[i - 1];
+      const p2 = pts[i];
+      const dist = Math.hypot(p2.x - p1.x, p2.y - p1.y);
+      const speed = Math.min(dist / 6, 2.2);
+      const varWidth = Math.max(baseSize * 0.45, baseSize * (1.25 - speed * 0.35));
+      ctx.lineWidth = varWidth;
+      ctx.beginPath();
+      ctx.moveTo(p1.x, p1.y);
+      ctx.lineTo(p2.x, p2.y);
+      ctx.stroke();
+    }
+  } else {
+    ctx.lineWidth = baseSize;
+    if (stroke.opacity) ctx.globalAlpha = Number(stroke.opacity);
+    ctx.beginPath();
+    ctx.moveTo(pts[0].x, pts[0].y);
+    for (let i = 1; i < pts.length; i++) {
+      const midX = (pts[i - 1].x + pts[i].x) / 2;
+      const midY = (pts[i - 1].y + pts[i].y) / 2;
+      ctx.quadraticCurveTo(pts[i - 1].x, pts[i - 1].y, midX, midY);
+    }
+    ctx.lineTo(pts[pts.length - 1].x, pts[pts.length - 1].y);
+    ctx.stroke();
+  }
+
+  ctx.restore();
+}
+
+function drawShape(ctx, shape) {
+  const r = normalizeRect(shape.rect, shape.x, shape.y, shape.width, shape.height);
+  const type = String(shape.type || shape.kind || 'rectangle').toLowerCase();
+  const strokeWidth = Number(shape.strokeWidth || shape.thicknessMM) || 2.5;
+  const color = shape.colorHex || shape.color || '#007AFF';
+  const isFilled = !!shape.isFilled;
+
+  ctx.save();
+  ctx.lineWidth = strokeWidth;
+  ctx.strokeStyle = color;
+  ctx.fillStyle = shape.fillColorHex || 'rgba(14, 165, 233, 0.15)';
+
+  if (type === 'rectangle' || type === 'rect') {
+    drawRoundRect(ctx, r.x, r.y, r.width, r.height, 6);
+    if (isFilled) ctx.fill();
+    ctx.stroke();
+  } else if (type === 'circle' || type === 'ellipse') {
+    ctx.beginPath();
+    const cx = r.x + r.width / 2;
+    const cy = r.y + r.height / 2;
+    ctx.ellipse(cx, cy, Math.max(1, r.width / 2), Math.max(1, r.height / 2), 0, 0, Math.PI * 2);
+    if (isFilled) ctx.fill();
+    ctx.stroke();
+  } else if (type === 'triangle') {
+    ctx.beginPath();
+    ctx.moveTo(r.x + r.width / 2, r.y);
+    ctx.lineTo(r.x + r.width, r.y + r.height);
+    ctx.lineTo(r.x, r.y + r.height);
+    ctx.closePath();
+    if (isFilled) ctx.fill();
+    ctx.stroke();
+  } else if (type === 'line') {
+    ctx.beginPath();
+    ctx.moveTo(r.x, r.y);
+    ctx.lineTo(r.x + r.width, r.y + r.height);
+    ctx.stroke();
+  } else if (type === 'arrow') {
+    const fromX = r.x, fromY = r.y;
+    const toX = r.x + r.width, toY = r.y + r.height;
+    const angle = Math.atan2(toY - fromY, toX - fromX);
+    ctx.beginPath();
+    ctx.moveTo(fromX, fromY);
+    ctx.lineTo(toX, toY);
+    ctx.lineTo(toX - 16 * Math.cos(angle - Math.PI / 6), toY - 16 * Math.sin(angle - Math.PI / 6));
+    ctx.moveTo(toX, toY);
+    ctx.lineTo(toX - 16 * Math.cos(angle + Math.PI / 6), toY - 16 * Math.sin(angle + Math.PI / 6));
+    ctx.stroke();
+  } else if (type === 'star') {
+    const cx = r.x + r.width / 2;
+    const cy = r.y + r.height / 2;
+    const outerRadius = Math.min(r.width, r.height) / 2;
+    drawStar(ctx, cx, cy, 5, outerRadius, outerRadius * 0.45);
+    if (isFilled) ctx.fill();
+    ctx.stroke();
+  }
+
+  ctx.restore();
+}
+
+function drawTable(ctx, table) {
+  const r = normalizeRect(table.rect, table.x, table.y, table.width, table.height);
+  const rows = Math.max(1, Number(table.rows) || (table.cells ? table.cells.length : 1));
+  const cols = Math.max(1, Number(table.columns || table.cols) || (table.cells && table.cells[0] ? table.cells[0].length : 1));
+  const borderColor = table.colorHex || table.borderColorHex || '#334155';
+
+  ctx.save();
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
+  ctx.fillRect(r.x, r.y, r.width, r.height);
+
+  const cellH = r.height / rows;
+  const cellW = r.width / cols;
+
+  ctx.fillStyle = 'rgba(14, 165, 233, 0.14)';
+  ctx.fillRect(r.x, r.y, r.width, cellH);
+
+  ctx.strokeStyle = borderColor;
+  ctx.lineWidth = 2.0;
+  ctx.strokeRect(r.x, r.y, r.width, r.height);
+
+  ctx.lineWidth = 1.0;
+  for (let i = 1; i < rows; i++) {
+    ctx.beginPath();
+    ctx.moveTo(r.x, r.y + i * cellH);
+    ctx.lineTo(r.x + r.width, r.y + i * cellH);
+    ctx.stroke();
+  }
+
+  for (let j = 1; j < cols; j++) {
+    ctx.beginPath();
+    ctx.moveTo(r.x + j * cellW, r.y);
+    ctx.lineTo(r.x + j * cellW, r.y + r.height);
+    ctx.stroke();
+  }
+
+  if (table.cells && Array.isArray(table.cells)) {
+    ctx.fillStyle = table.colorHex || '#1E293B';
+    ctx.textBaseline = 'middle';
+    for (let rIdx = 0; rIdx < table.cells.length && rIdx < rows; rIdx++) {
+      const row = table.cells[rIdx];
+      if (!Array.isArray(row)) continue;
+      for (let cIdx = 0; cIdx < row.length && cIdx < cols; cIdx++) {
+        const val = String(row[cIdx] || '');
+        if (!val) continue;
+        ctx.font = rIdx === 0 ? 'bold 13px system-ui' : '13px system-ui';
+        const textX = r.x + cIdx * cellW + 8;
+        const textY = r.y + rIdx * cellH + cellH / 2;
+        ctx.fillText(val, textX, textY);
+      }
+    }
+  }
+
+  ctx.restore();
+}
+
+function drawTextBox(ctx, textObj) {
+  const r = normalizeRect(textObj.rect, textObj.x, textObj.y, textObj.width, textObj.height);
+  const fontSize = Number(textObj.fontSize) || 16;
+  const isBold = !!textObj.isBold;
+  const isItalic = !!textObj.isItalic;
+  const fontName = textObj.fontName || 'system-ui, -apple-system, sans-serif';
+  const color = textObj.colorHex || textObj.color || '#000000';
+  const align = textObj.alignment || 'left';
+
+  ctx.save();
+  ctx.font = `${isItalic ? 'italic ' : ''}${isBold ? 'bold ' : ''}${fontSize}px ${fontName}`;
+  ctx.fillStyle = color;
+  ctx.textBaseline = 'top';
+
+  const text = String(textObj.text || '');
+  const lines = text.split('\n');
+  const lineHeight = fontSize * 1.35;
+  let curY = r.y;
+
+  for (const rawLine of lines) {
+    const words = rawLine.split(' ');
+    let line = '';
+    for (let n = 0; n < words.length; n++) {
+      const testLine = line + words[n] + ' ';
+      const metrics = ctx.measureText(testLine);
+      if (metrics.width > r.width && n > 0) {
+        let drawX = r.x;
+        if (align === 'center') drawX = r.x + (r.width - ctx.measureText(line).width) / 2;
+        else if (align === 'right') drawX = r.x + r.width - ctx.measureText(line).width;
+        ctx.fillText(line.trim(), drawX, curY);
+        line = words[n] + ' ';
+        curY += lineHeight;
+      } else {
+        line = testLine;
+      }
+    }
+    let drawX = r.x;
+    if (align === 'center') drawX = r.x + (r.width - ctx.measureText(line).width) / 2;
+    else if (align === 'right') drawX = r.x + r.width - ctx.measureText(line).width;
+    ctx.fillText(line.trim(), drawX, curY);
+    curY += lineHeight;
+  }
+
+  ctx.restore();
+}
+
+function drawSticker(ctx, sticker) {
+  const x = Number(sticker.x) || 100;
+  const y = Number(sticker.y) || 100;
+  const size = Number(sticker.size) || 44;
+  const symbol = sticker.symbolName || sticker.symbolOrEmoji || 'star.fill';
+  const label = sticker.label || '';
+  const color = sticker.colorHex || '#F59E0B';
+
+  ctx.save();
+
+  let icon = '⭐';
+  if (symbol.includes('star')) icon = '⭐';
+  else if (symbol.includes('lightbulb') || symbol.includes('bulb')) icon = '💡';
+  else if (symbol.includes('check')) icon = '✅';
+  else if (symbol.includes('bookmark')) icon = '🔖';
+  else if (symbol.includes('heart')) icon = '❤️';
+  else if (symbol.includes('flame') || symbol.includes('fire')) icon = '🔥';
+  else if (symbol.includes('book')) icon = '📖';
+  else if (symbol.length <= 4) icon = symbol;
+
+  ctx.font = `${Math.round(size * 0.75)}px system-ui, Apple Color Emoji, Segoe UI Emoji`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(icon, x, y);
+
+  if (label) {
+    ctx.font = 'bold 11px system-ui';
+    const textWidth = ctx.measureText(label).width;
+    const badgeW = textWidth + 12;
+    const badgeH = 18;
+    const badgeX = x - badgeW / 2;
+    const badgeY = y + size * 0.45;
+
+    ctx.fillStyle = color;
+    drawRoundRect(ctx, badgeX, badgeY, badgeW, badgeH, 9);
+    ctx.fill();
+
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillText(label, x, badgeY + badgeH / 2);
+  }
+
+  ctx.restore();
+}
+
+function renderNoteDeskPage(nb, pageIndex) {
+  if (!nb || !nb.pages || nb.pages.length === 0) return;
+  const canvas = $('notedeskReadonlyCanvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+
+  const page = nb.pages[pageIndex] || nb.pages[0];
+  const template = page.template || nb.template || 'ruled';
+  const isDark = template === 'chalkboard' || page.paperColor === 'dark';
+
+  const dpr = Math.min(window.devicePixelRatio || 2, 3);
+  const baseW = 800;
+  const baseH = 1100;
+  canvas.width = baseW * dpr;
+  canvas.height = baseH * dpr;
+  canvas.style.width = baseW + 'px';
+  canvas.style.height = baseH + 'px';
+
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.scale(dpr, dpr);
+
+  drawPaperPattern(ctx, template, baseW, baseH, isDark);
+
+  if (page.pdfPageImageBase64 || page.pdfBgDataUrl || page.pdfImage) {
+    const src = page.pdfPageImageBase64
+      ? (page.pdfPageImageBase64.startsWith('data:') ? page.pdfPageImageBase64 : 'data:image/png;base64,' + page.pdfPageImageBase64)
+      : (page.pdfBgDataUrl || page.pdfImage);
+    const img = new Image();
+    img.onload = () => {
+      ctx.drawImage(img, 0, 0, baseW, baseH);
+      renderPageElements(ctx, page, isDark);
+    };
+    img.src = src;
+  } else {
+    renderPageElements(ctx, page, isDark);
+  }
+}
+
+function renderPageElements(ctx, page, isDark) {
+  const strokes = page.strokes || [];
+  const highlighters = strokes.filter(s => s.tool === 'highlighter');
+  const regularStrokes = strokes.filter(s => s.tool !== 'highlighter');
+
+  if (highlighters.length > 0) {
+    ctx.save();
+    if (isDark) {
+      ctx.globalCompositeOperation = 'screen';
+      ctx.globalAlpha = 0.65;
+    } else {
+      ctx.globalCompositeOperation = 'multiply';
+      ctx.globalAlpha = 0.38;
+    }
+    for (const h of highlighters) {
+      drawHighlighterStroke(ctx, h);
+    }
+    ctx.restore();
+  }
+
+  const shapes = page.shapes || [];
+  for (const sh of shapes) {
+    drawShape(ctx, sh);
+  }
+
+  for (const st of regularStrokes) {
+    drawInkStroke(ctx, st);
+  }
+
+  const tables = page.tables || [];
+  for (const tb of tables) {
+    drawTable(ctx, tb);
+  }
+
+  const texts = page.texts || page.textBoxes || [];
+  for (const tx of texts) {
+    drawTextBox(ctx, tx);
+  }
+
+  const stickers = page.stickers || [];
+  for (const stk of stickers) {
+    drawSticker(ctx, stk);
+  }
+}
+
+async function renderNotebooksShelf() {
+  currentShelfTab = 'notebooks';
+  topBar.style.display = 'flex';
+  btnBack.style.display = 'none';
+  brandIcon.style.display = 'block';
+  btnIndex.style.display = 'none';
+  partTabsBar.style.display = 'none';
+  bottomBar.style.display = 'none';
+  if (shelfSegmentedNav) shelfSegmentedNav.style.display = 'flex';
+  if (tabBooks) tabBooks.classList.remove('active');
+  if (tabNotebooks) tabNotebooks.classList.add('active');
+
+  appTitle.textContent = 'NoteDesk';
+  appSubtitle.textContent = 'Quaderni & Lavagna';
+
+  const notebooks = await getAllNotebooks();
+  if (notebooksCountBadge) {
+    notebooksCountBadge.textContent = notebooks.length;
+    notebooksCountBadge.style.display = notebooks.length > 0 ? 'inline-block' : 'none';
+  }
+
+  let html = `
+    <div class="shelf-header">
+      <div class="shelf-title">I tuoi quaderni &amp; lavagne</div>
+      <button class="btn-pill" id="btnSyncFromNotebooks">
+        <i class="fa fa-laptop"></i> Sincronizza PC
+      </button>
+    </div>
+    <div class="notebooks-grid">`;
+
+  if (notebooks.length === 0) {
+    html += `
+      <div style="text-align: center; padding: 48px 20px; background: var(--bg-card); border-radius: var(--radius); border: 1px dashed var(--border); grid-column: 1 / -1;">
+        <div style="width: 64px; height: 64px; border-radius: 50%; background: var(--bg-card-subtle); display: flex; align-items: center; justify-content: center; margin: 0 auto 16px;">
+          <i class="fa fa-pen-nib" style="font-size: 1.8rem; color: var(--primary);"></i>
+        </div>
+        <h3 style="font-size: 1.15rem; font-weight: 700; margin-bottom: 8px;">Nessun quaderno sincronizzato</h3>
+        <p style="font-size: 0.88rem; color: var(--text-muted); line-height: 1.5; margin-bottom: 24px; max-width: 320px; margin-left: auto; margin-right: auto;">
+          Apri NoteDesk o HubDesk sul PC e premi «Sincronizza» per scaricare i tuoi appunti e lavagne su questo telefono.
+        </p>
+        <button class="btn-pill primary" id="btnEmptySyncNotebooks" style="padding: 10px 18px; font-size: 0.9rem;">
+          <i class="fa fa-laptop"></i> Sincronizza ora con PC
+        </button>
+      </div>`;
+  } else {
+    for (const nb of notebooks) {
+      const isWb = !!nb.isSharedWhiteboard || nb.template === 'chalkboard';
+      const icon = isWb ? 'fa-chalkboard' : 'fa-book-journal-whills';
+      const bannerColor = nb.colorHex || (isWb ? '#10B981' : '#2563EB');
+      const pageCount = (nb.pages && nb.pages.length) || 1;
+      const countLabel = isWb ? 'Lavagna rapida' : (pageCount + (pageCount === 1 ? ' pagina' : ' pagine'));
+      const templateLabel = getTemplateLabel(nb.template || (nb.pages && nb.pages[0] && nb.pages[0].template) || 'ruled');
+      const dateStr = formatItalianDate(nb.updatedAt || nb.createdAt);
+
+      html += `
+        <div class="notebook-card" data-notebook-id="${escapeHtml(nb.id)}">
+          <div class="notebook-card-banner" style="background: ${bannerColor};">
+            <i class="fa ${icon} notebook-banner-icon"></i>
+            <span class="notebook-type-pill">${templateLabel}</span>
+          </div>
+          <div class="notebook-card-body">
+            <div>
+              <div class="notebook-card-title">${escapeHtml(nb.title || 'Senza titolo')}</div>
+              <div class="notebook-card-sub">${countLabel}</div>
+            </div>
+            <div class="notebook-card-footer">
+              <span class="readonly-pill-tag"><i class="fa fa-lock"></i> Solo lettura</span>
+              <span>${dateStr}</span>
+            </div>
+          </div>
+        </div>`;
+    }
+  }
+
+  html += `</div>`;
+  contentArea.innerHTML = html;
+
+  const syncBtn = $('btnSyncFromNotebooks');
+  if (syncBtn) syncBtn.onclick = () => btnSync.click();
+  const emptySyncBtn = $('btnEmptySyncNotebooks');
+  if (emptySyncBtn) emptySyncBtn.onclick = () => btnSync.click();
+
+  contentArea.querySelectorAll('.notebook-card').forEach(card => {
+    card.onclick = () => {
+      openNotebookViewer(card.dataset.notebookId);
+    };
+  });
+}
+
+async function openNotebookViewer(notebookId) {
+  const nb = await getNotebookFromDB(notebookId);
+  if (!nb) {
+    toast('Quaderno non trovato');
+    return;
+  }
+  activeNotebook = nb;
+  activeNotebookPageIndex = 0;
+  viewerZoom = 1.0;
+
+  notebookViewer.style.display = 'flex';
+  viewerDocTitle.textContent = nb.title || 'Quaderno';
+  viewerDocTemplate.textContent = getTemplateLabel(nb.template || (nb.pages && nb.pages[0] && nb.pages[0].template) || 'ruled');
+
+  renderNoteDeskPage(nb, activeNotebookPageIndex);
+  updateViewerPager();
+  renderThumbStrip();
+
+  setTimeout(() => {
+    fitViewerZoom();
+  }, 60);
+}
+
+function closeNotebookViewer() {
+  if (notebookViewer) notebookViewer.style.display = 'none';
+  activeNotebook = null;
+  if (currentShelfTab === 'notebooks') {
+    renderNotebooksShelf();
+  } else {
+    renderBookshelf();
+  }
+}
+
+function updateViewerPager() {
+  if (!activeNotebook || !activeNotebook.pages) return;
+  const total = activeNotebook.pages.length || 1;
+  if (viewerPageIndicator) {
+    viewerPageIndicator.textContent = `Pag. ${activeNotebookPageIndex + 1} / ${total}`;
+  }
+  if (btnViewerPrevPage) {
+    btnViewerPrevPage.style.opacity = activeNotebookPageIndex > 0 ? '1' : '0.35';
+  }
+  if (btnViewerNextPage) {
+    btnViewerNextPage.style.opacity = activeNotebookPageIndex < total - 1 ? '1' : '0.35';
+  }
+  if (notebookThumbStrip) {
+    notebookThumbStrip.style.display = total > 1 ? 'block' : 'none';
+  }
+}
+
+function renderThumbStrip() {
+  if (!thumbStripScroll || !activeNotebook || !activeNotebook.pages) return;
+  if (activeNotebook.pages.length <= 1) {
+    if (notebookThumbStrip) notebookThumbStrip.style.display = 'none';
+    return;
+  }
+  if (notebookThumbStrip) notebookThumbStrip.style.display = 'block';
+
+  let html = '';
+  activeNotebook.pages.forEach((p, idx) => {
+    const isAct = idx === activeNotebookPageIndex;
+    const isChalk = p.template === 'chalkboard' || activeNotebook.template === 'chalkboard';
+    const bg = isChalk ? '#18231C' : '#FFFFFF';
+    html += `
+      <div class="thumb-item ${isAct ? 'active' : ''}" data-page="${idx}" style="background: ${bg};">
+        <i class="fa fa-file-lines" style="font-size: 1.4rem; color: ${isChalk ? '#6EE7B7' : '#94A3B8'};"></i>
+        <span class="thumb-num">${idx + 1}</span>
+      </div>`;
+  });
+  thumbStripScroll.innerHTML = html;
+
+  thumbStripScroll.querySelectorAll('.thumb-item').forEach(el => {
+    el.onclick = () => {
+      activeNotebookPageIndex = parseInt(el.dataset.page, 10);
+      renderNoteDeskPage(activeNotebook, activeNotebookPageIndex);
+      updateViewerPager();
+      updateThumbStripActive();
+    };
+  });
+}
+
+function updateThumbStripActive() {
+  if (!thumbStripScroll) return;
+  thumbStripScroll.querySelectorAll('.thumb-item').forEach(el => {
+    const p = parseInt(el.dataset.page, 10);
+    el.classList.toggle('active', p === activeNotebookPageIndex);
+  });
+}
+
+function fitViewerZoom() {
+  if (!notebookViewportWrap) return;
+  const availableW = notebookViewportWrap.clientWidth - 28;
+  viewerZoom = Math.min(1.0, Math.max(0.35, availableW / 800));
+  applyViewerZoom();
+}
+
+function applyViewerZoom() {
+  if (notebookCanvasStage) {
+    notebookCanvasStage.style.transform = `scale(${viewerZoom})`;
+  }
+  if (viewerZoomLevel) {
+    viewerZoomLevel.textContent = `${Math.round(viewerZoom * 100)}%`;
+  }
+}
+
+function setupNoteDeskViewerEvents() {
+  if (btnBackFromNotebook) {
+    btnBackFromNotebook.onclick = () => closeNotebookViewer();
+  }
+
+  if (btnViewerPrevPage) {
+    btnViewerPrevPage.onclick = () => {
+      if (activeNotebook && activeNotebookPageIndex > 0) {
+        activeNotebookPageIndex--;
+        renderNoteDeskPage(activeNotebook, activeNotebookPageIndex);
+        updateViewerPager();
+        updateThumbStripActive();
+      }
+    };
+  }
+
+  if (btnViewerNextPage) {
+    btnViewerNextPage.onclick = () => {
+      if (activeNotebook && activeNotebook.pages && activeNotebookPageIndex < activeNotebook.pages.length - 1) {
+        activeNotebookPageIndex++;
+        renderNoteDeskPage(activeNotebook, activeNotebookPageIndex);
+        updateViewerPager();
+        updateThumbStripActive();
+      }
+    };
+  }
+
+  if (btnViewerZoomIn) {
+    btnViewerZoomIn.onclick = () => {
+      viewerZoom = Math.min(3.5, viewerZoom + 0.2);
+      applyViewerZoom();
+    };
+  }
+
+  if (btnViewerZoomOut) {
+    btnViewerZoomOut.onclick = () => {
+      viewerZoom = Math.max(0.35, viewerZoom - 0.2);
+      applyViewerZoom();
+    };
+  }
+
+  if (btnViewerZoomFit) {
+    btnViewerZoomFit.onclick = () => fitViewerZoom();
+  }
+
+  if (notebookViewportWrap) {
+    let touchStartDist = 0;
+    let touchStartZoom = 1.0;
+    let touchStartX = 0;
+    let touchStartY = 0;
+    let isPinching = false;
+
+    notebookViewportWrap.addEventListener('touchstart', (e) => {
+      if (e.touches.length === 2) {
+        isPinching = true;
+        touchStartDist = Math.hypot(
+          e.touches[0].clientX - e.touches[1].clientX,
+          e.touches[0].clientY - e.touches[1].clientY
+        );
+        touchStartZoom = viewerZoom;
+      } else if (e.touches.length === 1) {
+        isPinching = false;
+        touchStartX = e.touches[0].clientX;
+        touchStartY = e.touches[0].clientY;
+      }
+    }, { passive: true });
+
+    notebookViewportWrap.addEventListener('touchmove', (e) => {
+      if (isPinching && e.touches.length === 2) {
+        const dist = Math.hypot(
+          e.touches[0].clientX - e.touches[1].clientX,
+          e.touches[0].clientY - e.touches[1].clientY
+        );
+        if (touchStartDist > 0) {
+          const scale = dist / touchStartDist;
+          viewerZoom = Math.min(3.5, Math.max(0.35, touchStartZoom * scale));
+          applyViewerZoom();
+        }
+      }
+    }, { passive: true });
+
+    notebookViewportWrap.addEventListener('touchend', (e) => {
+      if (isPinching && e.touches.length < 2) {
+        isPinching = false;
+      } else if (!isPinching && e.changedTouches.length === 1) {
+        const deltaX = e.changedTouches[0].clientX - touchStartX;
+        const deltaY = e.changedTouches[0].clientY - touchStartY;
+        if (Math.abs(deltaX) > 85 && Math.abs(deltaY) < 55 && viewerZoom <= 1.05) {
+          if (deltaX < 0 && btnViewerNextPage) {
+            btnViewerNextPage.click();
+          } else if (deltaX > 0 && btnViewerPrevPage) {
+            btnViewerPrevPage.click();
+          }
+        }
+      }
+    }, { passive: true });
+  }
+}
+
+function convertBoardToNotebook(board, id = '') {
+  const boardId = board.id || id || 'board-' + Date.now();
+  let strokes = [];
+  if (Array.isArray(board.strokes)) {
+    strokes = board.strokes;
+  } else if (board.records && Array.isArray(board.records.strokes)) {
+    strokes = board.records.strokes;
+  }
+
+  const normalizedStrokes = strokes.map((s, idx) => {
+    let pts = [];
+    if (Array.isArray(s.points)) {
+      pts = s.points.map(p => {
+        if (Array.isArray(p)) return { x: Number(p[0]) || 0, y: Number(p[1]) || 0 };
+        return { x: Number(p.x) || 0, y: Number(p.y) || 0, pressure: Number(p.pressure) || 1.0 };
+      });
+    }
+    return {
+      id: s.id || 'st-' + idx,
+      tool: s.tool || 'ballPen',
+      colorHex: s.colorHex || s.color || '#FFFFFF',
+      size: Number(s.size || s.thicknessMM) || 3.0,
+      opacity: Number(s.opacity) || 1.0,
+      points: pts
+    };
+  });
+
+  return {
+    id: boardId,
+    title: board.title || 'Lavagna Condivisa NoteDesk',
+    isSharedWhiteboard: true,
+    template: 'chalkboard',
+    colorHex: board.colorHex || '#10B981',
+    createdAt: normalizeDate(board.createdAt).getTime(),
+    updatedAt: normalizeDate(board.updatedAt).getTime(),
+    currentPageIndex: 0,
+    pages: [
+      {
+        id: 'page-1',
+        pageNumber: 1,
+        template: 'chalkboard',
+        strokes: normalizedStrokes,
+        shapes: board.shapes || [],
+        tables: board.tables || [],
+        texts: board.texts || [],
+        stickers: board.stickers || []
+      }
+    ]
+  };
+}
+
+async function seedSampleNotebooks() {
+  const sampleWhiteboard = {
+    id: 'notedesk-sample-whiteboard',
+    title: 'Lavagna Rapida NoteDesk',
+    isSharedWhiteboard: true,
+    createdAt: Date.now() - 3600000,
+    updatedAt: Date.now() - 1800000,
+    template: 'chalkboard',
+    colorHex: '#10B981',
+    currentPageIndex: 0,
+    pages: [
+      {
+        id: 'page-wb-1',
+        pageNumber: 1,
+        template: 'chalkboard',
+        strokes: [
+          {
+            id: 'st-wb-1',
+            tool: 'ballPen',
+            colorHex: '#FFFFFF',
+            size: 4.0,
+            opacity: 1.0,
+            points: [
+              { x: 140, y: 130 }, { x: 260, y: 130 }, { x: 380, y: 130 }, { x: 500, y: 130 }, { x: 660, y: 130 }
+            ]
+          },
+          {
+            id: 'st-wb-2',
+            tool: 'fountainPen',
+            colorHex: '#38BDF8',
+            size: 3.5,
+            opacity: 1.0,
+            points: [
+              { x: 120, y: 480 }, { x: 170, y: 430 }, { x: 220, y: 400 }, { x: 270, y: 430 },
+              { x: 320, y: 480 }, { x: 370, y: 530 }, { x: 420, y: 560 }, { x: 470, y: 530 },
+              { x: 520, y: 480 }, { x: 570, y: 430 }, { x: 620, y: 400 }, { x: 670, y: 430 }
+            ]
+          },
+          {
+            id: 'st-wb-3',
+            tool: 'ballPen',
+            colorHex: '#94A3B8',
+            size: 2.0,
+            opacity: 0.8,
+            points: [ { x: 100, y: 480 }, { x: 700, y: 480 } ]
+          },
+          {
+            id: 'st-wb-4',
+            tool: 'ballPen',
+            colorHex: '#94A3B8',
+            size: 2.0,
+            opacity: 0.8,
+            points: [ { x: 320, y: 360 }, { x: 320, y: 600 } ]
+          }
+        ],
+        shapes: [
+          {
+            id: 'sh-wb-1',
+            type: 'rectangle',
+            rect: { x: 120, y: 680, width: 260, height: 160 },
+            colorHex: '#FBBF24',
+            strokeWidth: 2.5,
+            isFilled: false
+          },
+          {
+            id: 'sh-wb-2',
+            type: 'circle',
+            rect: { x: 440, y: 680, width: 240, height: 160 },
+            colorHex: '#34D399',
+            strokeWidth: 2.5,
+            isFilled: false
+          },
+          {
+            id: 'sh-wb-3',
+            type: 'arrow',
+            rect: { x: 380, y: 760, width: 60, height: 2 },
+            colorHex: '#F472B6',
+            strokeWidth: 3.0
+          }
+        ],
+        tables: [
+          {
+            id: 'tb-wb-1',
+            rect: { x: 140, y: 880, width: 520, height: 130 },
+            rows: 3,
+            columns: 3,
+            cells: [
+              ['Formula', 'Concetto', 'Stato'],
+              ['E = mc²', 'Relatività ristretta', 'Verificato'],
+              ['e^{iπ} + 1 = 0', 'Identità di Eulero', 'Elegante']
+            ],
+            colorHex: '#60A5FA'
+          }
+        ],
+        texts: [
+          {
+            id: 'tx-wb-1',
+            text: 'Lavagna Condivisa · Sessione Studio',
+            x: 140,
+            y: 95,
+            width: 520,
+            height: 40,
+            fontSize: 24,
+            fontName: 'system-ui',
+            alignment: 'center',
+            colorHex: '#F8FAFC',
+            isBold: true,
+            isItalic: false
+          },
+          {
+            id: 'tx-wb-2',
+            text: 'Funzione d\'onda armonica: y(x) = A · sin(kx + φ)',
+            x: 140,
+            y: 350,
+            width: 520,
+            height: 30,
+            fontSize: 16,
+            fontName: 'system-ui',
+            alignment: 'left',
+            colorHex: '#BAE6FD',
+            isBold: false,
+            isItalic: true
+          },
+          {
+            id: 'tx-wb-3',
+            text: 'Diagramma di Eulero-Venn',
+            x: 140,
+            y: 650,
+            width: 520,
+            height: 25,
+            fontSize: 15,
+            fontName: 'system-ui',
+            alignment: 'left',
+            colorHex: '#FDE68A',
+            isBold: true,
+            isItalic: false
+          }
+        ],
+        stickers: [
+          {
+            id: 'stk-wb-1',
+            symbolName: 'star.fill',
+            label: 'Importante',
+            x: 670,
+            y: 90,
+            size: 42,
+            colorHex: '#F59E0B'
+          },
+          {
+            id: 'stk-wb-2',
+            symbolName: 'lightbulb.fill',
+            label: 'Idea',
+            x: 660,
+            y: 660,
+            size: 38,
+            colorHex: '#FBBF24'
+          }
+        ]
+      }
+    ]
+  };
+
+  const sampleNotebook = {
+    id: 'notedesk-sample-notebook-italian',
+    title: 'Quaderno di Appunti · Italiano L2',
+    isSharedWhiteboard: false,
+    createdAt: Date.now() - 86400000,
+    updatedAt: Date.now() - 7200000,
+    template: 'ruled',
+    colorHex: '#2563EB',
+    currentPageIndex: 0,
+    pages: [
+      {
+        id: 'page-nb-1',
+        pageNumber: 1,
+        template: 'cornell',
+        strokes: [
+          {
+            id: 'st-nb-1',
+            tool: 'fountainPen',
+            colorHex: '#1E293B',
+            size: 3.5,
+            opacity: 1.0,
+            points: [
+              { x: 240, y: 80 }, { x: 300, y: 78 }, { x: 420, y: 80 }, { x: 600, y: 80 }
+            ]
+          },
+          {
+            id: 'st-nb-hl-1',
+            tool: 'highlighter',
+            colorHex: '#FDE047',
+            size: 5.0,
+            opacity: 1.0,
+            points: [
+              { x: 240, y: 155 }, { x: 580, y: 155 }
+            ]
+          },
+          {
+            id: 'st-nb-2',
+            tool: 'ballPen',
+            colorHex: '#0F172A',
+            size: 2.2,
+            opacity: 1.0,
+            points: [
+              { x: 240, y: 230 }, { x: 270, y: 228 }, { x: 320, y: 230 }, { x: 400, y: 230 }
+            ]
+          },
+          {
+            id: 'st-nb-pencil-1',
+            tool: 'pencil',
+            colorHex: '#475569',
+            size: 1.8,
+            opacity: 0.85,
+            points: [
+              { x: 40, y: 220 }, { x: 90, y: 200 }, { x: 140, y: 230 }, { x: 180, y: 210 }
+            ]
+          }
+        ],
+        shapes: [
+          {
+            id: 'sh-nb-1',
+            type: 'rectangle',
+            rect: { x: 240, y: 320, width: 480, height: 110 },
+            colorHex: '#3B82F6',
+            strokeWidth: 2.0,
+            isFilled: false
+          },
+          {
+            id: 'sh-nb-2',
+            type: 'star',
+            rect: { x: 190, y: 330, width: 34, height: 34 },
+            colorHex: '#F59E0B',
+            strokeWidth: 2.0,
+            isFilled: true
+          }
+        ],
+        tables: [
+          {
+            id: 'tb-nb-1',
+            rect: { x: 240, y: 560, width: 500, height: 170 },
+            rows: 4,
+            columns: 3,
+            cells: [
+              ['Infinito', 'Presente (io)', 'Passato Prossimo'],
+              ['Andare', 'Vado', 'Sono andato/a'],
+              ['Fare', 'Faccio', 'Ho fatto'],
+              ['Uscire', 'Esco', 'Sono uscito/a']
+            ],
+            colorHex: '#334155'
+          }
+        ],
+        texts: [
+          {
+            id: 'tx-nb-1',
+            text: 'I Verbi Irregolari e Ausiliari',
+            x: 240,
+            y: 60,
+            width: 480,
+            height: 35,
+            fontSize: 22,
+            fontName: 'system-ui',
+            alignment: 'left',
+            colorHex: '#0F172A',
+            isBold: true,
+            isItalic: false
+          },
+          {
+            id: 'tx-nb-2',
+            text: 'Regola Fondamentale: i verbi di movimento transitivi usano l\'ausiliare essere e accordano il participio col soggetto.',
+            x: 250,
+            y: 145,
+            width: 460,
+            height: 50,
+            fontSize: 15,
+            fontName: 'system-ui',
+            alignment: 'left',
+            colorHex: '#1E293B',
+            isBold: false,
+            isItalic: false
+          },
+          {
+            id: 'tx-nb-3',
+            text: 'Attenzione all\'accordo di genere e numero con l\'ausiliare essere!',
+            x: 255,
+            y: 350,
+            width: 450,
+            height: 60,
+            fontSize: 15,
+            fontName: 'system-ui',
+            alignment: 'left',
+            colorHex: '#1D4ED8',
+            isBold: true,
+            isItalic: false
+          },
+          {
+            id: 'tx-nb-summary',
+            text: 'Riepilogo: Essere per movimento/stato/riflessivi; Avere per verbi transitivi comuni.',
+            x: 40,
+            y: 960,
+            width: 700,
+            height: 60,
+            fontSize: 16,
+            fontName: 'system-ui',
+            alignment: 'left',
+            colorHex: '#0F172A',
+            isBold: false,
+            isItalic: true
+          }
+        ],
+        stickers: [
+          {
+            id: 'stk-nb-1',
+            symbolName: 'bookmark.fill',
+            label: 'Grammatica',
+            x: 700,
+            y: 50,
+            size: 40,
+            colorHex: '#3B82F6'
+          }
+        ]
+      },
+      {
+        id: 'page-nb-2',
+        pageNumber: 2,
+        template: 'ruled',
+        strokes: [
+          {
+            id: 'st-nb-p2-1',
+            tool: 'ballPen',
+            colorHex: '#1E293B',
+            size: 2.8,
+            opacity: 1.0,
+            points: [ { x: 120, y: 110 }, { x: 450, y: 110 } ]
+          }
+        ],
+        shapes: [],
+        tables: [],
+        texts: [
+          {
+            id: 'tx-nb-p2-title',
+            text: 'Esercizi e Frasi d\'esempio',
+            x: 120,
+            y: 80,
+            width: 500,
+            height: 30,
+            fontSize: 20,
+            fontName: 'system-ui',
+            alignment: 'left',
+            colorHex: '#0F172A',
+            isBold: true,
+            isItalic: false
+          },
+          {
+            id: 'tx-nb-p2-body',
+            text: '1. Mario è andato a scuola in bicicletta stamattina.\n2. Giulia e Sofia sono uscite per comprare i libri di testo.\n3. Abbiamo fatto tutti gli esercizi di grammatica insieme.',
+            x: 120,
+            y: 150,
+            width: 600,
+            height: 120,
+            fontSize: 16,
+            fontName: 'system-ui',
+            alignment: 'left',
+            colorHex: '#1E293B',
+            isBold: false,
+            isItalic: false
+          }
+        ],
+        stickers: [
+          {
+            id: 'stk-nb-p2-1',
+            symbolName: 'checkmark.seal.fill',
+            label: 'Completato',
+            x: 680,
+            y: 80,
+            size: 38,
+            colorHex: '#10B981'
+          }
+        ]
+      }
+    ]
+  };
+
+  await saveNotebookToDB(sampleWhiteboard);
+  await saveNotebookToDB(sampleNotebook);
+}
+
 // --- Bookshelf View ---
 async function renderBookshelf() {
   currentBook = null;
@@ -920,6 +2311,20 @@ async function renderBookshelf() {
   btnIndex.style.display = 'none';
   partTabsBar.style.display = 'none';
   bottomBar.style.display = 'none';
+
+  if (shelfSegmentedNav) shelfSegmentedNav.style.display = 'flex';
+  if (tabBooks) tabBooks.classList.toggle('active', currentShelfTab === 'books');
+  if (tabNotebooks) tabNotebooks.classList.toggle('active', currentShelfTab === 'notebooks');
+
+  const allNotebooks = await getAllNotebooks();
+  if (notebooksCountBadge) {
+    notebooksCountBadge.textContent = allNotebooks.length;
+    notebooksCountBadge.style.display = allNotebooks.length > 0 ? 'inline-block' : 'none';
+  }
+
+  if (currentShelfTab === 'notebooks') {
+    return renderNotebooksShelf();
+  }
 
   appTitle.textContent = 'StudyDesk';
   appSubtitle.textContent = 'Libri ed Esercizi';
@@ -1119,6 +2524,7 @@ async function openChapter(moduleId) {
 
   await loadModuleAssets(moduleId);
 
+  if (shelfSegmentedNav) shelfSegmentedNav.style.display = 'none';
   btnBack.style.display = 'flex';
   brandIcon.style.display = 'none';
   btnIndex.style.display = 'flex';
@@ -2314,10 +3720,76 @@ window.onSyncProgress = function(p) {
 
 window.onSyncComplete = async function(res) {
   syncLog.innerHTML += `<strong>${res.success ? '✔ ' + res.message : '✖ Errore: ' + res.message}</strong><br>`;
-  if (res.success && res.data && res.data.records) {
-    // Process any book chunks/files received from computer
+  if (res.success) {
+    if (res.data && res.data.notebooks) {
+      await window.onNotebooksSynced(res.data.notebooks);
+    }
     toast('Sincronizzazione con il computer completata!');
-    renderBookshelf();
+    if (currentShelfTab === 'notebooks') {
+      await renderNotebooksShelf();
+    } else {
+      await renderBookshelf();
+    }
+  }
+};
+
+window.onNotebooksSynced = async function(notebooks) {
+  if (!notebooks) return;
+  try {
+    let list = [];
+    if (Array.isArray(notebooks)) list = notebooks;
+    else if (typeof notebooks === 'object') {
+      if (Array.isArray(notebooks.notebooks)) list = notebooks.notebooks;
+      else list = Object.values(notebooks);
+    }
+
+    let count = 0;
+    for (const item of list) {
+      if (!item) continue;
+      let nbObj = item;
+      if (item.value && typeof item.value === 'object') {
+        nbObj = item.value;
+        if (!nbObj.id && item.key) nbObj.id = item.key;
+      }
+
+      // Check if board format
+      if ((nbObj.id && String(nbObj.id).includes('board:')) || nbObj.isSharedWhiteboard || nbObj.template === 'chalkboard') {
+        nbObj = convertBoardToNotebook(nbObj, nbObj.id);
+      }
+
+      // Ensure pages array exists
+      if (!nbObj.pages || !Array.isArray(nbObj.pages) || nbObj.pages.length === 0) {
+        nbObj.pages = [
+          {
+            id: 'page-1',
+            pageNumber: 1,
+            template: nbObj.template || 'ruled',
+            strokes: nbObj.strokes || [],
+            shapes: nbObj.shapes || [],
+            tables: nbObj.tables || [],
+            texts: nbObj.texts || [],
+            stickers: nbObj.stickers || []
+          }
+        ];
+      }
+
+      await saveNotebookToDB(nbObj);
+      count++;
+    }
+
+    if (count > 0) {
+      toast(`${count} quaderni e lavagne NoteDesk sincronizzati!`);
+      const allNb = await getAllNotebooks();
+      if (notebooksCountBadge) {
+        notebooksCountBadge.textContent = allNb.length;
+        notebooksCountBadge.style.display = allNb.length > 0 ? 'inline-block' : 'none';
+      }
+      if (currentShelfTab === 'notebooks') {
+        await renderNotebooksShelf();
+      }
+    }
+  } catch (err) {
+    console.error('Error saving synced notebooks:', err);
   }
 };
 
@@ -2342,6 +3814,10 @@ filePicker.onchange = async (e) => {
 
 // --- Android Back Button Hook ---
 window.handleAndroidBack = function() {
+  if (notebookViewer && notebookViewer.style.display !== 'none') {
+    closeNotebookViewer();
+    return true;
+  }
   if (bookDownloadModal && bookDownloadModal.classList.contains('open')) {
     bookDownloadModal.classList.remove('open');
     return true;

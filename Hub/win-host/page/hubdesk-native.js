@@ -68,21 +68,40 @@
   const { createManager } = requireMod('manager');
 
   // ---------------------------------------------------------------- Windows driver (same contract as catalog/platform-win.js)
+  const APPS = ['classdesk', 'studydesk', 'notedesk', 'hubdesk'];
   const PROGRAMS = () => window.__hd_programs();
-  const EXES = { classdesk: 'ClassDesk\\ClassDesk.exe', studydesk: 'studydesk\\StudyDesk.exe', hubdesk: 'hubdesk\\HubDesk.exe' };
-  const DISPLAY = { classdesk: 'ClassDesk', studydesk: 'StudyDesk', hubdesk: 'HubDesk' };
-  const INSTALL_ARGS = { classdesk: ['--silent'], studydesk: ['/S'], hubdesk: ['--silent'] };
+  const EXES = { classdesk: 'ClassDesk\\ClassDesk.exe', studydesk: 'studydesk\\StudyDesk.exe', notedesk: 'NoteDesk\\NoteDesk.exe', hubdesk: 'hubdesk\\HubDesk.exe' };
+  const DISPLAY = { classdesk: 'ClassDesk', studydesk: 'StudyDesk', notedesk: 'NoteDesk', hubdesk: 'HubDesk' };
+  const INSTALL_ARGS = { classdesk: ['--silent'], studydesk: ['/S'], notedesk: ['--silent', '/S'], hubdesk: ['--silent'] };
   let programsDir = '';
   const exe = (id) => winJoin(programsDir, EXES[id]);
   const SELF_VERSION = (window.__hd_info && window.__hd_info.version) || '';
+
+  async function detectWinInstalled(app) {
+    if (app === 'notedesk') {
+      const legacyDir = winJoin(programsDir, 'NotesDesk');
+      if ((await window.__hd_exists(legacyDir)) && (await window.__hd_exists(exe('notedesk')))) {
+        window.__hd_rm(legacyDir).catch(() => {});
+      }
+    }
+    if (!(await window.__hd_exists(exe(app)))) {
+      if (app === 'notedesk') {
+        const legExe = winJoin(programsDir, 'NotesDesk', 'NotesDesk.exe');
+        if (await window.__hd_exists(legExe)) {
+          const v = await window.__hd_app_version('NotesDesk', 'NotesDesk');
+          return { version: v || '0.0.0-000', path: legExe };
+        }
+      }
+      return null;
+    }
+    const v = app === 'hubdesk' ? SELF_VERSION : await window.__hd_app_version(app === 'classdesk' ? 'ClassDesk' : app === 'studydesk' ? 'StudyDesk' : app === 'notedesk' ? 'NoteDesk' : '', DISPLAY[app]);
+    return { version: v || '0.0.0-000', path: exe(app) };
+  }
+
   const driver = {
     platform: 'win',
     exePath: exe,
-    async detect(id) {
-      if (!(await window.__hd_exists(exe(id)))) return null;
-      const v = id === 'hubdesk' ? SELF_VERSION : await window.__hd_app_version(id === 'classdesk' ? 'ClassDesk' : id === 'studydesk' ? 'StudyDesk' : '', DISPLAY[id]);
-      return { version: v || '0.0.0-000', path: exe(id) };
-    },
+    detect: (id) => detectWinInstalled(id),
     isRunning: (id) => window.__hd_running(EXES[id].split('\\').pop()),
     async runInstaller(id, file, { suite = false } = {}) {
       let installer = file;
@@ -91,14 +110,32 @@
         const code = await window.__hd_run(file, JSON.stringify([`--extract=${id}`, `--out=${installer}`]));
         if (code !== 0) throw new Error(`estrazione di ${DISPLAY[id]} non riuscita (codice ${code})`);
       }
+      if (id === 'notedesk') {
+        const legacyDir = winJoin(programsDir, 'NotesDesk');
+        if (await window.__hd_exists(legacyDir)) {
+          window.__hd_rm(legacyDir).catch(() => {});
+        }
+      }
       await window.__hd_close_app(EXES[id].split('\\').pop());
       const code = await window.__hd_run(installer, JSON.stringify(INSTALL_ARGS[id]));
       if (code !== 0) throw new Error(`installer terminato con codice ${code}`);
+      if (id === 'notedesk') {
+        const legacyDir = winJoin(programsDir, 'NotesDesk');
+        if (await window.__hd_exists(legacyDir)) {
+          window.__hd_rm(legacyDir).catch(() => {});
+        }
+      }
     },
     async runInstallerDetached(id, file) { await window.__hd_run_detached(file, JSON.stringify(['--silent', `--components=${id}`])); },
     async uninstall(id) {
       if (id === 'hubdesk') throw new Error('HubDesk non si disinstalla da qui');
       if (id === 'classdesk') { await window.__hd_run(exe('classdesk'), JSON.stringify(['--uninstall', '--silent'])); return; }
+      if (id === 'notedesk') {
+        const nsis = winJoin(programsDir, 'NoteDesk', 'Uninstall NoteDesk.exe');
+        if (await window.__hd_exists(nsis)) await window.__hd_run(nsis, JSON.stringify(['/S']));
+        else await window.__hd_run(exe('notedesk'), JSON.stringify(['--uninstall', '--silent']));
+        return;
+      }
       const nsis = winJoin(programsDir, 'studydesk', 'Uninstall StudyDesk.exe');
       if (await window.__hd_exists(nsis)) await window.__hd_run(nsis, JSON.stringify(['/S']));
       else await window.__hd_run(exe('studydesk'), JSON.stringify(['--uninstall', '--silent']));
@@ -136,7 +173,16 @@
     engine.on('state', (st) => fire('engine', st));
     engine.on('open', (id) => { if (manager) manager.open(id); });
     engine.start().catch((e) => console.error('HubDesk rete:', e));
-    manager = createManager({ driver, fetchJson, download, platform: 'win', channel: engine.getState().settings.channel || 'unstable', tmpRoot: TMP, quitSelf: () => window.__hd_quit() });
+    manager = createManager({
+      driver,
+      fetchJson,
+      download,
+      platform: 'win',
+      channel: engine.getState().settings.channel || 'unstable',
+      tmpRoot: TMP,
+      quitSelf: () => window.__hd_quit(),
+      discoverDevServer: async () => (window.__hd_discover_dev_server ? window.__hd_discover_dev_server() : null),
+    });
     manager.on('state', (s) => fire('apps', s));
     // updates and migration, as Electron's main.js: first check after 3 s, then every 6 hours
     let updating = false;
@@ -183,6 +229,7 @@
       open: after((id) => { manager.open(String(id)); return true; }),
       updateAll: after(() => manager.updateAll()),
       setChannel: after(async (c) => { await engine.updateSettings({ channel: c === 'stable' ? 'stable' : 'unstable' }); return manager.setChannel(c); }),
+      devServerUpdate: after(() => manager.devServerUpdate()),
       notes: after((id) => { const s = manager.state[String(id)]; const a = s && s.available; return a ? { version: a.version, name: a.name, notes: a.notes, prerelease: a.prerelease } : null; }),
     },
     net: { // same handlers as Electron's main.js

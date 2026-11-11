@@ -33,7 +33,7 @@ struct ClassDeskApp: App {
             ContentView()
                 .environment(store)
                 .preferredColorScheme(preferredScheme)
-                .frame(minWidth: 960, minHeight: 650)
+                .frame(minWidth: 540, minHeight: 480)
         }
         .windowToolbarStyle(.unified(showsTitle: true))
         .commands {
@@ -111,7 +111,7 @@ public struct ContentView: View {
 
         NavigationSplitView {
             SidebarView(palette: palette)
-                .navigationSplitViewColumnWidth(min: 224, ideal: 252, max: 295)
+                .navigationSplitViewColumnWidth(min: 175, ideal: 210, max: 250)
         } detail: {
             VStack(spacing: 0) {
                 // Top Unified Header Bar (Course Selector + Level Pills + Module Pills + Undo + Actions)
@@ -575,7 +575,7 @@ private struct TopUnifiedHeaderBar: View {
     var body: some View {
         let activeCourses = store.activeCourses
 
-        HStack(spacing: 8) {
+        HStack(spacing: 6) {
             if activeCourses.isEmpty && store.activeCourse == nil {
                 Label(store.t("noActiveCoursesTitle"), systemImage: "exclamationmark.triangle.fill")
                     .font(.caption.bold())
@@ -608,7 +608,7 @@ private struct TopUnifiedHeaderBar: View {
 
                         // Selectors container wrapped in clipped ScrollView so elements adapt without ugly cutoffs
                         ScrollView(.horizontal, showsIndicators: false) {
-                            HStack(spacing: 8) {
+                            HStack(spacing: 6) {
                                 // 1. Active Course Selector Pill (Liquid Glass + Context Menu)
                                 HStack(spacing: 6) {
                                     HStack(spacing: 5) {
@@ -646,6 +646,8 @@ private struct TopUnifiedHeaderBar: View {
                                             Text(course.name)
                                                 .font(.system(size: 12, weight: .bold))
                                                 .lineLimit(1)
+                                                .frame(maxWidth: 150)
+                                                .truncationMode(.tail)
                                             Image(systemName: "chevron.up.chevron.down")
                                                 .font(.system(size: 9, weight: .bold))
                                                 .foregroundStyle(palette.color)
@@ -667,7 +669,7 @@ private struct TopUnifiedHeaderBar: View {
                                     .buttonStyle(.plain)
                                     .help(store.t("editBtn"))
                                 }
-                                .padding(.horizontal, 8)
+                                .padding(.horizontal, 7)
                                 .frame(height: 36)
                                 .fixedSize(horizontal: true, vertical: false)
                                 .modifier(LiquidGlassPillBackground(color: palette.color))
@@ -752,7 +754,7 @@ private struct TopUnifiedHeaderBar: View {
                                         .help(store.t("addLevelBtn"))
                                     }
                                 }
-                                .padding(.horizontal, 8)
+                                .padding(.horizontal, 7)
                                 .frame(height: 36)
                                 .fixedSize(horizontal: true, vertical: false)
                                 .modifier(LiquidGlassPillBackground(color: palette.color))
@@ -832,7 +834,7 @@ private struct TopUnifiedHeaderBar: View {
                                         .help(store.t("addModuleBtn"))
                                     }
                                 }
-                                .padding(.horizontal, 8)
+                                .padding(.horizontal, 7)
                                 .frame(height: 36)
                                 .fixedSize(horizontal: true, vertical: false)
                                 .modifier(LiquidGlassPillBackground(color: palette.color))
@@ -949,44 +951,6 @@ private struct TopUnifiedHeaderBar: View {
         let nextIdx = ((order.firstIndex(of: current) ?? 0) + 1) % order.count
         store.state.settings.theme = order[nextIdx]
         store.persist()
-    }
-}
-
-// MARK: - Footer Attribution Bar (Strictly Preserved)
-
-private struct FooterAttributionBar: View {
-    @Environment(AppStore.self) private var store
-    @Environment(\.colorScheme) private var colorScheme
-
-    var body: some View {
-        HStack {
-            HStack(spacing: 6) {
-                Text("\(store.t("appTitle")) v\(store.state.version)")
-                    .font(.caption.bold())
-                Text("—")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                Text(store.t("footerDevelopedBy"))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                Text(AuthorAttribution.authorName)
-                    .font(.caption.bold())
-            }
-
-            Spacer()
-
-            Link(destination: URL(string: "mailto:\(AuthorAttribution.authorEmail)")!) {
-                HStack(spacing: 5) {
-                    Image(systemName: "envelope.fill")
-                        .font(.caption2)
-                    Text(AuthorAttribution.authorEmail)
-                        .font(.caption.bold())
-                }
-            }
-        }
-        .padding(.horizontal, 18)
-        .padding(.vertical, 8)
-        .background(colorScheme == .dark ? Color(nsColor: .windowBackgroundColor) : Color.white)
     }
 }
 

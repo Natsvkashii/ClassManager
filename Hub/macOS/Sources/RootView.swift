@@ -42,7 +42,7 @@ struct RootView: View {
                 Spacer()
             }
             .padding(.horizontal, 10).padding(.top, 14)
-            .navigationSplitViewColumnWidth(min: 200, ideal: 220, max: 260)
+            .navigationSplitViewColumnWidth(min: 170, ideal: 200, max: 240)
             .safeAreaInset(edge: .bottom) {
                 HStack(spacing: 8) {
                     Circle().fill(model.engine.connectedCount > 0 ? Theme.ok : Color.secondary).frame(width: 8, height: 8)
@@ -79,6 +79,8 @@ struct RootView: View {
 
 struct SettingsPage: View {
     @Environment(HubModel.self) private var model
+    @State private var devServerAlertMessage: String? = nil
+    @State private var devUpdating = false
 
     var body: some View {
         let apps = model.apps
@@ -98,6 +100,36 @@ struct SettingsPage: View {
                                 Text("Stabile").tag("stable")
                                 Text("Instabile (Beta)").tag("unstable")
                             }.pickerStyle(.segmented).labelsHidden().frame(width: 200)
+                        }
+                        if apps.channel == "unstable" {
+                            HStack {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Aggiornamento locale di sviluppo").font(.subheadline)
+                                    Text("Verifica e installa l'aggiornamento dal server locale").font(.caption).foregroundStyle(.secondary)
+                                }
+                                Spacer()
+                                Button {
+                                    devUpdating = true
+                                    Task {
+                                        let found = await apps.checkAndInstallFromLocalDevServer()
+                                        devUpdating = false
+                                        if !found {
+                                            devServerAlertMessage = "Questo pulsante è utilizzato esclusivamente per lo sviluppo interno dell'applicazione e non è destinato al pubblico. Anche premendolo non eseguirà alcuna operazione."
+                                        }
+                                    }
+                                } label: {
+                                    HStack(spacing: 6) {
+                                        if devUpdating {
+                                            ProgressView().controlSize(.small)
+                                        } else {
+                                            Image(systemName: "antenna.radiowaves.left.and.right")
+                                        }
+                                        Text(devUpdating ? "Aggiornamento in corso…" : "Aggiorna da Server Locale (Dev)")
+                                    }
+                                }
+                                .controlSize(.small)
+                                .disabled(devUpdating)
+                            }
                         }
                     }
                     .toggleStyle(.switch)
@@ -127,6 +159,11 @@ struct SettingsPage: View {
             }
             .padding(24).frame(maxWidth: 800, alignment: .leading)
         }
+        .alert("Sviluppo Interno", isPresented: Binding(get: { devServerAlertMessage != nil }, set: { if !$0 { devServerAlertMessage = nil } })) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(devServerAlertMessage ?? "")
+        }
     }
 
     private func setLogin(_ on: Bool) {
@@ -139,7 +176,7 @@ struct SettingsPage: View {
 
 struct WelcomeSheet: View {
     @Environment(HubModel.self) private var model
-    @State private var selected: Set<SuiteApp> = [.classdesk, .studydesk]
+    @State private var selected: Set<SuiteApp> = [.classdesk, .studydesk, .notedesk]
     @State private var code = ""
     @State private var working = false
 
@@ -152,7 +189,7 @@ struct WelcomeSheet: View {
                     Text("Scegli le app da installare e, se vuoi, il codice per sincronizzare i tuoi dispositivi.").font(.callout).foregroundStyle(.secondary)
                 }
             }
-            ForEach([SuiteApp.classdesk, .studydesk]) { app in
+            ForEach([SuiteApp.classdesk, .studydesk, .notedesk]) { app in
                 let c = model.apps.cards[app] ?? AppCard()
                 HStack(spacing: 12) {
                     AppIconView(app: app, installed: c.installedURL, size: 40)
@@ -189,7 +226,7 @@ struct WelcomeSheet: View {
         Task {
             if install {
                 if model.apps.lastCheck == nil { await model.apps.check() }
-                for app in [SuiteApp.classdesk, .studydesk] where selected.contains(app) && model.apps.cards[app]?.isInstalled != true {
+                for app in [SuiteApp.classdesk, .studydesk, .notedesk] where selected.contains(app) && model.apps.cards[app]?.isInstalled != true {
                     await model.apps.install(app)
                 }
             }
@@ -213,7 +250,7 @@ struct MenuContent: View {
             Button("\(model.apps.updatesCount) aggiornamenti disponibili…") { model.page = .apps; model.onShowWindow?() }
         }
         Divider()
-        ForEach([SuiteApp.classdesk, .studydesk]) { app in
+        ForEach([SuiteApp.classdesk, .studydesk, .notedesk]) { app in
             Button("Apri \(app.name)") { model.apps.open(app) }.disabled(model.apps.cards[app]?.isInstalled != true)
         }
         Divider()

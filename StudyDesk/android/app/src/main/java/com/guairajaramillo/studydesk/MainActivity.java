@@ -422,16 +422,45 @@ public class MainActivity extends Activity {
                         JSONObject obj = new JSONObject();
                         obj.put("success", success);
                         obj.put("message", message);
-                        obj.put("data", resultJson != null ? new JSONObject(resultJson) : new JSONObject());
-                        final String js = "window.onSyncComplete && window.onSyncComplete(" + obj.toString() + ");";
-                        runOnUiThread(() -> webView.evaluateJavascript(js, null));
+                        JSONObject data = resultJson != null ? new JSONObject(resultJson) : new JSONObject();
+                        obj.put("data", data);
+                        final String js = "window.onSyncComplete && window.onSyncComplete(" + obj.toString() + ");"
+                                + "window.onComputerSyncComplete && window.onComputerSyncComplete(" + obj.toString() + ");";
+                        runOnUiThread(() -> {
+                            webView.evaluateJavascript(js, null);
+                            JSONArray nbs = data.optJSONArray("notebooks");
+                            if (nbs != null && nbs.length() > 0) {
+                                webView.evaluateJavascript("window.onNotebooksSynced && window.onNotebooksSynced(" + nbs.toString() + ");", null);
+                            }
+                        });
                     } catch (Exception ignored) {}
                 }
             });
         }
 
         @JavascriptInterface
+        public void fetchComputerNotebooks(String host, int port, String code) {
+            syncClient.fetchNotebooks(host, port, code, new HubDeskSyncClient.NotebooksCallback() {
+                @Override
+                public void onNotebooksReceived(JSONArray notebooks) {
+                    try {
+                        final String js = "window.onNotebooksSynced && window.onNotebooksSynced(" + notebooks.toString() + ");";
+                        runOnUiThread(() -> webView.evaluateJavascript(js, null));
+                    } catch (Exception ignored) {}
+                }
+
+                @Override
+                public void onError(String message) {
+                    Log.w(TAG, "Error fetching computer notebooks: " + message);
+                }
+            });
+        }
+
+        @JavascriptInterface
         public void fetchComputerBooks(String host, int port, String code) {
+            // Also query NoteDesk notebooks and whiteboards concurrently
+            fetchComputerNotebooks(host, port, code);
+
             syncClient.fetchAvailableBooks(host, port, code, new HubDeskSyncClient.ComputerBooksCallback() {
                 @Override
                 public void onBooksReceived(List<JSONObject> books) {
