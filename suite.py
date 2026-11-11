@@ -441,12 +441,19 @@ def cmd_publish(confirmed):
     if not token:
         raise SystemExit("GITHUB_TOKEN not set and git credential helper did not return a password")
     manifest = json.load(open(os.path.join(ROOT, "update-manifest.json")))
-    rel = api("POST", f"/repos/{REPO}/releases", json.dumps({
-        "tag_name": f"v{v}", "target_commitish": subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip(),
-        "name": manifest["name"], "body": open(os.path.join(out, "RELEASE_NOTES.md"), encoding="utf-8").read(),
-        "prerelease": manifest["prerelease"]}).encode(), token)
+    try:
+        rel = api("POST", f"/repos/{REPO}/releases", json.dumps({
+            "tag_name": f"v{v}", "target_commitish": subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip(),
+            "name": manifest["name"], "body": open(os.path.join(out, "RELEASE_NOTES.md"), encoding="utf-8").read(),
+            "prerelease": manifest["prerelease"]}).encode(), token)
+    except urllib.error.HTTPError as e:
+        if e.code == 422:
+            rel = api("GET", f"/repos/{REPO}/releases/tags/v{v}", token=token)
+        else:
+            raise
+    existing_asset_names = {a["name"] for a in rel.get("assets", [])}
     for n, p in files:
-        if n in missing:
+        if n in missing or n in existing_asset_names:
             continue
         print("uploading", n)
         api("POST", f"/repos/{REPO}/releases/{rel['id']}/assets?name={n}", open(p, "rb").read(), token,
