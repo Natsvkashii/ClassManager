@@ -194,6 +194,10 @@ extension AppStore {
     }
 
     public func book(_ id: String?) -> StudyBook? { books.first { $0.id == id } }
+    public func bookForModule(_ module: StudyModule?) -> StudyBook? {
+        guard let module else { return nil }
+        return book(module.book?.id) ?? books.first { $0.chapters.contains { $0.moduleId == module.id } }
+    }
     public func bookDir(_ id: String) -> URL { booksDir.appendingPathComponent(id) }
 
     /// Chapters in reading order: book.json order first, then any module that declares the book.

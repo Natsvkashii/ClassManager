@@ -153,10 +153,10 @@ export async function renderEditor(host, params, app) {
   const sub = (title) => h('div.section-title', { style: { margin: '1rem 0 .4rem' } }, title);
 
   async function attach(kind) {
-    const accept = { image: 'image/*', audio: 'audio/*', video: 'video/*' }[kind];
+    const accept = { image: 'image/*', audio: 'audio/*', video: 'video/*', subtitles: '.vtt,.srt,text/vtt' }[kind];
     const [f] = await pickFiles({ accept });
     if (!f) return null;
-    const dir = { image: 'img', audio: 'audio', video: 'video' }[kind];
+    const dir = { image: 'img', audio: 'audio', video: 'video', subtitles: 'subtitles' }[kind];
     const ext = (f.name.match(/\.[a-z0-9]+$/i) || [''])[0].toLowerCase();
     const base = slug(f.name.replace(/\.[^.]+$/, ''));
     let path = `assets/${dir}/${base}${ext}`, i = 2;
@@ -229,6 +229,9 @@ export async function renderEditor(host, params, app) {
         fileRow, prev, k === 'image' && m.src && url(m.src) ? framePanel(m) : null,
         k === 'image' ? [fld('Testo alternativo', m, 'alt'), fld('Didascalia', m, 'caption')] : null,
         k === 'audio' || k === 'video' ? [fld('Etichetta', m, 'label'), fld('Trascrizione', m, 'transcript', { area: true, rows: 3 })] : null,
+        k === 'video' ? h('div.row',
+          h('button.btn.btn-sm', { type: 'button', onclick: async () => { const p = await attach('subtitles'); if (p) { m.subtitles = p; touch(); draw(); } } }, icon('closed-captioning'), m.subtitles ? 'Cambia sottotitoli (.vtt/.srt)' : 'Allega sottotitoli (.vtt/.srt)'),
+          m.subtitles ? [h('span.faint', m.subtitles), iconBtn('xmark', 'Rimuovi sottotitoli', () => { delete m.subtitles; touch(); draw(); })] : h('span.faint', 'Opzionale (altrimenti usa la trascrizione)')) : null,
         k === 'link' ? [fld('URL del video', m, 'url', { type: 'url', req: true }), fld('Etichetta', m, 'label')] : null,
         k === 'placeholder' ? [fld('Etichetta', m, 'label'), h('div.help', 'Mostra «Video non incluso – aggiungilo dall\'editor».')] : null));
       });

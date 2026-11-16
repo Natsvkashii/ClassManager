@@ -1348,8 +1348,24 @@ public final class AppStore {
         return String(format: "%02d:%02d", endH, endM)
     }
 
+    public func effectiveBilling(for module: CourseModule, in course: Course) -> ModuleBilling {
+        module.billing ?? ModuleBilling(
+            hourlyRateNet: course.billingConfig.hourlyRateNet,
+            lessonDurationHours: course.billingConfig.lessonDurationHours,
+            vatPercent: course.billingConfig.vatPercent
+        )
+    }
+
+    public func modulePaidHours(course: Course, module: CourseModule) -> Double {
+        let b = effectiveBilling(for: module, in: course)
+        let slots = sortedSlots(for: course, module: module)
+        return b.paidHours(for: slots) { sk in
+            self.lessonDurationHours(course: course, module: module, slotKey: sk)
+        }
+    }
+
     public func moduleTotalGross(course: Course, module: CourseModule) -> Double {
-        let b = module.billing ?? ModuleBilling()
+        let b = effectiveBilling(for: module, in: course)
         return b.totalGross(for: module.dates) { sk in
             self.lessonDurationHours(course: course, module: module, slotKey: sk)
         }

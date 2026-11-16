@@ -10,6 +10,7 @@
 // Removing, obfuscating, or altering these credits violates the author's attribution rights.
 // =====================================================================================
 
+import Darwin
 import Foundation
 import Network
 import Observation
@@ -182,6 +183,12 @@ public final class HubEngine {
     @ObservationIgnored private var listener: NWListener?
     @ObservationIgnored private var browser: NWBrowser?
     @ObservationIgnored private var bonjour: [String: NWEndpoint] = [:]
+    @ObservationIgnored private var lanSocket: Int32 = -1
+    @ObservationIgnored private var lanSource: DispatchSourceRead?
+    @ObservationIgnored private var lanSeenAt: [String: Date] = [:]
+    @ObservationIgnored private var lanReplyAt: [String: Date] = [:]
+    @ObservationIgnored private var preferLanHost: Set<String> = []
+    @ObservationIgnored private var loggedTimeout: Set<String> = []
     @ObservationIgnored private var conns: [String: HubConn] = [:]
     @ObservationIgnored private var connecting: Set<String> = []
     @ObservationIgnored private var syncing: Set<String> = []
@@ -279,7 +286,12 @@ public final class HubEngine {
             l.newConnectionHandler = { [weak self] c in MainActor.assumeIsolated { self?.accept(c) } }
             l.stateUpdateHandler = { [weak self, weak l] st in
                 HubConn.trace("listener \(st)")
-                MainActor.assumeIsolated { if case .ready = st, let p = l?.port?.rawValue { self?.listenPort = Int(p) } }
+                MainActor.assumeIsolated {
+                    if case .ready = st, let p = l?.port?.rawValue {
+                        self?.listenPort = Int(p)
+                        if self?.useBonjour == true { self?.announceLan() }
+                    }
+                }
             }
             l.serviceRegistrationUpdateHandler = { change in HubConn.trace("bonjour \(change)") }
             l.start(queue: .main)
@@ -292,6 +304,7 @@ public final class HubEngine {
             }
             b.start(queue: .main)
             browser = b
+            startLanDiscovery()
         }
         status = "Visibile in rete come «\(deviceName)»"
         publishPeers()
@@ -301,6 +314,7 @@ public final class HubEngine {
 
     private func stopNetwork() {
         netActive = false
+        stopLanDiscovery()
         listener?.cancel(); listener = nil; listenPort = 0
         browser?.cancel(); browser = nil; bonjour = [:]
         for c in conns.values { drop(c) }
@@ -317,7 +331,12 @@ public final class HubEngine {
             t.resume()
             timers.append(t)
         }
-        every(5) { [weak self] in self?.heartbeat(); self?.checkLocalChanges(force: false); self?.refreshWatchers() }
+        every(5) { [weak self] in
+            self?.heartbeat()
+            self?.checkLocalChanges(force: false)
+            self?.refreshWatchers()
+            if self?.netActive == true, self?.useBonjour == true { self?.announceLan() }
+        }
         every(10) { [weak self] in self?.reconnectTick() }
         every(15) { [weak self] in self?.pingTick() }
         every(60) { [weak self] in self?.syncAll() }
@@ -346,8 +365,181 @@ public final class HubEngine {
 
     private func reconnectTick() {
         guard netActive else { return }
-        for p in peers where !p.connected && deviceId < p.id {
-            if let ep = bonjour[p.id] { connect(to: ep, id: p.id) } else { connectKnown(p) }
+        for p in peers where !p.connected {
+            let allowReverse = (lanSeenAt[p.id].map { Date().timeIntervalSince($0) >= 8 } ?? false)
+            guard deviceId < p.id || allowReverse else { continue }
+            if !p.host.isEmpty && p.port > 0 && preferLanHost.contains(p.id) {
+                preferLanHost.remove(p.id)
+                connectKnown(p)
+            } else if let ep = bonjour[p.id] {
+                if !p.host.isEmpty && p.port > 0 { preferLanHost.insert(p.id) }
+                connect(to: ep, id: p.id)
+            } else {
+                connectKnown(p)
+            }
+        }
+    }
+
+    // MARK: UDP LAN discovery fallback (port 47842)
+
+    private func startLanDiscovery() {
+        stopLanDiscovery()
+        let fd = Darwin.socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)
+        guard fd >= 0 else { return }
+        var yes: Int32 = 1
+        setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &yes, socklen_t(MemoryLayout<Int32>.size))
+        setsockopt(fd, SOL_SOCKET, SO_REUSEPORT, &yes, socklen_t(MemoryLayout<Int32>.size))
+        setsockopt(fd, SOL_SOCKET, SO_BROADCAST, &yes, socklen_t(MemoryLayout<Int32>.size))
+        _ = fcntl(fd, F_SETFL, O_NONBLOCK)
+        var addr = sockaddr_in()
+        addr.sin_len = UInt8(MemoryLayout<sockaddr_in>.size)
+        addr.sin_family = sa_family_t(AF_INET)
+        addr.sin_port = UInt16(47842).bigEndian
+        addr.sin_addr = in_addr(s_addr: INADDR_ANY.bigEndian)
+        let bound = withUnsafePointer(to: &addr) {
+            $0.withMemoryRebound(to: sockaddr.self, capacity: 1) {
+                Darwin.bind(fd, $0, socklen_t(MemoryLayout<sockaddr_in>.size)) == 0
+            }
+        }
+        if !bound {
+            Darwin.close(fd)
+            // If another instance already bound 47842, keep an unbound broadcast-only socket for outbound announcements
+            let sendFd = Darwin.socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)
+            guard sendFd >= 0 else { return }
+            setsockopt(sendFd, SOL_SOCKET, SO_BROADCAST, &yes, socklen_t(MemoryLayout<Int32>.size))
+            lanSocket = sendFd
+            announceLan()
+            return
+        }
+        lanSocket = fd
+        let src = DispatchSource.makeReadSource(fileDescriptor: fd, queue: .main)
+        src.setEventHandler { [weak self] in
+            MainActor.assumeIsolated { self?.readLanPackets() }
+        }
+        src.setCancelHandler {
+            if fd >= 0 { Darwin.close(fd) }
+        }
+        src.resume()
+        lanSource = src
+        announceLan()
+    }
+
+    private func stopLanDiscovery() {
+        if let src = lanSource {
+            lanSource = nil
+            src.cancel()
+            lanSocket = -1
+        } else if lanSocket >= 0 {
+            Darwin.close(lanSocket)
+            lanSocket = -1
+        }
+        lanSeenAt = [:]
+    }
+
+    private func lanPayload() -> Data? {
+        guard netActive, useBonjour, listenPort > 0, lanSocket >= 0, !deviceId.isEmpty else { return nil }
+        let payload: [String: Any] = ["service": "deskhub", "id": deviceId, "name": deviceName, "p": "macos", "v": version, "port": listenPort]
+        return try? JSONSerialization.data(withJSONObject: payload)
+    }
+
+    private func sendLan(to dst: sockaddr_in, data: Data) {
+        guard lanSocket >= 0 else { return }
+        var copy = dst
+        data.withUnsafeBytes { raw in
+            guard let base = raw.baseAddress else { return }
+            withUnsafePointer(to: &copy) {
+                $0.withMemoryRebound(to: sockaddr.self, capacity: 1) {
+                    _ = Darwin.sendto(lanSocket, base, data.count, 0, $0, socklen_t(MemoryLayout<sockaddr_in>.size))
+                }
+            }
+        }
+    }
+
+    private func announceLan() {
+        guard let data = lanPayload() else { return }
+        var targets: [in_addr] = [in_addr(s_addr: INADDR_BROADCAST)]
+        var ifap: UnsafeMutablePointer<ifaddrs>?
+        if getifaddrs(&ifap) == 0, let first = ifap {
+            var ptr: UnsafeMutablePointer<ifaddrs>? = first
+            while let cur = ptr {
+                let flags = Int32(cur.pointee.ifa_flags)
+                if (flags & IFF_UP) != 0, (flags & IFF_LOOPBACK) == 0,
+                   let sa = cur.pointee.ifa_addr, sa.pointee.sa_family == sa_family_t(AF_INET),
+                   let maskSa = cur.pointee.ifa_netmask, maskSa.pointee.sa_family == sa_family_t(AF_INET) {
+                    let ip = sa.withMemoryRebound(to: sockaddr_in.self, capacity: 1) { $0.pointee.sin_addr.s_addr }
+                    let hostIp = UInt32(bigEndian: ip)
+                    if (hostIp >> 24) != 127 && (hostIp >> 16) != 0xA9FE {
+                        let mask = maskSa.withMemoryRebound(to: sockaddr_in.self, capacity: 1) { $0.pointee.sin_addr.s_addr }
+                        let bcast = in_addr(s_addr: ip | ~mask)
+                        if bcast.s_addr != INADDR_BROADCAST, !targets.contains(where: { $0.s_addr == bcast.s_addr }) {
+                            targets.append(bcast)
+                        }
+                    }
+                }
+                ptr = cur.pointee.ifa_next
+            }
+            freeifaddrs(ifap)
+        }
+        for ip in targets {
+            var dst = sockaddr_in()
+            dst.sin_len = UInt8(MemoryLayout<sockaddr_in>.size)
+            dst.sin_family = sa_family_t(AF_INET)
+            dst.sin_port = UInt16(47842).bigEndian
+            dst.sin_addr = ip
+            sendLan(to: dst, data: data)
+        }
+    }
+
+    private func readLanPackets() {
+        guard lanSocket >= 0 else { return }
+        var buf = [UInt8](repeating: 0, count: 2048)
+        while true {
+            var from = sockaddr_in()
+            var flen = socklen_t(MemoryLayout<sockaddr_in>.size)
+            let n = withUnsafeMutablePointer(to: &from) {
+                $0.withMemoryRebound(to: sockaddr.self, capacity: 1) {
+                    Darwin.recvfrom(lanSocket, &buf, buf.count, 0, $0, &flen)
+                }
+            }
+            if n <= 0 { break }
+            let data = Data(buf[0..<n])
+            guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  (json["service"] as? String) == "deskhub",
+                  let id = json["id"] as? String, !id.isEmpty, id != deviceId,
+                  let port = json["port"] as? Int, port > 0 else { continue }
+            var ipBuf = [CChar](repeating: 0, count: Int(INET_ADDRSTRLEN))
+            var sinAddr = from.sin_addr
+            guard inet_ntop(AF_INET, &sinAddr, &ipBuf, socklen_t(INET_ADDRSTRLEN)) != nil else { continue }
+            let host = String(cString: ipBuf)
+            let isLinkOrLoop = host.hasPrefix("127.") || host.hasPrefix("169.254.")
+            let name = (json["name"] as? String).flatMap { $0.isEmpty ? nil : $0 } ?? "Dispositivo"
+            let plat = json["p"] as? String ?? ""
+            let ver = json["v"] as? String ?? ""
+            if lanSeenAt[id] == nil { lanSeenAt[id] = Date() }
+            if !isLinkOrLoop,
+               (lanReplyAt[id].map { Date().timeIntervalSince($0) >= 3 } ?? true),
+               let replyData = lanPayload() {
+                lanReplyAt[id] = Date()
+                sendLan(to: from, data: replyData)
+            }
+            if isLinkOrLoop { continue }
+            if let i = peers.firstIndex(where: { $0.id == id }) {
+                if peers[i].host != host || peers[i].port != port || peers[i].name != name {
+                    peers[i].name = name; peers[i].platform = plat.isEmpty ? peers[i].platform : plat; peers[i].version = ver.isEmpty ? peers[i].version : ver
+                    peers[i].host = host; peers[i].port = port; peers[i].lastSeen = Date()
+                    publishPeers()
+                }
+            } else {
+                var p = PeerState(deviceId: id, name: name, platform: plat, version: ver)
+                p.host = host; p.port = port; p.lastSeen = Date()
+                peers.append(p)
+                publishPeers()
+            }
+            if !connecting.contains(id), conns[id] == nil {
+                if deviceId < id || (lanSeenAt[id].map { Date().timeIntervalSince($0) >= 8 } ?? false) {
+                    connect(host: host, port: port, id: id)
+                }
+            }
         }
     }
 
@@ -389,9 +581,16 @@ public final class HubEngine {
                 guard let self, let c else { return }
                 self.connecting.remove(id)
                 guard let r, r["t"] as? String == "hello", let dev = r["device"] as? String, dev != self.deviceId else {
-                    if let msg = r?["message"] as? String { self.addLog("Connessione rifiutata: \(msg)") }
+                    let peerName = self.peers.first(where: { $0.id == id })?.name ?? id
+                    if let msg = r?["message"] as? String {
+                        self.addLog("Connessione rifiutata da «\(peerName)»: \(msg)")
+                    } else if r == nil && !self.loggedTimeout.contains(id) {
+                        self.loggedTimeout.insert(id)
+                        self.addLog("Nessuna risposta da «\(peerName)»")
+                    }
                     c.close(); return
                 }
+                self.loggedTimeout.remove(id)
                 c.authorised = true
                 self.register(c, info: r, device: dev, host: host, port: port)
             }
@@ -695,7 +894,9 @@ public final class HubEngine {
 
     // MARK: Conflicts
 
-    nonisolated static func isTransferKey(_ k: String) -> Bool { k.contains("/bookchunk:") || k.contains("/bookfile:") }
+    nonisolated static func isTransferKey(_ k: String) -> Bool {
+        k.contains("/bookchunk:") || k.contains("/bookfile:") || k.hasPrefix("notedesk/")
+    }
     /// Between two copies of a book transfer record: the higher rev wins, then the newer one.
     nonisolated static func transferWins(remote: [String: Any], over local: [String: Any]) -> Bool {
         let rv = (remote["value"] as? [String: Any])?["rev"] as? Int ?? 0, lv = (local["value"] as? [String: Any])?["rev"] as? Int ?? 0

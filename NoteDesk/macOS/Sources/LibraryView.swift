@@ -19,6 +19,7 @@ public struct LibraryView: View {
     @Bindable var store: NotesDocumentStore
 
     @State private var showingNewNotebookSheet = false
+    @State private var showingNewWhiteboardSheet = false
     @State private var showingNewFolderSheet = false
     @State private var showingCreditsSheet = false
     @State private var showingHubDeskSheet = false
@@ -44,6 +45,7 @@ public struct LibraryView: View {
                 LibraryTopActionBar(
                     store: store,
                     showingNewNotebookSheet: $showingNewNotebookSheet,
+                    showingNewWhiteboardSheet: $showingNewWhiteboardSheet,
                     showingNewFolderSheet: $showingNewFolderSheet
                 )
 
@@ -55,7 +57,10 @@ public struct LibraryView: View {
             NewFolderModalSheet(store: store)
         }
         .sheet(isPresented: $showingNewNotebookSheet) {
-            NewNotebookModalSheet(store: store)
+            NewNotebookModalSheet(store: store, initialIsWhiteboard: false)
+        }
+        .sheet(isPresented: $showingNewWhiteboardSheet) {
+            NewNotebookModalSheet(store: store, initialIsWhiteboard: true)
         }
         .sheet(isPresented: $showingCreditsSheet) {
             CreditsModalSheet()
@@ -153,6 +158,7 @@ struct LibrarySidebarView: View {
 struct LibraryTopActionBar: View {
     @Bindable var store: NotesDocumentStore
     @Binding var showingNewNotebookSheet: Bool
+    @Binding var showingNewWhiteboardSheet: Bool
     @Binding var showingNewFolderSheet: Bool
 
     var body: some View {
@@ -163,18 +169,8 @@ struct LibraryTopActionBar: View {
                     Button(action: { showingNewNotebookSheet = true }) {
                         Label("Nuovo Quaderno…", systemImage: "book.fill")
                     }
-                    Button(action: {
-                        let doc = store.createNotebook(
-                            title: "Nuova Lavagna Live",
-                            coverColorHex: "#8E44AD",
-                            template: .chalkboard,
-                            paperColor: .dark,
-                            isLandscape: true,
-                            isSharedWhiteboard: true
-                        )
-                        store.selectDocument(doc)
-                    }) {
-                        Label("Nuova Lavagna Rapida", systemImage: "rectangle.fill")
+                    Button(action: { showingNewWhiteboardSheet = true }) {
+                        Label("Nuova Lavagna…", systemImage: "rectangle.on.rectangle")
                     }
                     Button(action: { showingNewFolderSheet = true }) {
                         Label("Nuova Cartella…", systemImage: "folder.badge.plus")
@@ -197,6 +193,32 @@ struct LibraryTopActionBar: View {
                 }
                 .menuStyle(.borderlessButton)
                 .fixedSize()
+
+                // 1-Click Home Button: Segui / Apri Lavagna Live
+                Button(action: {
+                    store.openOrCreateSharedWhiteboard()
+                }) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "rectangle.inset.filled.and.person.filled")
+                            .font(.system(size: 13, weight: .semibold))
+                        Text("Lavagna Live")
+                            .font(.system(size: 12, weight: .bold))
+                        Circle()
+                            .fill(NoteDeskHubIntegration.shared.activePeerCount > 0 ? Color.green : Color.gray.opacity(0.5))
+                            .frame(width: 7, height: 7)
+                    }
+                    .foregroundColor(Color.purple)
+                    .padding(.horizontal, 11)
+                    .padding(.vertical, 7)
+                    .background(Color.purple.opacity(0.12))
+                    .cornerRadius(8)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8)
+                            .stroke(Color.purple.opacity(0.35), lineWidth: 1)
+                    )
+                }
+                .buttonStyle(.plain)
+                .help("Apri e segui la Lavagna Condivisa in tempo reale su rete locale (sincronizzazione bidirezionale istantanea)")
 
                 // Search Bar
                 HStack {
@@ -359,7 +381,7 @@ struct NotebookCoverCard: View {
                         VStack(spacing: 4) {
                             Text(document.title)
                                 .font(.system(size: 13, weight: .bold))
-                                .foregroundColor(.primary)
+                                .foregroundColor(Color(red: 0.12, green: 0.14, blue: 0.18))
                                 .lineLimit(3)
                                 .multilineTextAlignment(.center)
                                 .padding(.horizontal, 10)
@@ -621,108 +643,240 @@ struct NewFolderModalSheet: View {
 
 struct NewNotebookModalSheet: View {
     @Bindable var store: NotesDocumentStore
+    let initialIsWhiteboard: Bool
     @Environment(\.dismiss) var dismiss
 
     @State private var notebookTitle: String = ""
     @State private var selectedCoverHex: String = "#2980B9"
     @State private var selectedTemplate: PaperTemplate = .ruled
     @State private var selectedPaperColor: PaperColor = .cream
+    @State private var selectedFormat: PageFormat = .a4
     @State private var isLandscape: Bool = false
+    @State private var isWhiteboardMode: Bool = false
+
+    init(store: NotesDocumentStore, initialIsWhiteboard: Bool = false) {
+        self.store = store
+        self.initialIsWhiteboard = initialIsWhiteboard
+        _isWhiteboardMode = State(initialValue: initialIsWhiteboard)
+        _selectedCoverHex = State(initialValue: initialIsWhiteboard ? "#8E44AD" : "#2980B9")
+        _selectedTemplate = State(initialValue: initialIsWhiteboard ? .chalkboard : .ruled)
+        _selectedPaperColor = State(initialValue: initialIsWhiteboard ? .white : .cream)
+        _selectedFormat = State(initialValue: initialIsWhiteboard ? .widescreen16x9 : .a4)
+        _isLandscape = State(initialValue: initialIsWhiteboard)
+    }
 
     var body: some View {
-        VStack(spacing: 16) {
-            HStack {
-                Button("Annulla") { dismiss() }
+        ScrollView {
+            VStack(spacing: 14) {
+                HStack {
+                    Button("Annulla") { dismiss() }
+                        .buttonStyle(.plain)
+                    Spacer()
+                    Text(isWhiteboardMode ? "Nuova Lavagna Live" : "Nuovo Quaderno")
+                        .font(.system(size: 15, weight: .bold))
+                    Spacer()
+                    Button("Crea") {
+                        let fallback = isWhiteboardMode ? "Nuova Lavagna Live" : "Nuovo Quaderno"
+                        let title = notebookTitle.trimmingCharacters(in: .whitespaces).isEmpty ? fallback : notebookTitle
+                        let selectedFolderId = store.selectedSidebarSection.starts(with: "folder_") ? String(store.selectedSidebarSection.dropFirst(7)) : nil
+                        let doc = store.createNotebook(
+                            title: title,
+                            folderId: selectedFolderId,
+                            coverColorHex: selectedCoverHex,
+                            template: selectedTemplate,
+                            paperColor: selectedPaperColor,
+                            isLandscape: isLandscape,
+                            pageFormat: selectedFormat,
+                            isSharedWhiteboard: isWhiteboardMode
+                        )
+                        store.selectDocument(doc)
+                        dismiss()
+                    }
+                    .fontWeight(.bold)
                     .buttonStyle(.plain)
-                Spacer()
-                Text("Nuovo Quaderno")
-                    .font(.system(size: 15, weight: .bold))
-                Spacer()
-                Button("Crea") {
-                    let title = notebookTitle.trimmingCharacters(in: .whitespaces).isEmpty ? "Nuovo Quaderno" : notebookTitle
-                    let selectedFolderId = store.selectedSidebarSection.starts(with: "folder_") ? String(store.selectedSidebarSection.dropFirst(7)) : nil
-                    let doc = store.createNotebook(
-                        title: title,
-                        folderId: selectedFolderId,
-                        coverColorHex: selectedCoverHex,
-                        template: selectedTemplate,
-                        paperColor: selectedPaperColor,
-                        isLandscape: isLandscape
-                    )
-                    store.selectDocument(doc)
-                    dismiss()
                 }
-                .fontWeight(.bold)
-                .buttonStyle(.plain)
-            }
-            .padding(.horizontal, 16)
-            .padding(.top, 14)
+                .padding(.horizontal, 16)
+                .padding(.top, 14)
 
-            // Preview of notebook cover
-            RoundedRectangle(cornerRadius: 8)
-                .fill(Color(hex: selectedCoverHex))
-                .frame(width: 110, height: 140)
-                .shadow(radius: 4)
-                .overlay(
-                    Text(notebookTitle.isEmpty ? "Titolo…" : notebookTitle)
-                        .font(.system(size: 10, weight: .bold))
-                        .padding(6)
-                        .background(Color.white.opacity(0.9))
-                        .cornerRadius(4)
-                )
-
-            TextField("Titolo del Quaderno", text: $notebookTitle)
-                .textFieldStyle(.roundedBorder)
+                // Quick mode switch (Quaderno / Lavagna)
+                Picker("", selection: $isWhiteboardMode) {
+                    Text("Quaderno").tag(false)
+                    Text("Lavagna Live").tag(true)
+                }
+                .pickerStyle(.segmented)
                 .padding(.horizontal, 20)
-
-            // Cover Color 24 Swatches
-            VStack(alignment: .leading, spacing: 6) {
-                Text("Colore Copertina")
-                    .font(.system(size: 11, weight: .bold))
-                    .foregroundColor(.secondary)
-                    .padding(.horizontal, 20)
-
-                LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 8), spacing: 6) {
-                    ForEach(GoodNotesPalette.colors, id: \.self) { hex in
-                        Button(action: { selectedCoverHex = hex }) {
-                            Circle()
-                                .fill(Color(hex: hex))
-                                .frame(width: 22, height: 22)
-                                .overlay(selectedCoverHex == hex ? Image(systemName: "checkmark").font(.system(size: 10, weight: .bold)).foregroundColor(.white) : nil)
-                        }
-                        .buttonStyle(.plain)
+                .onChange(of: isWhiteboardMode) { _, wb in
+                    if wb {
+                        selectedFormat = .widescreen16x9
+                        isLandscape = true
+                        if selectedPaperColor == .cream { selectedPaperColor = .white }
+                        selectedTemplate = .chalkboard
+                        if selectedCoverHex == "#2980B9" { selectedCoverHex = "#8E44AD" }
+                    } else {
+                        selectedFormat = .a4
+                        isLandscape = false
+                        selectedPaperColor = .cream
+                        selectedTemplate = .ruled
                     }
                 }
-                .padding(.horizontal, 20)
-            }
 
-            // Paper Template Picker
-            VStack(alignment: .leading, spacing: 6) {
-                Text("Modello di Carta")
-                    .font(.system(size: 11, weight: .bold))
-                    .foregroundColor(.secondary)
+                HStack(spacing: 16) {
+                    // Cover preview
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(Color(hex: selectedCoverHex))
+                        .frame(width: 82, height: 106)
+                        .shadow(radius: 3)
+                        .overlay(
+                            Text(notebookTitle.isEmpty ? (isWhiteboardMode ? "Lavagna…" : "Titolo…") : notebookTitle)
+                                .font(.system(size: 9, weight: .bold))
+                                .foregroundColor(.black)
+                                .padding(5)
+                                .background(Color.white.opacity(0.92))
+                                .cornerRadius(4)
+                        )
+
+                    // Page / Board surface preview
+                    RoundedRectangle(cornerRadius: 6)
+                        .fill(selectedPaperColor.swiftUIColor)
+                        .frame(width: isLandscape ? 116 : 78, height: isLandscape ? 72 : 106)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 6)
+                                .stroke(Color.gray.opacity(0.35), lineWidth: 1)
+                        )
+                        .overlay(
+                            VStack(spacing: 3) {
+                                Text(selectedFormat.title)
+                                    .font(.system(size: 9, weight: .bold))
+                                    .foregroundColor(selectedPaperColor.isDark ? .white : .primary)
+                                Text(selectedTemplate.title)
+                                    .font(.system(size: 8))
+                                    .foregroundColor(selectedPaperColor.isDark ? .white.opacity(0.75) : .secondary)
+                            }
+                        )
+                }
+
+                TextField(isWhiteboardMode ? "Titolo della Lavagna" : "Titolo del Quaderno", text: $notebookTitle)
+                    .textFieldStyle(.roundedBorder)
                     .padding(.horizontal, 20)
 
-                HStack(spacing: 8) {
-                    ForEach(PaperTemplate.allCases.prefix(4)) { templ in
-                        Button(action: { selectedTemplate = templ }) {
-                            Text(templ.title)
-                                .font(.system(size: 11, weight: selectedTemplate == templ ? .bold : .regular))
-                                .foregroundColor(selectedTemplate == templ ? .white : .primary)
+                // Cover Color 24 Swatches
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Colore Copertina")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundColor(.secondary)
+                        .padding(.horizontal, 20)
+
+                    LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 8), spacing: 6) {
+                        ForEach(GoodNotesPalette.colors, id: \.self) { hex in
+                            Button(action: { selectedCoverHex = hex }) {
+                                Circle()
+                                    .fill(Color(hex: hex))
+                                    .frame(width: 22, height: 22)
+                                    .overlay(selectedCoverHex == hex ? Image(systemName: "checkmark").font(.system(size: 10, weight: .bold)).foregroundColor(.white) : nil)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    .padding(.horizontal, 20)
+                }
+
+                // Format & Orientation Picker
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack {
+                        Text("Formato e Orientamento")
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundColor(.secondary)
+                        Spacer()
+                        Picker("", selection: $isLandscape) {
+                            Text("Verticale").tag(false)
+                            Text("Orizzontale").tag(true)
+                        }
+                        .pickerStyle(.segmented)
+                        .frame(width: 170)
+                    }
+                    .padding(.horizontal, 20)
+
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 95), spacing: 6)], spacing: 6) {
+                        ForEach(PageFormat.allCases) { fmt in
+                            Button(action: {
+                                selectedFormat = fmt
+                                if fmt == .widescreen16x9 || fmt == .board4x3 { isLandscape = true }
+                            }) {
+                                Text(fmt.title)
+                                    .font(.system(size: 11, weight: selectedFormat == fmt ? .bold : .regular))
+                                    .foregroundColor(selectedFormat == fmt ? .white : .primary)
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 5)
+                                    .background(selectedFormat == fmt ? Color.blue : Color.gray.opacity(0.12))
+                                    .cornerRadius(6)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    .padding(.horizontal, 20)
+                }
+
+                // Paper / Board Background Color Picker
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Colore Sfondo / Lavagna")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundColor(.secondary)
+                        .padding(.horizontal, 20)
+
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 105), spacing: 6)], spacing: 6) {
+                        ForEach(PaperColor.allCases) { pc in
+                            Button(action: { selectedPaperColor = pc }) {
+                                HStack(spacing: 5) {
+                                    Circle()
+                                        .fill(pc.swiftUIColor)
+                                        .frame(width: 14, height: 14)
+                                        .overlay(Circle().stroke(Color.gray.opacity(0.4), lineWidth: 1))
+                                    Text(pc.title)
+                                        .font(.system(size: 11, weight: selectedPaperColor == pc ? .bold : .regular))
+                                }
+                                .frame(maxWidth: .infinity, alignment: .leading)
                                 .padding(.horizontal, 8)
-                                .padding(.vertical, 4)
-                                .background(selectedTemplate == templ ? Color.blue : Color.gray.opacity(0.12))
+                                .padding(.vertical, 5)
+                                .background(selectedPaperColor == pc ? Color.blue.opacity(0.18) : Color.gray.opacity(0.1))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 6)
+                                        .stroke(selectedPaperColor == pc ? Color.blue : Color.clear, lineWidth: 1.5)
+                                )
                                 .cornerRadius(6)
+                            }
+                            .buttonStyle(.plain)
                         }
-                        .buttonStyle(.plain)
                     }
+                    .padding(.horizontal, 20)
                 }
-                .padding(.horizontal, 20)
-            }
 
-            Spacer()
+                // Paper Template Picker
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Modello di Carta")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundColor(.secondary)
+                        .padding(.horizontal, 20)
+
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 84), spacing: 6)], spacing: 6) {
+                        ForEach(PaperTemplate.allCases) { templ in
+                            Button(action: { selectedTemplate = templ }) {
+                                Text(templ.title)
+                                    .font(.system(size: 11, weight: selectedTemplate == templ ? .bold : .regular))
+                                    .foregroundColor(selectedTemplate == templ ? .white : .primary)
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 5)
+                                    .background(selectedTemplate == templ ? Color.blue : Color.gray.opacity(0.12))
+                                    .cornerRadius(6)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    .padding(.horizontal, 20)
+                }
+                .padding(.bottom, 16)
+            }
         }
-        .frame(width: 380, height: 480)
+        .frame(width: 440, height: 590)
     }
 }
 

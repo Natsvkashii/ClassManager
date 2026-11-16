@@ -18,7 +18,7 @@ public enum AuthorAttribution {
     public static let authorName = "Guaira Jaramillo Nitoglia"
     public static let authorEmail = "guaira.jaramillo.nitoglia@gmail.com"
     public static let appName = "ClassDesk"
-    public static let appVersion = "26.11.2-004"
+    public static let appVersion = "26.11.2-015"
 
     /// Centralized channel indicator: 0 = Stable, 1 = Unstable / Beta
     public static let isUnstableBuild: Int = 1
@@ -884,14 +884,93 @@ public struct ModuleBilling: Codable, Equatable {
         lessonOverrides = ov
     }
 
+    /// Effective gross hourly rate after percentage discount and VAT.
+    public var effectiveGrossHourlyRate: Double {
+        let rate = max(0.0, hourlyRateNet)
+        guard rate > 0 else { return 0.0 }
+        let discFactor: Double = (discountType == "percent" && discountValue > 0)
+            ? max(0.0, 1.0 - discountValue / 100.0)
+            : 1.0
+        let vatMultiplier = 1.0 + max(0.0, vatPercent) / 100.0
+        return rate * discFactor * vatMultiplier
+    }
+
+    /// Computes paid hours from the gross paid amount, hourly net rate, VAT %, and discount (% or fixed).
+    public static func computePaidHours(
+        paidAmount: Double,
+        hourlyRateNet: Double,
+        vatPercent: Double,
+        discountType: String,
+        discountValue: Double
+    ) -> Double {
+        guard paidAmount > 0, hourlyRateNet > 0 else { return 0.0 }
+        let vatMultiplier = 1.0 + max(0.0, vatPercent) / 100.0
+        if discountType == "fixed" {
+            let fixedDisc = max(0.0, discountValue)
+            let paidNetAfterDiscount = paidAmount / vatMultiplier
+            return (paidNetAfterDiscount + fixedDisc) / hourlyRateNet
+        } else {
+            let discFactor = discountValue > 0 ? max(0.0, 1.0 - discountValue / 100.0) : 1.0
+            let effGrossRate = hourlyRateNet * discFactor * vatMultiplier
+            guard effGrossRate > 0 else { return 0.0 }
+            return paidAmount / effGrossRate
+        }
+    }
+
     public var paidHours: Double {
-        guard hourlyRateNet > 0, studentPaidAmount > 0 else { return 0.0 }
-        return studentPaidAmount / hourlyRateNet
+        Self.computePaidHours(
+            paidAmount: studentPaidAmount,
+            hourlyRateNet: hourlyRateNet,
+            vatPercent: vatPercent,
+            discountType: discountType,
+            discountValue: discountValue
+        )
+    }
+
+    /// Override-aware paid hours across scheduled lessons; falls back to the module-level formula when no overrides exist.
+    public func paidHours(for dates: [String], durationProvider: ((String) -> Double)? = nil) -> Double {
+        guard studentPaidAmount > 0, hourlyRateNet > 0 else { return 0.0 }
+        if lessonOverrides.isEmpty || dates.isEmpty {
+            return paidHours
+        }
+        var remaining = studentPaidAmount
+        var coveredHours = 0.0
+        for d in dates {
+            let dur = max(0.0, durationProvider?(d) ?? lessonDurationHours)
+            let gross = lessonGrossPrice(for: d, durationHours: dur)
+            if gross <= 0 {
+                coveredHours += dur
+                continue
+            }
+            if remaining >= gross {
+                coveredHours += dur
+                remaining -= gross
+            } else {
+                if remaining > 0 {
+                    coveredHours += dur * (remaining / gross)
+                    remaining = 0.0
+                }
+                break
+            }
+        }
+        if remaining > 0 {
+            let effGrossRate = effectiveGrossHourlyRate
+            if effGrossRate > 0 {
+                coveredHours += remaining / effGrossRate
+            }
+        }
+        return coveredHours
     }
 
     public func missingHours(scheduledHours: Double) -> Double {
         guard paidHours > 0 else { return 0.0 }
         return max(0.0, paidHours - scheduledHours)
+    }
+
+    public func missingHours(for dates: [String], scheduledHours: Double, durationProvider: ((String) -> Double)? = nil) -> Double {
+        let covered = paidHours(for: dates, durationProvider: durationProvider)
+        guard covered > 0 else { return 0.0 }
+        return max(0.0, covered - scheduledHours)
     }
 
     public func lessonNetPrice(for slotKey: String, durationHours: Double? = nil) -> Double {
@@ -931,13 +1010,17 @@ public struct ModuleBilling: Codable, Equatable {
 
     public func totalGross(for dates: [String], durationProvider: ((String) -> Double)? = nil) -> Double {
         if dates.isEmpty { return 0.0 }
+        if discountType == "fixed" && discountValue > 0 && lessonOverrides.isEmpty {
+            let totalNet = dates.reduce(0.0) { acc, d in
+                acc + lessonNetPrice(for: d, durationHours: durationProvider?(d))
+            }
+            let netAfter = max(0.0, totalNet - discountValue)
+            return netAfter * (1.0 + max(0.0, vatPercent) / 100.0)
+        }
         var sum = 0.0
         for d in dates {
             let dur = durationProvider?(d)
             sum += lessonGrossPrice(for: d, durationHours: dur)
-        }
-        if discountType == "fixed" && discountValue > 0 && lessonOverrides.isEmpty {
-            sum = max(0.0, sum - discountValue)
         }
         return sum
     }

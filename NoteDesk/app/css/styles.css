@@ -318,10 +318,10 @@ body, html {
   border-right: 1px solid rgba(255,255,255,0.2);
 }
 .nb-cover .nb-band {
-  background: rgba(255,255,255,0.9);
+  background: rgba(255,255,255,0.92);
   padding: 6px 10px;
   border-radius: 4px;
-  color: var(--text-main);
+  color: #0F172A !important;
   font-weight: 600;
   font-size: 12px;
   margin-left: 8px;
@@ -683,6 +683,7 @@ body, html {
   padding: 40px;
   background: #E8E8EE;
   -webkit-overflow-scrolling: touch;
+  touch-action: pan-x pan-y pinch-zoom;
 }
 .page-stage {
   display: flex;
@@ -709,6 +710,10 @@ body, html {
   overflow: hidden;
   transform-origin: top left;
   transition: transform 0.15s ease-out;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
 }
 .page-sheet.split-secondary {
   border-left: 2px dashed rgba(0,0,0,0.15);
@@ -722,6 +727,10 @@ body, html {
 }
 .interactive-layer {
   cursor: crosshair;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
 }
 
 /* ==================== POPOVER & FLOATING ==================== */
@@ -744,7 +753,7 @@ body, html {
 .popover-arrow {
   position: absolute;
   top: -6px;
-  left: 50%;
+  left: var(--arrow-left, 50%);
   transform: translateX(-50%) rotate(45deg);
   width: 12px;
   height: 12px;
@@ -772,10 +781,6 @@ body, html {
 }
 
 /* Popover Spessore */
-#popover-thickness {
-  left: 50%;
-  transform: translateX(60px);
-}
 .thickness-slider-wrap input {
   width: 100%;
   margin: 10px 0;
@@ -813,10 +818,6 @@ body, html {
 }
 
 /* Popover Penna */
-#popover-pen {
-  left: 50%;
-  transform: translateX(-160px);
-}
 .pen-type-tabs {
   display: flex;
   gap: 4px;
@@ -1352,7 +1353,47 @@ body, html {
   color: var(--text-secondary);
 }
 
-/* Utilità */
+/* Utilità & Menu Contestuali Anchored */
+.new-dropdown {
+  position: relative;
+}
+.caret {
+  font-size: 11px;
+  opacity: 0.85;
+  margin-left: 2px;
+}
+.menu-divider {
+  border: none;
+  border-top: 1px solid var(--dock-border);
+  margin: 4px 0;
+}
+.menu-item.danger {
+  color: #DC2626;
+}
+.file-menu-item {
+  display: block;
+  cursor: pointer;
+}
+.popover-chip-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.chip-btn {
+  padding: 5px 10px;
+  border-radius: 7px;
+  border: 1px solid var(--dock-border);
+  background: #F4F5F7;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  color: #1F2937;
+}
+.chip-btn.active {
+  background: var(--accent);
+  color: #FFFFFF !important;
+  border-color: var(--accent);
+}
 .hidden {
   display: none !important;
 }

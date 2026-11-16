@@ -178,9 +178,14 @@ function createManager({ driver, fetchJson, download, selfId = 'hubdesk', platfo
     const suiteApps = (manifest.suite && manifest.suite.apps) ? manifest.suite.apps : (manifest.apps || {});
     const fallbackVersion = (manifest.suite && manifest.suite.version) || manifest.version || '0.0.0-000';
     const updated = [];
+    const errors = [];
     const appOrder = ['classdesk', 'studydesk', 'notedesk'];
     let updateSelf = false;
     let selfAsset = null;
+    const extractVersion = (name) => {
+      const m = String(name || '').match(/(\d+\.\d+\.\d+(?:-\d+)?)/);
+      return m ? m[1] : null;
+    };
 
     for (const id of appOrder) {
       let entry = suiteApps[id];
@@ -204,11 +209,11 @@ function createManager({ driver, fetchJson, download, selfId = 'hubdesk', platfo
       const assetUrl = (platEntry.url && /^https?:\/\//i.test(platEntry.url))
         ? platEntry.url
         : `${serverBase}/files/${assetName}`;
-      const srvVer = entry.version || (cat.parseVersion(assetName) ? cat.versionOf(assetName) : fallbackVersion);
+      const srvVer = entry.version || extractVersion(assetName) || fallbackVersion;
 
       const installed = await driver.detect(id).catch(() => null);
       const isInst = installed && installed.version;
-      const needsInst = !isInst || cat.compareVersions(srvVer, installed.version) >= 0;
+      const needsInst = !isInst || cat.compareVersions(srvVer, installed.version) > 0;
 
       if (needsInst) {
         const wasRunning = await driver.isRunning(id).catch(() => false);
@@ -228,6 +233,8 @@ function createManager({ driver, fetchJson, download, selfId = 'hubdesk', platfo
           if (wasRunning) {
             try { driver.open(id); } catch (_) {}
           }
+        } catch (err) {
+          errors.push({ id, error: err && err.message ? err.message : String(err) });
         } finally {
           try { fs.rmSync(dir, { recursive: true, force: true }); } catch (_) {}
         }
@@ -240,9 +247,9 @@ function createManager({ driver, fetchJson, download, selfId = 'hubdesk', platfo
       const assetUrl = (hubEntry[platform].url && /^https?:\/\//i.test(hubEntry[platform].url))
         ? hubEntry[platform].url
         : `${serverBase}/files/${assetName}`;
-      const srvVer = hubEntry.version || fallbackVersion;
+      const srvVer = hubEntry.version || extractVersion(assetName) || fallbackVersion;
       const installed = await driver.detect(selfId).catch(() => null);
-      if (!installed || !installed.version || cat.compareVersions(srvVer, installed.version) >= 0) {
+      if (!installed || !installed.version || cat.compareVersions(srvVer, installed.version) > 0) {
         updateSelf = true;
         selfAsset = { name: assetName, url: assetUrl };
       }
@@ -256,10 +263,10 @@ function createManager({ driver, fetchJson, download, selfId = 'hubdesk', platfo
       await download(selfAsset.url, file, () => {});
       await driver.runInstallerDetached(selfId, file);
       quitSelf();
-      return { ok: true, updated: [...updated, selfId] };
+      return { ok: true, updated: [...updated, selfId], errors };
     }
 
-    return { ok: true, updated };
+    return { ok: errors.length === 0 || updated.length > 0, updated, errors };
   }
 
   return Object.assign(ev, { snapshot, refreshInstalled, check, setChannel, install, uninstall, open, updateAll, pendingUpdates, devServerUpdate, state });

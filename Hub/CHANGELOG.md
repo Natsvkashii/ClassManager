@@ -1,5 +1,9 @@
 # HubDesk – Changelog
 
+## 26.11.2-015 (Beta)
+- Allineamento alla beta Classroom Tools `26.11.2-015`.
+- Migliorata l'affidabilità del rilevamento e dello stato di connessione tra HubDesk macOS, HubDesk Windows, ClassDesk, StudyDesk e NoteDesk.
+
 ## 26.11.1-017 (Beta)
 - Risolto il ripristino della finestra minimizzata nel Dock su macOS (deminiaturizzazione automatica e attivazione immediata).
 - Allineamento alla release beta pubblica 26.11.1-017 di Classroom Tools.

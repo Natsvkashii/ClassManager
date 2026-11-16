@@ -120,9 +120,14 @@ static std::wstring KnownFolder(int csidl) { wchar_t p[MAX_PATH] = L"C:\\"; SHGe
 static std::wstring InstallDir() { return KnownFolder(CSIDL_LOCAL_APPDATA) + L"\\Programs\\NoteDesk"; }
 static std::wstring InstalledExe() { return InstallDir() + L"\\NoteDesk.exe"; }
 static std::wstring AppDir() { return InstallDir() + L"\\app"; }
+static std::wstring CanonicalPath(const std::wstring &p) {
+    wchar_t buf[MAX_PATH];
+    DWORD n = GetLongPathNameW(p.c_str(), buf, MAX_PATH);
+    return (n > 0 && n < MAX_PATH) ? std::wstring(buf, n) : p;
+}
 
-static void DeleteTree(const std::wstring &path) {
-    if (path.size() < 8 || !Exists(path)) return;
+static bool DeleteTree(const std::wstring &path) {
+    if (path.size() < 8 || !Exists(path)) return true;
     WIN32_FIND_DATAW fd; HANDLE h = FindFirstFileW((path + L"\\*").c_str(), &fd);
     if (h != INVALID_HANDLE_VALUE) {
         do {
@@ -133,9 +138,38 @@ static void DeleteTree(const std::wstring &path) {
         } while (FindNextFileW(h, &fd));
         FindClose(h);
     }
-    RemoveDirectoryW(path.c_str());
+    return RemoveDirectoryW(path.c_str()) != 0 || !Exists(path);
 }
 static void MakeDirs(const std::wstring &dir) { SHCreateDirectoryExW(NULL, dir.c_str(), NULL); }
+static bool CopyTreeOverwrite(const std::wstring &src, const std::wstring &dst) {
+    MakeDirs(dst);
+    WIN32_FIND_DATAW fd; HANDLE h = FindFirstFileW((src + L"\\*").c_str(), &fd);
+    if (h == INVALID_HANDLE_VALUE) return false;
+    bool ok = true;
+    do {
+        if (!wcscmp(fd.cFileName, L".") || !wcscmp(fd.cFileName, L"..")) continue;
+        std::wstring s = src + L"\\" + fd.cFileName, d = dst + L"\\" + fd.cFileName;
+        if (fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
+            if (!CopyTreeOverwrite(s, d)) ok = false;
+        } else {
+            SetFileAttributesW(d.c_str(), FILE_ATTRIBUTE_NORMAL);
+            if (!CopyFileW(s.c_str(), d.c_str(), FALSE)) ok = false;
+        }
+    } while (FindNextFileW(h, &fd));
+    FindClose(h);
+    return ok;
+}
+static bool AppNeedsExtract() {
+    if (!Exists(AppDir() + L"\\index.html") || !Exists(AppDir() + L"\\js\\app.js") || !Exists(AppDir() + L"\\css\\styles.css")) return true;
+    HANDLE h = CreateFileW((AppDir() + L"\\.nd_version").c_str(), GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, 0, NULL);
+    if (h == INVALID_HANDLE_VALUE) return true;
+    char buf[128] = {}; DWORD rd = 0;
+    BOOL r = ReadFile(h, buf, sizeof(buf) - 1, &rd, NULL);
+    CloseHandle(h);
+    if (!r || rd == 0) return true;
+    std::string expected = WideToUtf8(APP_VERSION);
+    return std::string(buf, rd) != expected;
+}
 
 // Automatic migration from legacy NotesDesk to NoteDesk
 static void MigrateLegacyData() {
@@ -181,6 +215,7 @@ static void CloseOtherInstances() {
     for (DWORD p : pids) EnumWindows(CloseWindowsOf, (LPARAM)p);
     for (int i = 0; i < 80 && !PidsOf(L"NoteDesk.exe").empty(); i++) Sleep(100);
     for (DWORD p : PidsOf(L"NoteDesk.exe")) { HANDLE h = OpenProcess(PROCESS_TERMINATE | SYNCHRONIZE, FALSE, p); if (h) { TerminateProcess(h, 0); WaitForSingleObject(h, 2000); CloseHandle(h); } }
+    Sleep(250);
 }
 
 static HRESULT Shortcut(const std::wstring &target, const std::wstring &link, const std::wstring &icon) {
@@ -209,7 +244,7 @@ struct PayloadFile { std::string path; uint64_t off; uint64_t size; };
 
 static std::vector<PayloadFile> ReadPayloadIndex(const std::wstring &exe) {
     std::vector<PayloadFile> out;
-    HANDLE f = CreateFileW(exe.c_str(), GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, 0, NULL);
+    HANDLE f = CreateFileW(exe.c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL, OPEN_EXISTING, 0, NULL);
     if (f == INVALID_HANDLE_VALUE) return out;
     LARGE_INTEGER sz; GetFileSizeEx(f, &sz);
     if (sz.QuadPart < 20) { CloseHandle(f); return out; }
@@ -242,7 +277,7 @@ static bool ExtractApp(const std::wstring &exe, const std::wstring &dir) {
     if (files.empty()) return false;
     std::wstring tmp = dir + L".new";
     DeleteTree(tmp); MakeDirs(tmp);
-    HANDLE f = CreateFileW(exe.c_str(), GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, 0, NULL);
+    HANDLE f = CreateFileW(exe.c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL, OPEN_EXISTING, 0, NULL);
     if (f == INVALID_HANDLE_VALUE) return false;
     std::vector<char> buf(1 << 20); bool ok = true;
     for (auto &pf : files) {
@@ -264,8 +299,45 @@ static bool ExtractApp(const std::wstring &exe, const std::wstring &dir) {
     }
     CloseHandle(f);
     if (!ok) { DeleteTree(tmp); return false; }
-    DeleteTree(dir);
-    return MoveFileW(tmp.c_str(), dir.c_str()) != 0;
+
+    {
+        HANDLE vf = CreateFileW((tmp + L"\\.nd_version").c_str(), GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+        if (vf != INVALID_HANDLE_VALUE) {
+            std::string ver = WideToUtf8(APP_VERSION); DWORD wr = 0;
+            WriteFile(vf, ver.data(), (DWORD)ver.size(), &wr, NULL);
+            CloseHandle(vf);
+        }
+    }
+
+    for (int attempt = 0; attempt < 10; ++attempt) {
+        if (DeleteTree(dir) && MoveFileW(tmp.c_str(), dir.c_str())) {
+            return Exists(dir + L"\\index.html");
+        }
+        Sleep(150);
+    }
+
+    bool copied = CopyTreeOverwrite(tmp, dir);
+    DeleteTree(tmp);
+    return copied && Exists(dir + L"\\index.html");
+}
+
+static void RemoveElectronVersion() {
+    std::wstring dir = InstallDir();
+    if (!Exists(dir + L"\\resources") && !Exists(dir + L"\\Uninstall NoteDesk.exe") && !Exists(dir + L"\\chrome_100_percent.pak")) return;
+    DeleteTree(dir + L"\\resources");
+    DeleteTree(dir + L"\\locales");
+    DeleteTree(dir + L"\\swiftshader");
+    WIN32_FIND_DATAW fd; HANDLE h = FindFirstFileW((dir + L"\\*").c_str(), &fd);
+    if (h != INVALID_HANDLE_VALUE) {
+        do {
+            if (fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) continue;
+            if (!_wcsicmp(fd.cFileName, L"NoteDesk.exe")) continue;
+            std::wstring p = dir + L"\\" + fd.cFileName;
+            SetFileAttributesW(p.c_str(), FILE_ATTRIBUTE_NORMAL);
+            DeleteFileW(p.c_str());
+        } while (FindNextFileW(h, &fd));
+        FindClose(h);
+    }
 }
 
 // ---------------------------------------------------------------- DeskHub folder
@@ -300,12 +372,17 @@ static int Uninstall(bool silent) {
 static int Install(const std::wstring &self, bool silent) {
     CloseOtherInstances();
     MigrateLegacyData();
+    RemoveElectronVersion();
     MakeDirs(InstallDir());
-    if (_wcsicmp(self.c_str(), InstalledExe().c_str()) != 0) {
+    if (_wcsicmp(CanonicalPath(self).c_str(), CanonicalPath(InstalledExe()).c_str()) != 0) {
         std::wstring tmp = InstalledExe() + L".new";
         if (!CopyFileW(self.c_str(), tmp.c_str(), FALSE)) { if (!silent) MessageBoxW(NULL, L"Impossibile copiare NoteDesk nella cartella dei programmi.", APP_NAME, MB_ICONERROR); return 2; }
-        DeleteFileW(InstalledExe().c_str());
-        MoveFileW(tmp.c_str(), InstalledExe().c_str());
+        bool moved = false;
+        for (int attempt = 0; attempt < 20; ++attempt) {
+            if (MoveFileExW(tmp.c_str(), InstalledExe().c_str(), MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH)) { moved = true; break; }
+            Sleep(150);
+        }
+        if (!moved) { DeleteFileW(tmp.c_str()); if (!silent) MessageBoxW(NULL, L"Impossibile sostituire l'eseguibile di NoteDesk.", APP_NAME, MB_ICONERROR); return 2; }
     }
     if (!ExtractApp(InstalledExe(), AppDir())) { if (!silent) MessageBoxW(NULL, L"Il file di installazione è incompleto: scaricalo di nuovo.", APP_NAME, MB_ICONERROR); return 3; }
     std::wstring icon = AppDir() + L"\\icons\\NoteDesk.ico";
@@ -390,7 +467,7 @@ static DWORD WINAPI HubLinkThread(LPVOID) {
     while (!g_hubStop) {
         std::wstring rf = HubDir() + L"\\runtime.json";
         std::string text;
-        HANDLE f = CreateFileW(rf.c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, 0, NULL);
+        HANDLE f = CreateFileW(rf.c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL, OPEN_EXISTING, 0, NULL);
         if (f != INVALID_HANDLE_VALUE) {
             DWORD sz = GetFileSize(f, NULL);
             if (sz > 0 && sz < 65536) {
@@ -401,6 +478,13 @@ static DWORD WINAPI HubLinkThread(LPVOID) {
         int port = 0;
         size_t p = text.find("\"port\":");
         if (p != std::string::npos) port = atoi(text.c_str() + p + 7);
+        std::string token;
+        size_t tpos = text.find("\"token\":");
+        if (tpos != std::string::npos) {
+            size_t q1 = text.find('"', tpos + 8);
+            size_t q2 = q1 != std::string::npos ? text.find('"', q1 + 1) : std::string::npos;
+            if (q1 != std::string::npos && q2 != std::string::npos) token = text.substr(q1 + 1, q2 - q1 - 1);
+        }
         if (port <= 0 || port > 65535) {
             for (int i = 0; i < 25 && !g_hubStop; i++) Sleep(200);
             continue;
@@ -414,7 +498,7 @@ static DWORD WINAPI HubLinkThread(LPVOID) {
             continue;
         }
         EnterCriticalSection(&g_hubLock); g_hubSock = s; LeaveCriticalSection(&g_hubLock);
-        std::string hello = "{\"t\":\"hello\",\"app\":\"notedesk\",\"version\":\"" + WideToUtf8(APP_VERSION) + "\"}\n";
+        std::string hello = "{\"t\":\"hello\",\"app\":\"notedesk\",\"version\":\"" + WideToUtf8(APP_VERSION) + "\",\"token\":\"" + JsonEscape(token) + "\"}\n";
         send(s, hello.c_str(), (int)hello.size(), 0);
         std::string buf; char chunk[8192];
         for (;;) {
@@ -462,6 +546,11 @@ static const char *BRIDGE_JS = R"JS(
     takePendingFiles: async () => fetchFiles(await window.__nd_take_pending()),
     onOpenFile: (cb) => { if (typeof cb === 'function') openCbs.push(cb); },
     setFullScreen: (on) => window.__nd_fullscreen(on ? '1' : '0'),
+    records: {
+      all: () => window.__nd_records_all(),
+      write: (filename, content) => window.__nd_records_write(String(filename || ''), String(content || '')),
+      meta: () => window.__nd_hub_meta()
+    },
     updater: {
       check: async () => ({ status: 'hubdesk', available: false, message: 'Gli aggiornamenti si fanno da HubDesk.' }),
       getState: async () => ({ status: 'hubdesk' }), downloadAndInstall: () => window.__nd_open_hubdesk(''),
@@ -498,10 +587,16 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int) {
     wchar_t selfBuf[MAX_PATH]; GetModuleFileNameW(NULL, selfBuf, MAX_PATH);
     std::wstring self = selfBuf;
     if (has(L"--uninstall")) return Uninstall(silent);
-    bool installed = !_wcsicmp(self.c_str(), InstalledExe().c_str());
+    bool installed = !_wcsicmp(CanonicalPath(self).c_str(), CanonicalPath(InstalledExe()).c_str());
     if (!installed || silent || has(L"--install")) return Install(self, silent);
 
+    OleInitialize(NULL);
     MigrateLegacyData();
+
+    if (AppNeedsExtract() && !ExtractApp(self, AppDir())) {
+        MessageBoxW(NULL, L"I file di NoteDesk mancano o non possono essere estratti: reinstalla NoteDesk da HubDesk.", APP_NAME, MB_ICONERROR);
+        return 3;
+    }
 
     for (int i = 1; i < argc; i++) {
         std::wstring a = argv[i], low = a; std::transform(low.begin(), low.end(), low.begin(), ::towlower);
@@ -532,6 +627,11 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int) {
 
     webview::webview w(false, nullptr);
     g_hwnd = (HWND)w.window();
+    if (!g_hwnd || !w.core_webview()) {
+        MessageBoxW(NULL, L"Impossibile avviare Microsoft Edge WebView2 Runtime per NoteDesk.", APP_NAME, MB_ICONERROR);
+        if (mutex) CloseHandle(mutex);
+        return 1;
+    }
     SetWindowSubclass(g_hwnd, NdWndSub, 1, 0);
     SetWindowTextW(g_hwnd, APP_NAME);
 
@@ -549,9 +649,14 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int) {
     if (ICoreWebView2 *core = w.core_webview()) {
         ICoreWebView2_3 *c3 = nullptr;
         if (SUCCEEDED(core->QueryInterface(IID_ICoreWebView2_3, (void **)&c3)) && c3) {
-            c3->SetVirtualHostNameToFolderMapping(APP_HOST, AppDir().c_str(), COREWEBVIEW2_HOST_RESOURCE_ACCESS_KIND_ALLOW);
+            HRESULT hrMap = c3->SetVirtualHostNameToFolderMapping(APP_HOST, AppDir().c_str(), COREWEBVIEW2_HOST_RESOURCE_ACCESS_KIND_ALLOW);
             c3->SetVirtualHostNameToFolderMapping(FILES_HOST, g_filesDir.c_str(), COREWEBVIEW2_HOST_RESOURCE_ACCESS_KIND_ALLOW);
             c3->Release();
+            if (FAILED(hrMap)) {
+                MessageBoxW(g_hwnd, L"Impossibile mappare la cartella dell'app NoteDesk in WebView2.", APP_NAME, MB_ICONERROR);
+                if (mutex) CloseHandle(mutex);
+                return 3;
+            }
         }
     }
 
@@ -618,6 +723,78 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int) {
         if (Exists(hub)) { ShellExecuteW(NULL, L"open", hub.c_str(), NULL, NULL, SW_SHOWNORMAL); return "true"; }
         ShellExecuteW(NULL, L"open", L"https://github.com/Natsvkashii/ClassManager/releases", NULL, NULL, SW_SHOWNORMAL);
         return "false";
+    });
+
+    w.bind("__nd_records_all", [](std::string) -> std::string {
+        std::wstring dir = HubDir() + L"\\records\\notedesk";
+        if (!Exists(dir)) return "[]";
+        std::string out = "[";
+        WIN32_FIND_DATAW fd;
+        HANDLE h = FindFirstFileW((dir + L"\\*.json").c_str(), &fd);
+        if (h != INVALID_HANDLE_VALUE) {
+            bool first = true;
+            do {
+                if (fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) continue;
+                std::wstring p = dir + L"\\" + fd.cFileName;
+                HANDLE rf = CreateFileW(p.c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL, OPEN_EXISTING, 0, NULL);
+                if (rf == INVALID_HANDLE_VALUE) continue;
+                DWORD sz = GetFileSize(rf, NULL);
+                std::string raw;
+                if (sz > 0 && sz < 32 * 1024 * 1024) {
+                    raw.resize(sz);
+                    DWORD rd = 0;
+                    ReadFile(rf, &raw[0], sz, &rd, NULL);
+                    raw.resize(rd);
+                }
+                CloseHandle(rf);
+                if (!first) out += ",";
+                first = false;
+                out += "{\"name\":\"" + JsonEscape(WideToUtf8(fd.cFileName)) + "\",\"raw\":\"" + JsonEscape(raw) + "\"}";
+            } while (FindNextFileW(h, &fd));
+            FindClose(h);
+        }
+        return out + "]";
+    });
+
+    w.bind("__nd_records_write", [](std::string req) -> std::string {
+        std::string fname = ParseJsonArg(req, 0);
+        std::string content = ParseJsonArg(req, 1);
+        if (fname.empty() || fname.find("..") != std::string::npos || fname.find('/') != std::string::npos || fname.find('\\') != std::string::npos) {
+            return "false";
+        }
+        std::wstring dir = HubDir() + L"\\records\\notedesk";
+        MakeDirs(dir);
+        std::wstring dst = dir + L"\\" + Utf8ToWide(fname);
+        std::wstring tmp = dst + L".tmp";
+        HANDLE wf = CreateFileW(tmp.c_str(), GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+        if (wf == INVALID_HANDLE_VALUE) return "false";
+        DWORD wr = 0;
+        BOOL ok = WriteFile(wf, content.data(), (DWORD)content.size(), &wr, NULL);
+        CloseHandle(wf);
+        if (!ok || wr != content.size()) { DeleteFileW(tmp.c_str()); return "false"; }
+        return MoveFileExW(tmp.c_str(), dst.c_str(), MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH) ? "true" : "false";
+    });
+
+    w.bind("__nd_hub_meta", [](std::string) -> std::string {
+        auto readText = [](const std::wstring &p) -> std::string {
+            HANDLE rf = CreateFileW(p.c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL, OPEN_EXISTING, 0, NULL);
+            if (rf == INVALID_HANDLE_VALUE) return "";
+            DWORD sz = GetFileSize(rf, NULL);
+            std::string s;
+            if (sz > 0 && sz < 1024 * 1024) { s.resize(sz); DWORD rd = 0; ReadFile(rf, &s[0], sz, &rd, NULL); s.resize(rd); }
+            CloseHandle(rf);
+            return s;
+        };
+        std::wstring hd = HubDir();
+        std::string settings = readText(hd + L"\\settings.json");
+        std::string peers = readText(hd + L"\\peers.json");
+        std::string rt = readText(hd + L"\\runtime.json");
+        bool connected = false;
+        EnterCriticalSection(&g_hubLock); connected = (g_hubSock != INVALID_SOCKET); LeaveCriticalSection(&g_hubLock);
+        return "{\"connected\":" + std::string(connected ? "true" : "false")
+             + ",\"settingsRaw\":\"" + JsonEscape(settings) + "\""
+             + ",\"peersRaw\":\"" + JsonEscape(peers) + "\""
+             + ",\"runtimeActive\":" + std::string(!rt.empty() ? "true" : "false") + "}";
     });
 
     w.bind("__nd_hub_send", [](std::string req) -> std::string {

@@ -230,6 +230,7 @@ struct ModulePlayerView: View {
     let module: StudyModule
     @State private var showOutlinePopover = false
     @State private var previewActivityId: String? = nil
+    @State private var snapshotItem: ExerciseSnapshotItem? = nil
     /// Exercise scale level (1: 100%, 2: 120%, 3: 140%, 4: 160%).
     @AppStorage("studydesk.exerciseScale") private var exerciseScale = 1
 
@@ -313,8 +314,17 @@ struct ModulePlayerView: View {
             }
 
             ToolbarItemGroup(placement: .automatic) {
-                if let b = store.book(module.book?.id) {
+                if let b = store.bookForModule(module) {
                     GroupSelectorPill(book: b)
+                }
+
+                if let a = current {
+                    Button {
+                        captureExerciseImage(a)
+                    } label: {
+                        Label("Immagine", systemImage: "photo.on.rectangle.angled")
+                    }
+                    .help("Mostra l'esercizio come immagine e copialo negli appunti")
                 }
 
                 HoverableEllipsisMenu {
@@ -332,11 +342,49 @@ struct ModulePlayerView: View {
                 }
             }
         }
+        .sheet(item: $snapshotItem) { item in
+            ExerciseSnapshotSheet(item: item) { snapshotItem = nil }
+        }
+    }
+
+    @MainActor
+    private func captureExerciseImage(_ activity: Activity) {
+        let content = VStack(alignment: .leading, spacing: 16 * scaleFactor) {
+            activityHeader(activity)
+            if let instr = activity.instructions {
+                RichText(instr, moduleId: module.id).italic()
+            }
+            if let media = activity.media, !media.isEmpty {
+                MediaList(moduleId: module.id, media: media)
+            }
+            ForEach(activity.parts) { part in
+                ExercisePartView(
+                    module: module,
+                    activity: activity,
+                    part: part,
+                    initialResult: store.result(module.id, part.id)
+                )
+            }
+        }
+        .padding(28)
+        .frame(width: 920)
+        .background(Color(nsColor: .windowBackgroundColor))
+        .environment(store)
+        .environment(\.colorScheme, scheme)
+        .environment(\.isImageExport, true)
+
+        let renderer = ImageRenderer(content: content)
+        renderer.scale = 2.0
+        if let nsImage = renderer.nsImage {
+            snapshotItem = ExerciseSnapshotItem(image: nsImage, title: activity.title)
+        } else {
+            store.showToast("Impossibile generare l'immagine dell'esercizio")
+        }
     }
 
     private var outline: some View {
         let s = store.stats(module)
-        let parentBook = store.book(module.book?.id) ?? store.books.first { $0.chapters.contains { $0.moduleId == module.id } }
+        let parentBook = store.bookForModule(module)
         let bookChapters = parentBook != nil ? store.chapters(of: parentBook!) : []
         let currentIndex = bookChapters.firstIndex(where: { $0.id == module.id })
         let prevChapter = (currentIndex != nil && currentIndex! > 0) ? bookChapters[currentIndex! - 1] : nil
@@ -344,7 +392,7 @@ struct ModulePlayerView: View {
 
         return VStack(spacing: 0) {
             VStack(alignment: .leading, spacing: 8) {
-                if !store.activeContextLabel.isEmpty, store.module(store.openModuleId)?.book != nil {
+                if !store.activeContextLabel.isEmpty, parentBook != nil {
                     Label(store.activeContextLabel, systemImage: store.activeContext == nil ? "person.fill" : (store.activeContext == AppStore.blankContext ? "doc" : "person.3.fill"))
                         .font(.caption.bold()).foregroundStyle(module.accent)
                 }
@@ -1067,5 +1115,107 @@ struct LiquidGlassIndexButton: View {
                     isHovered = h
                 }
             }
+    }
+}
+
+struct ExerciseSnapshotItem: Identifiable {
+    let id = UUID()
+    let image: NSImage
+    let title: String
+}
+
+struct ExerciseSnapshotSheet: View {
+    let item: ExerciseSnapshotItem
+    let onClose: () -> Void
+    @State private var copied = false
+
+    private var pngData: Data? {
+        guard let tiff = item.image.tiffRepresentation,
+              let rep = NSBitmapImageRep(data: tiff) else { return nil }
+        return rep.representation(using: .png, properties: [:])
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 12) {
+                Image(systemName: "photo.on.rectangle.angled")
+                    .font(.title3)
+                    .foregroundStyle(Theme.accent)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Immagine esercizio").font(.headline)
+                    Text(item.title).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                }
+                Spacer()
+                if copied {
+                    Label("Copiato negli appunti", systemImage: "checkmark.circle.fill")
+                        .font(.caption.bold())
+                        .foregroundStyle(Theme.ok)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 5)
+                        .background(Capsule().fill(Theme.ok.opacity(0.14)))
+                }
+            }
+            .padding(16)
+
+            Divider()
+
+            ScrollView([.vertical, .horizontal]) {
+                Image(nsImage: item.image)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(maxWidth: 820)
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                    .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Color.secondary.opacity(0.2)))
+                    .padding(20)
+            }
+            .frame(minHeight: 380, maxHeight: 620)
+            .background(Color.primary.opacity(0.03))
+
+            Divider()
+
+            HStack(spacing: 10) {
+                Button("Chiudi", action: onClose)
+                Spacer()
+                Button {
+                    savePNG()
+                } label: {
+                    Label("Salva PNG…", systemImage: "square.and.arrow.down")
+                }
+                Button {
+                    copyToClipboard()
+                } label: {
+                    Label("Copia negli appunti", systemImage: "doc.on.clipboard")
+                }
+                .buttonStyle(.borderedProminent)
+            }
+            .padding(16)
+        }
+        .frame(width: 880)
+    }
+
+    private func copyToClipboard() {
+        let pb = NSPasteboard.general
+        pb.clearContents()
+        if let data = pngData {
+            pb.setData(data, forType: .png)
+        }
+        pb.writeObjects([item.image])
+        copied = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
+            copied = false
+        }
+    }
+
+    private func savePNG() {
+        guard let data = pngData else { return }
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [.png]
+        let safe = item.title.replacingOccurrences(of: "/", with: "-")
+        panel.nameFieldStringValue = "\(safe).png"
+        panel.begin { res in
+            if res == .OK, let url = panel.url {
+                try? data.write(to: url)
+            }
+        }
     }
 }

@@ -1,5 +1,10 @@
 # Changelog
 
+## v26.11.2-015 (Beta) – 15 novembre 2026
+- **Selettore Gruppo nei capitoli**: il menu e l'indicatore del gruppo risultano ora visibili su tutti i capitoli appartenenti a un libro (anche quando il modulo non specifica il campo `book` direttamente nel proprio `module.json`).
+- **Player Video**: aggiunto supporto allo schermo intero con scomparsa automatica della barra di navigazione quando il cursore è fermo, qualità video ottimizzata e sottotitoli sincronizzati.
+- **Esercizi**: caselle con risposta multipla evidenziate in verde/rosso alla correzione e nuovo pulsante nella barra in alto a destra per generare l'immagine dell'esercizio e copiarla negli appunti.
+
 ## v26.11.2-004 (Beta) – 10 novembre 2026
 - Trascrizione sincronizzata stabile: eliminato ogni scatto o spostamento orizzontale delle parole durante la riproduzione audio karaoke sia a finestra ridotta che a schermo intero (Spotify style), preservando allineamento tipografico costante senza salti di larghezza.
 - Integrazione completa con la nuova applicazione NoteDesk e rimozione del vecchio codice lavagna monolitico non più utilizzato.

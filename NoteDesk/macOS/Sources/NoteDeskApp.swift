@@ -45,8 +45,9 @@ struct NoteDeskApp: App {
                         title: "Lavagna Live",
                         coverColorHex: "#8E44AD",
                         template: .chalkboard,
-                        paperColor: .dark,
+                        paperColor: .white,
                         isLandscape: true,
+                        pageFormat: .widescreen16x9,
                         isSharedWhiteboard: true
                     )
                     store.selectDocument(doc)
@@ -162,8 +163,9 @@ struct NoteDeskApp: App {
                     title: "Lavagna Live",
                     coverColorHex: "#8E44AD",
                     template: .chalkboard,
-                    paperColor: .dark,
+                    paperColor: .white,
                     isLandscape: true,
+                    pageFormat: .widescreen16x9,
                     isSharedWhiteboard: true
                 )
                 store.selectDocument(doc)

@@ -27,7 +27,10 @@ public struct CanvasContainerView: View {
     @State private var showingThicknessPopover = false
     @State private var showingEraserPopover = false
     @State private var showingShapesPopover = false
+    @State private var showingLassoPopover = false
     @State private var showingStickersPopover = false
+    @State private var showingTextPopover = false
+    @State private var showingLaserPopover = false
     @State private var showingColorPickerPopover = false
     @State private var showingThumbnailsSheet = false
     @State private var showingTemplatePicker = false
@@ -59,7 +62,10 @@ public struct CanvasContainerView: View {
                 showingThicknessPopover: $showingThicknessPopover,
                 showingEraserPopover: $showingEraserPopover,
                 showingShapesPopover: $showingShapesPopover,
+                showingLassoPopover: $showingLassoPopover,
                 showingStickersPopover: $showingStickersPopover,
+                showingTextPopover: $showingTextPopover,
+                showingLaserPopover: $showingLaserPopover,
                 showingColorPickerPopover: $showingColorPickerPopover
             )
 
@@ -190,6 +196,9 @@ struct TopDocumentBar: View {
                                 if !editedTitle.trimmingCharacters(in: .whitespaces).isEmpty {
                                     store.activeDocument?.title = editedTitle
                                     store.saveActiveDocument()
+                                    if let d = store.activeDocument {
+                                        NoteDeskHubIntegration.shared.broadcastDocSnapshot(d)
+                                    }
                                 }
                                 isEditingTitle = false
                             })
@@ -396,7 +405,10 @@ struct InstrumentDockView: View {
     @Binding var showingThicknessPopover: Bool
     @Binding var showingEraserPopover: Bool
     @Binding var showingShapesPopover: Bool
+    @Binding var showingLassoPopover: Bool
     @Binding var showingStickersPopover: Bool
+    @Binding var showingTextPopover: Bool
+    @Binding var showingLaserPopover: Bool
     @Binding var showingColorPickerPopover: Bool
 
     var body: some View {
@@ -520,9 +532,17 @@ struct InstrumentDockView: View {
                         tool: .lasso,
                         isSelected: store.selectedTool == .lasso,
                         badgeText: "Lazo",
-                        fixedWidth: 46
+                        showChevron: true,
+                        fixedWidth: 50
                     ) {
-                        store.selectedTool = .lasso
+                        if store.selectedTool == .lasso {
+                            showingLassoPopover.toggle()
+                        } else {
+                            store.selectedTool = .lasso
+                        }
+                    }
+                    .popover(isPresented: $showingLassoPopover, arrowEdge: .bottom) {
+                        LassoPopoverView(store: store)
                     }
 
                     // 8. Stickers & Elements
@@ -556,9 +576,17 @@ struct InstrumentDockView: View {
                         tool: .text,
                         isSelected: store.selectedTool == .text,
                         badgeText: "Testo",
-                        fixedWidth: 48
+                        showChevron: true,
+                        fixedWidth: 52
                     ) {
-                        store.selectedTool = .text
+                        if store.selectedTool == .text {
+                            showingTextPopover.toggle()
+                        } else {
+                            store.selectedTool = .text
+                        }
+                    }
+                    .popover(isPresented: $showingTextPopover, arrowEdge: .bottom) {
+                        TextToolPopoverView(store: store)
                     }
 
                     // 11. Laser pointer
@@ -566,9 +594,17 @@ struct InstrumentDockView: View {
                         tool: .laser,
                         isSelected: store.selectedTool == .laser,
                         badgeText: "Laser",
-                        fixedWidth: 48
+                        showChevron: true,
+                        fixedWidth: 52
                     ) {
-                        store.selectedTool = .laser
+                        if store.selectedTool == .laser {
+                            showingLaserPopover.toggle()
+                        } else {
+                            store.selectedTool = .laser
+                        }
+                    }
+                    .popover(isPresented: $showingLaserPopover, arrowEdge: .bottom) {
+                        LaserPopoverView(store: store)
                     }
                 }
 
@@ -865,7 +901,7 @@ public struct SinglePageCanvasItemView: View {
     public var body: some View {
         if document.pages.indices.contains(pageIndex) {
             let page = document.pages[pageIndex]
-            let pageSize = page.isLandscape ? PDFManager.a4Landscape : PDFManager.a4Portrait
+            let pageSize = page.logicalSize
 
             ZStack(alignment: .topLeading) {
                 // LAYER 1: Paper Background or Rendered PDF Page
@@ -927,6 +963,7 @@ public struct SinglePageCanvasItemView: View {
                 // LAYER 5: Active drawing gesture / Lasso overlay / Laser / In-progress Shape
                 ActiveGestureOverlay(
                     store: store,
+                    pageIndex: pageIndex,
                     currentPoints: currentStrokePoints,
                     lassoPoints: lassoSelectionPoints,
                     laserPoints: laserPoints,
@@ -935,6 +972,7 @@ public struct SinglePageCanvasItemView: View {
                 )
                 .frame(width: pageSize.width * store.zoomScale, height: pageSize.height * store.zoomScale)
             }
+            .id("page-\(pageIndex)-\(store.remoteSyncCounter)")
             .frame(width: pageSize.width * store.zoomScale, height: pageSize.height * store.zoomScale, alignment: .topLeading)
             .background(Color.white)
             .clipShape(RoundedRectangle(cornerRadius: 4))
@@ -978,9 +1016,9 @@ public struct SinglePageCanvasItemView: View {
 
     private func ensureLaserTimer() {
         guard laserTimer == nil else { return }
+        let maxAge: TimeInterval = max(0.8, store.laserFadeDuration)
         laserTimer = Timer.scheduledTimer(withTimeInterval: 1.0 / 30.0, repeats: true) { _ in
             let now = Date().timeIntervalSince1970
-            let maxAge: TimeInterval = 2.2
             laserPoints.removeAll { now - $0.timestamp > maxAge }
             if laserPoints.isEmpty {
                 laserTimer?.invalidate()
@@ -1016,6 +1054,7 @@ public struct SinglePageCanvasItemView: View {
                 if store.selectedTool == .laser {
                     laserPoints.append(NoteStrokePoint(x: pt.x, y: pt.y, pressure: 1.0, timestamp: Date().timeIntervalSince1970))
                     ensureLaserTimer()
+                    NoteDeskHubIntegration.shared.broadcastLaser(x: pt.x, y: pt.y, docId: store.activeDocument?.id ?? "", pageIndex: pageIndex)
                     return
                 }
 
@@ -1094,7 +1133,9 @@ public struct SinglePageCanvasItemView: View {
                             )
                             store.activeDocument?.pages[pageIndex].shapes.append(newShape)
                             store.selectedShapeId = newShape.id
+                            store.isDocumentDirty = true
                             store.saveActiveDocument()
+                            NoteDeskHubIntegration.shared.broadcastShape(newShape, docId: store.activeDocument?.id ?? "", pageIndex: pageIndex)
                         }
                     }
                     inProgressShapeStart = nil
@@ -1126,7 +1167,9 @@ public struct SinglePageCanvasItemView: View {
                        existingBoxes[activeIdx].text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                         store.activeDocument?.pages[pageIndex].textBoxes[activeIdx].x = max(10, endPt.x - 20)
                         store.activeDocument?.pages[pageIndex].textBoxes[activeIdx].y = max(10, endPt.y - 20)
+                        store.isDocumentDirty = true
                         store.saveActiveDocument()
+                        NoteDeskHubIntegration.shared.broadcastTextBox(store.activeDocument!.pages[pageIndex].textBoxes[activeIdx], docId: store.activeDocument?.id ?? "", pageIndex: pageIndex)
                         return
                     }
 
@@ -1144,14 +1187,16 @@ public struct SinglePageCanvasItemView: View {
                             width: 240,
                             height: 60,
                             text: "",
-                            fontSize: 16,
+                            fontSize: store.textDefaultFontSize,
                             colorHex: store.selectedColorHex,
                             fontName: "Helvetica Neue",
                             alignment: "left"
                         )
                         store.activeDocument?.pages[pageIndex].textBoxes.append(newBox)
                         activeEditingTextBoxId = newBox.id
+                        store.isDocumentDirty = true
                         store.saveActiveDocument()
+                        NoteDeskHubIntegration.shared.broadcastTextBox(newBox, docId: store.activeDocument?.id ?? "", pageIndex: pageIndex)
                     }
                     return
                 }
@@ -1202,7 +1247,9 @@ public struct SinglePageCanvasItemView: View {
         )
 
         store.activeDocument?.pages[pageIndex].strokes.append(stroke)
+        store.isDocumentDirty = true
         store.saveActiveDocument()
+        NoteDeskHubIntegration.shared.broadcastStroke(stroke, docId: store.activeDocument?.id ?? "", pageIndex: pageIndex)
     }
 
     private func handleEraserDrag(at point: CGPoint) {
@@ -1221,7 +1268,9 @@ public struct SinglePageCanvasItemView: View {
         if remaining.count != doc.pages[pageIndex].strokes.count {
             store.recordUndoState()
             store.activeDocument?.pages[pageIndex].strokes = remaining
+            store.isDocumentDirty = true
             store.saveActiveDocument()
+            NoteDeskHubIntegration.shared.broadcastPageStrokes(remaining, docId: doc.id, pageIndex: pageIndex)
         }
     }
 }
@@ -1673,6 +1722,7 @@ struct InteractiveShapeView: View {
             modifier(&updated)
             store.activeDocument?.pages[pageIndex].shapes[idx] = updated
             store.saveActiveDocument()
+            NoteDeskHubIntegration.shared.broadcastShape(updated, docId: doc.id, pageIndex: pageIndex)
         }
     }
 }
@@ -1780,6 +1830,9 @@ struct ShapeMiniToolbar: View {
                 store.activeDocument?.pages[pageIndex].shapes.removeAll { $0.id == shape.id }
                 store.selectedShapeId = nil
                 store.saveActiveDocument()
+                if let doc = store.activeDocument {
+                    NoteDeskHubIntegration.shared.broadcastShapeDelete(shapeId: shape.id, docId: doc.id, pageIndex: pageIndex)
+                }
             }) {
                 Image(systemName: "trash")
                     .font(.system(size: 11))
@@ -1813,6 +1866,7 @@ struct ShapeMiniToolbar: View {
             modifier(&updated)
             store.activeDocument?.pages[pageIndex].shapes[idx] = updated
             store.saveActiveDocument()
+            NoteDeskHubIntegration.shared.broadcastShape(updated, docId: doc.id, pageIndex: pageIndex)
         }
     }
 }
@@ -2301,6 +2355,7 @@ struct InteractiveTableView: View {
 
 struct ActiveGestureOverlay: View {
     @Bindable var store: NotesDocumentStore
+    var pageIndex: Int = 0
     let currentPoints: [NoteStrokePoint]
     let lassoPoints: [CGPoint]
     let laserPoints: [NoteStrokePoint]
@@ -2412,7 +2467,8 @@ struct ActiveGestureOverlay: View {
             // Laser pointer glowing trail (Semi-Transparent & Gradual Smooth Fade-Out)
             if !laserPoints.isEmpty {
                 let now = Date().timeIntervalSince1970
-                let maxAge: TimeInterval = 2.2
+                let maxAge: TimeInterval = max(0.8, store.laserFadeDuration)
+                let baseCol = Color(hex: store.laserColorHex)
 
                 if laserPoints.count >= 2 {
                     for i in 0..<(laserPoints.count - 1) {
@@ -2428,11 +2484,11 @@ struct ActiveGestureOverlay: View {
                             seg.addLine(to: CGPoint(x: p2.x, y: p2.y))
 
                             // Outer halo
-                            context.stroke(seg, with: .color(Color.red.opacity(0.18 * fade)), style: StrokeStyle(lineWidth: 14, lineCap: .round, lineJoin: .round))
+                            context.stroke(seg, with: .color(baseCol.opacity(0.18 * fade)), style: StrokeStyle(lineWidth: 14, lineCap: .round, lineJoin: .round))
                             // Mid glow
-                            context.stroke(seg, with: .color(Color(red: 1.0, green: 0.2, blue: 0.2).opacity(0.32 * fade)), style: StrokeStyle(lineWidth: 7, lineCap: .round, lineJoin: .round))
+                            context.stroke(seg, with: .color(baseCol.opacity(0.32 * fade)), style: StrokeStyle(lineWidth: 7, lineCap: .round, lineJoin: .round))
                             // Core line
-                            context.stroke(seg, with: .color(Color(red: 1.0, green: 0.15, blue: 0.15).opacity(0.48 * fade)), style: StrokeStyle(lineWidth: 3.5, lineCap: .round, lineJoin: .round))
+                            context.stroke(seg, with: .color(baseCol.opacity(0.48 * fade)), style: StrokeStyle(lineWidth: 3.5, lineCap: .round, lineJoin: .round))
                         }
                     }
                 }
@@ -2447,9 +2503,25 @@ struct ActiveGestureOverlay: View {
                         let tipRect = CGRect(x: last.x - r, y: last.y - r, width: r * 2, height: r * 2)
                         let centerRect = CGRect(x: last.x - 2.5, y: last.y - 2.5, width: 5, height: 5)
 
-                        context.fill(Path(ellipseIn: tipRect), with: .color(Color.red.opacity(0.45 * tipFade)))
+                        context.fill(Path(ellipseIn: tipRect), with: .color(baseCol.opacity(0.45 * tipFade)))
                         context.fill(Path(ellipseIn: centerRect), with: .color(Color.white.opacity(0.55 * tipFade)))
                     }
+                }
+            }
+
+            // Remote peer laser pointer (Smooth semi-transparent glowing dot)
+            if let remotePt = store.remoteLaserPoint, store.remoteLaserPageIndex == pageIndex {
+                let age = Date().timeIntervalSince1970 - store.remoteLaserTimestamp
+                if age < 2.5 {
+                    let fade = max(0.0, 1.0 - (age / 2.5))
+                    let r: CGFloat = 8.0
+                    let glowRect = CGRect(x: remotePt.x - r * 1.8, y: remotePt.y - r * 1.8, width: r * 3.6, height: r * 3.6)
+                    let tipRect = CGRect(x: remotePt.x - r, y: remotePt.y - r, width: r * 2, height: r * 2)
+                    let centerRect = CGRect(x: remotePt.x - 2.5, y: remotePt.y - 2.5, width: 5, height: 5)
+
+                    context.fill(Path(ellipseIn: glowRect), with: .color(Color.purple.opacity(0.25 * fade)))
+                    context.fill(Path(ellipseIn: tipRect), with: .color(Color(red: 0.7, green: 0.2, blue: 1.0).opacity(0.55 * fade)))
+                    context.fill(Path(ellipseIn: centerRect), with: .color(Color.white.opacity(0.75 * fade)))
                 }
             }
         }
@@ -3232,7 +3304,7 @@ struct ShapesPopoverView: View {
     private func insertShapeAtCenter(_ shape: ShapeKind) {
         guard let doc = store.activeDocument, doc.pages.indices.contains(store.activePageIndex) else { return }
         let page = doc.pages[store.activePageIndex]
-        let pageSize = page.isLandscape ? PDFManager.a4Landscape : PDFManager.a4Portrait
+        let pageSize = page.logicalSize
         let shapeW: Double = (shape == .line || shape == .arrow) ? 220 : 180
         let shapeH: Double = (shape == .line || shape == .arrow) ? 80 : 120
         let newShape = NoteShapeObject(
@@ -3247,6 +3319,7 @@ struct ShapesPopoverView: View {
         store.activeDocument?.pages[store.activePageIndex].shapes.append(newShape)
         store.selectedShapeId = newShape.id
         store.saveActiveDocument()
+        NoteDeskHubIntegration.shared.broadcastShape(newShape, docId: doc.id, pageIndex: store.activePageIndex)
     }
 }
 
@@ -3345,35 +3418,170 @@ struct ColorPickerPopoverView: View {
     }
 }
 
+// MARK: - Lasso, Text & Laser Tool Popovers
+
+struct LassoPopoverView: View {
+    @Bindable var store: NotesDocumentStore
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("PROPRIETÀ LAZO")
+                .font(.system(size: 11, weight: .bold))
+                .foregroundColor(.secondary)
+
+            Toggle("Seleziona Tratti", isOn: $store.lassoSelectStrokes)
+                .toggleStyle(.switch)
+                .font(.system(size: 12))
+            Toggle("Seleziona Caselle di Testo", isOn: $store.lassoSelectTexts)
+                .toggleStyle(.switch)
+                .font(.system(size: 12))
+            Toggle("Seleziona Forme", isOn: $store.lassoSelectShapes)
+                .toggleStyle(.switch)
+                .font(.system(size: 12))
+        }
+        .padding(14)
+        .frame(width: 240)
+    }
+}
+
+struct TextToolPopoverView: View {
+    @Bindable var store: NotesDocumentStore
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("STILE TESTO PREDEFINITO")
+                .font(.system(size: 11, weight: .bold))
+                .foregroundColor(.secondary)
+
+            VStack(alignment: .leading, spacing: 4) {
+                HStack {
+                    Text("Dimensione Font")
+                        .font(.system(size: 12, weight: .medium))
+                    Spacer()
+                    Text("\(Int(store.textDefaultFontSize)) pt")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundColor(.secondary)
+                }
+                Slider(value: $store.textDefaultFontSize, in: 10...42, step: 1)
+            }
+
+            HStack(spacing: 6) {
+                ForEach([12.0, 16.0, 22.0, 28.0], id: \.self) { sz in
+                    Button("\(Int(sz))pt") {
+                        store.textDefaultFontSize = sz
+                    }
+                    .buttonStyle(.bordered)
+                }
+            }
+        }
+        .padding(14)
+        .frame(width: 245)
+    }
+}
+
+struct LaserPopoverView: View {
+    @Bindable var store: NotesDocumentStore
+
+    private let laserColors = ["#EF4444", "#2563EB", "#10B981", "#F59E0B", "#A855F7"]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("PUNTATORE LASER")
+                .font(.system(size: 11, weight: .bold))
+                .foregroundColor(.secondary)
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Colore Fascio")
+                    .font(.system(size: 11, weight: .medium))
+                HStack(spacing: 8) {
+                    ForEach(laserColors, id: \.self) { hex in
+                        Button(action: { store.laserColorHex = hex }) {
+                            Circle()
+                                .fill(Color(hex: hex))
+                                .frame(width: 22, height: 22)
+                                .overlay(
+                                    Circle()
+                                        .stroke(store.laserColorHex == hex ? Color.primary : Color.clear, lineWidth: 2)
+                                        .padding(-2)
+                                )
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+
+            VStack(alignment: .leading, spacing: 4) {
+                HStack {
+                    Text("Dissolvenza graduale")
+                        .font(.system(size: 12, weight: .medium))
+                    Spacer()
+                    Text(String(format: "%.1fs", store.laserFadeDuration))
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundColor(.secondary)
+                }
+                Slider(value: $store.laserFadeDuration, in: 1.0...6.0, step: 0.2)
+            }
+        }
+        .padding(14)
+        .frame(width: 245)
+    }
+}
+
 // MARK: - Template Picker Sheet
 
 struct TemplatePickerSheet: View {
     @Bindable var store: NotesDocumentStore
     @Environment(\.dismiss) var dismiss
 
-    var body: some View {
-        VStack(spacing: 16) {
-            Text("Modelli di Carta")
-                .font(.system(size: 16, weight: .bold))
+    var currentPage: NotePage? {
+        guard let doc = store.activeDocument, doc.pages.indices.contains(store.activePageIndex) else { return nil }
+        return doc.pages[store.activePageIndex]
+    }
 
-            LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 3), spacing: 12) {
+    private func applyPageUpdate(_ update: (inout NotePage) -> Void) {
+        guard let doc = store.activeDocument, doc.pages.indices.contains(store.activePageIndex) else { return }
+        store.activeDocument?.pages[store.activePageIndex] = {
+            var p = doc.pages[store.activePageIndex]
+            update(&p)
+            return p
+        }()
+        store.saveActiveDocument(forcePublish: true)
+        if let updated = store.activeDocument, updated.pages.indices.contains(store.activePageIndex) {
+            NoteDeskHubIntegration.shared.broadcastPageStyle(updated.pages[store.activePageIndex], docId: updated.id, pageIndex: store.activePageIndex)
+        }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack {
+                Text("Modello, Formato e Sfondo")
+                    .font(.system(size: 16, weight: .bold))
+                Spacer()
+                Button("Chiudi") { dismiss() }
+                    .buttonStyle(.borderedProminent)
+            }
+
+            Text("Modello di Pagina")
+                .font(.system(size: 11, weight: .bold))
+                .foregroundColor(.secondary)
+
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 4), spacing: 8) {
                 ForEach(PaperTemplate.allCases) { templ in
+                    let active = currentPage?.template == templ
                     Button(action: {
-                        if let doc = store.activeDocument, doc.pages.indices.contains(store.activePageIndex) {
-                            store.activeDocument?.pages[store.activePageIndex].template = templ
-                            store.saveActiveDocument()
-                        }
-                        dismiss()
+                        applyPageUpdate { $0.template = templ }
                     }) {
-                        VStack(spacing: 6) {
+                        VStack(spacing: 5) {
                             Image(systemName: templ.iconName)
-                                .font(.system(size: 24))
-                                .foregroundColor(.blue)
+                                .font(.system(size: 20))
+                                .foregroundColor(active ? .white : .blue)
                             Text(templ.title)
-                                .font(.system(size: 12, weight: .medium))
+                                .font(.system(size: 11, weight: .medium))
+                                .foregroundColor(active ? .white : .primary)
                         }
-                        .frame(width: 90, height: 75)
-                        .background(Color.gray.opacity(0.08))
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 62)
+                        .background(active ? Color.blue : Color.gray.opacity(0.1))
                         .cornerRadius(8)
                     }
                     .buttonStyle(.plain)
@@ -3382,40 +3590,73 @@ struct TemplatePickerSheet: View {
 
             Divider()
 
-            HStack {
-                Text("Colore Carta:")
-                    .font(.system(size: 12, weight: .medium))
-                ForEach(PaperColor.allCases) { pc in
+            Text("Formato e Orientamento")
+                .font(.system(size: 11, weight: .bold))
+                .foregroundColor(.secondary)
+
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 3), spacing: 8) {
+                ForEach(PageFormat.allCases) { fmt in
+                    let active = currentPage?.pageFormat == fmt
                     Button(action: {
-                        if let doc = store.activeDocument, doc.pages.indices.contains(store.activePageIndex) {
-                            store.activeDocument?.pages[store.activePageIndex].paperColor = pc
-                            store.saveActiveDocument()
+                        applyPageUpdate {
+                            $0.pageFormat = fmt
+                            if fmt == .widescreen16x9 || fmt == .board4x3 { $0.isLandscape = true }
                         }
                     }) {
-                        HStack(spacing: 4) {
-                            Circle()
-                                .fill(pc.swiftUIColor)
-                                .frame(width: 14, height: 14)
-                                .overlay(Circle().stroke(Color.gray.opacity(0.3), lineWidth: 1))
-                            Text(pc.title)
-                                .font(.system(size: 12))
-                        }
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(Color.gray.opacity(0.1))
-                        .cornerRadius(6)
+                        Text(fmt.title)
+                            .font(.system(size: 11, weight: active ? .bold : .medium))
+                            .foregroundColor(active ? .white : .primary)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 6)
+                            .background(active ? Color.blue : Color.gray.opacity(0.1))
+                            .cornerRadius(6)
                     }
                     .buttonStyle(.plain)
                 }
             }
 
-            Button("Chiudi") {
-                dismiss()
+            HStack(spacing: 8) {
+                let isLand = currentPage?.isLandscape ?? false
+                Button("Verticale") { applyPageUpdate { $0.isLandscape = false } }
+                    .buttonStyle(.bordered)
+                    .tint(!isLand ? .blue : .secondary)
+                Button("Orizzontale") { applyPageUpdate { $0.isLandscape = true } }
+                    .buttonStyle(.bordered)
+                    .tint(isLand ? .blue : .secondary)
             }
-            .buttonStyle(.borderedProminent)
+
+            Divider()
+
+            Text("Colore Sfondo / Lavagna")
+                .font(.system(size: 11, weight: .bold))
+                .foregroundColor(.secondary)
+
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 3), spacing: 8) {
+                ForEach(PaperColor.allCases) { pc in
+                    let active = currentPage?.paperColor == pc
+                    Button(action: { applyPageUpdate { $0.paperColor = pc } }) {
+                        HStack(spacing: 5) {
+                            Circle()
+                                .fill(pc.swiftUIColor)
+                                .frame(width: 14, height: 14)
+                                .overlay(Circle().stroke(Color.gray.opacity(0.35), lineWidth: 1))
+                            Text(pc.title)
+                                .font(.system(size: 11, weight: active ? .bold : .regular))
+                                .lineLimit(1)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 6)
+                        .background(active ? Color.blue.opacity(0.18) : Color.gray.opacity(0.1))
+                        .overlay(RoundedRectangle(cornerRadius: 6).stroke(active ? Color.blue : Color.clear, lineWidth: 1.5))
+                        .cornerRadius(6)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
         }
-        .padding(24)
-        .frame(width: 380)
+        .padding(22)
+        .frame(width: 440)
     }
 }
 

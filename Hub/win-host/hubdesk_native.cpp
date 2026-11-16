@@ -39,6 +39,7 @@
 #include <thread>
 #include <functional>
 #include <cstdint>
+#include <atomic>
 
 #include "webview.h"
 
@@ -393,9 +394,18 @@ static void TcpReader(int id) {
     }).detach();
 }
 static std::string TcpListen(int port, bool loopback) {
-    SOCKET s = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP); if (s == INVALID_SOCKET) return "null";
+    SOCKET s = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    if (s == INVALID_SOCKET) {
+        TcpEvent("{\"ev\":\"log\",\"msg\":\"Rete: errore creazione socket TCP (" + std::to_string(WSAGetLastError()) + ")\"}");
+        return "null";
+    }
     sockaddr_in a = {}; a.sin_family = AF_INET; a.sin_port = htons((u_short)port); a.sin_addr.s_addr = htonl(loopback ? INADDR_LOOPBACK : INADDR_ANY);
-    if (bind(s, (sockaddr *)&a, sizeof(a)) != 0 || listen(s, 16) != 0) { closesocket(s); return "null"; }
+    if (bind(s, (sockaddr *)&a, sizeof(a)) != 0 || listen(s, 16) != 0) {
+        int err = WSAGetLastError();
+        closesocket(s);
+        TcpEvent("{\"ev\":\"log\",\"msg\":\"Rete: errore ascolto TCP (" + std::to_string(err) + ")\"}");
+        return "null";
+    }
     int len = sizeof(a); getsockname(s, (sockaddr *)&a, &len);
     int sid = TcpAdd(s), real = ntohs(a.sin_port);
     std::thread([sid]() {
@@ -414,13 +424,36 @@ static std::string TcpListen(int port, bool loopback) {
 static int TcpConnect(const std::string &host, int port) {
     std::string cleanHost = host;
     while (!cleanHost.empty() && cleanHost.back() == '.') cleanHost.pop_back();
-    addrinfo hints = {}, *res = nullptr; hints.ai_family = AF_INET; hints.ai_socktype = SOCK_STREAM;
+    if (cleanHost.empty() || port <= 0) return -1;
+    addrinfo hints = {}, *res = nullptr; hints.ai_family = AF_UNSPEC; hints.ai_socktype = SOCK_STREAM;
     if (getaddrinfo(cleanHost.c_str(), std::to_string(port).c_str(), &hints, &res) != 0 || !res) return -1;
-    SOCKET s = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
-    bool ok = s != INVALID_SOCKET && connect(s, res->ai_addr, (int)res->ai_addrlen) == 0;
+    SOCKET connected = INVALID_SOCKET;
+    for (addrinfo *rp = res; rp; rp = rp->ai_next) {
+        SOCKET s = socket(rp->ai_family, rp->ai_socktype, rp->ai_protocol);
+        if (s == INVALID_SOCKET) continue;
+        u_long nb = 1;
+        ioctlsocket(s, FIONBIO, &nb);
+        int rc = connect(s, rp->ai_addr, (int)rp->ai_addrlen);
+        bool ok = (rc == 0);
+        if (!ok && WSAGetLastError() == WSAEWOULDBLOCK) {
+            fd_set wfds, efds; FD_ZERO(&wfds); FD_ZERO(&efds); FD_SET(s, &wfds); FD_SET(s, &efds);
+            timeval tv = {4, 0};
+            if (select(0, NULL, &wfds, &efds, &tv) > 0 && FD_ISSET(s, &wfds) && !FD_ISSET(s, &efds)) {
+                int err = 0; int elen = sizeof(err);
+                if (getsockopt(s, SOL_SOCKET, SO_ERROR, (char *)&err, &elen) == 0 && err == 0) ok = true;
+            }
+        }
+        if (ok) {
+            u_long blk = 0;
+            ioctlsocket(s, FIONBIO, &blk);
+            connected = s;
+            break;
+        }
+        closesocket(s);
+    }
     freeaddrinfo(res);
-    if (!ok) { if (s != INVALID_SOCKET) closesocket(s); return -1; }
-    return TcpAdd(s);
+    if (connected == INVALID_SOCKET) return -1;
+    return TcpAdd(connected);
 }
 static bool TcpSend(int id, const std::string &text) {
     SOCKET s = TcpGet(id); if (s == INVALID_SOCKET) return false;
@@ -431,6 +464,7 @@ static bool TcpSend(int id, const std::string &text) {
 // ---------------------------------------------------------------- mDNS (_deskhub._tcp, same as Bonjour on the Mac and bonjour-service)
 // __hd_mdns_register(name, port, id, version, platform); __hd_mdns_unregister(); __hd_mdns_browse() (restarts the search).
 // Events: window.__hd_tcp_on({ev:'found', name, host, addr, port, txt:{id,v,p}}) and {ev:'lost', name}.
+static std::mutex g_mdnsLock;
 static DNS_SERVICE_REGISTER_REQUEST g_reg = {};
 static PDNS_SERVICE_INSTANCE g_regInst = nullptr;
 static PDNS_SERVICE_CANCEL g_browseCancel = nullptr;
@@ -438,7 +472,13 @@ struct ResolveCtx {
     wchar_t *query;
     DNS_SERVICE_CANCEL cancel;
 };
-static VOID WINAPI MdnsRegistered(DWORD, PVOID, PDNS_SERVICE_INSTANCE inst) { if (inst) DnsServiceFreeInstance(inst); }
+static VOID WINAPI MdnsRegistered(DWORD status, PVOID, PDNS_SERVICE_INSTANCE inst) {
+    if (status != ERROR_SUCCESS) {
+        TcpEvent("{\"ev\":\"log\",\"msg\":\"mDNS registrazione stato " + std::to_string(status) + " (uso fallback LAN)\"}");
+    }
+    std::lock_guard<std::mutex> l(g_mdnsLock);
+    if (inst && inst != g_regInst) DnsServiceFreeInstance(inst);
+}
 static VOID WINAPI MdnsResolved(DWORD status, PVOID rawCtx, PDNS_SERVICE_INSTANCE inst) {
     ResolveCtx *ctx = (ResolveCtx *)rawCtx;
     if (status == ERROR_SUCCESS && inst) {
@@ -446,19 +486,60 @@ static VOID WINAPI MdnsResolved(DWORD status, PVOID rawCtx, PDNS_SERVICE_INSTANC
         for (DWORD i = 0; i < inst->dwPropertyCount; i++) txt += (i ? "," : "") + Q(U(inst->keys[i])) + ":" + Q(U(inst->values[i] ? inst->values[i] : L""));
         txt += "}";
         char ip[64] = "";
+        int bestScore = 0;
+        auto considerAddr = [&](const char *cand, int family) {
+            if (!cand || !cand[0]) return;
+            int score = 0;
+            if (family == AF_INET) {
+                if (strncmp(cand, "127.", 4) == 0 || strcmp(cand, "0.0.0.0") == 0) return;
+                if (strncmp(cand, "169.254.", 8) == 0) {
+                    score = 1;
+                } else if (strncmp(cand, "192.168.", 8) == 0 || strncmp(cand, "10.", 3) == 0 ||
+                           (strncmp(cand, "172.", 4) == 0 && atoi(cand + 4) >= 16 && atoi(cand + 4) <= 31)) {
+                    score = 4;
+                } else {
+                    score = 3;
+                }
+            } else if (family == AF_INET6) {
+                if (strncmp(cand, "fe80", 4) == 0 || strcmp(cand, "::1") == 0 || strcmp(cand, "::") == 0) return;
+                score = 2;
+            }
+            if (score > bestScore) {
+                bestScore = score;
+                snprintf(ip, sizeof(ip), "%s", cand);
+            }
+        };
         if (inst->ip4Address) {
-            in_addr a; a.s_addr = *inst->ip4Address; inet_ntop(AF_INET, &a, ip, sizeof(ip));
-        } else if (inst->pszHostName) {
+            char buf[64] = "";
+            in_addr a; a.s_addr = *inst->ip4Address;
+            inet_ntop(AF_INET, &a, buf, sizeof(buf));
+            considerAddr(buf, AF_INET);
+        }
+        if (bestScore < 4 && inst->pszHostName) {
             std::wstring hostName = inst->pszHostName;
             while (!hostName.empty() && hostName.back() == L'.') hostName.pop_back();
             ADDRINFOW hints = {}, *res = nullptr;
-            hints.ai_family = AF_INET;
+            hints.ai_family = AF_UNSPEC;
             hints.ai_socktype = SOCK_STREAM;
             if (GetAddrInfoW(hostName.c_str(), NULL, &hints, &res) == 0 && res) {
-                sockaddr_in *sin = (sockaddr_in *)res->ai_addr;
-                inet_ntop(AF_INET, &sin->sin_addr, ip, sizeof(ip));
+                for (ADDRINFOW *rp = res; rp; rp = rp->ai_next) {
+                    char buf[64] = "";
+                    if (rp->ai_family == AF_INET) {
+                        inet_ntop(AF_INET, &((sockaddr_in *)rp->ai_addr)->sin_addr, buf, sizeof(buf));
+                        considerAddr(buf, AF_INET);
+                    } else if (rp->ai_family == AF_INET6) {
+                        inet_ntop(AF_INET6, &((sockaddr_in6 *)rp->ai_addr)->sin6_addr, buf, sizeof(buf));
+                        considerAddr(buf, AF_INET6);
+                    }
+                }
                 FreeAddrInfoW(res);
             }
+        }
+        if (bestScore < 2 && inst->ip6Address) {
+            char buf[64] = "";
+            in6_addr a6 = {}; memcpy(&a6, inst->ip6Address, sizeof(a6));
+            inet_ntop(AF_INET6, &a6, buf, sizeof(buf));
+            considerAddr(buf, AF_INET6);
         }
         TcpEvent("{\"ev\":\"found\",\"name\":" + Q(U(inst->pszInstanceName ? inst->pszInstanceName : L"")) + ",\"host\":" + Q(U(inst->pszHostName ? inst->pszHostName : L"")) +
                  ",\"addr\":" + Q(ip) + ",\"port\":" + std::to_string(inst->wPort) + ",\"txt\":" + txt + "}");
@@ -479,23 +560,167 @@ static VOID WINAPI MdnsBrowsed(DWORD status, PVOID, PDNS_RECORD rec) {
     DnsRecordListFree(rec, DnsFreeRecordList);
 }
 static bool MdnsRegister(const std::wstring &name, int port, const std::wstring &id, const std::wstring &v, const std::wstring &p) {
-    if (g_regInst) { DnsServiceDeRegister(&g_reg, NULL); g_regInst = nullptr; }
-    wchar_t host[256]; DWORD len = 256; GetComputerNameExW(ComputerNameDnsHostname, host, &len);
-    std::wstring inst = name + L"._deskhub._tcp.local", hostName = std::wstring(host) + L".local";
+    std::lock_guard<std::mutex> l(g_mdnsLock);
+    if (g_regInst) {
+        PDNS_SERVICE_INSTANCE old = g_regInst;
+        DNS_SERVICE_REGISTER_REQUEST oldReg = g_reg;
+        g_regInst = nullptr;
+        DnsServiceDeRegister(&oldReg, NULL);
+        DnsServiceFreeInstance(old);
+    }
+    wchar_t host[256] = {}; DWORD len = 255;
+    if (!GetComputerNameExW(ComputerNameDnsHostname, host, &len) || !host[0]) {
+        len = 255;
+        if (!GetComputerNameW(host, &len) || !host[0]) wcscpy(host, L"windows");
+    }
+    std::wstring cleanName = name.empty() ? L"Windows" : name;
+    for (wchar_t &ch : cleanName) if (ch == L'.') ch = L'-';
+    std::wstring inst = cleanName + L"._deskhub._tcp.local", hostName = std::wstring(host) + L".local";
     PCWSTR keys[3] = {L"id", L"v", L"p"}, vals[3] = {id.c_str(), v.c_str(), p.c_str()};
     g_regInst = DnsServiceConstructInstance(inst.c_str(), hostName.c_str(), NULL, NULL, (WORD)port, 0, 0, 3, keys, vals);
-    if (!g_regInst) return false;
+    if (!g_regInst) {
+        TcpEvent("{\"ev\":\"log\",\"msg\":\"mDNS istanza non valida (uso ricerca LAN)\"}");
+        return false;
+    }
     g_reg = {}; g_reg.Version = DNS_QUERY_REQUEST_VERSION1; g_reg.pServiceInstance = g_regInst; g_reg.pRegisterCompletionCallback = MdnsRegistered;
-    return DnsServiceRegister(&g_reg, NULL) == DNS_REQUEST_PENDING;
+    DWORD st = DnsServiceRegister(&g_reg, NULL);
+    if (st != DNS_REQUEST_PENDING && st != ERROR_SUCCESS) {
+        TcpEvent("{\"ev\":\"log\",\"msg\":\"mDNS registrazione fallita (" + std::to_string(st) + ", uso ricerca LAN)\"}");
+        DnsServiceFreeInstance(g_regInst);
+        g_regInst = nullptr;
+        return false;
+    }
+    return true;
 }
-static void MdnsUnregister() { if (g_regInst) { DnsServiceDeRegister(&g_reg, NULL); g_regInst = nullptr; } }
+static void MdnsUnregister() {
+    std::lock_guard<std::mutex> l(g_mdnsLock);
+    if (g_regInst) {
+        PDNS_SERVICE_INSTANCE old = g_regInst;
+        DNS_SERVICE_REGISTER_REQUEST oldReg = g_reg;
+        g_regInst = nullptr;
+        DnsServiceDeRegister(&oldReg, NULL);
+        DnsServiceFreeInstance(old);
+    }
+}
 static bool MdnsBrowse() {
-    if (g_browseCancel) { DnsServiceBrowseCancel(g_browseCancel); g_browseCancel = nullptr; }
+    std::lock_guard<std::mutex> l(g_mdnsLock);
+    if (g_browseCancel) {
+        DnsServiceBrowseCancel(g_browseCancel);
+        delete g_browseCancel;
+        g_browseCancel = nullptr;
+    }
     g_browseCancel = new DNS_SERVICE_CANCEL{};
     DNS_SERVICE_BROWSE_REQUEST b = {}; b.Version = DNS_QUERY_REQUEST_VERSION1; b.QueryName = L"_deskhub._tcp.local"; b.pBrowseCallback = MdnsBrowsed;
-    if (DnsServiceBrowse(&b, g_browseCancel) == DNS_REQUEST_PENDING) return true;
+    DNS_STATUS st = DnsServiceBrowse(&b, g_browseCancel);
+    if (st == DNS_REQUEST_PENDING || st == ERROR_SUCCESS) return true;
+    TcpEvent("{\"ev\":\"log\",\"msg\":\"mDNS ricerca fallita (" + std::to_string(st) + ", uso ricerca LAN)\"}");
     delete g_browseCancel; g_browseCancel = nullptr;
     return false;
+}
+
+// ---------------------------------------------------------------- UDP LAN discovery fallback (port 47842, complements mDNS)
+static const unsigned short LAN_PORT = 47842;
+static std::mutex g_lanLock;
+static std::atomic<bool> g_lanRunning{false};
+static SOCKET g_lanSock = INVALID_SOCKET;
+static std::string g_lanPacket;
+static void LanAnnounce() {
+    SOCKET s = INVALID_SOCKET;
+    std::string pkt;
+    {
+        std::lock_guard<std::mutex> l(g_lanLock);
+        if (!g_lanRunning || g_lanSock == INVALID_SOCKET || g_lanPacket.empty()) return;
+        s = g_lanSock;
+        pkt = g_lanPacket;
+    }
+    sockaddr_in dst = {};
+    dst.sin_family = AF_INET;
+    dst.sin_port = htons(LAN_PORT);
+    dst.sin_addr.s_addr = INADDR_BROADCAST;
+    sendto(s, pkt.data(), (int)pkt.size(), 0, (sockaddr *)&dst, sizeof(dst));
+    INTERFACE_INFO ifaces[32];
+    DWORD bytesRet = 0;
+    if (WSAIoctl(s, SIO_GET_INTERFACE_LIST, NULL, 0, ifaces, sizeof(ifaces), &bytesRet, NULL, NULL) == 0) {
+        int count = (int)(bytesRet / sizeof(INTERFACE_INFO));
+        for (int i = 0; i < count; i++) {
+            if ((ifaces[i].iiFlags & IFF_UP) && !(ifaces[i].iiFlags & IFF_LOOPBACK) && ifaces[i].iiAddress.Address.sa_family == AF_INET) {
+                sockaddr_in bcast = {};
+                bcast.sin_family = AF_INET;
+                bcast.sin_port = htons(LAN_PORT);
+                ULONG ip = ifaces[i].iiAddress.AddressIn.sin_addr.s_addr;
+                ULONG hostIp = ntohl(ip);
+                if ((hostIp >> 24) == 127 || (hostIp >> 16) == 0xA9FE) continue;
+                ULONG mask = ifaces[i].iiNetmask.AddressIn.sin_addr.s_addr;
+                if (mask != 0) bcast.sin_addr.s_addr = ip | ~mask;
+                else bcast.sin_addr.s_addr = ifaces[i].iiBroadcastAddress.AddressIn.sin_addr.s_addr;
+                if (bcast.sin_addr.s_addr && bcast.sin_addr.s_addr != INADDR_BROADCAST) {
+                    sendto(s, pkt.data(), (int)pkt.size(), 0, (sockaddr *)&bcast, sizeof(bcast));
+                }
+            }
+        }
+    }
+}
+static void LanStop() {
+    SOCKET s = INVALID_SOCKET;
+    {
+        std::lock_guard<std::mutex> l(g_lanLock);
+        g_lanRunning = false;
+        g_lanPacket.clear();
+        s = g_lanSock;
+        g_lanSock = INVALID_SOCKET;
+    }
+    if (s != INVALID_SOCKET) closesocket(s);
+}
+static bool LanStart(const std::string &id, const std::string &name, const std::string &v, const std::string &p, int port) {
+    LanStop();
+    if (id.empty() || port <= 0) return false;
+    SOCKET s = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+    if (s == INVALID_SOCKET) return false;
+    BOOL yes = TRUE;
+    setsockopt(s, SOL_SOCKET, SO_REUSEADDR, (const char *)&yes, sizeof(yes));
+    setsockopt(s, SOL_SOCKET, SO_BROADCAST, (const char *)&yes, sizeof(yes));
+    sockaddr_in a = {};
+    a.sin_family = AF_INET;
+    a.sin_port = htons(LAN_PORT);
+    a.sin_addr.s_addr = htonl(INADDR_ANY);
+    bool bound = true;
+    if (bind(s, (sockaddr *)&a, sizeof(a)) != 0) {
+        closesocket(s);
+        bound = false;
+        TcpEvent("{\"ev\":\"log\",\"msg\":\"Porta UDP 47842 occupata: invio solo annuncio LAN\"}");
+        // If another local instance bound 47842, still allow outbound broadcasts via an ephemeral UDP socket
+        s = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+        if (s == INVALID_SOCKET) return false;
+        setsockopt(s, SOL_SOCKET, SO_BROADCAST, (const char *)&yes, sizeof(yes));
+    }
+    {
+        std::lock_guard<std::mutex> l(g_lanLock);
+        g_lanSock = s;
+        g_lanRunning = true;
+        g_lanPacket = "{\"service\":\"deskhub\",\"id\":" + Q(id) + ",\"name\":" + Q(name) + ",\"p\":" + Q(p) + ",\"v\":" + Q(v) + ",\"port\":" + std::to_string(port) + "}";
+    }
+    if (bound) {
+        std::thread([s]() {
+            char buf[2048];
+            for (;;) {
+                if (!g_lanRunning) break;
+                sockaddr_in from = {};
+                int flen = sizeof(from);
+                int n = recvfrom(s, buf, sizeof(buf) - 1, 0, (sockaddr *)&from, &flen);
+                if (n <= 0) {
+                    if (!g_lanRunning) break;
+                    Sleep(100);
+                    continue;
+                }
+                buf[n] = 0;
+                char ip[64] = {};
+                inet_ntop(AF_INET, &from.sin_addr, ip, sizeof(ip));
+                if (ip[0]) TcpEvent("{\"ev\":\"lan\",\"addr\":" + Q(ip) + ",\"raw\":" + Q(std::string(buf, n)) + "}");
+            }
+        }).detach();
+    }
+    LanAnnounce();
+    return true;
 }
 
 // ---------------------------------------------------------------- payload (page files)
@@ -812,6 +1037,9 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int) {
     w.bind("__hd_mdns_register", [](std::string r) -> std::string { return MdnsRegister(W(Arg(r, 0)), atoi(Arg(r, 1).c_str()), W(Arg(r, 2)), W(Arg(r, 3)), W(Arg(r, 4))) ? "true" : "false"; });
     w.bind("__hd_mdns_unregister", [](std::string) -> std::string { MdnsUnregister(); return "true"; });
     w.bind("__hd_mdns_browse", [](std::string) -> std::string { return MdnsBrowse() ? "true" : "false"; });
+    w.bind("__hd_lan_start", [](std::string r) -> std::string { return LanStart(Arg(r, 0), Arg(r, 1), Arg(r, 2), Arg(r, 3), atoi(Arg(r, 4).c_str())) ? "true" : "false"; });
+    w.bind("__hd_lan_announce", [](std::string) -> std::string { LanAnnounce(); return "true"; });
+    w.bind("__hd_lan_stop", [](std::string) -> std::string { LanStop(); return "true"; });
     // files of the network engine, inside %APPDATA%\DeskHub (or DESKHUB_HOME) only (relative paths, no "..")
     auto hubPath = [](const std::string &rel) -> std::wstring {
         if (rel.empty() || rel.find("..") != std::string::npos || rel.find(':') != std::string::npos || rel[0] == '/' || rel[0] == '\\') return L"";
@@ -855,6 +1083,7 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int) {
     g_quitting = true;
     g_view = nullptr;
     DeleteFileW((HubDir() + L"\\runtime.json").c_str());
+    LanStop();
     MdnsUnregister();
     if (g_browseCancel) { DnsServiceBrowseCancel(g_browseCancel); g_browseCancel = nullptr; }
     {

@@ -176,7 +176,10 @@
     engine = await createEngine({ version: SELF_VERSION, deviceName: settings.deviceName || (await window.__hd_hostname().catch(() => 'Windows')) });
     engine.on('state', (st) => fire('engine', st));
     engine.on('open', (id) => { if (manager) manager.open(id); });
-    engine.start().catch((e) => console.error('HubDesk rete:', e));
+    engine.start().catch((e) => {
+      console.error('HubDesk rete:', e);
+      fire('engine', engine.getState());
+    });
     manager = createManager({
       driver,
       fetchJson,

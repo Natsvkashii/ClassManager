@@ -32,6 +32,13 @@ const PROTO = 2;
 const MAX_LINE = 128 * 1024 * 1024;
 const BATCH = 100;
 const APP_RE = /^[A-Za-z0-9._-]{1,64}$/;
+const BIG_KEY = /\/book(chunk|file):/;
+const isTransferKey = (k) => BIG_KEY.test(k) || String(k || '').startsWith('notedesk/');
+function transferWins(remoteRec, localRec) {
+  const rv = remoteRec?.value?.rev || 0, lv = localRec?.value?.rev || 0;
+  if (rv !== lv) return rv > lv;
+  return String(remoteRec?.updatedAt || '') > String(localRec?.updatedAt || '');
+}
 const nowIso = () => new Date().toISOString();
 
 /** One TCP connection: line JSON, request/response by id/re, ping every 15 s (3 unanswered = dead). */
@@ -128,6 +135,7 @@ function createEngine(opts = {}) {
 
   let conflicts = readJSON(P('conflicts.json')) || [];
   if (!Array.isArray(conflicts)) conflicts = [];
+  conflicts = conflicts.filter((c) => !isTransferKey(c.key || ''));
 
   const peerView = (p) => ({ deviceId: p.deviceId, name: p.name, platform: p.platform || '', version: p.version || '', host: p.host || '', port: p.port || 0,
     connected: conns.has(p.deviceId), lastSeen: p.lastSeen || '', lastSync: p.lastSync || '' });
@@ -306,6 +314,13 @@ function createEngine(opts = {}) {
         const got = await conn.request({ t: 'get', keys: wantKeys.slice(i, i + BATCH) });
         Object.assign(fetched, got.records || {});
       }
+      const userConflicts = [];
+      for (const k of p.conflict) {
+        if (!isTransferKey(k)) { userConflicts.push(k); continue; }
+        const l = getRecord(k), r = fetched[k];
+        if (!l || !r) continue;
+        if (transferWins(r, l)) { toPull.push(k); agreed[k] = remote[k]; } else { toPush.push(k); agreed[k] = local[k]; }
+      }
       const pulled = [];
       for (const k of toPull) {
         if (!fetched[k]) { delete agreed[k]; continue; }
@@ -322,7 +337,7 @@ function createEngine(opts = {}) {
       // conflicts of this peer: replace with the current set
       const fresh = [];
       let isNew = 0;
-      for (const k of p.conflict) {
+      for (const k of userConflicts) {
         const c = { key: k, peer: id, peerName: peer.name, local: getRecord(k), remote: fetched[k] || null, at: nowIso() };
         const prev = conflicts.find((x) => x.key === k && x.peer === id);
         if (prev && prev.local && prev.remote && c.local && c.remote && hashRecord(prev.local) === hashRecord(c.local) && hashRecord(prev.remote) === hashRecord(c.remote)) fresh.push(prev);
@@ -336,7 +351,7 @@ function createEngine(opts = {}) {
 
       peer.lastSync = nowIso();
       if (pulled.length) notifyApps(pulled);
-      const result = { peer: id, pulled: pulled.length, pushed: toPush.length, conflicts: p.conflict.length };
+      const result = { peer: id, pulled: pulled.length, pushed: toPush.length, conflicts: userConflicts.length };
       if (pulled.length || toPush.length || p.conflict.length) log(`Sincronizzato con «${peer.name}»: ricevuti ${result.pulled}, inviati ${result.pushed}${result.conflicts ? `, conflitti ${result.conflicts}` : ''}`);
       persistPeers(); ev.emit('state', getState());
       return result;

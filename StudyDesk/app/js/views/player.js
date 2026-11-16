@@ -11,9 +11,10 @@
 // =====================================================================================
 
 // Module player: section/activity navigation + activity view.
-import { h, icon, clear } from '../core/ui.js';
+import { h, icon, clear, toast, modal } from '../core/ui.js';
 import { inline, md } from '../core/markdown.js';
 import { getModule, loadAssetUrls, assetUrl, revoke } from '../core/modules.js';
+import { loadShelf } from '../core/books.js';
 import { getResults, contextLabelFor, getContext } from '../core/progress.js';
 import { BLANK_CONTEXT } from '../core/context.js';
 import { countableParts } from '../core/grading.js';
@@ -237,17 +238,116 @@ export async function renderPlayer(host, params, app) {
   const onFs = () => { if (!document.fullscreenElement && focus) setFocus(false); };
   const fsBtn = h('button.btn.btn-sm', { type: 'button', title: 'Schermo intero (Ctrl+Maiusc+F)', 'aria-label': 'Schermo intero', onclick: () => setFocus(!focus) }, icon('expand'));
 
+  async function captureActivityImage() {
+    const a = acts.find((x) => x.a.id === current)?.a;
+    const width = Math.max(760, Math.min(980, Math.round(main.getBoundingClientRect().width || 880)));
+    const clone = main.cloneNode(true);
+    // Replace form fields with static value snapshots and strip bottom navigation buttons
+    const origInputs = [...main.querySelectorAll('input, textarea, select')];
+    const cloneInputs = [...clone.querySelectorAll('input, textarea, select')];
+    cloneInputs.forEach((el, idx) => {
+      const src = origInputs[idx];
+      if (!src) return;
+      if (el.tagName === 'SELECT') {
+        const span = document.createElement('span');
+        span.className = el.className;
+        span.style.cssText = 'display:inline-flex;align-items:center;padding:.45rem .7rem;min-height:2.2rem;';
+        span.textContent = src.options[src.selectedIndex]?.text || '—';
+        el.replaceWith(span);
+      } else {
+        const span = document.createElement('span');
+        span.className = el.className;
+        span.style.cssText = el.tagName === 'TEXTAREA'
+          ? 'display:block;white-space:pre-wrap;min-height:3.5rem;padding:.55rem .7rem;'
+          : `display:inline-block;min-width:${el.style.width || '6ch'};padding:.15rem .45rem;`;
+        span.textContent = src.value || ' ';
+        el.replaceWith(span);
+      }
+    });
+    const lastRow = clone.lastElementChild;
+    if (lastRow && lastRow.classList.contains('row') && lastRow.querySelector('.btn')) lastRow.remove();
+    clone.querySelectorAll('.teacher-notes-box').forEach((n) => { if (n.style.display === 'none') n.remove(); });
+    for (const imgEl of clone.querySelectorAll('img')) {
+      try {
+        const resp = await fetch(imgEl.src);
+        const b = await resp.blob();
+        imgEl.src = await new Promise((res) => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.readAsDataURL(b); });
+      } catch {}
+    }
+
+    const stylesText = [...document.styleSheets].map((s) => {
+      try { return [...s.cssRules].map((r) => r.cssText).join('\n'); } catch { return ''; }
+    }).join('\n');
+    const bg = getComputedStyle(document.body).backgroundColor || '#ffffff';
+    const fg = getComputedStyle(document.body).color || '#111827';
+    const darkCls = document.documentElement.classList.contains('dark') ? 'dark' : '';
+    const tempWrap = h('div', { style: { position: 'fixed', left: '-99999px', top: '0', width: `${width}px`, padding: '24px', background: bg, color: fg } }, clone);
+    document.body.append(tempWrap);
+    const height = Math.ceil(tempWrap.scrollHeight) + 12;
+    tempWrap.remove();
+
+    const serializer = new XMLSerializer();
+    const xhtml = serializer.serializeToString(clone);
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}"><foreignObject width="100%" height="100%"><div xmlns="http://www.w3.org/1999/xhtml" class="${darkCls}" style="font-family:${getComputedStyle(document.body).fontFamily};background:${bg};color:${fg};padding:24px;box-sizing:border-box;">${`<style>${stylesText}</style>`}${xhtml}</div></foreignObject></svg>`;
+    const svgUrl = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+    const img = new Image();
+    img.onload = () => {
+      const scale = 2;
+      const canvas = document.createElement('canvas');
+      canvas.width = width * scale;
+      canvas.height = height * scale;
+      const c = canvas.getContext('2d');
+      c.scale(scale, scale);
+      c.fillStyle = bg;
+      c.fillRect(0, 0, width, height);
+      c.drawImage(img, 0, 0, width, height);
+      canvas.toBlob((blob) => {
+        if (!blob) { toast('Impossibile generare l\'immagine', 'bad'); return; }
+        const urlObj = URL.createObjectURL(blob);
+        const statusMsg = h('span.badge.ok', { style: { display: 'none' } }, icon('check'), ' Copiato negli appunti');
+        const m = modal({
+          title: 'Immagine esercizio',
+          body: h('div', { style: { maxHeight: '62vh', overflow: 'auto', borderRadius: '.6rem', border: '1px solid var(--border)' } },
+            h('img', { src: urlObj, alt: a?.title || 'Esercizio', style: { width: '100%', display: 'block' } })),
+          actions: [
+            statusMsg,
+            h('a.btn', { href: urlObj, download: `${(a?.title || 'esercizio').replace(/[/\\:?*"<>|]/g, '-')}.png` }, icon('download'), ' Scarica PNG'),
+            h('button.btn.btn-primary', {
+              onclick: async () => {
+                try {
+                  await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+                  statusMsg.style.display = 'inline-flex';
+                } catch (err) {
+                  toast('Copia negli appunti non supportata: usa Scarica PNG', 'warn');
+                }
+              },
+            }, icon('copy'), ' Copia negli appunti'),
+          ],
+          onClose: () => URL.revokeObjectURL(urlObj),
+        });
+      }, 'image/png');
+    };
+    img.onerror = () => toast('Errore durante la creazione dell\'immagine', 'bad');
+    img.src = svgUrl;
+  }
+
+  const snapBtn = h('button.btn.btn-sm', { type: 'button', title: "Mostra l'esercizio come immagine e copialo negli appunti", 'aria-label': 'Mostra come immagine', onclick: captureActivityImage }, icon('camera'), ' Immagine');
+
   const focusBar = h('div.focus-bar', makeScaleControl(), h('button.btn.btn-sm', { type: 'button', title: 'Esci da schermo intero (Esc)', onclick: () => setFocus(false) }, icon('compress')));
   document.body.append(focusBar);
   document.addEventListener('keydown', onKey);
   document.addEventListener('fullscreenchange', onFs);
 
-  // Group switcher pill if inside a book
+  // Group switcher pill if inside a book (also supports chapters without embedded mod.book metadata)
+  const shelf = await loadShelf().catch(() => null);
+  const parentBook = shelf?.books?.find((b) => b.id === mod.book?.id || b.chapters?.some((c) => c.id === id || c.module?.id === id || c.moduleId === id));
+  const bookId = mod.book?.id || parentBook?.id;
+  const bookTitle = mod.book?.title || parentBook?.meta?.title;
   let groupPill = null;
-  if (mod.book?.id) {
+  if (bookId) {
     groupPill = await renderGroupPill({
-      bookId: mod.book.id,
-      bookTitle: mod.book.title,
+      bookId,
+      bookTitle,
       moduleIds: [id],
       onContextChange: async () => {
         const fresh = await getResults(id);
@@ -264,6 +364,7 @@ export async function renderPlayer(host, params, app) {
   app.setActions(
     makeScaleControl(),
     groupPill,
+    snapBtn,
     fsBtn
   );
 

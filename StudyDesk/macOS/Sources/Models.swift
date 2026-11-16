@@ -19,7 +19,7 @@ public enum AuthorAttribution {
     public static let authorName = "Guaira Jaramillo Nitoglia"
     public static let authorEmail = "guaira.jaramillo.nitoglia@gmail.com"
     public static let appName = "StudyDesk"
-    public static let appVersion = "26.11.2-004"
+    public static let appVersion = "26.11.2-015"
 
     /// Centralized channel indicator: 0 = Stable, 1 = Unstable / Beta
     public static let isUnstableBuild: Int = 1
@@ -245,6 +245,7 @@ public struct Media: Codable, Hashable {
     public var caption: String?
     public var label: String?
     public var transcript: String?
+    public var subtitles: String?       // relative .vtt / .srt asset path (optional)
     public var wordTimes: [[Double]]?   // per-word [start, end] seconds, see WordTiming
     public var placeholder: Bool?
     public var candidate: String?

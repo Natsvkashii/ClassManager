@@ -21,7 +21,7 @@ public struct AuthorAttribution {
     public static let authorName = "Guaira Jaramillo Nitoglia"
     public static let authorEmail = "guaira.jaramillo.nitoglia@gmail.com"
     public static let appName = "NoteDesk"
-    public static let appVersion = "26.11.2-004"
+    public static let appVersion = "26.11.2-015"
     public static let isUnstableBuild: Int = 1
     public static let buildType: String = "beta"
     public static let license = "GNU General Public License v3.0 (GPL-3.0)"
@@ -186,26 +186,36 @@ public enum PaperTemplate: String, CaseIterable, Codable, Identifiable {
 }
 
 public enum PaperColor: String, CaseIterable, Codable, Identifiable {
-    case white = "white"   // Bianco puro #FFFFFF
-    case cream = "cream"   // Caldo GoodNotes cream #FDFBF0
-    case dark = "dark"     // Lavagna scura #1E242B
+    case white = "white"           // Bianco puro #FFFFFF
+    case cream = "cream"           // Caldo GoodNotes cream #FDFBF0
+    case dark = "dark"             // Lavagna scura #1E242B
+    case boardGreen = "boardGreen" // Lavagna verde #16422F
+    case boardNavy = "boardNavy"   // Lavagna blu #18304B
 
     public var id: String { rawValue }
 
     public var hex: String {
         switch self {
-        case .white: return "#FFFFFF"
-        case .cream: return "#FDFBF0"
-        case .dark:  return "#1E242B"
+        case .white:      return "#FFFFFF"
+        case .cream:      return "#FDFBF0"
+        case .dark:       return "#1E242B"
+        case .boardGreen: return "#16422F"
+        case .boardNavy:  return "#18304B"
         }
     }
 
     public var title: String {
         switch self {
-        case .white: return "Bianca"
-        case .cream: return "Crema"
-        case .dark:  return "Scura"
+        case .white:      return "Bianca"
+        case .cream:      return "Crema"
+        case .dark:       return "Lavagna Nera"
+        case .boardGreen: return "Lavagna Verde"
+        case .boardNavy:  return "Lavagna Blu"
         }
+    }
+
+    public var isDark: Bool {
+        self == .dark || self == .boardGreen || self == .boardNavy
     }
 
     public var swiftUIColor: Color {
@@ -216,8 +226,40 @@ public enum PaperColor: String, CaseIterable, Codable, Identifiable {
         switch self {
         case .white: return Color.black.opacity(0.12)
         case .cream: return Color(hex: "#5C4B37").opacity(0.15)
-        case .dark:  return Color.white.opacity(0.15)
+        case .dark, .boardGreen, .boardNavy: return Color.white.opacity(0.16)
         }
+    }
+}
+
+public enum PageFormat: String, CaseIterable, Codable, Identifiable {
+    case a4 = "a4"
+    case letter = "letter"
+    case a5 = "a5"
+    case widescreen16x9 = "widescreen16x9"
+    case board4x3 = "board4x3"
+
+    public var id: String { rawValue }
+
+    public var title: String {
+        switch self {
+        case .a4:             return "A4 Standard"
+        case .letter:         return "US Letter"
+        case .a5:             return "A5 Compatto"
+        case .widescreen16x9: return "Lavagna 16:9"
+        case .board4x3:       return "Lavagna 4:3"
+        }
+    }
+
+    public func size(isLandscape: Bool) -> CGSize {
+        let base: CGSize
+        switch self {
+        case .a4:             base = CGSize(width: 595.28, height: 841.89)
+        case .letter:         base = CGSize(width: 612.0, height: 792.0)
+        case .a5:             base = CGSize(width: 419.53, height: 595.28)
+        case .widescreen16x9: base = CGSize(width: 540.0, height: 960.0)
+        case .board4x3:       base = CGSize(width: 630.0, height: 840.0)
+        }
+        return isLandscape ? CGSize(width: base.height, height: base.width) : base
     }
 }
 
@@ -533,6 +575,7 @@ public struct NotePage: Identifiable, Codable, Hashable {
     public var template: PaperTemplate
     public var paperColor: PaperColor
     public var isLandscape: Bool
+    public var pageFormat: PageFormat
     public var pdfPageIndex: Int?
     public var strokes: [NoteStroke]
     public var textBoxes: [NoteTextBox]
@@ -542,12 +585,17 @@ public struct NotePage: Identifiable, Codable, Hashable {
     public var shapes: [NoteShapeObject]
     public var isBookmarked: Bool
 
+    public var logicalSize: CGSize {
+        pageFormat.size(isLandscape: isLandscape)
+    }
+
     public init(
         id: String = UUID().uuidString,
         pageNumber: Int = 1,
         template: PaperTemplate = .ruled,
         paperColor: PaperColor = .cream,
         isLandscape: Bool = false,
+        pageFormat: PageFormat = .a4,
         pdfPageIndex: Int? = nil,
         strokes: [NoteStroke] = [],
         textBoxes: [NoteTextBox] = [],
@@ -562,6 +610,7 @@ public struct NotePage: Identifiable, Codable, Hashable {
         self.template = template
         self.paperColor = paperColor
         self.isLandscape = isLandscape
+        self.pageFormat = pageFormat
         self.pdfPageIndex = pdfPageIndex
         self.strokes = strokes
         self.textBoxes = textBoxes
@@ -577,8 +626,9 @@ public struct NotePage: Identifiable, Codable, Hashable {
         id = try container.decode(String.self, forKey: .id)
         pageNumber = try container.decode(Int.self, forKey: .pageNumber)
         template = try container.decode(PaperTemplate.self, forKey: .template)
-        paperColor = try container.decode(PaperColor.self, forKey: .paperColor)
+        paperColor = (try? container.decode(PaperColor.self, forKey: .paperColor)) ?? .cream
         isLandscape = try container.decode(Bool.self, forKey: .isLandscape)
+        pageFormat = (try? container.decodeIfPresent(PageFormat.self, forKey: .pageFormat)) ?? .a4
         pdfPageIndex = try container.decodeIfPresent(Int.self, forKey: .pdfPageIndex)
         strokes = try container.decodeIfPresent([NoteStroke].self, forKey: .strokes) ?? []
         textBoxes = try container.decodeIfPresent([NoteTextBox].self, forKey: .textBoxes) ?? []
@@ -710,6 +760,23 @@ public typealias NoteDeskStore = NotesDocumentStore
     public var undoStack: [[NoteStroke]] = []
     public var redoStack: [[NoteStroke]] = []
 
+    // Dirty flag to prevent unnecessary re-saves and spurious sync conflicts
+    public var isDocumentDirty: Bool = false
+
+    // Lasso, text & laser customizable tool properties
+    public var lassoSelectStrokes: Bool = true
+    public var lassoSelectTexts: Bool = true
+    public var lassoSelectShapes: Bool = true
+    public var textDefaultFontSize: Double = 16.0
+    public var laserColorHex: String = "#EF4444"
+    public var laserFadeDuration: Double = 2.6
+
+    // Real-time peer sync state
+    public var remoteSyncCounter: Int = 0
+    public var remoteLaserPoint: CGPoint? = nil
+    public var remoteLaserPageIndex: Int? = nil
+    public var remoteLaserTimestamp: TimeInterval = 0
+
     private let fileManager = FileManager.default
     private var baseDirectory: URL {
         let appSupport = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
@@ -785,9 +852,6 @@ public typealias NoteDeskStore = NotesDocumentStore
         }
         Task { @MainActor [weak self] in
             guard let self else { return }
-            for doc in self.documents {
-                NoteDeskHubIntegration.shared.publishNotebook(doc)
-            }
             NoteDeskHubIntegration.shared.pullRecords(store: self)
         }
     }
@@ -795,34 +859,66 @@ public typealias NoteDeskStore = NotesDocumentStore
     // MARK: - Operations
 
     public func selectDocument(_ doc: NoteDocument) {
-        saveActiveDocument()
+        if isDocumentDirty {
+            saveActiveDocument()
+            isDocumentDirty = false
+        }
         activeDocument = doc
         activePageIndex = 0
         undoStack.removeAll()
         redoStack.removeAll()
+        NoteDeskHubIntegration.shared.broadcastOpenDoc(doc.id, title: doc.title, page: 0)
     }
 
     public func closeActiveDocument() {
-        saveActiveDocument()
+        if isDocumentDirty {
+            saveActiveDocument()
+            isDocumentDirty = false
+        }
         activeDocument = nil
+    }
+
+    public func openOrCreateSharedWhiteboard() {
+        if let wb = documents.first(where: { $0.isSharedWhiteboard }) {
+            selectDocument(wb)
+        } else {
+            let p1 = NotePage(id: "shared-whiteboard-page-1", pageNumber: 1, template: .chalkboard, paperColor: .white, isLandscape: true, pageFormat: .widescreen16x9)
+            let doc = NoteDocument(
+                id: "shared-whiteboard-hubdesk",
+                title: "Lavagna Condivisa HubDesk",
+                coverColorHex: "#8E44AD",
+                pages: [p1],
+                updatedAt: Date(),
+                isSharedWhiteboard: true
+            )
+            documents.insert(doc, at: 0)
+            saveNotebook(doc, publish: true)
+            selectDocument(doc)
+        }
     }
 
     public func createFolder(name: String, colorHex: String, iconName: String) {
         let f = NoteFolder(name: name, colorHex: colorHex, iconName: iconName)
         folders.append(f)
         saveFolders()
+        NoteDeskHubIntegration.shared.pushFoldersRecord(folders)
     }
 
     public func deleteFolder(_ folder: NoteFolder) {
         folders.removeAll { $0.id == folder.id }
-        // Move docs in this folder to root
+        var changed: [NoteDocument] = []
         for i in 0..<documents.count {
             if documents[i].folderId == folder.id {
                 documents[i].folderId = nil
+                documents[i].updatedAt = Date()
+                changed.append(documents[i])
             }
         }
         saveFolders()
-        saveDocuments()
+        NoteDeskHubIntegration.shared.pushFoldersRecord(folders)
+        for d in changed {
+            saveNotebook(d, publish: true)
+        }
     }
 
     public func createNotebook(
@@ -832,9 +928,10 @@ public typealias NoteDeskStore = NotesDocumentStore
         template: PaperTemplate = .ruled,
         paperColor: PaperColor = .cream,
         isLandscape: Bool = false,
+        pageFormat: PageFormat = .a4,
         isSharedWhiteboard: Bool = false
     ) -> NoteDocument {
-        let p1 = NotePage(pageNumber: 1, template: template, paperColor: paperColor, isLandscape: isLandscape)
+        let p1 = NotePage(pageNumber: 1, template: template, paperColor: paperColor, isLandscape: isLandscape, pageFormat: pageFormat)
         let doc = NoteDocument(
             title: title,
             folderId: folderId,
@@ -844,7 +941,7 @@ public typealias NoteDeskStore = NotesDocumentStore
             isSharedWhiteboard: isSharedWhiteboard
         )
         documents.insert(doc, at: 0)
-        saveDocuments()
+        saveNotebook(doc, publish: true)
         return doc
     }
 
@@ -882,7 +979,7 @@ public typealias NoteDeskStore = NotesDocumentStore
             updatedAt: Date()
         )
         documents.insert(doc, at: 0)
-        saveDocuments()
+        saveNotebook(doc, publish: true)
         return doc
     }
 
@@ -893,7 +990,7 @@ public typealias NoteDeskStore = NotesDocumentStore
         documents.removeAll { $0.id == doc.id }
         let file = docsDirectory.appendingPathComponent("\(doc.id).json")
         try? fileManager.removeItem(at: file)
-        saveDocuments()
+        NoteDeskHubIntegration.shared.records.remove("notebook:\(doc.id)")
     }
 
     public func duplicateDocument(_ doc: NoteDocument) {
@@ -902,31 +999,41 @@ public typealias NoteDeskStore = NotesDocumentStore
         copy.title = "\(doc.title) (Copia)"
         copy.updatedAt = Date()
         documents.insert(copy, at: 0)
-        saveDocuments()
+        saveNotebook(copy, publish: true)
     }
 
     public func toggleFavorite(_ doc: NoteDocument) {
         if let i = documents.firstIndex(where: { $0.id == doc.id }) {
             documents[i].isFavorite.toggle()
+            documents[i].updatedAt = Date()
             if activeDocument?.id == doc.id {
                 activeDocument?.isFavorite = documents[i].isFavorite
+                activeDocument?.updatedAt = documents[i].updatedAt
             }
-            saveDocuments()
+            saveNotebook(documents[i], publish: true)
         }
     }
 
-    public func addPageToActiveDocument(afterCurrent: Bool = true, template: PaperTemplate? = nil, paperColor: PaperColor? = nil) {
+    public func addPageToActiveDocument(
+        afterCurrent: Bool = true,
+        template: PaperTemplate? = nil,
+        paperColor: PaperColor? = nil,
+        pageFormat: PageFormat? = nil
+    ) {
         guard var doc = activeDocument else { return }
-        let currentTemplate = template ?? doc.pages[activePageIndex].template
-        let currentColor = paperColor ?? doc.pages[activePageIndex].paperColor
-        let isLandscape = doc.pages[activePageIndex].isLandscape
+        let curPage = doc.pages[activePageIndex]
+        let currentTemplate = template ?? curPage.template
+        let currentColor = paperColor ?? curPage.paperColor
+        let currentFormat = pageFormat ?? curPage.pageFormat
+        let isLandscape = curPage.isLandscape
 
         let insertIdx = afterCurrent ? min(activePageIndex + 1, doc.pages.count) : doc.pages.count
         let newPage = NotePage(
             pageNumber: insertIdx + 1,
             template: currentTemplate,
             paperColor: currentColor,
-            isLandscape: isLandscape
+            isLandscape: isLandscape,
+            pageFormat: currentFormat
         )
         doc.pages.insert(newPage, at: insertIdx)
         for i in 0..<doc.pages.count {
@@ -935,7 +1042,8 @@ public typealias NoteDeskStore = NotesDocumentStore
         doc.updatedAt = Date()
         activeDocument = doc
         activePageIndex = insertIdx
-        saveActiveDocument()
+        saveActiveDocument(forcePublish: true)
+        NoteDeskHubIntegration.shared.broadcastDocSnapshot(doc)
     }
 
     public func deleteCurrentPage() {
@@ -944,17 +1052,21 @@ public typealias NoteDeskStore = NotesDocumentStore
         for i in 0..<doc.pages.count {
             doc.pages[i].pageNumber = i + 1
         }
+        doc.updatedAt = Date()
         activePageIndex = max(0, min(activePageIndex, doc.pages.count - 1))
         activeDocument = doc
-        saveActiveDocument()
+        saveActiveDocument(forcePublish: true)
+        NoteDeskHubIntegration.shared.broadcastDocSnapshot(doc)
     }
 
     public func clearCurrentPageStrokes() {
         guard var doc = activeDocument else { return }
         recordUndoState()
         doc.pages[activePageIndex].strokes.removeAll()
+        doc.updatedAt = Date()
         activeDocument = doc
-        saveActiveDocument()
+        saveActiveDocument(forcePublish: true)
+        NoteDeskHubIntegration.shared.broadcastPageStrokes([], docId: doc.id, pageIndex: activePageIndex)
     }
 
     // MARK: - Undo & Redo
@@ -967,29 +1079,35 @@ public typealias NoteDeskStore = NotesDocumentStore
     }
 
     public func undo() {
-        guard let doc = activeDocument, !undoStack.isEmpty else { return }
-        var updated = doc
-        let current = updated.pages[activePageIndex].strokes
+        guard var doc = activeDocument, !undoStack.isEmpty else { return }
+        let current = doc.pages[activePageIndex].strokes
         redoStack.append(current)
         let prev = undoStack.removeLast()
-        updated.pages[activePageIndex].strokes = prev
-        activeDocument = updated
+        doc.pages[activePageIndex].strokes = prev
+        doc.updatedAt = Date()
+        activeDocument = doc
+        saveActiveDocument(forcePublish: true)
+        NoteDeskHubIntegration.shared.broadcastPageStrokes(prev, docId: doc.id, pageIndex: activePageIndex)
     }
 
     public func redo() {
-        guard let doc = activeDocument, !redoStack.isEmpty else { return }
-        var updated = doc
-        let current = updated.pages[activePageIndex].strokes
+        guard var doc = activeDocument, !redoStack.isEmpty else { return }
+        let current = doc.pages[activePageIndex].strokes
         undoStack.append(current)
         let next = redoStack.removeLast()
-        updated.pages[activePageIndex].strokes = next
-        activeDocument = updated
+        doc.pages[activePageIndex].strokes = next
+        doc.updatedAt = Date()
+        activeDocument = doc
+        saveActiveDocument(forcePublish: true)
+        NoteDeskHubIntegration.shared.broadcastPageStrokes(next, docId: doc.id, pageIndex: activePageIndex)
     }
 
     // MARK: - Persistence
 
-    public func saveActiveDocument() {
-        guard let doc = activeDocument else { return }
+    public func saveActiveDocument(forcePublish: Bool = false) {
+        guard var doc = activeDocument else { return }
+        doc.updatedAt = Date()
+        activeDocument = doc
         if let idx = documents.firstIndex(where: { $0.id == doc.id }) {
             documents[idx] = doc
         }
@@ -998,9 +1116,10 @@ public typealias NoteDeskStore = NotesDocumentStore
             try? data.write(to: url, options: .atomic)
         }
         NoteDeskHubIntegration.shared.publishNotebook(doc)
+        isDocumentDirty = false
     }
 
-    public func saveNotebook(_ doc: NoteDocument) {
+    public func saveNotebook(_ doc: NoteDocument, publish: Bool = true) {
         if let idx = documents.firstIndex(where: { $0.id == doc.id }) {
             documents[idx] = doc
         }
@@ -1008,7 +1127,9 @@ public typealias NoteDeskStore = NotesDocumentStore
         if let data = try? JSONEncoder().encode(doc) {
             try? data.write(to: url, options: .atomic)
         }
-        NoteDeskHubIntegration.shared.publishNotebook(doc)
+        if publish {
+            NoteDeskHubIntegration.shared.publishNotebook(doc)
+        }
     }
 
     private func saveFolders() {
@@ -1060,27 +1181,29 @@ public typealias NoteDeskStore = NotesDocumentStore
     }
 
     private func seedSampleData() {
-        // Seed default folders
-        let fItaliano = NoteFolder(name: "Lingua e Grammatica", colorHex: "#2980B9", iconName: "book.closed.fill")
-        let fScienze = NoteFolder(name: "Scienze e Ricerca", colorHex: "#27AE60", iconName: "flask.fill")
-        let fLavagne = NoteFolder(name: "Lavagne di Classe", colorHex: "#8E44AD", iconName: "rectangle.inset.filled.and.person.filled")
+        // Deterministic IDs & timestamps so fresh devices never generate synthetic DeskHub conflicts.
+        let baseDate = Date(timeIntervalSince1970: 1730419200) // 2024-11-01T00:00:00Z
+        let fItaliano = NoteFolder(id: "sample-folder-italiano", name: "Lingua e Grammatica", colorHex: "#2980B9", iconName: "book.closed.fill", createdAt: baseDate)
+        let fScienze = NoteFolder(id: "sample-folder-scienze", name: "Scienze e Ricerca", colorHex: "#27AE60", iconName: "flask.fill", createdAt: baseDate)
+        let fLavagne = NoteFolder(id: "sample-folder-lavagne", name: "Lavagne di Classe", colorHex: "#8E44AD", iconName: "rectangle.inset.filled.and.person.filled", createdAt: baseDate)
         folders = [fItaliano, fScienze, fLavagne]
         saveFolders()
 
-        // Sample 1: Quaderno di Italiano con carta a quadretti e annotazioni
-        var p1 = NotePage(pageNumber: 1, template: .grid, paperColor: .cream)
+        var p1 = NotePage(id: "sample-italian-page-1", pageNumber: 1, template: .grid, paperColor: .cream)
         p1.textBoxes.append(NoteTextBox(
+            id: "sample-italian-title",
             x: 80, y: 60, width: 480, height: 44,
             text: "Corso d'Italiano — Lezione 4: Forme e Regole",
             fontSize: 22, colorHex: "#1E3A8A", isBold: true
         ))
         p1.textBoxes.append(NoteTextBox(
+            id: "sample-italian-body",
             x: 80, y: 120, width: 500, height: 60,
             text: "In questa pagina annotiamo l'uso corretto dei verbi ausiliari e l'accordo del participio passato con il pronome oggetto.",
             fontSize: 15, colorHex: "#374151"
         ))
-        // Sample table
         p1.tables.append(NoteTable(
+            id: "sample-italian-table",
             x: 80, y: 200, width: 440, height: 110, rows: 3, cols: 3,
             cells: [
                 ["Pronome", "Ausiliare", "Esempio"],
@@ -1089,45 +1212,47 @@ public typealias NoteDeskStore = NotesDocumentStore
             ],
             borderColorHex: "#2563EB"
         ))
-        // Sample sticker
         p1.stickers.append(NoteSticker(
+            id: "sample-italian-sticker",
             x: 540, y: 80, size: 54, symbolOrEmoji: "checkmark.seal.fill",
             label: "Verificato", colorHex: "#10B981"
         ))
 
         let doc1 = NoteDocument(
+            id: "sample-italian-workbook",
             title: "Quaderno di Lingua Italiana",
             folderId: fItaliano.id,
             coverColorHex: "#2980B9",
-            pages: [p1, NotePage(pageNumber: 2, template: .ruled, paperColor: .cream)],
-            updatedAt: Date(),
+            pages: [p1, NotePage(id: "sample-italian-page-2", pageNumber: 2, template: .ruled, paperColor: .cream)],
+            updatedAt: baseDate,
             isFavorite: true
         )
 
-        // Sample 2: Lavagna Condivisa Live DeskHub
-        var boardPage = NotePage(pageNumber: 1, template: .chalkboard, paperColor: .dark, isLandscape: true)
+        var boardPage = NotePage(id: "shared-whiteboard-page-1", pageNumber: 1, template: .chalkboard, paperColor: .white, isLandscape: true, pageFormat: .widescreen16x9)
         boardPage.textBoxes.append(NoteTextBox(
+            id: "shared-whiteboard-header",
             x: 100, y: 50, width: 600, height: 40,
             text: "Lavagna Live NoteDesk ⇄ HubDesk & StudyDesk",
-            fontSize: 24, colorHex: "#60A5FA", isBold: true
+            fontSize: 24, colorHex: "#2563EB", isBold: true
         ))
         let doc2 = NoteDocument(
+            id: "shared-whiteboard-hubdesk",
             title: "Lavagna Condivisa HubDesk",
             folderId: fLavagne.id,
             coverColorHex: "#8E44AD",
             pages: [boardPage],
-            updatedAt: Date().addingTimeInterval(-3600),
+            updatedAt: baseDate,
             isFavorite: true,
             isSharedWhiteboard: true
         )
 
-        // Sample 3: Note di Laboratorio
         let doc3 = NoteDocument(
+            id: "sample-lab-notes",
             title: "Laboratorio Sperimentale",
             folderId: fScienze.id,
             coverColorHex: "#27AE60",
-            pages: [NotePage(pageNumber: 1, template: .cornell, paperColor: .white)],
-            updatedAt: Date().addingTimeInterval(-7200)
+            pages: [NotePage(id: "sample-lab-page-1", pageNumber: 1, template: .cornell, paperColor: .white)],
+            updatedAt: baseDate
         )
 
         documents = [doc1, doc2, doc3]

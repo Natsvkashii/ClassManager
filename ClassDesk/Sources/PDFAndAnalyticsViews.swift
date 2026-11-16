@@ -1496,7 +1496,8 @@ public enum CoursePDFGenerator {
         let lvlName = (lvlCode == "Altro") ? (level.customName.isEmpty ? store.t("otherLevelOpt") : level.customName) : lvlCode
         let totalHrs = store.moduleTotalHours(course: course, module: module)
         let totalGross = store.moduleTotalGross(course: course, module: module)
-        let b = module.billing ?? ModuleBilling()
+        let b = store.effectiveBilling(for: module, in: course)
+        let paidH = store.modulePaidHours(course: course, module: module)
 
         var stripItems: [(String, String)] = [
             ("Livello QCER", lvlName),
@@ -1505,8 +1506,8 @@ public enum CoursePDFGenerator {
             ("Tariffa Oraria Netta", store.formatMoney(b.hourlyRateNet)),
             ("Totale Modulo Lordo", store.formatMoney(totalGross))
         ]
-        if b.paidHours > 0 {
-            stripItems.append(("Ore Pagate", String(format: "%.1fh", b.paidHours)))
+        if paidH > 0 {
+            stripItems.append(("Ore Pagate", String(format: "%.1fh", paidH)))
         }
 
         drawInfoStrip(
@@ -1906,11 +1907,17 @@ public struct BillingEarningsAnalyticsView: View {
         for course in store.state.courses {
             for lvl in course.levels {
                 for mod in lvl.modules {
-                    let billing = mod.billing ?? ModuleBilling(
-                        hourlyRateNet: course.billingConfig.hourlyRateNet,
-                        lessonDurationHours: course.billingConfig.lessonDurationHours,
-                        vatPercent: course.billingConfig.vatPercent
-                    )
+                    let billing = store.effectiveBilling(for: mod, in: course)
+                    let fixedModuleDiscountRatio: Double? = {
+                        guard billing.discountType == "fixed", billing.discountValue > 0, billing.lessonOverrides.isEmpty else { return nil }
+                        let totalNet = mod.dates.reduce(0.0) { acc, sk in
+                            acc + billing.lessonNetPrice(for: sk, durationHours: store.lessonDurationHours(course: course, module: mod, slotKey: sk))
+                        }
+                        guard totalNet > 0 else { return 0.0 }
+                        return billing.totalGross(for: mod.dates) { sk in
+                            store.lessonDurationHours(course: course, module: mod, slotKey: sk)
+                        } / totalNet
+                    }()
                     let payers = resolvePayers(for: course, module: mod)
                     let payerShare = 1.0 / Double(max(1, payers.count))
 
@@ -1924,7 +1931,12 @@ public struct BillingEarningsAnalyticsView: View {
                         guard lYear == year, (1...12).contains(lMonth) else { continue }
 
                         let durH = store.lessonDurationHours(course: course, module: mod, slotKey: slotKey)
-                        let gross = billing.lessonGrossPrice(for: slotKey, durationHours: durH)
+                        let gross: Double
+                        if let ratio = fixedModuleDiscountRatio {
+                            gross = billing.lessonNetPrice(for: slotKey, durationHours: durH) * ratio
+                        } else {
+                            gross = billing.lessonGrossPrice(for: slotKey, durationHours: durH)
+                        }
 
                         let mIdx = lMonth - 1
                         monthsData[mIdx].lessonsCount += 1

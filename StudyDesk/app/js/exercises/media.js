@@ -59,7 +59,10 @@ async function extractAudioActiveTimes(src) {
     if (!src || (!window.AudioContext && !window.webkitAudioContext)) return [];
     const res = await fetch(src);
     if (!res.ok) return [];
+    const len = Number(res.headers.get('content-length') || 0);
+    if (len > 64 * 1024 * 1024) return [];
     const buf = await res.arrayBuffer();
+    if (buf.byteLength > 64 * 1024 * 1024) return [];
     const actx = new (window.AudioContext || window.webkitAudioContext)();
     const audioBuffer = await actx.decodeAudioData(buf);
     actx.close();
@@ -67,22 +70,29 @@ async function extractAudioActiveTimes(src) {
     const sr = audioBuffer.sampleRate;
     const win = Math.floor(sr * 0.05); // 50ms
     if (win <= 0) return [];
+    const alpha = Math.exp((-2 * Math.PI * 220) / sr); // ~220Hz high-pass for voice band
+    let prevIn = 0;
+    let prevOut = 0;
     let maxRms = 0;
     const rmsList = [];
     for (let i = 0; i < ch.length; i += win) {
       let sum = 0;
       const end = Math.min(ch.length, i + win);
       for (let j = i; j < end; j++) {
-        sum += ch[j] * ch[j];
+        const x = ch[j];
+        const y = alpha * (prevOut + x - prevIn);
+        prevIn = x;
+        prevOut = y;
+        sum += y * y;
       }
       const rms = Math.sqrt(sum / (end - i));
       if (rms > maxRms) maxRms = rms;
       rmsList.push({ t: i / sr, r: rms });
     }
-    const thresh = Math.max(0.015, maxRms * 0.08);
+    const thresh = Math.max(0.012, maxRms * 0.10);
     let active = rmsList.filter((x) => x.r >= thresh).map((x) => x.t);
-    if (active.length > 5 && active[0] < 2.5) {
-      for (let i = 0; i < Math.min(40, active.length - 1); i++) {
+    if (active.length > 5 && active[0] < 3.0) {
+      for (let i = 0; i < Math.min(50, active.length - 1); i++) {
         if (active[i + 1] - active[i] > 0.7) {
           active = active.slice(i + 1);
           break;
@@ -324,6 +334,65 @@ function openSpotifyLyrics(title, transcript, audioEl, activeTimeline, wordTimes
   }
 }
 
+function fmtVttTime(sec) {
+  const s = Math.max(0, Number(sec) || 0);
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const rem = (s % 60).toFixed(3).padStart(6, '0');
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${rem}`;
+}
+
+function parseVttTime(str) {
+  const parts = String(str || '').trim().replace(',', '.').split(':').map(Number);
+  if (parts.some((n) => !Number.isFinite(n))) return 0;
+  if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
+  if (parts.length === 2) return parts[0] * 60 + parts[1];
+  return parts[0] || 0;
+}
+
+function normalizeToVtt(raw, offsetSec = 0) {
+  const text = String(raw || '').replace(/\r\n?/g, '\n').trim();
+  if (!text) return '';
+  const body = text.replace(/^WEBVTT[^\n]*\n*/i, '');
+  const converted = body.split('\n').map((line) => {
+    if (!line.includes('-->')) return line;
+    const [a, bRaw] = line.split('-->');
+    const [bTime, ...rest] = bRaw.trim().split(/\s+/);
+    const s = Math.max(0, parseVttTime(a) + offsetSec);
+    const e = Math.max(s + 0.1, parseVttTime(bTime) + offsetSec);
+    return `${fmtVttTime(s)} --> ${fmtVttTime(e)}${rest.length ? ' ' + rest.join(' ') : ''}`;
+  }).join('\n');
+  return `WEBVTT\n\n${converted}\n`;
+}
+
+function transcriptToVtt(transcript, duration, wordTimes, activeTimeline = [], offsetSec = 0) {
+  const parsed = parseTranscript(transcript);
+  if (!parsed.lines.length) return '';
+  const dur = Math.max(Number(duration) || 0, parsed.lines.length * 2.5);
+  const times = wordTimeline(parsed, { duration: dur, activeTimeline, wordTimes });
+  let offset = 0;
+  const cues = [];
+  for (const line of parsed.lines) {
+    const lineWords = line.words || [];
+    const wordRanges = lineWords.map(() => times[offset++] || [0, 0.5]);
+    if (!wordRanges.length) continue;
+    const chunkCount = Math.max(1, Math.ceil(lineWords.length / 10));
+    const chunkSize = Math.ceil(lineWords.length / chunkCount);
+    for (let idx = 0; idx < lineWords.length; idx += chunkSize) {
+      const endIdx = Math.min(idx + chunkSize, lineWords.length);
+      const start = Math.max(0, wordRanges[idx][0] + offsetSec);
+      let end = Math.max(wordRanges[endIdx - 1][1] + offsetSec, start + 0.45);
+      if (endIdx < lineWords.length) {
+        const nextStart = Math.max(0, wordRanges[endIdx][0] + offsetSec);
+        if (nextStart - end < 0.4) end = Math.max(end, nextStart);
+      }
+      const prefix = (idx === 0 && line.speaker) ? `${line.speaker}: ` : '';
+      cues.push(`${fmtVttTime(start)} --> ${fmtVttTime(end)}\n${prefix}${lineWords.slice(idx, endIdx).join(' ')}`);
+    }
+  }
+  return cues.length ? `WEBVTT\n\n${cues.join('\n\n')}\n` : '';
+}
+
 function mediaItem(m, ctx) {
   const cand = (m.candidate || m.role || '').toUpperCase();
   if (cand && ctx?.activeCandidate && ctx.activeCandidate !== 'both' && cand !== ctx.activeCandidate) {
@@ -378,15 +447,179 @@ function mediaContent(m, ctx) {
     if (m.placeholder) return h('div.video-placeholder', icon('video'), h('div', { style: { fontWeight: 700, marginTop: '.4rem' } }, 'Video non incluso – aggiungilo dall\'editor'), m.label ? h('div.faint', m.label) : null);
     const tr = m.transcript ? h('div.transcript.hidden', m.transcript) : null;
     let body;
+    let fsBtn = null;
+    let ccBtn = null;
+    let syncGroup = null;
     if (m.src) {
       const src = ctx.url(m.src);
-      body = src ? h('div.video-box', h('video', { controls: true, preload: 'metadata', src })) : h('div.video-placeholder', 'Video non incluso – aggiungilo dall\'editor');
+      if (src) {
+        const videoEl = h('video', { controls: true, preload: 'metadata', playsinline: true, src });
+        const box = h('div.video-box', videoEl);
+        const offsetKey = `studydesk.subOffset.${m.src}`;
+        let subsEnabled = true;
+        let trackEl = null;
+        let vttBlobUrl = null;
+        let explicitRaw = '';
+        let activeTimeline = [];
+        let syncOffset = Number(localStorage.getItem(offsetKey) || 0) || 0;
+        const parsedTr = m.transcript ? parseTranscript(m.transcript) : null;
+        const aligned = parsedTr ? hasAlignedTimes(parsedTr, m.wordTimes) : false;
+
+        const fmtOffset = () => {
+          if (!syncOffset) return '0,0s';
+          return `${syncOffset > 0 ? '+' : ''}${syncOffset.toFixed(1).replace('.', ',')}s`;
+        };
+        const resetOffsetBtn = h('button.btn.btn-sm.btn-ghost', {
+          type: 'button',
+          title: 'Azzera sfasamento sottotitoli',
+          style: { minWidth: '3.2rem', fontVariantNumeric: 'tabular-nums' },
+          onclick: () => adjustOffset(0, true),
+        }, fmtOffset());
+        const adjustOffset = (delta, reset = false) => {
+          syncOffset = reset ? 0 : Math.max(-20, Math.min(20, Math.round((syncOffset + delta) * 10) / 10));
+          if (syncOffset === 0) localStorage.removeItem(offsetKey);
+          else localStorage.setItem(offsetKey, String(syncOffset));
+          resetOffsetBtn.textContent = fmtOffset();
+          rebuildVttTrack();
+        };
+
+        const syncTracksMode = () => {
+          const mode = subsEnabled ? 'showing' : 'hidden';
+          for (const tt of Array.from(videoEl.textTracks || [])) {
+            if (tt.kind === 'subtitles' || tt.kind === 'captions') tt.mode = mode;
+          }
+          if (ccBtn) {
+            ccBtn.classList.toggle('btn-primary', subsEnabled);
+            ccBtn.lastChild.textContent = subsEnabled ? ' Sottotitoli On' : ' Sottotitoli Off';
+          }
+          if (syncGroup) syncGroup.style.display = (subsEnabled && (explicitRaw || m.transcript)) ? 'inline-flex' : 'none';
+        };
+
+        const setVttTrack = (vttText) => {
+          if (!vttText) return;
+          if (vttBlobUrl) URL.revokeObjectURL(vttBlobUrl);
+          vttBlobUrl = URL.createObjectURL(new Blob([vttText], { type: 'text/vtt;charset=utf-8' }));
+          if (!trackEl) {
+            trackEl = h('track', { kind: 'subtitles', srclang: 'it', label: 'Sottotitoli', default: true });
+            videoEl.append(trackEl);
+          }
+          trackEl.src = vttBlobUrl;
+          setTimeout(syncTracksMode, 0);
+        };
+
+        const rebuildVttTrack = () => {
+          if (explicitRaw) {
+            setVttTrack(normalizeToVtt(explicitRaw, syncOffset));
+          } else if (m.transcript) {
+            setVttTrack(transcriptToVtt(m.transcript, videoEl.duration, m.wordTimes, activeTimeline, syncOffset));
+          }
+        };
+
+        const hasSubtitleSource = Boolean(m.subtitles || m.transcript);
+        ccBtn = h('button.btn.btn-sm.btn-ghost.btn-primary', {
+          type: 'button',
+          style: { marginTop: '.4rem', display: hasSubtitleSource ? '' : 'none' },
+          onclick: () => { subsEnabled = !subsEnabled; syncTracksMode(); },
+          title: 'Attiva o disattiva i sottotitoli',
+        }, icon('closed-captioning'), ' Sottotitoli On');
+
+        syncGroup = h('div.row', {
+          style: { gap: '.2rem', marginTop: '.4rem', display: hasSubtitleSource ? 'inline-flex' : 'none', alignItems: 'center' },
+        },
+          h('button.btn.btn-sm.btn-ghost', { type: 'button', title: 'Anticipa sottotitoli di 0,5s', onclick: () => adjustOffset(-0.5) }, '−0,5s'),
+          resetOffsetBtn,
+          h('button.btn.btn-sm.btn-ghost', { type: 'button', title: 'Ritarda sottotitoli di 0,5s', onclick: () => adjustOffset(0.5) }, '+0,5s')
+        );
+
+        if (m.subtitles) {
+          if (m.subtitles.includes('-->')) {
+            explicitRaw = m.subtitles;
+            rebuildVttTrack();
+          } else {
+            const subUrl = ctx.url(m.subtitles);
+            if (subUrl) {
+              fetch(subUrl).then((r) => (r.ok ? r.text() : '')).then((raw) => {
+                if (raw && raw.includes('-->')) {
+                  explicitRaw = raw;
+                  rebuildVttTrack();
+                }
+              }).catch(() => {});
+            }
+          }
+        }
+        if (m.transcript && !explicitRaw) {
+          rebuildVttTrack();
+          if (!aligned) {
+            extractAudioActiveTimes(src).then((times) => {
+              if (!explicitRaw && times && times.length > 5) {
+                activeTimeline = times;
+                rebuildVttTrack();
+              }
+            }).catch(() => {});
+          }
+        }
+
+        videoEl.addEventListener('loadedmetadata', () => {
+          if (!explicitRaw && m.transcript) rebuildVttTrack();
+          const tracks = Array.from(videoEl.textTracks || []).filter((t) => t.kind === 'subtitles' || t.kind === 'captions');
+          if (tracks.length && ccBtn) ccBtn.style.display = '';
+          syncTracksMode();
+        });
+
+        let idleTimer = null;
+        const setIdle = (idle) => {
+          box.classList.toggle('fs-idle', idle);
+          videoEl.classList.toggle('fs-idle', idle);
+        };
+        const resetIdle = () => {
+          clearTimeout(idleTimer);
+          setIdle(false);
+          const isFs = document.fullscreenElement === videoEl || document.fullscreenElement === box || videoEl.webkitDisplayingFullscreen;
+          if (!isFs || videoEl.paused) return;
+          idleTimer = setTimeout(() => setIdle(true), 2200);
+        };
+        ['mousemove', 'pointermove', 'mousedown', 'keydown'].forEach((ev) => {
+          videoEl.addEventListener(ev, resetIdle, { passive: true });
+          box.addEventListener(ev, resetIdle, { passive: true });
+        });
+        videoEl.addEventListener('play', resetIdle);
+        videoEl.addEventListener('pause', () => { clearTimeout(idleTimer); setIdle(false); });
+        document.addEventListener('fullscreenchange', () => {
+          const fsEl = document.fullscreenElement;
+          if (fsEl === videoEl || fsEl === box) resetIdle();
+          else { clearTimeout(idleTimer); setIdle(false); }
+        });
+
+        const toggleVideoFs = () => {
+          if (document.fullscreenElement) {
+            document.exitFullscreen?.().catch(() => {});
+          } else if (videoEl.requestFullscreen) {
+            videoEl.requestFullscreen().catch(() => box.requestFullscreen?.().catch(() => {}));
+          } else if (box.requestFullscreen) {
+            box.requestFullscreen().catch(() => {});
+          } else if (videoEl.webkitEnterFullscreen) {
+            videoEl.webkitEnterFullscreen();
+          }
+        };
+        videoEl.addEventListener('dblclick', toggleVideoFs);
+        fsBtn = h('button.btn.btn-sm.btn-ghost', {
+          type: 'button',
+          style: { marginTop: '.4rem' },
+          onclick: toggleVideoFs,
+          title: 'Apri video a schermo intero',
+        }, icon('expand'), ' Schermo intero');
+        body = box;
+      } else {
+        body = h('div.video-placeholder', 'Video non incluso – aggiungilo dall\'editor');
+      }
     } else if (m.url) {
       body = h('div.video-placeholder', icon('circle-play'), h('div', { style: { margin: '.4rem 0' } }, m.label || 'Video'),
         h('a.btn.btn-primary', { href: m.url, target: '_blank', rel: 'noopener' }, icon('arrow-up-right-from-square'), 'Apri il video'));
     } else body = h('div.video-placeholder', 'Video non incluso – aggiungilo dall\'editor');
+    const trBtn = tr ? h('button.btn.btn-sm.btn-ghost', { type: 'button', style: { marginTop: '.4rem' }, onclick: () => tr.classList.toggle('hidden') }, icon('align-left'), 'Trascrizione') : null;
+    const actionsRow = (trBtn || ccBtn || syncGroup || fsBtn) ? h('div.row', { style: { gap: '.5rem', flexWrap: 'wrap' } }, trBtn, ccBtn, syncGroup, fsBtn) : null;
     return h('div', { style: { width: '100%' } }, m.label && m.src ? h('div.lbl', { style: { fontWeight: 800, fontSize: '.8rem', marginBottom: '.3rem' } }, m.label) : null, body,
-      tr ? h('button.btn.btn-sm.btn-ghost', { type: 'button', style: { marginTop: '.4rem' }, onclick: () => tr.classList.toggle('hidden') }, icon('align-left'), 'Trascrizione') : null, tr);
+      actionsRow, tr);
   }
   return null;
 }

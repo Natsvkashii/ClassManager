@@ -179,7 +179,7 @@ async function start() {
     return;
   }
   buildShell();
-  watchUpdates();
+  if (!platform.isElectron) watchUpdates();
   window.addEventListener('hashchange', route);
   // data received by sync: redraw the list pages (never a page being worked on: module, editor, board, settings)
   const refreshSynced = debounce(() => {
@@ -198,7 +198,7 @@ async function start() {
   onOpenFile(openIncoming);
   await route();
   openIncoming(await takePendingFiles());
-  startupCheck();
+  if (!platform.isElectron) startupCheck();
   initSync().catch((e) => console.error('sync', e));
   initHubDesk().catch((e) => console.error('hubdesk', e));
   startHubWatch();

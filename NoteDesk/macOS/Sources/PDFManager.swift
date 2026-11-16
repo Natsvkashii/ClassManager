@@ -115,7 +115,7 @@ public final class PDFManager {
         let loadedPDF = document.pdfFileName.flatMap { getPDFDocument(fileName: $0, in: store) }
 
         for page in document.pages {
-            let pageSize = page.isLandscape ? Self.a4Landscape : Self.a4Portrait
+            let pageSize = page.logicalSize
             var pageRect = CGRect(origin: .zero, size: pageSize)
             ctx.beginPage(mediaBox: &pageRect)
 
@@ -182,7 +182,7 @@ public final class PDFManager {
     // MARK: - CoreGraphics Drawing Helpers
 
     private func drawPaperTemplateLines(page: NotePage, in ctx: CGContext, size: CGSize) {
-        let strokeColor = NSColor(hex: page.paperColor.hex == "#1E242B" ? "#3A4553" : "#D1D5DB").cgColor
+        let strokeColor = NSColor(hex: page.paperColor.isDark ? "#3A4553" : "#D1D5DB").cgColor
         ctx.setStrokeColor(strokeColor)
         ctx.setLineWidth(0.6)
 

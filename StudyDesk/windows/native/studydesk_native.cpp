@@ -346,8 +346,12 @@ static int Install(const std::wstring &self, bool silent) {
     if (_wcsicmp(self.c_str(), InstalledExe().c_str()) != 0) {
         std::wstring tmp = InstalledExe() + L".new";
         if (!CopyFileW(self.c_str(), tmp.c_str(), FALSE)) { if (!silent) MessageBoxW(NULL, L"Impossibile copiare StudyDesk nella cartella dei programmi.", APP_NAME, MB_ICONERROR); return 2; }
-        DeleteFileW(InstalledExe().c_str());
-        MoveFileW(tmp.c_str(), InstalledExe().c_str());
+        bool moved = false;
+        for (int attempt = 0; attempt < 20; ++attempt) {
+            if (MoveFileExW(tmp.c_str(), InstalledExe().c_str(), MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH)) { moved = true; break; }
+            Sleep(150);
+        }
+        if (!moved) { DeleteFileW(tmp.c_str()); if (!silent) MessageBoxW(NULL, L"Impossibile sostituire l'eseguibile di StudyDesk.", APP_NAME, MB_ICONERROR); return 2; }
     }
     if (!ExtractApp(InstalledExe(), AppDir())) { if (!silent) MessageBoxW(NULL, L"Il file di installazione è incompleto: scaricalo di nuovo.", APP_NAME, MB_ICONERROR); return 3; }
     std::wstring icon = AppDir() + L"\\icons\\StudyDesk.ico";
@@ -379,6 +383,7 @@ static int Install(const std::wstring &self, bool silent) {
 static HWND g_hwnd = NULL;
 static WINDOWPLACEMENT g_place = {sizeof(WINDOWPLACEMENT)};
 static bool g_full = false;
+static bool g_wasFullBeforeElement = false;
 static void SetFullScreen(bool on) {
     if (!g_hwnd || on == g_full) return;
     LONG style = GetWindowLongW(g_hwnd, GWL_STYLE);
@@ -648,6 +653,38 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int) {
             c3->SetVirtualHostNameToFolderMapping(FILES_HOST, g_filesDir.c_str(), COREWEBVIEW2_HOST_RESOURCE_ACCESS_KIND_ALLOW);
             c3->Release();
         }
+        class FullScreenHandler : public ICoreWebView2ContainsFullScreenElementChangedEventHandler {
+            ULONG refs = 1;
+        public:
+            HRESULT STDMETHODCALLTYPE QueryInterface(REFIID riid, void **ppv) override {
+                if (!ppv) return E_POINTER;
+                if (riid == IID_IUnknown || riid == IID_ICoreWebView2ContainsFullScreenElementChangedEventHandler) {
+                    *ppv = static_cast<ICoreWebView2ContainsFullScreenElementChangedEventHandler *>(this);
+                    AddRef();
+                    return S_OK;
+                }
+                *ppv = nullptr;
+                return E_NOINTERFACE;
+            }
+            ULONG STDMETHODCALLTYPE AddRef() override { return ++refs; }
+            ULONG STDMETHODCALLTYPE Release() override { ULONG r = --refs; if (r == 0) delete this; return r; }
+            HRESULT STDMETHODCALLTYPE Invoke(ICoreWebView2 *sender, IUnknown *) override {
+                BOOL contains = FALSE;
+                if (sender && SUCCEEDED(sender->get_ContainsFullScreenElement(&contains))) {
+                    if (contains) {
+                        g_wasFullBeforeElement = g_full;
+                        if (!g_full) SetFullScreen(true);
+                    } else {
+                        if (!g_wasFullBeforeElement && g_full) SetFullScreen(false);
+                    }
+                }
+                return S_OK;
+            }
+        };
+        EventRegistrationToken fsToken = {};
+        auto *handler = new FullScreenHandler();
+        core->add_ContainsFullScreenElementChanged(handler, &fsToken);
+        handler->Release();
     }
 
     w.bind("__sd_save_file", [](std::string req) -> std::string {

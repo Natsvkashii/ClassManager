@@ -1554,7 +1554,7 @@ public struct BillingView: View {
                 return activeLevel
             }()
 
-            let curBilling = currentModule.billing ?? ModuleBilling()
+            let curBilling = store.effectiveBilling(for: currentModule, in: course)
             let curModuleCost = store.moduleTotalGross(course: course, module: currentModule)
             let curModuleHours = store.moduleTotalHours(course: course, module: currentModule)
             let curSortedSlots = store.sortedSlots(for: course, module: currentModule)
@@ -1716,9 +1716,28 @@ public struct BillingView: View {
                                 .fixedSize(horizontal: true, vertical: false)
                             }
 
-                            // Dynamic hours calculation badge: paid hours vs scheduled hours
-                            let curPaidH = (batchHourlyRate > 0 && batchPaidAmount > 0) ? (batchPaidAmount / batchHourlyRate) : 0.0
+                            // Dynamic hours calculation badge: paid hours vs scheduled hours (respecting discount & VAT)
+                            let sameGlobalRules = (
+                                batchHourlyRate == curBilling.hourlyRateNet &&
+                                batchVatPercent == curBilling.vatPercent &&
+                                batchDiscountType == curBilling.discountType &&
+                                batchDiscountValue == curBilling.discountValue
+                            )
+                            let previewBilling = ModuleBilling(
+                                hourlyRateNet: batchHourlyRate,
+                                lessonDurationHours: curBilling.lessonDurationHours,
+                                vatPercent: batchVatPercent,
+                                discountType: batchDiscountType,
+                                discountTarget: curBilling.discountTarget,
+                                discountValue: batchDiscountValue,
+                                studentPaidAmount: batchPaidAmount,
+                                lessonOverrides: sameGlobalRules ? curBilling.lessonOverrides : [:]
+                            )
+                            let curPaidH = previewBilling.paidHours(for: curSortedSlots) { sk in
+                                store.lessonDurationHours(course: course, module: currentModule, slotKey: sk)
+                            }
                             let curMissingH = max(0.0, curPaidH - curModuleHours)
+                            let curEffGrossRate = previewBilling.effectiveGrossHourlyRate
                             HStack(spacing: 14) {
                                 HStack(spacing: 5) {
                                     Image(systemName: "banknote.fill")
@@ -1750,6 +1769,13 @@ public struct BillingView: View {
                                             .font(.caption.bold())
                                             .foregroundStyle(curMissingH > 0 ? .orange : .green)
                                     }
+                                }
+                                if curEffGrossRate > 0 {
+                                    Text(batchDiscountType == "fixed" && batchDiscountValue > 0
+                                         ? "(\(store.formatMoney(curEffGrossRate))/h con IVA, -\(store.formatMoney(batchDiscountValue)) sul totale)"
+                                         : "(\(store.formatMoney(curEffGrossRate))/h con sconto e IVA)")
+                                        .font(.caption2)
+                                        .foregroundStyle(.secondary)
                                 }
                             }
                             .padding(.top, 4)
@@ -1894,6 +1920,9 @@ public struct BillingView: View {
                 )
             }
             .onAppear {
+                syncGlobalToolbar(for: curBilling)
+            }
+            .onChange(of: currentModule.id) { _, _ in
                 syncGlobalToolbar(for: curBilling)
             }
             .onChange(of: batchPaidAmount) { _, newVal in

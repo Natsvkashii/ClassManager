@@ -38,13 +38,31 @@ public final class NoteDeskHubIntegration {
     }
 
     public func start() {
+        link.onMessage = { [weak self] rawMsg in
+            guard let self else { return }
+            let t = rawMsg["t"] as? String ?? ""
+            if t == "records" {
+                Task { @MainActor in
+                    self.pullRecords()
+                }
+                return
+            }
+            guard t == "board" else { return }
+            let from = rawMsg["from"] as? String
+            let fromName = rawMsg["fromName"] as? String
+            if let payload = rawMsg["msg"] as? [String: Any] {
+                Task { @MainActor in
+                    self.handleBoardMessage(payload, from: from, fromName: fromName)
+                }
+            }
+        }
         link.start()
         watcher = records.watch { [weak self] in
             Task { @MainActor in
                 self?.pullRecords()
             }
         }
-        syncTimer = Timer.scheduledTimer(withTimeInterval: 5.0, repeats: true) { [weak self] _ in
+        syncTimer = Timer.scheduledTimer(withTimeInterval: 3.0, repeats: true) { [weak self] _ in
             Task { @MainActor in
                 self?.refreshStatus()
                 self?.pullRecords()
@@ -71,138 +89,574 @@ public final class NoteDeskHubIntegration {
         isConnected = DeskHubBootstrap.isHubInstalled
     }
 
-    /// Publishes a single notebook to DeskHub (~/.deskhub/store.json, DeskHubRecords, and HTTP API)
+    /// Publishes folders to DeskHubRecords deterministically (without volatile timestamps).
+    public func pushFoldersRecord(_ folders: [NoteFolder]) {
+        let foldersData = folders.map { f in
+            ["id": f.id, "name": f.name, "colorHex": f.colorHex, "iconName": f.iconName]
+        }
+        records.put("folders", ["folders": foldersData])
+    }
+
+    /// Publishes a single notebook to DeskHubRecords so peers receive updates immediately.
     public func publishNotebook(_ notebook: NoteDocument) {
-        let stripped = notebook
-        guard let data = try? JSONEncoder().encode(stripped),
-              let jsonDict = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else { return }
-
-        let nowMs = Int(Date().timeIntervalSince1970 * 1000)
-        let key = "notebook:\(notebook.id)"
-
-        // 1. Write to local DeskHubRecords folder
-        records.put(key, jsonDict)
-
-        // 2. Write to ~/.deskhub/store.json if it exists or create it
-        let home = FileManager.default.homeDirectoryForCurrentUser
-        let storeUrl = home.appendingPathComponent(".deskhub/store.json")
-        var storeObj: [String: Any] = [:]
-        if let storeData = try? Data(contentsOf: storeUrl),
-           let parsed = (try? JSONSerialization.jsonObject(with: storeData)) as? [String: Any] {
-            storeObj = parsed
-        }
-        var appRecords = (storeObj["notedesk"] as? [String: Any]) ?? [:]
-        appRecords[key] = [
-            "data": jsonDict,
-            "updatedAt": nowMs
-        ]
-        storeObj["notedesk"] = appRecords
-        try? FileManager.default.createDirectory(at: storeUrl.deletingLastPathComponent(), withIntermediateDirectories: true)
-        if let outData = try? JSONSerialization.data(withJSONObject: storeObj, options: [.prettyPrinted, .sortedKeys]) {
-            try? outData.write(to: storeUrl, options: .atomic)
-        }
-
-        // 3. Post to HTTP API if DeskHub is running
-        if let apiUrl = URL(string: "http://127.0.0.1:47832/api/records") {
-            var req = URLRequest(url: apiUrl)
-            req.httpMethod = "POST"
-            req.setValue("application/json", forHTTPHeaderField: "Content-Type")
-            req.timeoutInterval = 1.5
-            let body: [String: Any] = [
-                "app": "notedesk",
-                "key": key,
-                "value": jsonDict,
-                "updatedAt": nowMs
-            ]
-            req.httpBody = try? JSONSerialization.data(withJSONObject: body)
-            URLSession.shared.dataTask(with: req) { _, _, _ in }.resume()
-        }
-
+        guard let data = try? JSONEncoder().encode(notebook),
+              var jsonDict = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else { return }
+        jsonDict["updatedAtISO"] = ISO8601DateFormatter().string(from: notebook.updatedAt)
+        records.put("notebook:\(notebook.id)", jsonDict)
         lastSyncTime = Date()
     }
 
-    /// Mirrors notebooks and folders to DeskHubRecords (app: "notedesk")
+    /// Mirrors notebooks and folders to DeskHubRecords (app: "notedesk") without creating synthetic conflicts.
     public func pushRecords(store: NotesDocumentStore) {
-        // Save folders record
-        let foldersData = store.folders.map { f in
-            ["id": f.id, "name": f.name, "colorHex": f.colorHex, "iconName": f.iconName]
-        }
-        records.put("folders", ["folders": foldersData, "updatedAt": ISO8601DateFormatter().string(from: Date())])
-
-        // Save each notebook record
+        pushFoldersRecord(store.folders)
         for doc in store.documents {
             publishNotebook(doc)
         }
-
-        // Save notebooks manifest
-        let notebooksData = store.documents.map { doc in
-            [
-                "id": doc.id,
-                "title": doc.title,
-                "folderId": doc.folderId ?? "",
-                "coverColorHex": doc.coverColorHex,
-                "pageCount": doc.pages.count,
-                "isFavorite": doc.isFavorite,
-                "isSharedWhiteboard": doc.isSharedWhiteboard,
-                "updatedAt": ISO8601DateFormatter().string(from: doc.updatedAt)
-            ]
-        }
-        records.put("notebooks", ["notebooks": notebooksData, "updatedAt": ISO8601DateFormatter().string(from: Date())])
         lastSyncTime = Date()
     }
 
-    /// Polls and merges incoming notebook records from ~/.deskhub/store.json & DeskHubRecords
+    /// Normalizes a stroke dictionary from Windows (color/size/shape/t/ms) or macOS into NoteStroke JSON.
+    private func normalizeStrokeDict(_ raw: [String: Any]) -> [String: Any] {
+        var s = raw
+        if s["id"] == nil { s["id"] = UUID().uuidString }
+        let rawTool = (s["tool"] as? String) ?? "ballPen"
+        let mappedTool: String
+        switch rawTool {
+        case "shape": mappedTool = "shapes"
+        case "fountainPen", "ballPen", "brushPen", "pencil", "marker",
+             "highlighter", "eraser", "lasso", "shapes", "text", "image", "sticker", "laser":
+            mappedTool = rawTool
+        default:
+            mappedTool = "ballPen"
+        }
+        s["tool"] = mappedTool
+
+        if s["colorHex"] == nil {
+            s["colorHex"] = (s["color"] as? String) ?? "#111827"
+        }
+        if s["thicknessMM"] == nil {
+            if let px = s["size"] as? Double {
+                s["thicknessMM"] = max(0.25, px / 2.8346)
+            } else {
+                s["thicknessMM"] = mappedTool == "highlighter" ? 5.0 : 1.0
+            }
+        }
+        if s["opacity"] == nil {
+            s["opacity"] = mappedTool == "highlighter" ? 0.35 : 1.0
+        }
+        if s["tipSharpness"] == nil { s["tipSharpness"] = 0.5 }
+        if s["pressureSensitivity"] == nil {
+            s["pressureSensitivity"] = (mappedTool == "fountainPen" || mappedTool == "brushPen") ? 0.65 : 0.3
+        }
+        if s["isStraightLine"] == nil { s["isStraightLine"] = false }
+
+        if let rawPts = s["points"] as? [[String: Any]] {
+            s["points"] = rawPts.map { pt -> [String: Any] in
+                var p = pt
+                if p["pressure"] == nil {
+                    p["pressure"] = (pt["p"] as? Double) ?? 0.5
+                }
+                if p["timestamp"] == nil {
+                    p["timestamp"] = (pt["t"] as? Double) ?? 0.0
+                }
+                return p
+            }
+        } else {
+            s["points"] = []
+        }
+        return s
+    }
+
+    /// Decodes a single stroke from either Windows or macOS realtime format.
+    private func decodeFlexStroke(from dict: [String: Any]) -> NoteStroke? {
+        let normalized = normalizeStrokeDict(dict)
+        guard let data = try? JSONSerialization.data(withJSONObject: normalized),
+              let stroke = try? JSONDecoder().decode(NoteStroke.self, from: data) else { return nil }
+        return stroke
+    }
+
+    /// Normalizes incoming records from both macOS (Cocoa epoch) and Windows (ISO-8601 / paperShade).
+    private func decodeFlexDocument(from raw: Any) -> NoteDocument? {
+        guard var dict = raw as? [String: Any] else { return nil }
+        if let iso = dict["updatedAtISO"] as? String,
+           let parsed = ISO8601DateFormatter().date(from: iso) {
+            dict["updatedAt"] = parsed.timeIntervalSinceReferenceDate
+        } else if let strDate = dict["updatedAt"] as? String,
+                  let parsed = ISO8601DateFormatter().date(from: strDate) {
+            dict["updatedAt"] = parsed.timeIntervalSinceReferenceDate
+        } else if let ms = dict["updatedAtMs"] as? Double {
+            dict["updatedAt"] = Date(timeIntervalSince1970: ms / 1000.0).timeIntervalSinceReferenceDate
+        } else if let num = dict["updatedAt"] as? Double, num > 100_000_000_000 {
+            dict["updatedAt"] = Date(timeIntervalSince1970: num / 1000.0).timeIntervalSinceReferenceDate
+        }
+        if dict["coverColorHex"] == nil {
+            dict["coverColorHex"] = (dict["coverColor"] as? String) ?? "#1E3A5F"
+        }
+        if dict["isFavorite"] == nil { dict["isFavorite"] = false }
+        if dict["isSharedWhiteboard"] == nil {
+            dict["isSharedWhiteboard"] = (dict["isWhiteboard"] as? Bool) ?? false
+        }
+        if var pages = dict["pages"] as? [[String: Any]] {
+            let docIsLandscape = (dict["isLandscape"] as? Bool)
+                ?? ((dict["pageFormat"] as? String) == "widescreen16x9" || (dict["pageFormat"] as? String) == "board4x3")
+            for i in 0..<pages.count {
+                if pages[i]["pageNumber"] == nil { pages[i]["pageNumber"] = i + 1 }
+                if pages[i]["isLandscape"] == nil { pages[i]["isLandscape"] = docIsLandscape }
+                if let tmpl = pages[i]["template"] as? String {
+                    let valid = ["blank", "grid", "ruled", "dotted", "cornell", "planner", "chalkboard"]
+                    if !valid.contains(tmpl) { pages[i]["template"] = "blank" }
+                } else {
+                    pages[i]["template"] = "blank"
+                }
+                if pages[i]["paperColor"] == nil, let shade = pages[i]["paperShade"] as? String {
+                    switch shade.uppercased() {
+                    case "#FFFFFF": pages[i]["paperColor"] = "white"
+                    case "#FDFBF0": pages[i]["paperColor"] = "cream"
+                    case "#16422F": pages[i]["paperColor"] = "boardGreen"
+                    case "#18304B": pages[i]["paperColor"] = "boardNavy"
+                    default:        pages[i]["paperColor"] = "dark"
+                    }
+                }
+                var normalizedStrokes = ((pages[i]["strokes"] as? [[String: Any]]) ?? []).map { normalizeStrokeDict($0) }
+                if let hl = pages[i]["highlighterStrokes"] as? [[String: Any]] {
+                    let seen = Set(normalizedStrokes.compactMap { $0["id"] as? String })
+                    for s in hl where !seen.contains(s["id"] as? String ?? "") {
+                        var copy = s
+                        copy["tool"] = "highlighter"
+                        normalizedStrokes.append(normalizeStrokeDict(copy))
+                    }
+                }
+                pages[i]["strokes"] = normalizedStrokes
+            }
+            dict["pages"] = pages
+        }
+        guard let valData = try? JSONSerialization.data(withJSONObject: dict),
+              let doc = try? JSONDecoder().decode(NoteDocument.self, from: valData) else { return nil }
+        return doc
+    }
+
+    /// Polls and merges incoming notebook records from DeskHubRecords
     public func pullRecords(store: NotesDocumentStore? = nil) {
         refreshStatus()
         let docStore = store ?? NotesDocumentStore.shared
-
-        // 1. Scan DeskHubRecords
         let allRecords = records.all()
-        for (key, record) in allRecords where key.hasPrefix("notebook:") {
-            guard let val = record["value"] ?? record["data"] else { continue }
-            if let valData = try? JSONSerialization.data(withJSONObject: val),
-               let doc = try? JSONDecoder().decode(NoteDocument.self, from: valData) {
+        for (key, record) in allRecords {
+            if (record["deleted"] as? Bool) == true {
+                if key.hasPrefix("notebook:") {
+                    let docId = String(key.dropFirst("notebook:".count))
+                    docStore.documents.removeAll { $0.id == docId }
+                }
+                continue
+            }
+            guard key.hasPrefix("notebook:"), let val = record["value"] ?? record["data"] else { continue }
+            if let doc = decodeFlexDocument(from: val) {
                 mergeIncomingDoc(doc, in: docStore)
             }
         }
+    }
 
-        // 2. Scan ~/.deskhub/store.json
-        let home = FileManager.default.homeDirectoryForCurrentUser
-        let storeUrl = home.appendingPathComponent(".deskhub/store.json")
-        if let storeData = try? Data(contentsOf: storeUrl),
-           let storeObj = (try? JSONSerialization.jsonObject(with: storeData)) as? [String: Any],
-           let appRecords = storeObj["notedesk"] as? [String: Any] {
-            for (key, entry) in appRecords where key.hasPrefix("notebook:") {
-                guard let dict = entry as? [String: Any],
-                      let dataObj = dict["data"] ?? dict["value"] else { continue }
-                if let valData = try? JSONSerialization.data(withJSONObject: dataObj),
-                   let doc = try? JSONDecoder().decode(NoteDocument.self, from: valData) {
-                    mergeIncomingDoc(doc, in: docStore)
-                }
-            }
+    private func mergePageNonDestructively(local: NotePage, incoming: NotePage, preferIncomingMeta: Bool) -> NotePage {
+        var out = preferIncomingMeta ? incoming : local
+        // Union strokes by id, preserving order
+        var strokeMap: [String: NoteStroke] = [:]
+        var strokeOrder: [String] = []
+        for s in local.strokes { strokeMap[s.id] = s; strokeOrder.append(s.id) }
+        for s in incoming.strokes {
+            if strokeMap[s.id] == nil { strokeOrder.append(s.id) }
+            if preferIncomingMeta || strokeMap[s.id] == nil { strokeMap[s.id] = s }
         }
+        out.strokes = strokeOrder.compactMap { strokeMap[$0] }
+
+        var tbMap: [String: NoteTextBox] = [:]
+        var tbOrder: [String] = []
+        for b in local.textBoxes { tbMap[b.id] = b; tbOrder.append(b.id) }
+        for b in incoming.textBoxes {
+            if tbMap[b.id] == nil { tbOrder.append(b.id) }
+            if preferIncomingMeta || tbMap[b.id] == nil { tbMap[b.id] = b }
+        }
+        out.textBoxes = tbOrder.compactMap { tbMap[$0] }
+
+        var shMap: [String: NoteShapeObject] = [:]
+        var shOrder: [String] = []
+        for s in local.shapes { shMap[s.id] = s; shOrder.append(s.id) }
+        for s in incoming.shapes {
+            if shMap[s.id] == nil { shOrder.append(s.id) }
+            if preferIncomingMeta || shMap[s.id] == nil { shMap[s.id] = s }
+        }
+        out.shapes = shOrder.compactMap { shMap[$0] }
+
+        var stMap: [String: NoteSticker] = [:]
+        var stOrder: [String] = []
+        for s in local.stickers { stMap[s.id] = s; stOrder.append(s.id) }
+        for s in incoming.stickers {
+            if stMap[s.id] == nil { stOrder.append(s.id) }
+            if preferIncomingMeta || stMap[s.id] == nil { stMap[s.id] = s }
+        }
+        out.stickers = stOrder.compactMap { stMap[$0] }
+
+        var imgMap: [String: NotePlacedImage] = [:]
+        var imgOrder: [String] = []
+        for im in local.images { imgMap[im.id] = im; imgOrder.append(im.id) }
+        for im in incoming.images {
+            if imgMap[im.id] == nil { imgOrder.append(im.id) }
+            if preferIncomingMeta || imgMap[im.id] == nil { imgMap[im.id] = im }
+        }
+        out.images = imgOrder.compactMap { imgMap[$0] }
+
+        var tblMap: [String: NoteTable] = [:]
+        var tblOrder: [String] = []
+        for tb in local.tables { tblMap[tb.id] = tb; tblOrder.append(tb.id) }
+        for tb in incoming.tables {
+            if tblMap[tb.id] == nil { tblOrder.append(tb.id) }
+            if preferIncomingMeta || tblMap[tb.id] == nil { tblMap[tb.id] = tb }
+        }
+        out.tables = tblOrder.compactMap { tblMap[$0] }
+        return out
     }
 
     private func mergeIncomingDoc(_ incoming: NoteDocument, in store: NotesDocumentStore) {
         if let idx = store.documents.firstIndex(where: { $0.id == incoming.id }) {
-            if incoming.updatedAt > store.documents[idx].updatedAt {
-                store.documents[idx] = incoming
-                if store.activeDocument?.id == incoming.id {
-                    store.activeDocument = incoming
+            let local = store.documents[idx]
+            guard incoming != local else { return }
+            let preferIncoming = incoming.updatedAt > local.updatedAt
+            var merged = preferIncoming ? incoming : local
+            var pagesById: [String: NotePage] = [:]
+            var order: [String] = []
+            for p in local.pages { pagesById[p.id] = p; order.append(p.id) }
+            for p in incoming.pages {
+                if let existing = pagesById[p.id] {
+                    pagesById[p.id] = mergePageNonDestructively(local: existing, incoming: p, preferIncomingMeta: preferIncoming)
+                } else {
+                    pagesById[p.id] = p
+                    order.append(p.id)
                 }
-                store.persistDocumentWithoutPublishing(incoming)
             }
+            merged.pages = order.compactMap { pagesById[$0] }
+            for i in 0..<merged.pages.count { merged.pages[i].pageNumber = i + 1 }
+            guard merged != local else { return }
+            store.documents[idx] = merged
+            if store.activeDocument?.id == merged.id {
+                store.activeDocument = merged
+            }
+            store.persistDocumentWithoutPublishing(merged)
+            store.remoteSyncCounter += 1
         } else {
             store.documents.insert(incoming, at: 0)
             store.persistDocumentWithoutPublishing(incoming)
+            store.remoteSyncCounter += 1
         }
     }
 
-    /// Broadcast live stroke to shared whiteboard peers
-    public func broadcastStroke(_ stroke: NoteStroke) {
-        guard let data = try? JSONEncoder().encode(stroke),
+    // MARK: - Real-Time Bidirectional Whiteboard & Notebook Sync Protocol
+
+    /// Broadcasts that a document has been opened, requesting peer snapshots if already active
+    public func broadcastOpenDoc(_ docId: String, title: String, page: Int) {
+        link.send([
+            "t": "board",
+            "msg": [
+                "action": "open_doc",
+                "docId": docId,
+                "title": title,
+                "page": page
+            ]
+        ])
+    }
+
+    /// Broadcasts a complete document snapshot to peers
+    public func broadcastDocSnapshot(_ doc: NoteDocument) {
+        guard let data = try? JSONEncoder().encode(doc),
               let dict = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else { return }
-        link.send(["type": "notes_stroke", "stroke": dict])
+        link.send([
+            "t": "board",
+            "msg": [
+                "action": "doc_snapshot",
+                "docId": doc.id,
+                "doc": dict
+            ]
+        ])
+    }
+
+    /// Broadcast live stroke to shared whiteboard & notebook peers
+    public func broadcastStroke(_ stroke: NoteStroke, docId: String, pageIndex: Int) {
+        guard let data = try? JSONEncoder().encode(stroke),
+              let strokeDict = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else { return }
+        link.send([
+            "t": "board",
+            "msg": [
+                "action": "stroke_add",
+                "docId": docId,
+                "pageIndex": pageIndex,
+                "stroke": strokeDict
+            ]
+        ])
+    }
+
+    /// Broadcast strokes replacement for a page (after eraser / undo)
+    public func broadcastPageStrokes(_ strokes: [NoteStroke], docId: String, pageIndex: Int) {
+        guard let data = try? JSONEncoder().encode(strokes),
+              let arr = (try? JSONSerialization.jsonObject(with: data)) as? [[String: Any]] else { return }
+        link.send([
+            "t": "board",
+            "msg": [
+                "action": "strokes_update",
+                "docId": docId,
+                "pageIndex": pageIndex,
+                "strokes": arr
+            ]
+        ])
+    }
+
+    /// Broadcast text box addition or modification
+    public func broadcastTextBox(_ box: NoteTextBox, docId: String, pageIndex: Int) {
+        guard let data = try? JSONEncoder().encode(box),
+              let boxDict = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else { return }
+        link.send([
+            "t": "board",
+            "msg": [
+                "action": "text_update",
+                "docId": docId,
+                "pageIndex": pageIndex,
+                "box": boxDict
+            ]
+        ])
+    }
+
+    /// Broadcast text box removal
+    public func broadcastDeleteTextBox(boxId: String, docId: String, pageIndex: Int) {
+        link.send([
+            "t": "board",
+            "msg": [
+                "action": "text_delete",
+                "docId": docId,
+                "pageIndex": pageIndex,
+                "boxId": boxId
+            ]
+        ])
+    }
+
+    /// Broadcast interactive shape addition
+    public func broadcastShape(_ shape: NoteShapeObject, docId: String, pageIndex: Int) {
+        guard let data = try? JSONEncoder().encode(shape),
+              let shapeDict = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else { return }
+        link.send([
+            "t": "board",
+            "msg": [
+                "action": "shape_add",
+                "docId": docId,
+                "pageIndex": pageIndex,
+                "shape": shapeDict
+            ]
+        ])
+    }
+
+    /// Broadcast laser pointer movement
+    public func broadcastLaser(x: CGFloat, y: CGFloat, docId: String, pageIndex: Int) {
+        link.send([
+            "t": "board",
+            "msg": [
+                "action": "laser",
+                "docId": docId,
+                "pageIndex": pageIndex,
+                "x": Double(x),
+                "y": Double(y)
+            ]
+        ])
+    }
+
+    /// Broadcast page clear
+    public func broadcastClear(docId: String, pageIndex: Int) {
+        link.send([
+            "t": "board",
+            "msg": [
+                "action": "clear",
+                "docId": docId,
+                "pageIndex": pageIndex
+            ]
+        ])
+    }
+
+    public func broadcastShapeDelete(shapeId: String, docId: String, pageIndex: Int) {
+        link.send([
+            "t": "board",
+            "msg": [
+                "action": "shape_delete",
+                "docId": docId,
+                "shapeId": shapeId,
+                "pageIndex": pageIndex
+            ]
+        ])
+    }
+
+    public func broadcastPageStyle(_ page: NotePage, docId: String, pageIndex: Int) {
+        link.send([
+            "t": "board",
+            "msg": [
+                "action": "page_style",
+                "docId": docId,
+                "pageIndex": pageIndex,
+                "template": page.template.rawValue,
+                "paperColor": page.paperColor.rawValue,
+                "isLandscape": page.isLandscape,
+                "pageFormat": page.pageFormat.rawValue
+            ]
+        ])
+    }
+
+    private func mutateDocument(_ docId: String, in store: NotesDocumentStore, _ mutate: (inout NoteDocument) -> Bool) {
+        var doc: NoteDocument?
+        if store.activeDocument?.id == docId { doc = store.activeDocument }
+        else if let idx = store.documents.firstIndex(where: { $0.id == docId }) { doc = store.documents[idx] }
+        guard var target = doc, mutate(&target) else { return }
+        if store.activeDocument?.id == docId { store.activeDocument = target }
+        if let idx = store.documents.firstIndex(where: { $0.id == docId }) { store.documents[idx] = target }
+        store.persistDocumentWithoutPublishing(target)
+        store.remoteSyncCounter += 1
+    }
+
+    /// Handles incoming board broadcast from HubDesk local channel
+    private func handleBoardMessage(_ payload: [String: Any], from: String?, fromName: String?) {
+        guard let action = payload["action"] as? String,
+              let docId = payload["docId"] as? String else { return }
+
+        let store = NotesDocumentStore.shared
+        let pageIndex = payload["pageIndex"] as? Int ?? 0
+
+        switch action {
+        case "open_doc":
+            if let doc = store.activeDocument, doc.id == docId {
+                broadcastDocSnapshot(doc)
+            } else if let doc = store.documents.first(where: { $0.id == docId }) {
+                broadcastDocSnapshot(doc)
+            }
+
+        case "doc_snapshot":
+            if let docDict = payload["doc"] as? [String: Any],
+               let incomingDoc = decodeFlexDocument(from: docDict) {
+                mergeIncomingDoc(incomingDoc, in: store)
+                if store.activeDocument?.id == incomingDoc.id {
+                    store.remoteSyncCounter += 1
+                }
+            }
+
+        case "stroke_add", "notes_stroke", "stroke":
+            if let strokeDict = payload["stroke"] as? [String: Any],
+               let stroke = decodeFlexStroke(from: strokeDict) {
+                if !store.documents.contains(where: { $0.id == docId }) {
+                    pullRecords(store: store)
+                }
+                mutateDocument(docId, in: store) { doc in
+                    guard doc.pages.indices.contains(pageIndex),
+                          !doc.pages[pageIndex].strokes.contains(where: { $0.id == stroke.id }) else { return false }
+                    doc.pages[pageIndex].strokes.append(stroke)
+                    return true
+                }
+            }
+
+        case "strokes_update":
+            if let strokesArr = payload["strokes"] as? [[String: Any]] {
+                var strokes = strokesArr.compactMap { decodeFlexStroke(from: $0) }
+                if let hlArr = payload["highlighterStrokes"] as? [[String: Any]] {
+                    let seen = Set(strokes.map(\.id))
+                    for item in hlArr {
+                        var copy = item
+                        copy["tool"] = "highlighter"
+                        if let hs = decodeFlexStroke(from: copy), !seen.contains(hs.id) {
+                            strokes.append(hs)
+                        }
+                    }
+                }
+                mutateDocument(docId, in: store) { doc in
+                    guard doc.pages.indices.contains(pageIndex) else { return false }
+                    doc.pages[pageIndex].strokes = strokes
+                    return true
+                }
+            }
+
+        case "text_update":
+            if let boxDict = payload["box"] as? [String: Any],
+               let boxData = try? JSONSerialization.data(withJSONObject: boxDict),
+               let box = try? JSONDecoder().decode(NoteTextBox.self, from: boxData) {
+                mutateDocument(docId, in: store) { doc in
+                    guard doc.pages.indices.contains(pageIndex) else { return false }
+                    if let bIdx = doc.pages[pageIndex].textBoxes.firstIndex(where: { $0.id == box.id }) {
+                        doc.pages[pageIndex].textBoxes[bIdx] = box
+                    } else {
+                        doc.pages[pageIndex].textBoxes.append(box)
+                    }
+                    return true
+                }
+            }
+
+        case "text_delete":
+            let boxId = payload["boxId"] as? String ?? ""
+            mutateDocument(docId, in: store) { doc in
+                guard doc.pages.indices.contains(pageIndex) else { return false }
+                doc.pages[pageIndex].textBoxes.removeAll { $0.id == boxId }
+                return true
+            }
+
+        case "shape_add":
+            if let shapeDict = payload["shape"] as? [String: Any],
+               let shapeData = try? JSONSerialization.data(withJSONObject: shapeDict),
+               let shape = try? JSONDecoder().decode(NoteShapeObject.self, from: shapeData) {
+                mutateDocument(docId, in: store) { doc in
+                    guard doc.pages.indices.contains(pageIndex) else { return false }
+                    if let sIdx = doc.pages[pageIndex].shapes.firstIndex(where: { $0.id == shape.id }) {
+                        doc.pages[pageIndex].shapes[sIdx] = shape
+                    } else {
+                        doc.pages[pageIndex].shapes.append(shape)
+                    }
+                    return true
+                }
+            }
+
+        case "shape_delete":
+            let shapeId = payload["shapeId"] as? String ?? ""
+            mutateDocument(docId, in: store) { doc in
+                guard doc.pages.indices.contains(pageIndex) else { return false }
+                doc.pages[pageIndex].shapes.removeAll { $0.id == shapeId }
+                return true
+            }
+
+        case "page_style":
+            mutateDocument(docId, in: store) { doc in
+                guard doc.pages.indices.contains(pageIndex) else { return false }
+                if let t = payload["template"] as? String, let tpl = PaperTemplate(rawValue: t) {
+                    doc.pages[pageIndex].template = tpl
+                }
+                if let c = payload["paperColor"] as? String, let pc = PaperColor(rawValue: c) {
+                    doc.pages[pageIndex].paperColor = pc
+                }
+                if let l = payload["isLandscape"] as? Bool {
+                    doc.pages[pageIndex].isLandscape = l
+                }
+                if let f = payload["pageFormat"] as? String, let pf = PageFormat(rawValue: f) {
+                    doc.pages[pageIndex].pageFormat = pf
+                }
+                return true
+            }
+
+        case "laser":
+            let x = payload["x"] as? Double ?? 0
+            let y = payload["y"] as? Double ?? 0
+            if store.activeDocument?.id == docId {
+                store.remoteLaserPoint = CGPoint(x: x, y: y)
+                store.remoteLaserPageIndex = pageIndex
+                store.remoteLaserTimestamp = Date().timeIntervalSince1970
+                store.remoteSyncCounter += 1
+            }
+
+        case "clear":
+            mutateDocument(docId, in: store) { doc in
+                guard doc.pages.indices.contains(pageIndex) else { return false }
+                doc.pages[pageIndex].strokes.removeAll()
+                doc.pages[pageIndex].shapes.removeAll()
+                return true
+            }
+
+        default:
+            break
+        }
     }
 }
 

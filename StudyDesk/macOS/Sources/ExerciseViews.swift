@@ -19,6 +19,17 @@ import WebKit
 
 // MARK: - Shared building blocks
 
+private struct IsImageExportKey: EnvironmentKey {
+    static let defaultValue = false
+}
+
+extension EnvironmentValues {
+    var isImageExport: Bool {
+        get { self[IsImageExportKey.self] }
+        set { self[IsImageExportKey.self] = newValue }
+    }
+}
+
 struct RichText: View {
     @AppStorage("studydesk.exerciseScale") private var exerciseScale = 1
     let text: String
@@ -1108,11 +1119,658 @@ struct SpotifyFullScreenLyricsView: View {
     }
 }
 
+struct SubtitleCue: Equatable {
+    let start: Double
+    let end: Double
+    let text: String
+}
+
+enum SubtitleParser {
+    static func parse(_ raw: String) -> [SubtitleCue] {
+        let normalized = raw.replacingOccurrences(of: "\r\n", with: "\n").replacingOccurrences(of: "\r", with: "\n")
+        let blocks = normalized.components(separatedBy: "\n\n")
+        var cues: [SubtitleCue] = []
+        for block in blocks {
+            let lines = block.split(separator: "\n", omittingEmptySubsequences: false).map(String.init)
+                .map { $0.trimmingCharacters(in: .whitespaces) }
+            guard let arrowIdx = lines.firstIndex(where: { $0.contains("-->") }) else { continue }
+            let timingLine = lines[arrowIdx]
+            let parts = timingLine.components(separatedBy: "-->")
+            guard parts.count >= 2,
+                  let start = parseTimestamp(parts[0]),
+                  let end = parseTimestamp(parts[1].components(separatedBy: .whitespaces).first ?? parts[1]),
+                  end > start else { continue }
+            let textLines = lines[(arrowIdx + 1)...].filter { !$0.isEmpty }
+            let rawText = textLines.joined(separator: "\n")
+            let clean = rawText.replacingOccurrences(of: "<[^>]+>", with: "", options: .regularExpression)
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            if !clean.isEmpty {
+                cues.append(SubtitleCue(start: start, end: end, text: clean))
+            }
+        }
+        return cues.sorted { $0.start < $1.start }
+    }
+
+    private static func parseTimestamp(_ raw: String) -> Double? {
+        let token = raw.trimmingCharacters(in: .whitespacesAndNewlines).replacingOccurrences(of: ",", with: ".")
+        let parts = token.split(separator: ":").map(String.init)
+        if parts.count == 3, let h = Double(parts[0]), let m = Double(parts[1]), let s = Double(parts[2]) {
+            return h * 3600 + m * 60 + s
+        }
+        if parts.count == 2, let m = Double(parts[0]), let s = Double(parts[1]) {
+            return m * 60 + s
+        }
+        return nil
+    }
+
+    static func fromTranscript(_ transcript: String, duration: Double, activeTimeline: [Double], wordTimes: [[Double]]?) -> [SubtitleCue] {
+        let rawLines = transcript.components(separatedBy: "\n")
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty }
+        guard !rawLines.isEmpty else { return [] }
+
+        struct ParsedLine {
+            let speaker: String?
+            let words: [String]
+            let charCount: Int
+        }
+
+        var parsed: [ParsedLine] = []
+        var totalChars = 0
+        for raw in rawLines {
+            var line = raw
+            var speaker: String? = nil
+            if line.hasPrefix("- ") || line.hasPrefix("– ") {
+                line = String(line.dropFirst(2)).trimmingCharacters(in: .whitespaces)
+            }
+            if let colonIdx = line.firstIndex(of: ":") {
+                let prefix = String(line[..<colonIdx]).trimmingCharacters(in: .whitespaces)
+                if prefix.count <= 18 {
+                    speaker = prefix
+                    line = String(line[line.index(after: colonIdx)...]).trimmingCharacters(in: .whitespaces)
+                }
+            }
+            let words = line.components(separatedBy: .whitespaces).filter { !$0.isEmpty && $0 != "-" && $0 != "–" }
+            let chars = max(1, words.reduce(0) { $0 + $1.count })
+            totalChars += chars
+            parsed.append(ParsedLine(speaker: speaker, words: words, charCount: chars))
+        }
+
+        let totalWords = parsed.reduce(0) { $0 + $1.words.count }
+        let aligned = WordTiming.valid(wordTimes, count: totalWords) ? wordTimes : nil
+        let dur = max(duration, Double(max(parsed.count, 1)) * 2.5)
+        let hasActive = activeTimeline.count > 5
+        let totalFrames = activeTimeline.count
+        var curChar = 0
+        var wordOffset = 0
+        var cues: [SubtitleCue] = []
+
+        for p in parsed {
+            let lineStartFrac = Double(curChar) / Double(max(1, totalChars))
+            let wordRanges: [(Double, Double)] = p.words.map { w in
+                if let a = aligned {
+                    let pair = a[wordOffset]
+                    wordOffset += 1
+                    return (pair[0], max(pair[1], pair[0] + 0.08))
+                } else {
+                    let sf = Double(curChar) / Double(max(1, totalChars))
+                    curChar += max(1, w.count)
+                    let ef = Double(curChar) / Double(max(1, totalChars))
+                    if hasActive {
+                        let sIdx = min(totalFrames - 1, Int(sf * Double(totalFrames - 1)))
+                        let eIdx = min(totalFrames - 1, Int(ef * Double(totalFrames - 1)))
+                        let ws = activeTimeline[sIdx]
+                        return (ws, max(ws + 0.12, activeTimeline[eIdx]))
+                    }
+                    return (sf * dur, max(sf * dur + 0.15, ef * dur))
+                }
+            }
+            if aligned != nil { curChar += p.charCount }
+
+            let lStart = wordRanges.first?.0 ?? (lineStartFrac * dur)
+            let lEnd = wordRanges.last?.1 ?? max(lStart + 1.5, Double(curChar) / Double(max(1, totalChars)) * dur)
+            guard !p.words.isEmpty else {
+                if let spk = p.speaker, !spk.isEmpty {
+                    cues.append(SubtitleCue(start: lStart, end: lEnd, text: "\(spk):"))
+                }
+                continue
+            }
+
+            // Balanced chunks (up to ~10 words) so no 1-2 word orphan flickers at line end.
+            let chunkCount = max(1, Int(ceil(Double(p.words.count) / 10.0)))
+            let chunkSize = Int(ceil(Double(p.words.count) / Double(chunkCount)))
+            var idx = 0
+            while idx < p.words.count {
+                let endIdx = min(idx + chunkSize, p.words.count)
+                let sliceWords = Array(p.words[idx..<endIdx])
+                let cStart = wordRanges[idx].0
+                var cEnd = max(wordRanges[endIdx - 1].1, cStart + 0.45)
+                if endIdx < p.words.count {
+                    let nextStart = wordRanges[endIdx].0
+                    if nextStart - cEnd < 0.4 { cEnd = max(cEnd, nextStart) }
+                }
+                let prefix = (idx == 0 && p.speaker != nil) ? "\(p.speaker!): " : ""
+                let text = prefix + sliceWords.joined(separator: " ")
+                cues.append(SubtitleCue(start: cStart, end: cEnd, text: text))
+                idx = endIdx
+            }
+        }
+        return cues
+    }
+}
+
+@MainActor @Observable final class VideoPlaybackModel {
+    var currentSubtitle: String? = nil
+    var subtitlesEnabled: Bool = true {
+        didSet { applyLegibleSelection(); updateSubtitle(at: lastTime) }
+    }
+    var syncOffset: Double = 0 {
+        didSet {
+            if let key = storageKey { UserDefaults.standard.set(syncOffset, forKey: key) }
+            updateSubtitle(at: lastTime)
+        }
+    }
+    var isPlaying: Bool = false
+    var hasSubtitles: Bool = false
+    var usesCustomCues: Bool { !cues.isEmpty }
+
+    private weak var player: AVPlayer?
+    private var observer: Any?
+    private var statusObservation: NSKeyValueObservation?
+    private var analysisTask: Task<Void, Never>?
+    private var legibleGroup: AVMediaSelectionGroup?
+    private var explicitCues: [SubtitleCue] = []
+    private var cues: [SubtitleCue] = []
+    private var activeTimeline: [Double] = []
+    private var transcript: String?
+    private var wordTimes: [[Double]]?
+    private var lastDuration: Double = 0
+    private var lastTime: Double = 0
+    private var storageKey: String?
+    private var analyzedURL: URL?
+
+    func configure(ownerKey: String, subtitleSource: String?, transcript: String?, wordTimes: [[Double]]?) {
+        let key = "studydesk.subOffset.\(ownerKey)"
+        if storageKey != key {
+            storageKey = key
+            syncOffset = UserDefaults.standard.double(forKey: key)
+        }
+        self.transcript = transcript
+        self.wordTimes = wordTimes
+        if let raw = subtitleSource, !raw.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            explicitCues = SubtitleParser.parse(raw)
+        } else {
+            explicitCues = []
+        }
+        rebuildCues()
+    }
+
+    func adjustOffset(_ delta: Double) {
+        let next = ((syncOffset + delta) * 10).rounded() / 10
+        syncOffset = min(20, max(-20, next))
+    }
+
+    func resetOffset() {
+        syncOffset = 0
+    }
+
+    func attach(player: AVPlayer, url: URL? = nil) {
+        if self.player !== player {
+            detach(keepAnalysis: true)
+            self.player = player
+            player.preventsDisplaySleepDuringVideoPlayback = true
+            isPlaying = player.timeControlStatus == .playing
+            statusObservation = player.observe(\.timeControlStatus, options: [.new]) { [weak self] pl, _ in
+                Task { @MainActor [weak self] in
+                    self?.isPlaying = (pl.timeControlStatus == .playing)
+                }
+            }
+            observer = player.addPeriodicTimeObserver(forInterval: CMTime(seconds: 0.1, preferredTimescale: 600), queue: .main) { [weak self] time in
+                Task { @MainActor [weak self] in
+                    guard let self else { return }
+                    let sec = time.seconds
+                    self.lastTime = sec.isFinite ? sec : 0
+                    if let item = self.player?.currentItem {
+                        let dur = item.duration.seconds
+                        if dur.isFinite, dur > 0.5, abs(dur - self.lastDuration) > 0.4 {
+                            self.lastDuration = dur
+                            self.rebuildCues()
+                        }
+                    }
+                    self.updateSubtitle(at: self.lastTime)
+                }
+            }
+            if let item = player.currentItem {
+                Task { @MainActor [weak self] in
+                    guard let self, let currentItem = self.player?.currentItem, currentItem === item else { return }
+                    if let group = try? await item.asset.loadMediaSelectionGroup(for: .legible), !group.options.isEmpty {
+                        self.legibleGroup = group
+                        self.updateAvailability()
+                        self.applyLegibleSelection()
+                    }
+                }
+            }
+        }
+        if let url, analyzedURL != url {
+            analyzedURL = url
+            startTrackAnalysis(url: url)
+        }
+    }
+
+    private func startTrackAnalysis(url: URL) {
+        analysisTask?.cancel()
+        let needsTimeline = explicitCues.isEmpty && !WordTiming.matches(wordTimes, transcript ?? "")
+            && !(transcript ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        analysisTask = Task { [weak self] in
+            let asset = AVURLAsset(url: url)
+            if let d = try? await asset.load(.duration), d.seconds.isFinite, d.seconds > 0.5 {
+                await MainActor.run { [weak self] in
+                    guard let self, !Task.isCancelled else { return }
+                    if abs(d.seconds - self.lastDuration) > 0.4 {
+                        self.lastDuration = d.seconds
+                        self.rebuildCues()
+                    }
+                }
+            }
+            guard needsTimeline, !Task.isCancelled else { return }
+            let tracks = (try? await asset.loadTracks(withMediaType: .audio)) ?? []
+            guard let track = tracks.first, !Task.isCancelled else { return }
+            let times = await Task.detached(priority: .userInitiated) {
+                Self.extractSpeechTimes(asset: asset, track: track)
+            }.value
+            await MainActor.run { [weak self] in
+                guard let self, !Task.isCancelled, self.analyzedURL == url else { return }
+                if times.count > 5 {
+                    self.activeTimeline = times
+                    self.rebuildCues()
+                }
+            }
+        }
+    }
+
+    nonisolated private static func extractSpeechTimes(asset: AVAsset, track: AVAssetTrack) -> [Double] {
+        guard let reader = try? AVAssetReader(asset: asset) else { return [] }
+        let settings: [String: Any] = [
+            AVFormatIDKey: kAudioFormatLinearPCM,
+            AVLinearPCMBitDepthKey: 32,
+            AVLinearPCMIsFloatKey: true,
+            AVLinearPCMIsBigEndianKey: false,
+            AVLinearPCMIsNonInterleaved: false,
+            AVNumberOfChannelsKey: 1,
+            AVSampleRateKey: 16000
+        ]
+        let output = AVAssetReaderTrackOutput(track: track, outputSettings: settings)
+        output.alwaysCopiesSampleData = false
+        guard reader.canAdd(output) else { return [] }
+        reader.add(output)
+        guard reader.startReading() else { return [] }
+
+        let sr = 16000.0
+        let win = Int(sr * 0.05) // 50ms window
+        let hpAlpha: Float = 0.91 // ~230Hz high-pass to reject bass music / rumble
+        var prevIn: Float = 0
+        var prevOut: Float = 0
+        var sumSq: Float = 0
+        var count = 0
+        var windowIdx = 0
+        var maxRms: Float = 0
+        var rmsList: [(Double, Float)] = []
+
+        while reader.status == .reading {
+            guard let sbuf = output.copyNextSampleBuffer() else { break }
+            guard let bbuf = CMSampleBufferGetDataBuffer(sbuf) else {
+                CMSampleBufferInvalidate(sbuf)
+                continue
+            }
+            var length = 0
+            var ptr: UnsafeMutablePointer<Int8>?
+            CMBlockBufferGetDataPointer(bbuf, atOffset: 0, lengthAtOffsetOut: nil, totalLengthOut: &length, dataPointerOut: &ptr)
+            if let ptr, length >= 4 {
+                let sampleCount = length / MemoryLayout<Float>.size
+                ptr.withMemoryRebound(to: Float.self, capacity: sampleCount) { floats in
+                    for i in 0..<sampleCount {
+                        let x = floats[i]
+                        let y = hpAlpha * (prevOut + x - prevIn)
+                        prevIn = x
+                        prevOut = y
+                        sumSq += y * y
+                        count += 1
+                        if count == win {
+                            let rms = sqrt(sumSq / Float(win))
+                            if rms > maxRms { maxRms = rms }
+                            rmsList.append((Double(windowIdx) * 0.05, rms))
+                            windowIdx += 1
+                            sumSq = 0
+                            count = 0
+                        }
+                    }
+                }
+            }
+            CMSampleBufferInvalidate(sbuf)
+        }
+        guard !rmsList.isEmpty else { return [] }
+        let thresh = max(0.012, maxRms * 0.10)
+        var active = rmsList.filter { $0.1 >= thresh }.map { $0.0 }
+        // Skip brief intro chimes followed by a pause (> 0.7s).
+        if active.count > 5, active[0] < 3.0 {
+            for i in 0..<min(50, active.count - 1) {
+                if active[i + 1] - active[i] > 0.7 {
+                    active = Array(active.suffix(from: i + 1))
+                    break
+                }
+            }
+        }
+        return active
+    }
+
+    func detach(keepAnalysis: Bool = false) {
+        if let obs = observer, let pl = player {
+            pl.removeTimeObserver(obs)
+        }
+        observer = nil
+        statusObservation?.invalidate()
+        statusObservation = nil
+        player = nil
+        legibleGroup = nil
+        if !keepAnalysis {
+            analysisTask?.cancel()
+            analysisTask = nil
+            analyzedURL = nil
+        }
+    }
+
+    private func rebuildCues() {
+        if !explicitCues.isEmpty {
+            cues = explicitCues
+        } else if let t = transcript, !t.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            cues = SubtitleParser.fromTranscript(t, duration: lastDuration, activeTimeline: activeTimeline, wordTimes: wordTimes)
+        } else {
+            cues = []
+        }
+        updateAvailability()
+        updateSubtitle(at: lastTime)
+    }
+
+    private func updateAvailability() {
+        hasSubtitles = !cues.isEmpty || !(legibleGroup?.options.isEmpty ?? true)
+    }
+
+    private func applyLegibleSelection() {
+        guard let item = player?.currentItem, let group = legibleGroup else { return }
+        if subtitlesEnabled && cues.isEmpty {
+            let preferred = group.options.first { $0.locale?.language.languageCode?.identifier == "it" } ?? group.options.first
+            item.select(preferred, in: group)
+        } else {
+            item.select(nil, in: group)
+        }
+    }
+
+    private func updateSubtitle(at sec: Double) {
+        guard subtitlesEnabled, !cues.isEmpty else {
+            if currentSubtitle != nil { currentSubtitle = nil }
+            return
+        }
+        let aligned = WordTiming.matches(wordTimes, transcript ?? "")
+        let lead = (!explicitCues.isEmpty || aligned) ? 0.05 : 0.18
+        let t = sec + lead - syncOffset
+        let match = cues.last(where: { $0.start <= t && t <= $0.end })?.text
+        if currentSubtitle != match {
+            currentSubtitle = match
+        }
+    }
+}
+
+struct VideoSubtitleOverlayView: View {
+    let model: VideoPlaybackModel
+    let isFullscreen: Bool
+
+    var body: some View {
+        if model.subtitlesEnabled, let text = model.currentSubtitle, !text.isEmpty {
+            VStack {
+                Spacer()
+                Text(text)
+                    .font(isFullscreen ? .title3.weight(.semibold) : .callout.weight(.semibold))
+                    .foregroundStyle(.white)
+                    .multilineTextAlignment(.center)
+                    .shadow(color: .black.opacity(0.9), radius: 2, x: 0, y: 1)
+                    .padding(.horizontal, isFullscreen ? 18 : 12)
+                    .padding(.vertical, isFullscreen ? 9 : 6)
+                    .background(Color.black.opacity(0.76), in: RoundedRectangle(cornerRadius: 8))
+                    .padding(.horizontal, isFullscreen ? 64 : 18)
+                    .padding(.bottom, isFullscreen ? 72 : 46)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .allowsHitTesting(false)
+        }
+    }
+}
+
+struct MacVideoPlayerView: NSViewRepresentable {
+    let player: AVPlayer?
+    var showsFullScreenToggle: Bool = true
+
+    func makeNSView(context: Context) -> AVPlayerView {
+        let view = AVPlayerView()
+        view.controlsStyle = .floating
+        view.showsFullScreenToggleButton = showsFullScreenToggle
+        view.allowsPictureInPicturePlayback = true
+        view.showsTimecodes = false
+        view.videoGravity = .resizeAspect
+        view.player = player
+        return view
+    }
+
+    func updateNSView(_ view: AVPlayerView, context: Context) {
+        if view.player !== player {
+            view.player = player
+        }
+        if view.showsFullScreenToggleButton != showsFullScreenToggle {
+            view.showsFullScreenToggleButton = showsFullScreenToggle
+        }
+        if view.controlsStyle != .floating {
+            view.controlsStyle = .floating
+        }
+    }
+}
+
+struct VideoFullScreenRootView: View {
+    let title: String
+    let player: AVPlayer
+    let playback: VideoPlaybackModel
+    let onClose: () -> Void
+
+    @State private var chromeVisible = true
+    @State private var hideTask: Task<Void, Never>? = nil
+    @State private var eventMonitor: Any? = nil
+
+    private func bumpActivity() {
+        if !chromeVisible {
+            withAnimation(.easeOut(duration: 0.18)) { chromeVisible = true }
+        }
+        hideTask?.cancel()
+        guard playback.isPlaying else { return }
+        hideTask = Task { @MainActor in
+            try? await Task.sleep(for: .seconds(2.2))
+            guard !Task.isCancelled, playback.isPlaying else { return }
+            withAnimation(.easeOut(duration: 0.28)) { chromeVisible = false }
+            NSCursor.setHiddenUntilMouseMoves(true)
+        }
+    }
+
+    var body: some View {
+        ZStack(alignment: .top) {
+            Color.black.ignoresSafeArea()
+            MacVideoPlayerView(player: player, showsFullScreenToggle: false)
+                .ignoresSafeArea()
+            VideoSubtitleOverlayView(model: playback, isFullscreen: true)
+            HStack(spacing: 10) {
+                Text(title)
+                    .font(.headline.weight(.semibold))
+                    .foregroundStyle(.white)
+                    .lineLimit(1)
+                Spacer()
+                if playback.hasSubtitles && playback.subtitlesEnabled && playback.usesCustomCues {
+                    HStack(spacing: 4) {
+                        Button {
+                            playback.adjustOffset(-0.5)
+                            bumpActivity()
+                        } label: {
+                            Text("−0,5s")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(.white)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 5)
+                        }
+                        .buttonStyle(.plain)
+                        .help("Anticipa sottotitoli")
+                        Button {
+                            playback.resetOffset()
+                            bumpActivity()
+                        } label: {
+                            Text(String(format: "%+.1fs", playback.syncOffset).replacingOccurrences(of: "+0.0s", with: "0,0s").replacingOccurrences(of: ".", with: ","))
+                                .font(.caption.monospacedDigit())
+                                .foregroundStyle(.white.opacity(0.9))
+                                .padding(.horizontal, 4)
+                        }
+                        .buttonStyle(.plain)
+                        .help("Ripristina sincronizzazione")
+                        Button {
+                            playback.adjustOffset(0.5)
+                            bumpActivity()
+                        } label: {
+                            Text("+0,5s")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(.white)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 5)
+                        }
+                        .buttonStyle(.plain)
+                        .help("Ritarda sottotitoli")
+                    }
+                    .background(Color.white.opacity(0.14), in: Capsule())
+                }
+                if playback.hasSubtitles {
+                    Button {
+                        playback.subtitlesEnabled.toggle()
+                        bumpActivity()
+                    } label: {
+                        Label(playback.subtitlesEnabled ? "CC On" : "CC Off",
+                              systemImage: playback.subtitlesEnabled ? "captions.bubble.fill" : "captions.bubble")
+                            .font(.callout.weight(.semibold))
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .background(playback.subtitlesEnabled ? Color.accentColor.opacity(0.85) : Color.white.opacity(0.16), in: Capsule())
+                    }
+                    .buttonStyle(.plain)
+                }
+                Button(action: onClose) {
+                    Label("Esci da schermo intero", systemImage: "arrow.down.right.and.arrow.up.left")
+                        .font(.callout.weight(.semibold))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(.ultraThinMaterial, in: Capsule())
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 16)
+            .background(
+                LinearGradient(colors: [.black.opacity(0.72), .clear], startPoint: .top, endPoint: .bottom)
+                    .ignoresSafeArea(edges: .top)
+            )
+            .opacity(chromeVisible ? 1 : 0)
+            .allowsHitTesting(chromeVisible)
+        }
+        .onAppear {
+            bumpActivity()
+            eventMonitor = NSEvent.addLocalMonitorForEvents(matching: [.mouseMoved, .leftMouseDown, .rightMouseDown, .keyDown]) { ev in
+                if ev.type == .keyDown, ev.keyCode == 53 {
+                    onClose()
+                    return nil
+                }
+                bumpActivity()
+                return ev
+            }
+        }
+        .onChange(of: playback.isPlaying) { _, playing in
+            if playing { bumpActivity() } else {
+                hideTask?.cancel()
+                withAnimation(.easeOut(duration: 0.18)) { chromeVisible = true }
+            }
+        }
+        .onDisappear {
+            hideTask?.cancel()
+            hideTask = nil
+            NSCursor.setHiddenUntilMouseMoves(false)
+            if let monitor = eventMonitor {
+                NSEvent.removeMonitor(monitor)
+                eventMonitor = nil
+            }
+        }
+    }
+}
+
+@MainActor final class VideoFullScreen: NSObject, NSWindowDelegate {
+    static let shared = VideoFullScreen()
+    private var window: NSWindow?
+    private var owner: String?
+
+    func isPresented(for owner: String) -> Bool {
+        window != nil && self.owner == owner
+    }
+
+    func present(owner: String, title: String, player: AVPlayer, playback: VideoPlaybackModel) {
+        close(owner: nil)
+        let screen = NSScreen.main?.frame ?? NSRect(x: 0, y: 0, width: 1280, height: 800)
+        let w = NSWindow(contentRect: screen, styleMask: [.titled, .closable, .resizable, .fullSizeContentView], backing: .buffered, defer: false)
+        w.titleVisibility = .hidden
+        w.titlebarAppearsTransparent = true
+        w.backgroundColor = .black
+        w.isReleasedWhenClosed = false
+        w.acceptsMouseMovedEvents = true
+        w.collectionBehavior = [.fullScreenPrimary]
+        w.contentView = NSHostingView(rootView: VideoFullScreenRootView(title: title, player: player, playback: playback) { [weak self] in
+            self?.close(owner: nil)
+        })
+        w.delegate = self
+        self.window = w
+        self.owner = owner
+        w.makeKeyAndOrderFront(nil)
+        w.toggleFullScreen(nil)
+    }
+
+    func close(owner: String?) {
+        guard let w = window, owner == nil || owner == self.owner else { return }
+        w.close()
+    }
+
+    func windowWillClose(_ notification: Notification) {
+        window?.delegate = nil
+        window = nil
+        owner = nil
+    }
+}
+
 struct VideoMediaView: View {
     @Environment(AppStore.self) private var store
+    @Environment(\.isImageExport) private var isImageExport
     let moduleId: String
     let media: Media
     @State private var showTranscript = false
+    @State private var player: AVPlayer? = nil
+    @State private var playback = VideoPlaybackModel()
+
+    private var ownerKey: String { "\(moduleId):\(media.src ?? media.url ?? media.label ?? "video")" }
+
+    private func resolveSubtitleText() -> String? {
+        guard let sub = media.subtitles, !sub.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return nil }
+        if let u = store.assetURL(moduleId, sub), let text = try? String(contentsOf: u, encoding: .utf8) {
+            return text
+        }
+        return sub.contains("-->") ? sub : nil
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -1125,8 +1783,79 @@ struct VideoMediaView: View {
                 .frame(maxWidth: .infinity).padding(20)
                 .background(RoundedRectangle(cornerRadius: 12).strokeBorder(style: StrokeStyle(lineWidth: 1.5, dash: [6])).foregroundStyle(.secondary.opacity(0.5)))
             } else if let src = media.src, let url = store.assetURL(moduleId, src) {
-                Text(media.label ?? "Video").font(.caption.bold())
-                VideoPlayer(player: AVPlayer(url: url)).frame(minHeight: 280, maxHeight: 420).clipShape(RoundedRectangle(cornerRadius: 12))
+                HStack(spacing: 8) {
+                    Text(media.label ?? "Video").font(.caption.bold())
+                    Spacer()
+                    if !isImageExport && playback.hasSubtitles && playback.subtitlesEnabled && playback.usesCustomCues {
+                        HStack(spacing: 3) {
+                            Button("−0,5s") { playback.adjustOffset(-0.5) }
+                                .help("Anticipa sottotitoli di 0,5s")
+                            Button(String(format: "%+.1fs", playback.syncOffset).replacingOccurrences(of: "+0.0s", with: "0,0s").replacingOccurrences(of: ".", with: ",")) {
+                                playback.resetOffset()
+                            }
+                            .monospacedDigit()
+                            .help("Azzera sfasamento sottotitoli")
+                            Button("+0,5s") { playback.adjustOffset(0.5) }
+                                .help("Ritarda sottotitoli di 0,5s")
+                        }
+                        .font(.caption.weight(.medium))
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                    }
+                    if !isImageExport && playback.hasSubtitles {
+                        Button {
+                            playback.subtitlesEnabled.toggle()
+                        } label: {
+                            Label(playback.subtitlesEnabled ? "Sottotitoli On" : "Sottotitoli Off",
+                                  systemImage: playback.subtitlesEnabled ? "captions.bubble.fill" : "captions.bubble")
+                                .font(.caption.weight(.semibold))
+                        }
+                        .buttonStyle(.bordered)
+                        .tint(playback.subtitlesEnabled ? .accentColor : .secondary)
+                        .controlSize(.small)
+                        .help("Attiva o disattiva i sottotitoli")
+                    }
+                    if !isImageExport {
+                        Button {
+                            let p = player ?? AVPlayer(url: url)
+                            player = p
+                            playback.attach(player: p, url: url)
+                            VideoFullScreen.shared.present(owner: ownerKey, title: media.label ?? "Video", player: p, playback: playback)
+                        } label: {
+                            Label("Schermo intero", systemImage: "arrow.up.left.and.arrow.down.right")
+                                .font(.caption.weight(.semibold))
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                        .help("Apri il video a schermo intero")
+                    }
+                }
+                ZStack {
+                    MacVideoPlayerView(player: player, showsFullScreenToggle: true)
+                    VideoSubtitleOverlayView(model: playback, isFullscreen: false)
+                }
+                .frame(minHeight: 280, maxHeight: 420)
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+                .onAppear {
+                    playback.configure(ownerKey: ownerKey, subtitleSource: resolveSubtitleText(), transcript: media.transcript, wordTimes: media.wordTimes)
+                    let p = player ?? AVPlayer(url: url)
+                    player = p
+                    playback.attach(player: p, url: url)
+                }
+                .onChange(of: src) { _, _ in
+                    player?.pause()
+                    playback.detach()
+                    let p = AVPlayer(url: url)
+                    player = p
+                    playback.configure(ownerKey: ownerKey, subtitleSource: resolveSubtitleText(), transcript: media.transcript, wordTimes: media.wordTimes)
+                    playback.attach(player: p, url: url)
+                }
+                .onDisappear {
+                    if !VideoFullScreen.shared.isPresented(for: ownerKey) {
+                        player?.pause()
+                        playback.detach()
+                    }
+                }
             } else if let s = media.url, let url = URL(string: s) {
                 Button { NSWorkspace.shared.open(url) } label: { Label(media.label ?? "Apri video", systemImage: "play.rectangle.fill") }
                     .buttonStyle(.borderedProminent)
@@ -1185,10 +1914,19 @@ struct ExercisePartView: View {
     let activity: Activity
     let part: Exercise
 
-    @State private var answer: AnswerValue? = nil
-    @State private var checked = false
+    @State private var answer: AnswerValue?
+    @State private var checked: Bool
     @State private var showSolutions = false
-    @State private var loaded = false
+    @State private var loaded: Bool
+
+    init(module: StudyModule, activity: Activity, part: Exercise, initialResult: PartResult? = nil) {
+        self.module = module
+        self.activity = activity
+        self.part = part
+        _answer = State(initialValue: initialResult?.answer)
+        _checked = State(initialValue: initialResult != nil && part.isAutoGraded)
+        _loaded = State(initialValue: initialResult != nil)
+    }
 
     private var accent: Color { module.accent }
     private var scaleFactor: CGFloat {
@@ -1955,6 +2693,7 @@ struct GapNSTextField: NSViewRepresentable {
 }
 
 struct GapField: View {
+    @Environment(\.isImageExport) private var isImageExport
     let value: String
     let answers: [String]
     let ctx: PartContext
@@ -1962,7 +2701,8 @@ struct GapField: View {
     @State private var text = ""
 
     var body: some View {
-        let st: GapState = (ctx.checked && !answers.isEmpty) ? Grading.check(value, against: answers) : .empty
+        let activeValue = isImageExport ? value : text
+        let st: GapState = (ctx.checked && !answers.isEmpty) ? Grading.check(activeValue, against: answers) : .empty
         let color: Color = switch st {
         case .right: Theme.ok
         case .close: Theme.warn
@@ -1972,13 +2712,22 @@ struct GapField: View {
         }
         let width = max(70 * ctx.scaleFactor, CGFloat((answers.map(\.count).max() ?? 8) * Int(9 * ctx.scaleFactor) + Int(20 * ctx.scaleFactor)))
         HStack(spacing: 4 * ctx.scaleFactor) {
-            GapNSTextField(
-                text: $text,
-                isEnabled: !ctx.checked,
-                font: .systemFont(ofSize: 14 * ctx.scaleFactor, weight: .semibold),
-                textColor: NSColor(color)
-            )
-            .frame(width: min(width, 360 * ctx.scaleFactor), height: 20 * ctx.scaleFactor)
+            Group {
+                if isImageExport {
+                    Text(activeValue.isEmpty ? " " : activeValue)
+                        .font(.system(size: 14 * ctx.scaleFactor, weight: .semibold))
+                        .foregroundStyle(color)
+                        .frame(minWidth: min(width, 360 * ctx.scaleFactor), minHeight: 20 * ctx.scaleFactor, alignment: .leading)
+                } else {
+                    GapNSTextField(
+                        text: $text,
+                        isEnabled: !ctx.checked,
+                        font: .systemFont(ofSize: 14 * ctx.scaleFactor, weight: .semibold),
+                        textColor: NSColor(color)
+                    )
+                    .frame(width: min(width, 360 * ctx.scaleFactor), height: 20 * ctx.scaleFactor)
+                }
+            }
             .padding(.horizontal, 6 * ctx.scaleFactor).padding(.vertical, 3 * ctx.scaleFactor)
             .background(RoundedRectangle(cornerRadius: 5).fill(color.opacity(0.10)))
             .overlay(alignment: .bottom) { Rectangle().fill(color).frame(height: 2) }
@@ -2118,21 +2867,56 @@ struct MatchBody: View {
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     Image(systemName: "arrow.right").foregroundStyle(.secondary)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Picker("", selection: Binding(get: { sel ?? "" }, set: { v in
-                            var g = answer?.mapping ?? [:]
-                            g[lid] = v.isEmpty ? nil : v
-                            answer = .mapping(g)
-                        })) {
-                            Text("— scegli —").tag("")
-                            ForEach(Array(right.enumerated()), id: \.offset) { ri, r in Text(label(r, ri)).tag(r.id ?? String(ri)) }
-                        }
-                        .labelsHidden().frame(minWidth: 200, maxWidth: 320).allowsHitTesting(!ctx.checked)
-                        if ctx.checked || ctx.showSolutions {
-                            if ctx.checked { Label(ok ? "Giusto" : "Sbagliato", systemImage: ok ? "checkmark.circle.fill" : "xmark.circle.fill").font(.caption.bold()).foregroundStyle(ok ? Theme.ok : Theme.bad) }
-                            if (ctx.showSolutions || !ok), let c = correct[lid], let ri = right.firstIndex(where: { ($0.id ?? "") == c }), !(ctx.checked && ok) {
-                                Text("Soluzione: \(label(right[ri], ri))").font(.caption.bold()).foregroundStyle(Theme.ok)
+                    VStack(alignment: .leading, spacing: 4) {
+                        let boxFill: Color = ctx.checked
+                            ? (ok ? Theme.ok.opacity(0.18) : Theme.bad.opacity(0.18))
+                            : (sel != nil ? ctx.accent.opacity(0.14) : Color.primary.opacity(0.05))
+                        let boxStroke: Color = ctx.checked
+                            ? (ok ? Theme.ok : Theme.bad)
+                            : (sel != nil ? ctx.accent.opacity(0.65) : Color.secondary.opacity(0.35))
+                        let boxForeground: Color = ctx.checked ? (ok ? Theme.ok : Theme.bad) : (sel == nil ? .secondary : .primary)
+                        let selectedText: String = {
+                            guard let sel, let ri = right.indices.first(where: { (right[$0].id ?? String($0)) == sel }) else { return "— scegli —" }
+                            return label(right[ri], ri)
+                        }()
+
+                        Menu {
+                            Button("— scegli —") {
+                                var g = answer?.mapping ?? [:]
+                                g[lid] = nil
+                                answer = .mapping(g)
                             }
+                            ForEach(Array(right.enumerated()), id: \.offset) { ri, r in
+                                let tag = r.id ?? String(ri)
+                                Button(label(r, ri)) {
+                                    var g = answer?.mapping ?? [:]
+                                    g[lid] = tag
+                                    answer = .mapping(g)
+                                }
+                            }
+                        } label: {
+                            HStack(spacing: 8) {
+                                Text(selectedText)
+                                    .fontWeight(sel == nil && !ctx.checked ? .regular : .semibold)
+                                    .foregroundStyle(boxForeground)
+                                    .lineLimit(1)
+                                Spacer(minLength: 4)
+                                Image(systemName: ctx.checked ? (ok ? "checkmark.circle.fill" : "xmark.circle.fill") : "chevron.up.chevron.down")
+                                    .font(.system(size: 11.5, weight: .bold))
+                                    .foregroundStyle(ctx.checked ? boxForeground : .secondary)
+                            }
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 7)
+                            .frame(minWidth: 200, maxWidth: 320)
+                            .background(RoundedRectangle(cornerRadius: 8).fill(boxFill))
+                            .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(boxStroke, lineWidth: ctx.checked ? 1.8 : 1))
+                        }
+                        .menuStyle(.borderlessButton)
+                        .buttonStyle(.plain)
+                        .allowsHitTesting(!ctx.checked)
+
+                        if (ctx.showSolutions || (ctx.checked && !ok)), let c = correct[lid], let ri = right.firstIndex(where: { ($0.id ?? "") == c }), !(ctx.checked && ok) {
+                            Text("Soluzione: \(label(right[ri], ri))").font(.caption.bold()).foregroundStyle(Theme.ok)
                         }
                     }
                 }
@@ -2243,6 +3027,7 @@ struct OpenBody: View {
     let ctx: PartContext
     @Binding var answer: AnswerValue?
     @Environment(AppStore.self) private var store
+    @Environment(\.isImageExport) private var isImageExport
 
     @State private var selectedTrackIndex: Int = 0
     @State private var candidateRole: String = "A" // "A", "B", "both"
@@ -2404,18 +3189,28 @@ struct OpenBody: View {
                             if let img = p.image { ModuleImage(moduleId: ctx.moduleId, path: img, maxHeight: 180) }
                             if let t = p.text, !t.isEmpty { RichText(t, moduleId: ctx.moduleId).fontWeight(.semibold) }
 
-                            TextEditor(text: Binding(get: { i < given.count ? given[i] : "" }, set: { v in
-                                var g = answer?.texts ?? []
-                                while g.count < prompts.count { g.append("") }
-                                g[i] = v
-                                answer = .strings(g)
-                            }))
-                            .font(.system(size: 14 * ctx.scaleFactor))
-                            .frame(minHeight: CGFloat(max(1, p.lines ?? 2)) * 22 + 14)
-                            .scrollContentBackground(.hidden)
-                            .padding(6)
-                            .background(RoundedRectangle(cornerRadius: 8).fill(Color.primary.opacity(0.035)))
-                            .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color.secondary.opacity(0.25)))
+                            if isImageExport {
+                                let snapText = i < given.count ? given[i] : ""
+                                Text(snapText.isEmpty ? " " : snapText)
+                                    .font(.system(size: 14 * ctx.scaleFactor))
+                                    .frame(maxWidth: .infinity, minHeight: CGFloat(max(1, p.lines ?? 2)) * 22 + 14, alignment: .topLeading)
+                                    .padding(10)
+                                    .background(RoundedRectangle(cornerRadius: 8).fill(Color.primary.opacity(0.035)))
+                                    .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color.secondary.opacity(0.25)))
+                            } else {
+                                TextEditor(text: Binding(get: { i < given.count ? given[i] : "" }, set: { v in
+                                    var g = answer?.texts ?? []
+                                    while g.count < prompts.count { g.append("") }
+                                    g[i] = v
+                                    answer = .strings(g)
+                                }))
+                                .font(.system(size: 14 * ctx.scaleFactor))
+                                .frame(minHeight: CGFloat(max(1, p.lines ?? 2)) * 22 + 14)
+                                .scrollContentBackground(.hidden)
+                                .padding(6)
+                                .background(RoundedRectangle(cornerRadius: 8).fill(Color.primary.opacity(0.035)))
+                                .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color.secondary.opacity(0.25)))
+                            }
 
                             // Word Counter (Contatore di parole)
                             let currentText = i < given.count ? given[i] : ""

@@ -29,9 +29,9 @@ function keyBatches(keys) {
 }
 const APP_RE = /^[A-Za-z0-9._-]{1,64}$/;
 
-// StudyDesk book transfer records (bookfile: / bookchunk:) are copies any device may publish:
-// two of them differing is not a conflict for the user. The copy with the higher rev wins, then the newer one.
-const isTransferKey = (k) => BIG_KEY.test(k);
+// StudyDesk book transfer records (bookfile: / bookchunk:) and NoteDesk live records auto-settle by rev/updatedAt
+// so opening/editing shared notebooks and whiteboards across devices never stalls on user conflict prompts.
+const isTransferKey = (k) => BIG_KEY.test(k) || String(k || '').startsWith('notedesk/');
 function transferWins(remoteRec, localRec) {
   const rv = remoteRec?.value?.rev || 0, lv = localRec?.value?.rev || 0;
   if (rv !== lv) return rv > lv;
@@ -70,8 +70,10 @@ const sockets = new Map(); // id -> {onData, onClose} or server id -> {onConn}
 const earlyEvents = new Map(); // id -> Array<e> for events arriving before Sock(id) is registered
 const prevTcp = window.__hd_tcp_on;
 const mdnsHandlers = new Set();
+const sysHandlers = new Set();
 window.__hd_tcp_on = (e) => {
   if (e.ev === 'found' || e.ev === 'lost') { mdnsHandlers.forEach((f) => f(e)); return; }
+  if (e.ev === 'log' || e.ev === 'lan') { sysHandlers.forEach((f) => f(e)); return; }
   if (e.ev === 'conn') { const srv = sockets.get(e.server); if (srv && srv.onConn) srv.onConn(e.id, e.addr); return; }
   const s = sockets.get(e.id);
   if (!s) {
@@ -166,9 +168,14 @@ async function createEngine(opts = {}) {
 
   const defaults = { syncEnabled: true, channel: 'unstable', autoBoard: true, syncCode: '' };
   let cfg = { ...defaults, ...((await fsx.readJSON('settings.json')) || {}) };
+  cfg.syncCode = String(cfg.syncCode || '').trim();
   if (!cfg.deviceId) cfg.deviceId = crypto.randomUUID();
   if (!cfg.deviceName) cfg.deviceName = opts.deviceName || 'Windows';
-  const saveCfg = async (patch) => { cfg = { ...defaults, ...((await fsx.readJSON('settings.json')) || {}), ...cfg, ...patch }; await fsx.writeJSON('settings.json', cfg); };
+  const saveCfg = async (patch) => {
+    cfg = { ...defaults, ...((await fsx.readJSON('settings.json')) || {}), ...cfg, ...patch };
+    cfg.syncCode = String(cfg.syncCode || '').trim();
+    await fsx.writeJSON('settings.json', cfg);
+  };
   await saveCfg({});
 
   const logLines = [];
@@ -190,9 +197,10 @@ async function createEngine(opts = {}) {
 
   // ---------------------------------------------------------------- local records
   const scanCache = new Map();
-  let known = null;
-  async function scan() {
+  let known = null, scanPromise = null;
+  async function _scan() {
     const out = {}, seenFiles = new Set();
+    let count = 0;
     for (const app of (await fsx.dirs('records')).filter((a) => APP_RE.test(a))) {
       for (const f of await fsx.list(`records/${app}`)) {
         if (f.d || !f.n.endsWith('.json')) continue;
@@ -200,15 +208,22 @@ async function createEngine(opts = {}) {
         seenFiles.add(file);
         let c = scanCache.get(file);
         if (!c || c.m !== f.m || c.s !== f.s) {
-          const r = await fsx.readJSON(file);
+          let r = null;
+          try { r = await fsx.readJSON(file); } catch { r = null; }
           c = { m: f.m, s: f.s, key: r && r.key ? `${app}/${r.key}` : null, hash: r && r.key ? hashRecord(r) : null };
           scanCache.set(file, c);
+          if (++count % 20 === 0) await new Promise((res) => setTimeout(res, 0));
         }
         if (c.key) out[c.key] = c.hash;
       }
     }
     for (const f of [...scanCache.keys()]) if (!seenFiles.has(f)) scanCache.delete(f);
     return out;
+  }
+  function scan() {
+    if (scanPromise) return scanPromise;
+    scanPromise = _scan().finally(() => { scanPromise = null; });
+    return scanPromise;
   }
   async function getRecord(gkey) {
     const [app, key] = splitKey(gkey);
@@ -373,34 +388,103 @@ async function createEngine(opts = {}) {
   }
 
   // ---------------------------------------------------------------- network (server + mDNS + connector)
-  let server = null, netPort = 0, timers = [], mdnsOff = null;
+  let server = null, netPort = 0, timers = [], mdnsOff = null, sysOff = null;
+  const lastConnectErr = new Map();
+  function hostRank(h) {
+    if (!h) return 0;
+    const s = String(h).trim();
+    if (!s || s.startsWith('127.') || s === '0.0.0.0' || s === '::1' || s.toLowerCase().startsWith('fe80')) return 0;
+    if (s.startsWith('169.254.')) return 1;
+    if (/^\d{1,3}(\.\d{1,3}){3}$/.test(s)) {
+      if (s.startsWith('192.168.') || s.startsWith('10.')) return 5;
+      const m = /^172\.(\d+)\./.exec(s);
+      if (m && Number(m[1]) >= 16 && Number(m[1]) <= 31) return 5;
+      return 4;
+    }
+    if (s.includes(':')) return 3;
+    return 2;
+  }
+  function noteDiscoveredPeer(id, name, plat, ver, host, port) {
+    if (!id || id === cfg.deviceId || !host || !(port > 0)) return;
+    const prevSeen = seen.get(id);
+    const keepPrevHost = prevSeen && prevSeen.host && hostRank(prevSeen.host) > hostRank(host);
+    const bestHost = keepPrevHost ? prevSeen.host : host;
+    const bestPort = keepPrevHost ? prevSeen.port : port;
+    seen.set(id, {
+      deviceId: id,
+      name: name || (prevSeen && prevSeen.name) || 'Dispositivo',
+      platform: plat || (prevSeen && prevSeen.platform) || '',
+      version: ver || (prevSeen && prevSeen.version) || '',
+      host: bestHost,
+      port: bestPort,
+      firstSeen: (prevSeen && prevSeen.firstSeen) || Date.now(),
+    });
+    const rec = peers.get(id);
+    if (!rec) {
+      peers.set(id, {
+        deviceId: id,
+        name: name || 'Dispositivo',
+        platform: plat || '',
+        version: ver || '',
+        host: bestHost,
+        port: bestPort,
+        lastSeen: nowIso(),
+      });
+      peersChanged();
+    } else if (rec.host !== bestHost || rec.port !== bestPort || (name && rec.name !== name)) {
+      peers.set(id, { ...rec, name: name || rec.name, platform: plat || rec.platform, version: ver || rec.version, host: bestHost, port: bestPort, lastSeen: nowIso() });
+      peersChanged();
+    }
+    maybeConnect(id);
+  }
   async function startNetwork() {
-    if (server || !cfg.syncEnabled || !cfg.syncCode) return;
+    if (server || !cfg.syncEnabled || !cfg.syncCode) { ev.emit('state', getState()); return; }
     const r = await window.__hd_tcp_listen(String(opts.listenPort || 0), '0');
-    if (!r) { log('Rete: impossibile aprire la porta'); return; }
+    if (!r) { log('Rete: impossibile aprire la porta'); ev.emit('state', getState()); return; }
     server = r.id; netPort = r.port;
     sockets.set(server, { onConn: (id, addr) => {
       const conn = new Conn(Sock(id, addr), { onRequest: handleRequest, pingMs });
       const t = setTimeout(() => { if (!conn.peer) conn.close(); }, 15000);
       conn.on('close', () => clearTimeout(t));
     } });
-    await window.__hd_mdns_register(cfg.deviceName, String(netPort), cfg.deviceId, version, platform);
+    // Publish running:true immediately so the UI does not remain stuck on "Avvio..." if mDNS/LAN takes time
+    log(`Rete attiva come «${cfg.deviceName}» (porta ${netPort})`);
+    ev.emit('state', getState());
+    const onSys = (s) => {
+      if (s.ev === 'log' && s.msg) { log(s.msg); ev.emit('state', getState()); return; }
+      if (s.ev === 'lan' && s.raw) {
+        let m; try { m = JSON.parse(s.raw); } catch { return; }
+        if (!m || m.service !== 'deskhub' || !m.id || m.id === cfg.deviceId || !(m.port > 0)) return;
+        const host = s.addr || m.host;
+        noteDiscoveredPeer(String(m.id), String(m.name || ''), String(m.p || ''), String(m.v || ''), host, Number(m.port));
+      }
+    };
+    sysHandlers.add(onSys);
     const onMdns = (s) => {
       if (s.ev !== 'found') return;
       const t = s.txt || {};
       if (!t.id || t.id === cfg.deviceId) return;
       const host = s.addr || s.host;
-      seen.set(t.id, { deviceId: t.id, name: String(s.name || '').split('._' + SERVICE)[0], platform: t.p || '', version: t.v || '', host, port: s.port });
-      const rec = peers.get(t.id);
-      if (rec) { peers.set(t.id, { ...rec, platform: t.p || rec.platform, version: t.v || rec.version, host, port: s.port, lastSeen: nowIso() }); peersChanged(); }
-      maybeConnect(t.id);
+      noteDiscoveredPeer(String(t.id), String(s.name || '').split('._' + SERVICE)[0], String(t.p || ''), String(t.v || ''), host, Number(s.port));
     };
-    mdnsHandlers.add(onMdns); mdnsOff = () => mdnsHandlers.delete(onMdns);
-    await window.__hd_mdns_browse();
+    mdnsHandlers.add(onMdns);
+    mdnsOff = () => { mdnsHandlers.delete(onMdns); sysHandlers.delete(onSys); };
+    try {
+      const ok = await window.__hd_mdns_register(cfg.deviceName, String(netPort), cfg.deviceId, version, platform);
+      if (ok === false) log('mDNS registrazione non riuscita (uso ricerca LAN)');
+    } catch (e) { log('mDNS registrazione: ' + (e && e.message || e)); }
+    try {
+      const ok = await window.__hd_mdns_browse();
+      if (ok === false) log('mDNS ricerca non riuscita (uso ricerca LAN)');
+    } catch (e) { log('mDNS ricerca: ' + (e && e.message || e)); }
+    if (window.__hd_lan_start) {
+      try { await window.__hd_lan_start(cfg.deviceId, cfg.deviceName, version, platform, String(netPort)); } catch {}
+      timers.push(setInterval(() => window.__hd_lan_announce().catch(() => {}), 5000));
+    }
     timers.push(setInterval(() => window.__hd_mdns_browse().catch(() => {}), 60000));
     timers.push(setInterval(() => { for (const id of new Set([...peers.keys(), ...seen.keys()])) maybeConnect(id); }, reconnectMs));
     timers.push(setInterval(() => { for (const id of conns.keys()) syncPeer(id).catch(() => {}); }, periodicMs));
-    log(`Rete attiva come «${cfg.deviceName}» (porta ${netPort})`);
+    for (const id of peers.keys()) if (id > cfg.deviceId) maybeConnect(id);
     ev.emit('state', getState());
   }
   async function stopNetwork() {
@@ -408,20 +492,38 @@ async function createEngine(opts = {}) {
     for (const c of [...conns.values()]) c.close();
     conns.clear();
     if (mdnsOff) { mdnsOff(); mdnsOff = null; }
+    if (sysOff) { sysOff(); sysOff = null; }
+    if (window.__hd_lan_stop) await window.__hd_lan_stop().catch(() => {});
     await window.__hd_mdns_unregister().catch(() => {});
     if (server) { window.__hd_tcp_close(String(server)); sockets.delete(server); server = null; }
     netPort = 0;
     ev.emit('state', getState());
   }
-  /** Only the lower deviceId connects (§3.1). */
+  /** Lower deviceId connects immediately (§3.1); higher deviceId falls back after 8s if peer is blocked from dialing in (e.g. firewall). */
   function maybeConnect(id) {
-    const p = seen.get(id) || peers.get(id);
-    if (!p || !p.host || !p.port || conns.has(id) || connecting.has(id) || !server) return;
-    if (!(cfg.deviceId < id)) return;
-    connectTo(p.host, p.port).catch(() => {});
+    const s = seen.get(id), p = s || peers.get(id);
+    if (!p || !p.host || !p.port || conns.has(id) || !server) return;
+    if (cfg.deviceId > id) {
+      if (!s || !s.firstSeen || Date.now() - s.firstSeen < 8000) return;
+    } else if (cfg.deviceId === id) {
+      return;
+    }
+    connectTo(p.host, p.port).then(() => {
+      lastConnectErr.delete(id);
+    }).catch((e) => {
+      const msg = (e && e.message) ? e.message : 'errore di connessione';
+      const prev = lastConnectErr.get(id);
+      const now = Date.now();
+      if (!prev || prev.msg !== msg || now - prev.at > 30000) {
+        lastConnectErr.set(id, { msg, at: now });
+        log(`Connessione a «${p.name || id}» (${p.host}:${p.port}): ${msg}`);
+        ev.emit('state', getState());
+      }
+    });
   }
   async function connectTo(host, port) {
     const key = `${host}:${port}`;
+    if (connecting.has(key)) return null;
     connecting.add(key);
     try {
       const id = await window.__hd_tcp_connect(String(host), String(port));
@@ -544,11 +646,12 @@ async function createEngine(opts = {}) {
     peersChanged();
   }
   async function start() {
-    known = await scan();
-    await startLocal();
-    await startNetwork();
+    try { await startLocal(); } catch (e) { log('Canale locale: ' + (e && e.message || e)); }
+    try { await startNetwork(); } catch (e) { log('Rete: ' + (e && e.message || e)); ev.emit('state', getState()); }
     pollTimer = setInterval(() => { if (known) announceLocalChanges(); }, 2000);
     log('HubDesk pronto');
+    ev.emit('state', getState());
+    scan().then((k) => { known = k; }).catch((e) => log('Scansione locale: ' + (e && e.message || e)));
   }
   async function stop() { clearInterval(pollTimer); clearTimeout(peersTimer); await stopNetwork(); await stopLocal(); }
 

@@ -550,6 +550,28 @@ struct MediaEditor: View {
                             }
                             .controlSize(.small)
                         }
+                        if m.type == "video" {
+                            let subTypes = [UTType(filenameExtension: "vtt"), UTType(filenameExtension: "srt")].compactMap { $0 } + [.plainText]
+                            HStack(spacing: 6) {
+                                Button(m.subtitles == nil ? "Allega sottotitoli (.vtt/.srt)…" : "Cambia sottotitoli…") {
+                                    if let p = addAsset(subTypes) { media[i].subtitles = p }
+                                }
+                                .controlSize(.small)
+                                if let subPath = m.subtitles, !subPath.isEmpty {
+                                    Text(URL(fileURLWithPath: subPath).lastPathComponent)
+                                        .font(.caption.monospaced())
+                                        .foregroundStyle(.secondary)
+                                        .lineLimit(1)
+                                    Button {
+                                        media[i].subtitles = nil
+                                    } label: {
+                                        Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
+                                    }
+                                    .buttonStyle(.borderless)
+                                    .help("Rimuovi sottotitoli")
+                                }
+                            }
+                        }
                     }
                     Button(role: .destructive) { media.remove(at: i) } label: { Image(systemName: "trash") }.buttonStyle(.borderless)
                 }

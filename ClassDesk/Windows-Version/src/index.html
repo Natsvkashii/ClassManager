@@ -16,7 +16,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ClassDesk v26.11.2-004</title>
+    <title>ClassDesk</title>
     <link rel="icon" type="image/png" href="logo.png">
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -1587,7 +1587,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
         }
 
         const INITIAL_DATA = {
-            version: "26.11.2-004",
+            version: "26.11.2-015",
             channel: IS_UNSTABLE_BUILD === 1 ? "unstable" : "stable",
             buildType: BUILD_TYPE,
             deletedItems: [],
@@ -2484,22 +2484,13 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 if (this.dashboardCountdownInterval) clearInterval(this.dashboardCountdownInterval);
                 this.dashboardCountdownInterval = setInterval(() => this.updateDashboardCountdownTick(), 1000);
 
-                // Automatic 24-hour background update check
-                if (this.dailyUpdateInterval) clearInterval(this.dailyUpdateInterval);
-                this.dailyUpdateInterval = setInterval(() => this.checkForUpdates(false), 24 * 60 * 60 * 1000);
-
                 // DeskHub: publish groups and mirror linked StudyDesk rosters
                 this.hubStart();
                 this.suiteStart();
 
-                // Show onboarding wizard on first run, otherwise check updates on startup
+                // Show onboarding wizard on first run (updates are managed centrally by HubDesk)
                 if (this.state.settings && this.state.settings.onboardingCompleted === false) {
                     this.openOnboardingWizard();
-                } else {
-                    const hasPending = await this.checkPendingUpdateOnStartup();
-                    if (!hasPending) {
-                        setTimeout(() => this.checkForUpdates(false), 1500);
-                    }
                 }
             }
 
@@ -4741,10 +4732,8 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 const selectedDatesCount = Array.from(this.selectedDatesForDelete).filter(d => dates.includes(d)).length;
                 const todayIso = new Date().toISOString().substring(0, 10);
 
-                const b = activeSection.billing || {};
-                const hourlyRate = parseFloat(b.hourlyRateNet) || parseFloat(course.billingConfig?.hourlyRateNet) || 10;
-                const paidAmt = (b.studentPaidAmount !== undefined && b.studentPaidAmount !== null) ? parseFloat(b.studentPaidAmount) : ((b.paidAmount !== undefined && b.paidAmount !== null) ? parseFloat(b.paidAmount) : 0);
-                const paidH = (hourlyRate > 0 && paidAmt > 0) ? (paidAmt / hourlyRate) : 0;
+                const b = this.getEffectiveModuleBilling(activeSection, course);
+                const paidH = this.getModulePaidHours(activeSection, course, b);
                 const missingH = Math.max(0, paidH - totalModHours);
 
                 container.innerHTML = `
@@ -7874,11 +7863,9 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                     });
                 }
 
-                const b = activeSection.billing || {};
-                const hourlyRate = parseFloat(b.hourlyRateNet) || parseFloat(course.billingConfig?.hourlyRateNet) || 10;
-                const paidAmt = (b.studentPaidAmount !== undefined && b.studentPaidAmount !== null) ? parseFloat(b.studentPaidAmount) : ((b.paidAmount !== undefined && b.paidAmount !== null) ? parseFloat(b.paidAmount) : 0);
+                const b = this.getEffectiveModuleBilling(activeSection, course);
                 const totalModH = this.getModuleTotalHours(course, activeSection);
-                const paidH = (hourlyRate > 0 && paidAmt > 0) ? (paidAmt / hourlyRate) : 0;
+                const paidH = this.getModulePaidHours(activeSection, course, b);
                 const missingH = Math.max(0, paidH - totalModH);
 
                 container.innerHTML = `
@@ -9293,6 +9280,169 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 return mod.dates.reduce((sum, sk) => sum + this.getLessonPricing(mod, sk, course).gross, 0);
             }
 
+            getEffectiveModuleBilling(mod, courseObj = null) {
+                const course = courseObj || this.findCourseForModule(mod);
+                const b = mod?.billing || {};
+                const defaultHourly = (course?.billingConfig?.hourlyRateNet !== undefined && course?.billingConfig?.hourlyRateNet !== null)
+                    ? parseFloat(course.billingConfig.hourlyRateNet)
+                    : (parseFloat(this.state?.settings?.defaultHourlyRate) || 10.0);
+                const defaultVat = (course?.billingConfig?.vatPercent !== undefined && course?.billingConfig?.vatPercent !== null)
+                    ? parseFloat(course.billingConfig.vatPercent)
+                    : (parseFloat(this.state?.settings?.defaultVatPercent) || 15.0);
+                const hourlyRateNet = (b.hourlyRateNet !== undefined && b.hourlyRateNet !== null && b.hourlyRateNet !== "" && !isNaN(parseFloat(b.hourlyRateNet)))
+                    ? parseFloat(b.hourlyRateNet)
+                    : defaultHourly;
+                const vatPercent = (b.vatPercent !== undefined && b.vatPercent !== null && b.vatPercent !== "" && !isNaN(parseFloat(b.vatPercent)))
+                    ? parseFloat(b.vatPercent)
+                    : defaultVat;
+                const discountType = b.discountType || "percent";
+                const discountValue = parseFloat(b.discountValue) || 0;
+                const studentPaidAmount = (b.studentPaidAmount !== undefined && b.studentPaidAmount !== null && !isNaN(parseFloat(b.studentPaidAmount)))
+                    ? parseFloat(b.studentPaidAmount)
+                    : ((b.paidAmount !== undefined && b.paidAmount !== null && !isNaN(parseFloat(b.paidAmount))) ? parseFloat(b.paidAmount) : 0);
+                return {
+                    hourlyRateNet,
+                    vatPercent,
+                    discountType,
+                    discountValue,
+                    studentPaidAmount,
+                    lessonOverrides: b.lessonOverrides || {}
+                };
+            }
+
+            getEffectiveGrossHourlyRate(billingLike) {
+                const rate = Math.max(0, parseFloat(billingLike?.hourlyRateNet) || 0);
+                if (rate <= 0) return 0;
+                const discType = billingLike?.discountType || "percent";
+                const discVal = Math.max(0, parseFloat(billingLike?.discountValue) || 0);
+                const discFactor = (discType === "percent" && discVal > 0) ? Math.max(0, 1 - discVal / 100) : 1;
+                const vatPct = Math.max(0, parseFloat(billingLike?.vatPercent) || 0);
+                return rate * discFactor * (1 + vatPct / 100);
+            }
+
+            computePaidHoursFromBilling(billingLike) {
+                const paidAmt = parseFloat(billingLike?.studentPaidAmount) || 0;
+                const rate = parseFloat(billingLike?.hourlyRateNet) || 0;
+                if (paidAmt <= 0 || rate <= 0) return 0;
+                const vatPct = Math.max(0, parseFloat(billingLike?.vatPercent) || 0);
+                const vatMultiplier = 1 + vatPct / 100;
+                const discType = billingLike?.discountType || "percent";
+                const discVal = Math.max(0, parseFloat(billingLike?.discountValue) || 0);
+                if (discType === "fixed") {
+                    const paidNetAfterDiscount = paidAmt / vatMultiplier;
+                    return (paidNetAfterDiscount + discVal) / rate;
+                }
+                const effGrossRate = this.getEffectiveGrossHourlyRate(billingLike);
+                return effGrossRate > 0 ? (paidAmt / effGrossRate) : 0;
+            }
+
+            getModulePaidHours(mod, courseObj = null, overrideBilling = null) {
+                if (!mod) return 0;
+                const course = courseObj || this.findCourseForModule(mod);
+                const eff = overrideBilling || this.getEffectiveModuleBilling(mod, course);
+                if (eff.studentPaidAmount <= 0 || eff.hourlyRateNet <= 0) return 0;
+                const overrides = eff.lessonOverrides || {};
+                const hasOverrides = Object.keys(overrides).length > 0;
+                const slots = this.sortModuleSlots(course, mod);
+                if (!hasOverrides || !slots.length) {
+                    return this.computePaidHoursFromBilling(eff);
+                }
+                let remaining = eff.studentPaidAmount;
+                let coveredHours = 0;
+                for (const sk of slots) {
+                    const pr = this.getLessonPricing(mod, sk, course);
+                    const dur = Math.max(0, pr.durationHours || 0);
+                    const gross = pr.gross || 0;
+                    if (gross <= 0) {
+                        coveredHours += dur;
+                        continue;
+                    }
+                    if (remaining >= gross) {
+                        coveredHours += dur;
+                        remaining -= gross;
+                    } else {
+                        if (remaining > 0) {
+                            coveredHours += dur * (remaining / gross);
+                            remaining = 0;
+                        }
+                        break;
+                    }
+                }
+                if (remaining > 0) {
+                    const effGrossRate = this.getEffectiveGrossHourlyRate(eff);
+                    if (effGrossRate > 0) coveredHours += remaining / effGrossRate;
+                }
+                return coveredHours;
+            }
+
+            renderBillingHoursSummaryInnerHtml(paidHours, totalModHours, billingLike) {
+                const missingHours = Math.max(0, paidHours - totalModHours);
+                const effGrossRate = this.getEffectiveGrossHourlyRate(billingLike);
+                const discType = billingLike?.discountType || "percent";
+                const discVal = parseFloat(billingLike?.discountValue) || 0;
+                const rateHint = effGrossRate > 0
+                    ? (discType === "fixed" && discVal > 0
+                        ? `<span class="text-[11px] text-slate-400">(${this.formatMoney(effGrossRate)}/h con IVA, -${this.formatMoney(discVal)} sul totale)</span>`
+                        : `<span class="text-[11px] text-slate-400">(${this.formatMoney(effGrossRate)}/h con sconto e IVA)</span>`)
+                    : '';
+                return `
+                    <div class="flex items-center gap-1.5">
+                        <i class="fa-solid fa-money-bill-wave text-emerald-600"></i>
+                        <span class="font-bold text-slate-600 dark:text-slate-300">Ore Pagate:</span>
+                        <span class="font-extrabold text-emerald-600 dark:text-emerald-400">${paidHours.toFixed(1)}h</span>
+                    </div>
+                    <div class="flex items-center gap-1.5">
+                        <i class="fa-solid fa-calendar-check text-sky-600"></i>
+                        <span class="font-bold text-slate-600 dark:text-slate-300">Ore Modulo:</span>
+                        <span class="font-extrabold text-slate-800 dark:text-slate-100">${totalModHours.toFixed(1)}h</span>
+                    </div>
+                    ${paidHours > 0 ? `
+                        <div class="flex items-center gap-1.5">
+                            <i class="fa-solid ${missingHours > 0 ? 'fa-hourglass-half text-amber-500' : 'fa-circle-check text-emerald-600'}"></i>
+                            <span class="font-bold text-slate-600 dark:text-slate-300">${missingHours > 0 ? 'Mancano da Aggiungere:' : 'Stato:'}</span>
+                            <span class="font-extrabold ${missingHours > 0 ? 'text-amber-500' : 'text-emerald-600'}">${missingHours > 0 ? missingHours.toFixed(1) + 'h' : 'Ore Pagate Completate'}</span>
+                        </div>
+                    ` : ''}
+                    ${rateHint}
+                `;
+            }
+
+            updateBillingHoursPreview(courseId, moduleId) {
+                const el = document.getElementById("billingPaidHoursSummary");
+                if (!el) return;
+                const course = (this.state.courses || []).find(c => c.id === courseId);
+                if (!course) return;
+                let mod = null;
+                for (const lvl of (course.levels || [])) {
+                    const found = (lvl.modules || []).find(m => m.id === moduleId);
+                    if (found) { mod = found; break; }
+                }
+                if (!mod) return;
+                const saved = this.getEffectiveModuleBilling(mod, course);
+                const hourlyRateNet = parseFloat(document.getElementById("batchHourlyRateNet")?.value) || 0;
+                const vatPercent = parseFloat(document.getElementById("batchVatPercent")?.value) || 0;
+                const discountType = document.getElementById("batchDiscountType")?.value || "percent";
+                const discountValue = parseFloat(document.getElementById("batchDiscountValue")?.value) || 0;
+                const studentPaidAmount = parseFloat(document.getElementById("batchPaidAmount")?.value) || 0;
+                const sameGlobal = (
+                    hourlyRateNet === saved.hourlyRateNet &&
+                    vatPercent === saved.vatPercent &&
+                    discountType === saved.discountType &&
+                    discountValue === saved.discountValue
+                );
+                const preview = {
+                    hourlyRateNet,
+                    vatPercent,
+                    discountType,
+                    discountValue,
+                    studentPaidAmount,
+                    lessonOverrides: sameGlobal ? saved.lessonOverrides : {}
+                };
+                const paidH = this.getModulePaidHours(mod, course, preview);
+                const totalModH = this.getModuleTotalHours(course, mod);
+                el.innerHTML = this.renderBillingHoursSummaryInnerHtml(paidH, totalModH, preview);
+            }
+
             syncBillingContactsFromCoursesAndStudents() {
                 // Preserved empty by default per user request in v26.10.5-002:
                 // billing contacts are managed explicitly and associated to groups.
@@ -9430,11 +9580,18 @@ Removing, obfuscating, or altering these credits violates the author's attributi
             deleteBillingContact(contactId) {
                 const ct = (this.state.billingContacts || []).find(x => x.id === contactId);
                 const name = ct ? (ct.displayName || ct.fullName || ct.companyName || "questo profilo") : "questo profilo";
-                if (!confirm(`Sei sicuro di voler eliminare il profilo fiscale "${name}"? Questa azione non può essere annullata.`)) return;
-                this.state.billingContacts = (this.state.billingContacts || []).filter(x => x.id !== contactId);
-                this.persist();
-                this.renderMainView();
-                this.showToast("Profilo di fatturazione eliminato", "info");
+                this.openConfirmModal({
+                    title: "Elimina Profilo Fiscale",
+                    message: `Sei sicuro di voler eliminare il profilo fiscale "${name}"? Questa azione non può essere annullata.`,
+                    confirmLabel: "Elimina",
+                    danger: true,
+                    onConfirm: () => {
+                        this.state.billingContacts = (this.state.billingContacts || []).filter(x => x.id !== contactId);
+                        this.persist();
+                        this.renderMainView();
+                        this.showToast("Profilo di fatturazione eliminato", "info");
+                    }
+                });
             }
 
             renderBillingView(container) {
@@ -9635,13 +9792,13 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                     });
                 });
 
-                const curBilling = currentModule?.billing || {};
-                const curHourlyRate = (curBilling.hourlyRateNet !== undefined && curBilling.hourlyRateNet !== null && curBilling.hourlyRateNet !== "") ? parseFloat(curBilling.hourlyRateNet) : curSettingHourly;
-                const curVat = (curBilling.vatPercent !== undefined && curBilling.vatPercent !== null && curBilling.vatPercent !== "") ? parseFloat(curBilling.vatPercent) : curSettingVat;
-                const curDiscType = curBilling.discountType || "percent";
-                const curDiscVal = parseFloat(curBilling.discountValue) || 0;
-                const curPaidAmount = (curBilling.studentPaidAmount !== undefined && curBilling.studentPaidAmount !== null) ? parseFloat(curBilling.studentPaidAmount) : ((curBilling.paidAmount !== undefined && curBilling.paidAmount !== null) ? parseFloat(curBilling.paidAmount) : 0);
-                const curPaidHours = (curHourlyRate > 0 && curPaidAmount > 0) ? (curPaidAmount / curHourlyRate) : 0;
+                const curEffBilling = currentModule ? this.getEffectiveModuleBilling(currentModule, course) : { hourlyRateNet: curSettingHourly, vatPercent: curSettingVat, discountType: "percent", discountValue: 0, studentPaidAmount: 0, lessonOverrides: {} };
+                const curHourlyRate = curEffBilling.hourlyRateNet;
+                const curVat = curEffBilling.vatPercent;
+                const curDiscType = curEffBilling.discountType;
+                const curDiscVal = curEffBilling.discountValue;
+                const curPaidAmount = curEffBilling.studentPaidAmount;
+                const curPaidHours = currentModule ? this.getModulePaidHours(currentModule, course, curEffBilling) : 0;
                 const curMissingHours = Math.max(0, curPaidHours - (currentModule ? this.getModuleTotalHours(course, currentModule) : 0));
 
                 const curModuleCost = currentModule ? this.getModuleTotalGross(currentModule, course) : 0;
@@ -9877,16 +10034,19 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                                         <div>
                                             <label class="block font-bold text-[11px] text-slate-500 mb-1">Tariffa Oraria (${this.getCurrency()})</label>
                                             <input type="number" step="0.01" id="batchHourlyRateNet" value="${curHourlyRate}"
+                                                oninput="app.updateBillingHoursPreview('${course.id}', '${currentModule.id}')"
                                                 class="w-full h-9 rounded-xl border border-sky-200 dark:border-slate-700 bg-white dark:bg-navy-900 px-3 font-bold text-slate-800 dark:text-slate-100">
                                         </div>
                                         <div>
                                             <label class="block font-bold text-[11px] text-slate-500 mb-1">IVA (%)</label>
                                             <input type="number" step="0.1" id="batchVatPercent" value="${curVat}"
+                                                oninput="app.updateBillingHoursPreview('${course.id}', '${currentModule.id}')"
                                                 class="w-full h-9 rounded-xl border border-sky-200 dark:border-slate-700 bg-white dark:bg-navy-900 px-3 font-bold text-slate-800 dark:text-slate-100">
                                         </div>
                                         <div>
                                             <label class="block font-bold text-[11px] text-slate-500 mb-1">Tipo Sconto</label>
                                             <select id="batchDiscountType"
+                                                onchange="app.updateBillingHoursPreview('${course.id}', '${currentModule.id}')"
                                                 class="w-full h-9 rounded-xl border border-sky-200 dark:border-slate-700 bg-white dark:bg-navy-900 px-2 font-bold text-slate-800 dark:text-slate-100">
                                                 <option value="percent" ${curDiscType === 'percent' ? 'selected' : ''}>%</option>
                                                 <option value="fixed" ${curDiscType === 'fixed' ? 'selected' : ''}>${this.getCurrency()} (Fisso)</option>
@@ -9895,12 +10055,14 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                                         <div>
                                             <label class="block font-bold text-[11px] text-slate-500 mb-1">Valore Sconto</label>
                                             <input type="number" step="0.01" id="batchDiscountValue" value="${curDiscVal}"
+                                                oninput="app.updateBillingHoursPreview('${course.id}', '${currentModule.id}')"
                                                 class="w-full h-9 rounded-xl border border-sky-200 dark:border-slate-700 bg-white dark:bg-navy-900 px-3 font-bold text-slate-800 dark:text-slate-100">
                                         </div>
                                         <div>
                                             <label class="block font-bold text-[11px] text-slate-500 mb-1">Importo Pagato (${this.getCurrency()})</label>
                                             <div class="flex items-center gap-1.5">
                                                 <input type="number" step="0.01" id="batchPaidAmount" value="${curPaidAmount}"
+                                                    oninput="app.updateBillingHoursPreview('${course.id}', '${currentModule.id}')"
                                                     onchange="app.saveModuleStudentPaidAmount('${course.id}', '${currentModule.id}', this.value)"
                                                     class="w-full h-9 rounded-xl border border-sky-200 dark:border-slate-700 bg-white dark:bg-navy-900 px-3 font-bold text-slate-800 dark:text-slate-100">
                                                 <button type="button" onclick="app.saveModuleStudentPaidAmount('${course.id}', '${currentModule.id}', document.getElementById('batchPaidAmount').value)"
@@ -9919,24 +10081,8 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                                         </div>
                                     </div>
 
-                                    <div class="flex flex-wrap items-center gap-4 pt-1 text-xs">
-                                        <div class="flex items-center gap-1.5">
-                                            <i class="fa-solid fa-money-bill-wave text-emerald-600"></i>
-                                            <span class="font-bold text-slate-600 dark:text-slate-300">Ore Pagate:</span>
-                                            <span class="font-extrabold text-emerald-600 dark:text-emerald-400">${curPaidHours.toFixed(1)}h</span>
-                                        </div>
-                                        <div class="flex items-center gap-1.5">
-                                            <i class="fa-solid fa-calendar-check text-sky-600"></i>
-                                            <span class="font-bold text-slate-600 dark:text-slate-300">Ore Modulo:</span>
-                                            <span class="font-extrabold text-slate-800 dark:text-slate-100">${curModuleTotalHours.toFixed(1)}h</span>
-                                        </div>
-                                        ${curPaidHours > 0 ? `
-                                            <div class="flex items-center gap-1.5">
-                                                <i class="fa-solid ${curMissingHours > 0 ? 'fa-hourglass-half text-amber-500' : 'fa-circle-check text-emerald-600'}"></i>
-                                                <span class="font-bold text-slate-600 dark:text-slate-300">${curMissingHours > 0 ? 'Mancano da Aggiungere:' : 'Stato:'}</span>
-                                                <span class="font-extrabold ${curMissingHours > 0 ? 'text-amber-500' : 'text-emerald-600'}">${curMissingHours > 0 ? curMissingHours.toFixed(1) + 'h' : 'Ore Pagate Completate'}</span>
-                                            </div>
-                                        ` : ''}
+                                    <div id="billingPaidHoursSummary" class="flex flex-wrap items-center gap-4 pt-1 text-xs">
+                                        ${this.renderBillingHoursSummaryInnerHtml(curPaidHours, curModuleTotalHours, curEffBilling)}
                                     </div>
                                 </div>
 
@@ -10890,73 +11036,11 @@ Removing, obfuscating, or altering these credits violates the author's attributi
             }
 
             handleBetaToggle(checkbox) {
-                if (checkbox.checked) {
-                    checkbox.checked = false;
-                    this.openBetaRiskWarningModal(checkbox);
-                } else {
-                    this.updateSetting('includeBetaUpdates', false);
-                    this.checkForUpdates(false);
-                }
-            }
-
-            openBetaRiskWarningModal(checkbox) {
-                this.pendingBetaCheckbox = checkbox;
-                this.openModal(`
-                    <div class="p-6 space-y-5 text-xs max-w-md">
-                        <div class="flex items-center gap-3.5">
-                            <div class="w-12 h-12 rounded-2xl bg-amber-500/15 text-amber-500 flex items-center justify-center text-2xl shrink-0 border border-amber-500/30 shadow-xs">
-                                <i class="fa-solid fa-triangle-exclamation"></i>
-                            </div>
-                            <div>
-                                <h3 class="text-base font-extrabold text-slate-900 dark:text-white">Avviso Rischi Canale Beta</h3>
-                                <p class="text-[11px] text-slate-500">Aggiornamenti sperimentali in anteprima</p>
-                            </div>
-                        </div>
-
-                        <p class="text-slate-600 dark:text-slate-300 leading-relaxed text-xs">
-                            Attivare questo canale consente di ricevere e testare le versioni <strong>Beta</strong> prima del loro rilascio stabile. Queste versioni contengono nuove funzionalità sperimentali che potrebbero risultare <strong>instabili o presentare bug imprevisti</strong>.
-                        </p>
-
-                        <div class="p-3.5 rounded-xl bg-amber-500/10 dark:bg-navy-950 border border-amber-500/20 text-[11px] text-slate-600 dark:text-slate-400 space-y-1.5">
-                            <div class="flex items-center gap-1.5 font-bold text-amber-600 dark:text-amber-400">
-                                <i class="fa-solid fa-shield-halved"></i> Protezione di Sicurezza Attiva
-                            </div>
-                            <p>Nelle versioni beta, ClassDesk crea automaticamente un backup ogni 5 minuti in <em>Documenti/ClassDesk/Backup</em> e genera report diagnostici automatici in caso di anomalie.</p>
-                        </div>
-
-                        <div class="flex items-center justify-end gap-2.5 pt-2">
-                            <button type="button" onclick="app.cancelBetaActivation();" class="px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 font-bold hover:bg-slate-100 dark:hover:bg-navy-800 transition">
-                                Annulla
-                            </button>
-                            <button type="button" onclick="app.confirmBetaActivation();" class="px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-extrabold shadow-sm transition flex items-center gap-2">
-                                <i class="fa-solid fa-check"></i> Ho capito, Attiva Canale Beta
-                            </button>
-                        </div>
-                    </div>
-                `, "max-w-md", true);
-            }
-
-            confirmBetaActivation() {
-                if (this.pendingBetaCheckbox) {
-                    this.pendingBetaCheckbox.checked = true;
-                }
-                this.pendingBetaCheckbox = null;
-                this.updateSetting('includeBetaUpdates', true);
-                this.closeModal();
-                this.showToast("Canale aggiornamenti Beta attivato", "info");
-                this.checkForUpdates(false);
-            }
-
-            cancelBetaActivation() {
-                if (this.pendingBetaCheckbox) {
-                    this.pendingBetaCheckbox.checked = false;
-                }
-                this.pendingBetaCheckbox = null;
+                if (checkbox) checkbox.checked = false;
                 if (this.state.settings) {
                     this.state.settings.includeBetaUpdates = false;
                     this.persist();
                 }
-                this.closeModal();
             }
 
             openOnboardingWizard() {
@@ -11170,542 +11254,18 @@ Dettagli di Sistema:
                 }
             }
 
-            async checkPendingUpdateOnStartup() {
-                if (!window.electronAPI || typeof window.electronAPI.getPendingUpdate !== "function") return false;
-                try {
-                    const res = await window.electronAPI.getPendingUpdate();
-                    if (res && res.success && res.pendingUpdate && res.pendingUpdate.filePath) {
-                        const pending = res.pendingUpdate;
-                        const curVer = this.parseAppVersion(INITIAL_DATA.version || this.state.version || "26.10.4-012");
-                        const pendingVer = this.parseAppVersion(pending.version || "");
-                        if (this.compareAppVersions(pendingVer, curVer) > 0) {
-                            this.pendingUpdate = pending;
-                            this.promptPendingUpdateModal(pending);
-                            return true;
-                        } else {
-                            await window.electronAPI.clearPendingUpdate();
-                            this.pendingUpdate = null;
-                        }
-                    }
-                } catch (e) {
-                    console.warn("checkPendingUpdateOnStartup error:", e);
-                }
-                return false;
-            }
-
-            promptPendingUpdateModal(pending) {
-                const escapedPath = this.escapeHtml(pending.filePath).replace(/\\/g, '\\\\');
-                this.openModal(`
-                    <div class="p-6 sm:p-7 space-y-4 text-xs max-w-md text-center">
-                        <div class="w-14 h-14 mx-auto rounded-2xl bg-emerald-500/15 text-emerald-500 flex items-center justify-center text-3xl border border-emerald-500/25 shadow-xs">
-                            <i class="fa-solid fa-sparkles text-amber-400"></i>
-                        </div>
-                        <div>
-                            <div class="flex items-center justify-center gap-2 mb-1">
-                                <h4 class="text-base font-extrabold text-slate-900 dark:text-white">${this.t("pendingUpdateReadyTitle")}</h4>
-                                <span class="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 text-[10px] font-extrabold">v${this.escapeHtml(pending.version)}</span>
-                            </div>
-                            <p class="text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
-                                Un nuovo aggiornamento è stato scaricato automaticamente in background ed è verificato e pronto per essere installato sul tuo computer.
-                            </p>
-                        </div>
-
-                        <div class="p-3.5 rounded-xl bg-slate-50 dark:bg-navy-950 border border-slate-200 dark:border-slate-800 text-left text-[11px] text-slate-600 dark:text-slate-400 space-y-1.5">
-                            <div class="font-bold flex items-center gap-1.5 text-slate-700 dark:text-slate-300">
-                                <i class="fa-solid fa-file-shield text-emerald-500"></i> Pacchetto installer verificato su disco:
-                            </div>
-                            <div class="font-mono text-[10px] break-all text-sky-600 dark:text-sky-400 font-bold bg-white dark:bg-navy-900 p-2 rounded-lg border border-sky-100 dark:border-slate-800">
-                                ${this.escapeHtml(pending.filePath)}
-                            </div>
-                            <div class="flex items-center gap-1.5 text-[10px] text-emerald-600 dark:text-emerald-400 pt-0.5">
-                                <i class="fa-solid fa-shield-check"></i>
-                                <span>Un backup di sicurezza dei tuoi dati verrà creato automaticamente prima dell'avvio.</span>
-                            </div>
-                        </div>
-
-                        <div class="flex flex-col sm:flex-row items-center justify-center gap-2 pt-2">
-                            <button type="button" onclick="app.installPendingUpdateNow('${escapedPath}')" class="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold shadow-md flex items-center justify-center gap-2 transition">
-                                <i class="fa-solid fa-arrows-rotate"></i> ${this.t("pendingUpdateInstallBtn")}
-                            </button>
-                            <button type="button" onclick="app.closeModal()" class="w-full sm:w-auto px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 font-bold hover:bg-slate-100 dark:hover:bg-navy-800 transition">
-                                ${this.t("pendingUpdateLaterBtn")}
-                            </button>
-                            <button type="button" onclick="app.dismissPendingUpdate()" class="w-full sm:w-auto px-3 py-2.5 rounded-xl text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 font-bold text-[11px] transition">
-                                ${this.t("pendingUpdateDismissBtn")}
-                            </button>
-                        </div>
-                    </div>
-                `, "max-w-md", true);
-            }
-
-            async installPendingUpdateNow(filePath) {
-                const target = filePath || this.pendingUpdate?.filePath;
-                if (!target) {
-                    this.showToast("Percorso installer non valido", "error");
-                    return;
-                }
-
-                await this.performPreUpdateBackup();
-
-                this.openModal(`
-                    <div class="p-6 space-y-4 text-xs max-w-md text-center">
-                        <div class="w-14 h-14 mx-auto rounded-2xl bg-emerald-500/15 text-emerald-500 flex items-center justify-center text-3xl border border-emerald-500/25 shadow-xs">
-                            <i class="fa-solid fa-arrows-rotate fa-spin"></i>
-                        </div>
-                        <div>
-                            <h4 class="text-base font-extrabold text-slate-900 dark:text-white">Avvio Installazione...</h4>
-                            <p class="text-slate-500 dark:text-slate-400 mt-1">L'applicazione si sta chiudendo per consentire l'installazione automatica dell'aggiornamento.</p>
-                        </div>
-                    </div>
-                `, "max-w-md", true);
-
-                setTimeout(() => {
-                    if (window.electronAPI && typeof window.electronAPI.installUpdateAndQuit === "function") {
-                        window.electronAPI.installUpdateAndQuit(target);
-                    }
-                }, 800);
-            }
-
-            async dismissPendingUpdate() {
-                if (window.electronAPI && typeof window.electronAPI.clearPendingUpdate === "function") {
-                    await window.electronAPI.clearPendingUpdate();
-                }
-                this.pendingUpdate = null;
-                this.closeModal();
-                this.showToast("Aggiornamento rimosso dai pacchetti pronti", "info");
-                if (this.activeTab === "credits") {
-                    this.renderCreditsView(document.getElementById("mainContentArea"));
-                }
-            }
-
-            onNativeDownloadProgress(pct, cur, total) {
-                const bar = document.getElementById("inAppUpdateProgressBar");
-                const pctTxt = document.getElementById("inAppUpdatePercentText");
-                const bytesTxt = document.getElementById("inAppUpdateBytesText");
-                const rounded = Math.min(100, Math.max(0, Math.round(pct)));
-                if (bar) bar.style.width = `${rounded}%`;
-                if (pctTxt) pctTxt.innerText = `${rounded}%`;
-                if (bytesTxt && total > 0) {
-                    const curMb = (cur / (1024 * 1024)).toFixed(1);
-                    const totMb = (total / (1024 * 1024)).toFixed(1);
-                    bytesTxt.innerText = `${curMb} MB / ${totMb} MB`;
-                }
-            }
-
-            async startInAppUpdate(update) {
-                if (!update) update = this.availableUpdate;
-                if (!update) return;
-
-                const setupUrl = update.primaryUrl;
-                const setupName = update.primaryName || `ClassDesk-${update.parsed?.raw || 'update'}-Setup.exe`;
-                const tagName = update.release?.tag_name || update.parsed?.raw || '';
-
-                this.openModal(`
-                    <div class="p-6 space-y-4 text-xs max-w-md text-center">
-                        <div class="w-14 h-14 mx-auto rounded-2xl bg-sky-500/15 text-sky-600 flex items-center justify-center text-3xl border border-sky-500/25 shadow-xs">
-                            <i class="fa-solid fa-cloud-arrow-down fa-bounce"></i>
-                        </div>
-                        <div>
-                            <div class="flex items-center justify-center gap-2 mb-1">
-                                <h4 class="text-base font-extrabold text-slate-900 dark:text-white">Download Aggiornamento in Corso</h4>
-                                <span class="px-2 py-0.5 rounded-full bg-sky-100 text-sky-800 dark:bg-navy-800 dark:text-sky-300 text-[10px] font-extrabold">${this.escapeHtml(tagName)}</span>
-                            </div>
-                            <p class="text-slate-500 dark:text-slate-400 mt-1 leading-relaxed" id="inAppUpdateStatusText">
-                                Salvataggio backup di sicurezza e download del pacchetto di installazione...
-                            </p>
-                        </div>
-
-                        <!-- Progress bar -->
-                        <div class="space-y-1.5 pt-2">
-                            <div class="w-full bg-slate-100 dark:bg-navy-950 rounded-full h-3 overflow-hidden border border-slate-200 dark:border-slate-800">
-                                <div id="inAppUpdateProgressBar" class="bg-gradient-to-r from-sky-500 to-indigo-600 h-3 rounded-full transition-all duration-300" style="width: 0%"></div>
-                            </div>
-                            <div class="flex items-center justify-between text-[11px] font-mono text-slate-500 font-bold px-1">
-                                <span id="inAppUpdatePercentText">0%</span>
-                                <span id="inAppUpdateBytesText">Connessione ai server GitHub...</span>
-                            </div>
-                        </div>
-
-                        <p class="text-[11px] text-emerald-600 dark:text-emerald-400 flex items-center justify-center gap-1.5 pt-1">
-                            <i class="fa-solid fa-shield-check"></i>
-                            <span>Tutti i tuoi corsi, dati e impostazioni sono al sicuro e vengono preservati.</span>
-                        </p>
-                    </div>
-                `, "max-w-md", true);
-
-                // 1. Automatic pre-update backup
-                await this.performPreUpdateBackup();
-
-                // 2. Execute download
-                setTimeout(async () => {
-                    try {
-                        if (window.electronAPI && typeof window.electronAPI.downloadUpdateAsset === "function") {
-                            const res = await window.electronAPI.downloadUpdateAsset(setupUrl, setupName, false, tagName, update.release);
-                            if (res && res.success && res.filePath) {
-                                const st = document.getElementById("inAppUpdateStatusText");
-                                if (st) st.innerText = "Download completato! Avvio dell'aggiornamento e chiusura applicazione...";
-                                const bar = document.getElementById("inAppUpdateProgressBar");
-                                if (bar) bar.style.width = "100%";
-                                const pctTxt = document.getElementById("inAppUpdatePercentText");
-                                if (pctTxt) pctTxt.innerText = "100%";
-
-                                setTimeout(() => {
-                                    window.electronAPI.installUpdateAndQuit(res.filePath);
-                                }, 700);
-                            } else {
-                                throw new Error(res?.error || "Download non riuscito");
-                            }
-                        } else {
-                            if (window.electronAPI && window.electronAPI.openExternal) {
-                                window.electronAPI.openExternal(setupUrl);
-                            } else {
-                                window.open(setupUrl, "_blank");
-                            }
-                            this.closeModal();
-                        }
-                    } catch (err) {
-                        console.error("In-app update error:", err);
-                        this.openModal(`
-                            <div class="p-6 space-y-4 text-xs max-w-md text-center">
-                                <div class="w-12 h-12 mx-auto rounded-full bg-rose-100 dark:bg-rose-950 text-rose-600 flex items-center justify-center text-xl">
-                                    <i class="fa-solid fa-triangle-exclamation"></i>
-                                </div>
-                                <div>
-                                    <h4 class="text-sm font-extrabold text-slate-900 dark:text-white">Aggiornamento Non Riuscito</h4>
-                                    <p class="text-slate-500 mt-1">${this.escapeHtml(err.message || "Impossibile scaricare l'aggiornamento")}</p>
-                                </div>
-                                <div class="flex items-center justify-center gap-2 pt-2">
-                                    <button type="button" onclick="app.closeModal()" class="px-4 py-2 rounded-xl border border-slate-300 dark:border-slate-700 font-bold">Chiudi</button>
-                                    <button type="button" onclick="if(window.electronAPI){window.electronAPI.openExternal('${setupUrl}');}else{window.open('${setupUrl}','_blank');}app.closeModal();" class="px-4 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-extrabold">Scarica dal Browser</button>
-                                </div>
-                            </div>
-                        `, "max-w-md");
-                    }
-                }, 350);
-            }
-
-            async startBackgroundDownload(release, url, filename) {
-                if (this.isDownloadingUpdate || this.isBackgroundDownloading) return;
-                if (!window.electronAPI || typeof window.electronAPI.downloadUpdateAsset !== "function") return;
-
-                this.isBackgroundDownloading = true;
-                console.log(`[Auto-Update] Inizio download in background di ${filename} (${release.tag_name})...`);
-
-                try {
-                    const res = await window.electronAPI.downloadUpdateAsset(
-                        url,
-                        filename,
-                        false,
-                        release.tag_name || release.name,
-                        release
-                    );
-                    this.isBackgroundDownloading = false;
-
-                    if (res && res.success && res.filePath) {
-                        this.pendingUpdate = {
-                            version: release.tag_name || release.name,
-                            filePath: res.filePath,
-                            releaseInfo: release
-                        };
-                        console.log("[Auto-Update] Download in background completato con successo!");
-                        this.showToast(`Nuova versione ${this.pendingUpdate.version} scaricata in background. Verrà installata al prossimo avvio.`, "success", 7000);
-                        if (this.activeTab === "credits") {
-                            this.renderCreditsView(document.getElementById("mainContentArea"));
-                        }
-                    }
-                } catch (e) {
-                    this.isBackgroundDownloading = false;
-                    console.warn("[Auto-Update] Errore durante il download in background:", e);
-                }
-            }
-
-            startUpdateDownload(url, fileName, mode = 'direct') {
-                if (window.electronAPI && typeof window.electronAPI.openExternal === "function") {
-                    window.electronAPI.openExternal(url);
-                } else {
-                    window.open(url, "_blank");
-                }
-                this.closeModal();
-                this.showToast("Pagina di download aperta nel browser web.", "info", 4000);
-            }
+            // Updates on Windows are managed exclusively via HubDesk.
+            async checkPendingUpdateOnStartup() { return false; }
 
             async checkForUpdates(manual = false) {
-                // ClassDesk Suite: when HubDesk is installed it manages the updates; this updater is the fallback.
-                try {
-                    if (window.electronAPI && typeof window.electronAPI.hubdeskInfo === "function") {
-                        const hubInfo = (await window.electronAPI.hubdeskInfo()) || {};
-                        if (hubInfo.installed) {
-                            if (manual) {
-                                window.electronAPI.hubdeskLaunch("--page updates");
-                                this.showToast(this.t("suiteUpdatesInHub"), "info");
-                            }
-                            return;
-                        }
-                    }
-                } catch (e) {}
-                if (manual) {
-                    this.updateCheckInProgress = true;
-                    if (this.activeTab === "credits") {
-                        this.renderCreditsView(document.getElementById("mainContentArea"));
-                    }
-                    this.openModal(`
-                        <div class="p-6 space-y-4 text-xs max-w-md text-center">
-                            <div class="w-12 h-12 mx-auto rounded-full bg-sky-100 dark:bg-navy-800 text-sky-600 dark:text-sky-300 flex items-center justify-center text-xl">
-                                <i class="fa-solid fa-arrows-rotate fa-spin"></i>
-                            </div>
-                            <div>
-                                <h4 class="text-sm font-extrabold text-slate-900 dark:text-white">Verifica Aggiornamenti</h4>
-                                <p class="text-slate-500 mt-1">Controllo della disponibilità di nuove versioni su GitHub in corso...</p>
-                            </div>
-                            <div class="pt-2">
-                                <button type="button" onclick="app.closeModal()" class="px-4 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-bold hover:bg-slate-100 dark:hover:bg-navy-800 transition">Annulla</button>
-                            </div>
-                        </div>
-                    `, "max-w-md");
-                }
-
-                const nowIso = new Date().toISOString();
-                if (this.state.settings) {
-                    this.state.settings.lastUpdateCheckDate = nowIso;
-                    this.persist();
-                }
-
-                try {
-                    let releases = null;
-
-                    // 1. Try Main process IPC (supports custom User-Agent and fallback to raw manifest)
-                    if (window.electronAPI && typeof window.electronAPI.checkForUpdatesAPI === "function") {
-                        try {
-                            const apiRes = await window.electronAPI.checkForUpdatesAPI();
-                            if (apiRes && apiRes.success && Array.isArray(apiRes.releases)) {
-                                releases = apiRes.releases;
-                            }
-                        } catch (apiErr) {
-                            console.warn("Main process update check error:", apiErr);
-                        }
-                    }
-
-                    // 2. Direct renderer fetch fallback
-                    if (!releases) {
-                        try {
-                            const controller = new AbortController();
-                            const timeoutId = setTimeout(() => controller.abort(), 6000);
-                            const res = await fetch("https://api.github.com/repos/Natsvkashii/ClassManager/releases", { signal: controller.signal });
-                            clearTimeout(timeoutId);
-                            if (res.ok) {
-                                releases = await res.json();
-                            }
-                        } catch (e) {
-                            console.warn("Renderer fetch releases error:", e);
-                        }
-                    }
-
-                    // 3. Fallback to raw manifest on stable branch (never rate-limited)
-                    if (!releases) {
-                        try {
-                            const resM = await fetch("https://raw.githubusercontent.com/Natsvkashii/ClassManager/stable/update-manifest.json");
-                            if (resM.ok) {
-                                const m = await resM.json();
-                                if (m && m.version) {
-                                    releases = [{
-                                        tag_name: m.tag_name || `v${m.version}`,
-                                        name: `ClassDesk v${m.version}`,
-                                        prerelease: m.prerelease === true,
-                                        published_at: m.published_at || new Date().toISOString(),
-                                        body: m.body || '',
-                                        html_url: `https://github.com/Natsvkashii/ClassManager/releases/tag/${m.tag_name || 'v' + m.version}`,
-                                        assets: [
-                                            // "suite" key (HUBDESK.md section 6): the ClassDesk Windows asset comes first; setupUrl/setupName stay for old readers
-                                            ...((m.suite && m.suite.apps && m.suite.apps.classdesk && m.suite.apps.classdesk.win && m.suite.apps.classdesk.win.url)
-                                                ? [{ name: m.suite.apps.classdesk.win.name || `ClassDesk-${m.version}-win-x64.exe`, browser_download_url: m.suite.apps.classdesk.win.url }] : []),
-                                            { name: m.setupName || `ClassDesk-Suite-${m.version}-Setup.exe`, browser_download_url: m.setupUrl },
-                                            ...(m.portableUrl ? [{ name: m.portableName || `ClassDesk-${m.version}-Native.exe`, browser_download_url: m.portableUrl }] : [])
-                                        ]
-                                    }];
-                                }
-                            }
-                        } catch (e) {}
-                    }
-
-                    this.updateCheckInProgress = false;
-
-                    if (!Array.isArray(releases) || releases.length === 0) {
-                        if (manual) {
-                            this.openModal(`
-                                <div class="p-6 space-y-4 text-xs max-w-md text-center">
-                                    <div class="w-12 h-12 mx-auto rounded-full bg-rose-100 dark:bg-rose-950 text-rose-600 dark:text-rose-400 flex items-center justify-center text-xl">
-                                        <i class="fa-solid fa-triangle-exclamation"></i>
-                                    </div>
-                                    <div>
-                                        <h4 class="text-sm font-extrabold text-slate-900 dark:text-white">Verifica Non Riuscita</h4>
-                                        <p class="text-slate-500 mt-1">Impossibile verificare la presenza di aggiornamenti. Verifica la tua connessione Internet o riprova più tardi.</p>
-                                    </div>
-                                    <div class="flex items-center justify-center gap-2 pt-2">
-                                        <button type="button" onclick="app.closeModal()" class="px-4 py-2 rounded-xl border border-slate-300 dark:border-slate-700 font-bold">Chiudi</button>
-                                        <button type="button" onclick="app.checkForUpdates(true)" class="px-4 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-extrabold">Riprova</button>
-                                    </div>
-                                </div>
-                            `, "max-w-md");
-                        }
-                        if (this.activeTab === "credits") this.renderCreditsView(document.getElementById("mainContentArea"));
-                        return;
-                    }
-
-                    const currentVer = this.parseAppVersion(INITIAL_DATA.version || this.state.version || "26.10.4-012");
-                    // Beta versions receive beta updates even if toggle is off until next stable arrives
-                    const isCurrentBeta = this.isBetaVersion();
-                    const includeBeta = (this.state.settings?.includeBetaUpdates === true) || isCurrentBeta;
-                    let highestCandidate = null;
-
-                    for (const rel of releases) {
-                        if (rel.prerelease && !includeBeta) continue;
-                        const parsed = this.parseAppVersion(rel.tag_name || "");
-                        if (parsed.isBeta && !includeBeta) continue;
-                        if (!highestCandidate || this.compareAppVersions(parsed, highestCandidate.parsed) > 0) {
-                            highestCandidate = { release: rel, parsed };
-                        }
-                    }
-
-                    if (highestCandidate && this.compareAppVersions(highestCandidate.parsed, currentVer) > 0) {
-                        const rel = highestCandidate.release;
-                        const assets = rel.assets || [];
-                        // Suite naming: ClassDesk-<v>-win-x64.exe first; "Setup" is the suite installer (HubDesk) and only a fallback
-                        const lowerName = (a) => (a.name || "").toLowerCase();
-                        const notOtherApp = (a) => !lowerName(a).startsWith("studydesk-") && !lowerName(a).startsWith("hubdesk-");
-                        const winAsset = assets.find(a => lowerName(a).startsWith("classdesk-") && !lowerName(a).startsWith("classdesk-suite-") && lowerName(a).endsWith("-win-x64.exe"));
-                        const setupAsset = winAsset || assets.find(a => notOtherApp(a) && lowerName(a).includes("setup") && lowerName(a).endsWith(".exe"));
-                        const nativeAsset = assets.find(a => (a.name || "").toLowerCase().includes("native") && (a.name || "").toLowerCase().endsWith(".exe"));
-                        const portableAsset = assets.find(a => (a.name || "").toLowerCase().includes("portable") && (a.name || "").toLowerCase().endsWith(".exe"));
-                        const anyExe = setupAsset || nativeAsset || portableAsset || assets.find(a => notOtherApp(a) && lowerName(a).endsWith(".exe"));
-                        const primaryUrl = setupAsset ? setupAsset.browser_download_url : (anyExe ? anyExe.browser_download_url : (rel.html_url || "https://github.com/Natsvkashii/ClassManager/releases"));
-                        const primaryName = setupAsset ? setupAsset.name : (anyExe ? anyExe.name : "Class-Management-Update.exe");
-                        const nativeUrl = nativeAsset ? nativeAsset.browser_download_url : null;
-                        const nativeName = nativeAsset ? nativeAsset.name : "Class-Management-Native.exe";
-
-                        this.availableUpdate = {
-                            release: rel,
-                            parsed: highestCandidate.parsed,
-                            primaryUrl,
-                            primaryName,
-                            nativeUrl,
-                            nativeName
-                        };
-
-                        if (this.activeTab === "credits") {
-                            this.renderCreditsView(document.getElementById("mainContentArea"));
-                        }
-
-                        if (!manual) {
-                            // Automatic silent background download & staging for next startup
-                            if (window.electronAPI && typeof window.electronAPI.stageSilentUpdate === "function" && primaryUrl && primaryUrl.toLowerCase().endsWith(".exe")) {
-                                window.electronAPI.stageSilentUpdate(primaryUrl, highestCandidate.parsed.raw);
-                            }
-                            return;
-                        }
-
-                        // Present update modal directly with external download options
-                        this.openModal(`
-                            <div class="p-6 space-y-4 text-xs max-w-md">
-                                <div class="flex items-center gap-3">
-                                    <div class="w-11 h-11 rounded-xl bg-gradient-to-tr from-sky-500 to-indigo-600 text-white flex items-center justify-center text-xl shrink-0 shadow-sm">
-                                        <i class="fa-solid fa-cloud-arrow-down"></i>
-                                    </div>
-                                    <div>
-                                        <div class="flex items-center gap-2">
-                                            <h4 class="text-sm font-extrabold text-slate-900 dark:text-white">Nuova Versione Disponibile!</h4>
-                                            <span class="px-2 py-0.5 rounded-full ${rel.prerelease ? 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300' : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300'} text-[10px] font-extrabold">
-                                                ${rel.prerelease ? 'Anteprima (Unstable)' : 'Stabile'}
-                                            </span>
-                                        </div>
-                                        <p class="text-sky-600 font-extrabold text-xs mt-0.5">${this.escapeHtml(rel.tag_name || rel.name)}</p>
-                                    </div>
-                                </div>
-
-                                <div class="p-3.5 rounded-xl bg-slate-50 dark:bg-navy-950/70 border border-sky-100 dark:border-slate-800 space-y-2">
-                                    <p class="text-slate-600 dark:text-slate-300 leading-relaxed text-[11px]">
-                                        È disponibile una nuova versione aggiornata di <strong>${this.t("appTitle")}</strong>. Puoi aggiornare automaticamente direttamente dall'applicazione oppure scaricare l'installer dal browser:
-                                    </p>
-                                    ${rel.body ? `
-                                        <div class="text-[11px] text-slate-500 dark:text-slate-400 whitespace-pre-line max-h-32 overflow-y-auto custom-scrollbar border-t border-sky-100 dark:border-slate-800 pt-2">
-                                            ${this.escapeHtml(rel.body)}
-                                        </div>
-                                    ` : ''}
-                                </div>
-
-                                <div class="flex flex-col sm:flex-row flex-wrap items-center justify-end gap-2 pt-1">
-                                    <button type="button" onclick="app.closeModal()" class="w-full sm:w-auto px-4 py-2 rounded-xl border border-slate-300 dark:border-slate-700 font-bold hover:bg-slate-100 dark:hover:bg-navy-800 transition">Più tardi</button>
-                                    <button type="button" onclick="if(window.electronAPI){window.electronAPI.openExternal('${primaryUrl}');}else{window.open('${primaryUrl}','_blank');}app.closeModal();" class="w-full sm:w-auto px-3.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-bold hover:bg-slate-100 dark:hover:bg-navy-800 transition flex items-center justify-center gap-1.5" title="Scarica l'installer ufficiale con il browser web">
-                                        <i class="fa-solid fa-arrow-up-right-from-square"></i> Scarica installer dal browser
-                                    </button>
-                                    <button type="button" onclick="app.closeModal(); app.startInAppUpdate();" class="w-full sm:w-auto px-5 py-2 rounded-xl bg-gradient-to-r from-sky-600 to-indigo-600 hover:from-sky-500 hover:to-indigo-500 text-white font-extrabold shadow-md flex items-center justify-center gap-2 transition">
-                                        <i class="fa-solid fa-bolt"></i>
-                                        <span>Aggiorna direttamente dall'applicazione</span>
-                                    </button>
-                                </div>
-                            </div>
-                        `, "max-w-md");
-                    } else {
-                        this.availableUpdate = null;
-                        if (manual) {
-                            this.openModal(`
-                                <div class="p-6 space-y-4 text-xs max-w-md text-center">
-                                    <div class="w-12 h-12 mx-auto rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 flex items-center justify-center text-2xl">
-                                        <i class="fa-solid fa-circle-check"></i>
-                                    </div>
-                                    <div>
-                                        <h4 class="text-sm font-extrabold text-slate-900 dark:text-white">ClassDesk è Aggiornato!</h4>
-                                        <p class="text-slate-500 mt-1">Stai già utilizzando l'ultima versione disponibile (<strong>v${this.escapeHtml(INITIAL_DATA.version || this.state.version || "26.10.4-012")}</strong>). Non sono necessari aggiornamenti.</p>
-                                    </div>
-                                    <div class="pt-2">
-                                        <button type="button" onclick="app.closeModal()" class="px-5 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-extrabold shadow-sm transition">OK</button>
-                                    </div>
-                                </div>
-                            `, "max-w-md");
-                        }
-                        if (this.activeTab === "credits") {
-                            this.renderCreditsView(document.getElementById("mainContentArea"));
-                        }
-                    }
-                } catch (e) {
-                    console.error("Update check error:", e);
-                    this.updateCheckInProgress = false;
-                    if (manual) {
-                        this.openModal(`
-                            <div class="p-6 space-y-4 text-xs max-w-md text-center">
-                                <div class="w-12 h-12 mx-auto rounded-full bg-rose-100 dark:bg-rose-950 text-rose-600 dark:text-rose-400 flex items-center justify-center text-xl">
-                                    <i class="fa-solid fa-triangle-exclamation"></i>
-                                </div>
-                                <div>
-                                    <h4 class="text-sm font-extrabold text-slate-900 dark:text-white">Errore Controllo Aggiornamenti</h4>
-                                    <p class="text-slate-500 mt-1">${this.escapeHtml(e.message || "Impossibile contattare il server.")}</p>
-                                </div>
-                                <div class="flex items-center justify-center gap-2 pt-2">
-                                    <button type="button" onclick="app.closeModal()" class="px-4 py-2 rounded-xl border border-slate-300 dark:border-slate-700 font-bold">Chiudi</button>
-                                    <button type="button" onclick="app.checkForUpdates(true)" class="px-4 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-extrabold">Riprova</button>
-                                </div>
-                            </div>
-                        `, "max-w-md");
-                    }
-                    if (this.activeTab === "credits") {
-                        this.renderCreditsView(document.getElementById("mainContentArea"));
-                    }
+                if (!manual) return;
+                if (window.electronAPI && typeof window.electronAPI.hubdeskLaunch === "function") {
+                    window.electronAPI.hubdeskLaunch("--page updates");
+                    this.showToast(this.t("suiteUpdatesInHub") || "Gli aggiornamenti sono gestiti da HubDesk.", "info");
                 }
             }
 
-            checkUpdatesOnStartupIfNeeded() {
-                const freq = this.state.settings?.updateCheckFrequency || "startup";
-                if (freq === "manual") return;
-                const lastStr = this.state.settings?.lastUpdateCheckDate;
-                const now = Date.now();
-
-                if (freq === "startup") {
-                    this.checkForUpdates(false);
-                } else if (freq === "daily" && (!lastStr || (now - new Date(lastStr).getTime() > 24 * 3600 * 1000))) {
-                    this.checkForUpdates(false);
-                } else if (freq === "weekly" && (!lastStr || (now - new Date(lastStr).getTime() > 7 * 24 * 3600 * 1000))) {
-                    this.checkForUpdates(false);
-                }
-            }
+            checkUpdatesOnStartupIfNeeded() { /* Managed by HubDesk */ }
 
             renderSettingsView(container) {
                 const s = this.state.settings;
@@ -11782,14 +11342,14 @@ Dettagli di Sistema:
 
                             ${this.renderHubSettingsPanel()}
 
-                            <!-- Link to Informazioni e aggiornamenti -->
+                            <!-- Link to Informazioni -->
                             <div class="pt-4 border-t border-sky-100 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                                 <div>
                                     <h4 class="font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
-                                        <i class="fa-solid fa-arrows-rotate text-sky-600"></i>
+                                        <i class="fa-solid fa-circle-info text-sky-600"></i>
                                         <span>${this.t("navCredits")}</span>
                                     </h4>
-                                    <p class="text-[11px] text-slate-400 mt-0.5">Gestisci aggiornamenti, frequenza di verifica e dettagli applicazione nella schermata dedicata.</p>
+                                    <p class="text-[11px] text-slate-400 mt-0.5">Visualizza dettagli versione, autore, licenza GPL-3.0 e novità della release.</p>
                                 </div>
                                 <button type="button" onclick="app.switchTab('credits')" class="px-3.5 py-1.5 rounded-xl bg-sky-50 dark:bg-navy-800 text-sky-600 dark:text-sky-300 border border-sky-200 dark:border-slate-700 font-bold flex items-center gap-1.5 hover:bg-sky-100 dark:hover:bg-navy-700 transition shrink-0">
                                     <i class="fa-solid fa-arrow-right"></i> Apri
@@ -11797,15 +11357,28 @@ Dettagli di Sistema:
                             </div>
 
                             <div class="flex flex-wrap items-center justify-between gap-2 pt-4 border-t border-sky-100 dark:border-slate-800">
-                                <div class="flex items-center gap-2">
-                                    <button onclick="app.openExportModal()" class="px-4 py-2 rounded-xl bg-sky-600 text-white font-bold">${this.t("exportJsonBtn")}</button>
-                                    <button onclick="app.openImportModal()" class="px-4 py-2 rounded-xl border border-sky-200 dark:border-slate-700 font-bold">${this.t("importBackupBtn")}</button>
+                                <div class="relative inline-block">
+                                    <button type="button" onclick="document.getElementById('settingsBackupMenu')?.classList.toggle('hidden')" class="px-4 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-bold flex items-center gap-2 transition">
+                                        <i class="fa-solid fa-box-archive"></i>
+                                        <span>Backup &amp; Dati</span>
+                                        <i class="fa-solid fa-chevron-down text-[10px]"></i>
+                                    </button>
+                                    <div id="settingsBackupMenu" class="hidden absolute left-0 bottom-full mb-1.5 w-52 bg-white dark:bg-navy-900 border border-sky-200 dark:border-slate-700 rounded-xl shadow-xl py-1.5 z-40">
+                                        <button type="button" onclick="document.getElementById('settingsBackupMenu')?.classList.add('hidden'); app.openExportModal()" class="w-full text-left px-3.5 py-2 hover:bg-sky-50 dark:hover:bg-navy-800 font-bold flex items-center gap-2 text-slate-700 dark:text-slate-200">
+                                            <i class="fa-solid fa-download text-sky-600 w-4 text-center"></i>
+                                            <span>${this.t("exportJsonBtn")}</span>
+                                        </button>
+                                        <button type="button" onclick="document.getElementById('settingsBackupMenu')?.classList.add('hidden'); app.openImportModal()" class="w-full text-left px-3.5 py-2 hover:bg-sky-50 dark:hover:bg-navy-800 font-bold flex items-center gap-2 text-slate-700 dark:text-slate-200">
+                                            <i class="fa-solid fa-upload text-emerald-600 w-4 text-center"></i>
+                                            <span>${this.t("importBackupBtn")}</span>
+                                        </button>
+                                        <button type="button" onclick="document.getElementById('settingsBackupMenu')?.classList.add('hidden'); app.manualBackupNow()" class="w-full text-left px-3.5 py-2 hover:bg-sky-50 dark:hover:bg-navy-800 font-bold flex items-center gap-2 text-slate-700 dark:text-slate-200">
+                                            <i class="fa-solid fa-shield-halved text-amber-600 w-4 text-center"></i>
+                                            <span>Esegui backup ora</span>
+                                        </button>
+                                    </div>
                                 </div>
                                 <div class="flex items-center gap-2">
-                                    <button type="button" onclick="app.reinstallApplication()" class="px-4 py-2 rounded-xl border border-sky-300 dark:border-slate-700 hover:bg-sky-50 dark:hover:bg-navy-800 text-sky-700 dark:text-sky-300 font-bold flex items-center gap-1.5 transition">
-                                        <i class="fa-solid fa-arrows-rotate"></i>
-                                        <span>Reinstalla applicazione</span>
-                                    </button>
                                     <button onclick="app.confirmResetAllData()" class="px-4 py-2 rounded-xl border border-rose-200 dark:border-rose-900/50 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 font-bold">${this.t("resetDataBtn")}</button>
                                 </div>
                             </div>
@@ -11875,77 +11448,10 @@ Dettagli di Sistema:
                 return parsed.isBeta || this.state?.channel === "unstable" || INITIAL_DATA.channel === "unstable";
             }
 
-            async refreshBetaUpdaterLogs() {
-                const el = document.getElementById("betaUpdaterLogsConsole");
-                if (!el) return;
-                if (window.electronAPI && typeof window.electronAPI.getUpdaterLogs === "function") {
-                    const res = await window.electronAPI.getUpdaterLogs();
-                    const logs = (res && typeof res === "object") ? (res.logs || "") : (res || "");
-                    el.textContent = logs || "[INFO] Nessun comando registrato nel log di aggiornamento.";
-                    el.scrollTop = el.scrollHeight;
-                } else {
-                    el.textContent = "[INFO] Ambiente web: log nativo disponibile nell'eseguibile Windows.";
-                }
-            }
-
-            async clearBetaUpdaterLogs() {
-                if (window.electronAPI && typeof window.electronAPI.clearUpdaterLogs === "function") {
-                    await window.electronAPI.clearUpdaterLogs();
-                }
-                await this.refreshBetaUpdaterLogs();
-            }
-
-            async simulateSilentBackgroundUpdate() {
-                try {
-                    if (window.electronAPI && typeof window.electronAPI.appendUpdaterLog === "function") {
-                        await window.electronAPI.appendUpdaterLog("[BETA-SIM] Avvio simulazione aggiornamento automatico da GitHub...");
-                    }
-                    await this.refreshBetaUpdaterLogs();
-                    const res = await fetch("https://api.github.com/repos/Natsvkashii/ClassManager/releases?per_page=10", {
-                        headers: { "Accept": "application/vnd.github+json" },
-                        cache: "no-store"
-                    });
-                    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-                    const releases = await res.json();
-                    let chosenAsset = null;
-                    let chosenTag = "26.10.5-001";
-                    for (const r of (releases || [])) {
-                        const exe = (r.assets || []).find(a => (a.name || "").toLowerCase().endsWith(".exe"));
-                        if (exe) {
-                            chosenAsset = exe;
-                            chosenTag = (r.tag_name || "26.10.5-001").replace(/^v/i, "");
-                            break;
-                        }
-                    }
-                    if (!chosenAsset) {
-                        throw new Error("Nessun pacchetto .exe trovato nelle release GitHub.");
-                    }
-                    if (window.electronAPI && typeof window.electronAPI.stageSilentUpdate === "function") {
-                        await window.electronAPI.stageSilentUpdate(chosenAsset.browser_download_url, chosenTag, true);
-                        this.showToast("Simulazione avviata: download silenzioso in corso. Verrà installato al prossimo riavvio.", "info");
-                        setTimeout(() => this.refreshBetaUpdaterLogs(), 1500);
-                        setTimeout(() => this.refreshBetaUpdaterLogs(), 4500);
-                    } else {
-                        this.showToast("Simulazione disponibile nell'applicazione nativa.", "warning");
-                    }
-                } catch (e) {
-                    if (window.electronAPI && typeof window.electronAPI.appendUpdaterLog === "function") {
-                        await window.electronAPI.appendUpdaterLog(`[ERROR] Simulazione fallita: ${e.message}`);
-                    }
-                    await this.refreshBetaUpdaterLogs();
-                    this.showToast(`Errore simulazione: ${e.message}`, "error");
-                }
-            }
-
             renderCreditsView(container) {
-                const s = this.state.settings || {};
                 const currentVer = INITIAL_DATA.version || this.state.version || "26.10.5-001";
                 const isBeta = this.isBetaVersion();
                 const latestChangelog = (this.state.changelog && this.state.changelog.length > 0) ? this.state.changelog[0] : null;
-                const update = this.availableUpdate;
-                const isDownloading = this.updateState?.isDownloading;
-                const downloadPercent = this.updateState?.downloadPercent || 0;
-                const statusMsg = this.updateState?.statusText || (this.updateCheckInProgress ? "Verifica aggiornamenti in corso..." : (update ? `È disponibile una nuova versione: ${update.release.tag_name}` : "ClassDesk è aggiornato all'ultima versione (aggiornamento silenzioso attivo)."));
 
                 container.innerHTML = `
                     <div class="max-w-3xl mx-auto space-y-5 text-xs">
@@ -11955,11 +11461,11 @@ Dettagli di Sistema:
                                 <h2 class="text-xl font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
                                     <span>${this.t("navCredits")}</span>
                                 </h2>
-                                <p class="text-slate-500 mt-0.5">Dettagli applicazione, autore, licenza e gestione aggiornamenti</p>
+                                <p class="text-slate-500 mt-0.5">Dettagli applicazione, autore e licenza</p>
                             </div>
                         </div>
 
-                        <!-- MAIN ELEMENT: Update System Card -->
+                        <!-- Application Info Card (Updates managed exclusively by HubDesk) -->
                         <div class="bg-white dark:bg-navy-900 rounded-2xl border border-sky-100 dark:border-slate-800 p-6 shadow-xs space-y-5">
                             <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-sky-100 dark:border-slate-800">
                                 <div class="flex items-center gap-3.5">
@@ -11973,12 +11479,12 @@ Dettagli di Sistema:
                                             <span class="px-2 py-0.5 rounded-md ${isBeta ? 'bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-300' : 'bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300'} font-extrabold text-[10px]">${isBeta ? 'BETA / UNSTABLE' : 'STABLE'}</span>
                                             <span class="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Windows Edition</span>
                                         </div>
-                                        <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5" id="updateStatusText">${this.escapeHtml(statusMsg)}</p>
+                                        <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">${this.t("suiteUpdatesInHub") || "Gli aggiornamenti su Windows sono gestiti esclusivamente da HubDesk."}</p>
                                     </div>
                                 </div>
-                                <button type="button" onclick="app.checkForUpdates(true)" ${this.updateCheckInProgress ? 'disabled' : ''} class="px-4 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 disabled:opacity-50 text-white font-extrabold flex items-center gap-2 shadow-2xs transition shrink-0 self-start sm:self-auto">
-                                    <i class="fa-solid fa-arrows-rotate ${this.updateCheckInProgress ? 'fa-spin' : ''}"></i>
-                                    <span>${this.updateCheckInProgress ? 'Verifica in corso...' : 'Verifica manuale'}</span>
+                                <button type="button" onclick="app.suiteOpenHub('apps')" class="px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-500 text-white font-extrabold flex items-center gap-2 shadow-2xs transition shrink-0 self-start sm:self-auto">
+                                    <i class="fa-solid fa-layer-group"></i>
+                                    <span>Apri HubDesk</span>
                                 </button>
                             </div>
 
@@ -11997,72 +11503,16 @@ Dettagli di Sistema:
                                 </div>
                             </div>
 
-                            <!-- Update Settings -->
-                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                <div>
-                                    <label class="block font-bold mb-1.5">${this.t("updateCheckFrequencyLabel")}</label>
-                                    <select onchange="app.updateSetting('updateCheckFrequency', this.value)" class="w-full rounded-xl border border-sky-200 dark:border-slate-700 bg-transparent px-3 py-2 font-bold">
-                                        <option value="startup" ${s.updateCheckFrequency === 'startup' ? 'selected' : ''}>${this.t("updateFreqStartup")}</option>
-                                        <option value="daily" ${s.updateCheckFrequency === 'daily' ? 'selected' : ''}>${this.t("updateFreqDaily")}</option>
-                                        <option value="weekly" ${s.updateCheckFrequency === 'weekly' ? 'selected' : ''}>${this.t("updateFreqWeekly")}</option>
-                                        <option value="manual" ${s.updateCheckFrequency === 'manual' ? 'selected' : ''}>${this.t("updateFreqManual")}</option>
-                                    </select>
-                                </div>
-                                <div class="flex items-center">
-                                    <label class="flex items-center gap-2.5 cursor-pointer pt-3 sm:pt-4">
-                                        <input type="checkbox" ${s.includeBetaUpdates ? 'checked' : ''} onchange="app.handleBetaToggle(this)" class="w-4 h-4 rounded border-sky-300 text-sky-600 focus:ring-sky-500">
-                                        <span class="font-bold text-slate-700 dark:text-slate-300">Includi versioni beta e anteprime</span>
-                                    </label>
-                                </div>
-                            </div>
-
-                            <!-- Pre-update backup info -->
+                            <!-- Manual backup utility -->
                             <div class="p-3.5 rounded-xl bg-sky-50/70 dark:bg-navy-800/60 border border-sky-200/60 dark:border-slate-700/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                                 <div class="flex items-center gap-2 text-slate-600 dark:text-slate-300">
                                     <i class="fa-solid fa-shield-halved text-sky-600"></i>
-                                    <span>${this.t("autoBackupBeforeUpdateNote")}</span>
+                                    <span>Salva in qualsiasi momento un backup locale completo di corsi, presenze e impostazioni.</span>
                                 </div>
                                 <button type="button" onclick="app.manualBackupNow()" class="px-3 py-1.5 rounded-lg border border-sky-300 dark:border-slate-600 bg-white dark:bg-navy-700 text-sky-700 dark:text-sky-300 font-bold hover:bg-sky-50 dark:hover:bg-navy-600 transition shrink-0">
                                     Esegui backup ora
                                 </button>
                             </div>
-
-                            <!-- If Update is Available Banner -->
-                            ${update ? `
-                                <div class="p-5 rounded-2xl bg-gradient-to-r from-sky-50 to-indigo-50 dark:from-navy-800 dark:to-navy-900 border border-sky-200 dark:border-sky-800 space-y-3">
-                                    <div class="flex flex-wrap items-center justify-between gap-2">
-                                        <div class="flex items-center gap-2">
-                                            <i class="fa-solid fa-sparkles text-amber-500 text-base"></i>
-                                            <h4 class="text-sm font-extrabold text-slate-900 dark:text-white">Nuova Versione ${this.escapeHtml(update.release.tag_name)} Disponibile!</h4>
-                                            <span class="px-2 py-0.5 rounded-md ${update.release.prerelease ? 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300' : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300'} text-[10px] font-extrabold">
-                                                ${update.release.prerelease ? 'Beta / Anteprima' : 'Stabile'}
-                                            </span>
-                                        </div>
-                                        <span class="text-slate-400 font-semibold">${new Date(update.release.published_at || Date.now()).toLocaleDateString()}</span>
-                                    </div>
-
-                                    ${update.release.body ? `
-                                        <div class="text-[11px] text-slate-600 dark:text-slate-300 whitespace-pre-line line-clamp-3 bg-white/60 dark:bg-navy-950/40 p-3 rounded-xl border border-sky-100 dark:border-slate-800">
-                                            ${this.escapeHtml(update.release.body)}
-                                        </div>
-                                    ` : ''}
-
-                                    <div class="flex flex-wrap items-center gap-2 pt-2">
-                                        <button type="button" onclick="app.startInAppUpdate()" class="px-4 py-2.5 rounded-xl bg-gradient-to-r from-sky-600 to-indigo-600 hover:from-sky-500 hover:to-indigo-500 text-white font-extrabold shadow-md flex items-center gap-2 transition">
-                                            <i class="fa-solid fa-bolt"></i>
-                                            <span>Aggiorna direttamente dall'applicazione</span>
-                                        </button>
-                                        <button type="button" onclick="if(window.electronAPI){window.electronAPI.openExternal('${update.primaryUrl}');}else{window.open('${update.primaryUrl}','_blank');}" class="px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-bold hover:bg-slate-100 dark:hover:bg-navy-800 transition flex items-center gap-1.5" title="Scarica l'installer ufficiale con il browser web">
-                                            <i class="fa-solid fa-arrow-up-right-from-square"></i>
-                                            <span>Scarica installer dal browser</span>
-                                        </button>
-                                        <button type="button" onclick="if(window.electronAPI){window.electronAPI.openExternal('${update.release.html_url}');}else{window.open('${update.release.html_url}','_blank');}" class="px-3 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-bold hover:bg-slate-100 dark:hover:bg-navy-800 transition flex items-center gap-1.5">
-                                            <i class="fa-brands fa-github text-sky-600 dark:text-sky-400"></i>
-                                            <span>Vedi su GitHub</span>
-                                        </button>
-                                    </div>
-                                </div>
-                            ` : ''}
                         </div>
 
                         <!-- ONLY Latest Version Changelog (Not all historical versions) -->
@@ -12085,49 +11535,8 @@ Dettagli di Sistema:
                                 </ul>
                             </div>
                         ` : ''}
-
-                        ${isBeta ? `
-                            <div class="bg-white dark:bg-navy-900 rounded-2xl border-2 border-amber-300/80 dark:border-amber-700/70 p-6 shadow-xs space-y-4">
-                                <div class="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-amber-200/70 dark:border-amber-800/60">
-                                    <div class="flex items-center gap-2.5">
-                                        <div class="w-9 h-9 rounded-xl bg-amber-100 dark:bg-amber-950 text-amber-600 flex items-center justify-center text-base">
-                                            <i class="fa-solid fa-flask"></i>
-                                        </div>
-                                        <div>
-                                            <div class="flex items-center gap-2">
-                                                <h3 class="text-sm font-extrabold text-slate-900 dark:text-white">Laboratorio Beta & Diagnostica Aggiornamenti</h3>
-                                                <span class="px-2 py-0.5 rounded bg-amber-200 dark:bg-amber-800 text-amber-900 dark:text-amber-100 text-[9.5px] font-black uppercase">Solo Beta</span>
-                                            </div>
-                                            <p class="text-[11px] text-slate-500">Testa la procedura di aggiornamento silenzioso da GitHub e ispeziona il log dei comandi</p>
-                                        </div>
-                                    </div>
-                                    <div class="flex items-center gap-2">
-                                        <button type="button" onclick="app.simulateSilentBackgroundUpdate()" class="px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-white font-extrabold flex items-center gap-1.5 shadow-2xs transition">
-                                            <i class="fa-solid fa-vial-circle-check"></i>
-                                            <span>Simula Aggiornamento Automatico (GitHub)</span>
-                                        </button>
-                                    </div>
-                                </div>
-                                <div class="space-y-2">
-                                    <div class="flex items-center justify-between">
-                                        <span class="font-extrabold text-[11px] text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
-                                            <i class="fa-solid fa-terminal text-amber-600"></i>
-                                            <span>Log Comandi Background Updater</span>
-                                        </span>
-                                        <div class="flex items-center gap-2">
-                                            <button type="button" onclick="app.refreshBetaUpdaterLogs()" class="px-2.5 py-1 rounded-lg border border-sky-200 dark:border-slate-700 font-bold text-[10.5px] hover:bg-sky-50 dark:hover:bg-navy-800">Aggiorna Log</button>
-                                            <button type="button" onclick="app.clearBetaUpdaterLogs()" class="px-2.5 py-1 rounded-lg border border-rose-200 text-rose-600 font-bold text-[10.5px] hover:bg-rose-50">Pulisci</button>
-                                        </div>
-                                    </div>
-                                    <pre id="betaUpdaterLogsConsole" class="w-full h-44 overflow-y-auto custom-scrollbar rounded-xl bg-slate-950 text-emerald-400 p-3.5 font-mono text-[10.5px] leading-relaxed select-text">Caricamento log comandi...</pre>
-                                </div>
-                            </div>
-                        ` : ''}
                     </div>
                 `;
-                if (isBeta) {
-                    setTimeout(() => this.refreshBetaUpdaterLogs(), 50);
-                }
             }
 
             openInfoAndCreditsModal() {
@@ -13200,7 +12609,7 @@ Dettagli di Sistema:
                 const eTime = les?.endTime || targetSec.endTime || course.endTime || "20:30";
 
                 this.openModal(`
-                    <div class="p-6 space-y-4 text-xs max-w-md w-full">
+                    <div class="p-6 space-y-4 text-xs w-full">
                         <div class="flex items-center justify-between border-b border-sky-100 dark:border-slate-800 pb-3">
                             <div class="flex items-center gap-2.5">
                                 <div class="w-8 h-8 rounded-xl bg-sky-100 dark:bg-navy-800 text-sky-600 dark:text-sky-300 flex items-center justify-center text-sm shadow-2xs">
@@ -13261,7 +12670,7 @@ Dettagli di Sistema:
                             </form>
                         `}
                     </div>
-                `);
+                `, "max-w-md");
             }
 
             saveQuickLessonAction(event, courseId, moduleId, oldSlotKey) {
@@ -13332,32 +12741,69 @@ Dettagli di Sistema:
                 this.showToast("Lezione aggiornata con successo", "success");
             }
 
-            confirmDeleteLesson(courseId, moduleId, slotKey) {
-                if (!confirm("Sei sicuro di voler eliminare questa lezione? Questa azione non può essere annullata.")) return;
-                const course = (this.state.courses || []).find(c => c.id === courseId) || this.getActiveCourse();
-                if (!course || course.archived) return;
-                let targetSec = null;
-                (course.levels || []).forEach(l => {
-                    const m = (l.modules || []).find(x => x.id === moduleId);
-                    if (m) targetSec = m;
-                });
-                if (!targetSec) targetSec = this.getActiveSection(course);
-                if (!targetSec) return;
+            openConfirmModal({ title = "Conferma", message = "", confirmLabel = "Conferma", cancelLabel = "Annulla", danger = false, onConfirm = null, onCancel = null } = {}) {
+                this._confirmHandlers = { onConfirm, onCancel };
+                this.openModal(`
+                    <div class="p-6 space-y-4 text-xs w-full">
+                        <div class="flex items-start gap-3">
+                            <div class="w-10 h-10 rounded-xl ${danger ? 'bg-rose-100 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400' : 'bg-sky-100 dark:bg-navy-800 text-sky-600 dark:text-sky-300'} flex items-center justify-center text-lg shrink-0">
+                                <i class="fa-solid ${danger ? 'fa-triangle-exclamation' : 'fa-circle-question'}"></i>
+                            </div>
+                            <div class="space-y-1 flex-1 min-w-0">
+                                <h3 class="text-sm font-extrabold text-slate-900 dark:text-white">${this.escapeHtml(title)}</h3>
+                                <p class="text-slate-600 dark:text-slate-300 leading-relaxed">${this.escapeHtml(message)}</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center justify-end gap-2 pt-2 border-t border-sky-100 dark:border-slate-800">
+                            <button type="button" onclick="app.handleConfirmModalAction(false)" class="px-4 py-2 rounded-xl border border-sky-200 dark:border-slate-700 font-bold hover:bg-sky-50 dark:hover:bg-navy-800 transition">${this.escapeHtml(cancelLabel)}</button>
+                            <button type="button" onclick="app.handleConfirmModalAction(true)" class="px-5 py-2 rounded-xl ${danger ? 'bg-rose-600 hover:bg-rose-500' : 'bg-sky-600 hover:bg-sky-500'} text-white font-extrabold shadow-2xs transition">${this.escapeHtml(confirmLabel)}</button>
+                        </div>
+                    </div>
+                `, "max-w-md", true);
+            }
 
-                targetSec.dates = (targetSec.dates || []).filter(d => d !== slotKey);
-                if (targetSec.attendance) {
-                    Object.keys(targetSec.attendance).forEach(stId => {
-                        if (targetSec.attendance[stId]) delete targetSec.attendance[stId][slotKey];
-                    });
-                }
-                if (Array.isArray(course.lessons)) {
-                    const targetLes = course.lessons.find(l => l.slotKey === slotKey && (!l.sectionId || l.sectionId === targetSec.id));
-                    course.lessons = course.lessons.filter(l => !(l.slotKey === slotKey && (!l.sectionId || l.sectionId === targetSec.id)));
-                }
-                this.persist();
-                this.closeModal(true);
-                this.renderAll();
-                this.showToast("Lezione eliminata con successo", "info");
+            handleConfirmModalAction(accepted) {
+                const h = this._confirmHandlers || {};
+                this._confirmHandlers = null;
+                this.forceCloseModalWithoutSaving();
+                if (accepted && typeof h.onConfirm === "function") h.onConfirm();
+                else if (!accepted && typeof h.onCancel === "function") h.onCancel();
+            }
+
+            confirmDeleteLesson(courseId, moduleId, slotKey) {
+                this.openConfirmModal({
+                    title: "Elimina Lezione",
+                    message: "Sei sicuro di voler eliminare questa lezione? Questa azione non può essere annullata.",
+                    confirmLabel: "Elimina",
+                    danger: true,
+                    onCancel: () => {
+                        this.openQuickLessonModal(courseId, moduleId, slotKey);
+                    },
+                    onConfirm: () => {
+                        const course = (this.state.courses || []).find(c => c.id === courseId) || this.getActiveCourse();
+                        if (!course || course.archived) return;
+                        let targetSec = null;
+                        (course.levels || []).forEach(l => {
+                            const m = (l.modules || []).find(x => x.id === moduleId);
+                            if (m) targetSec = m;
+                        });
+                        if (!targetSec) targetSec = this.getActiveSection(course);
+                        if (!targetSec) return;
+
+                        targetSec.dates = (targetSec.dates || []).filter(d => d !== slotKey);
+                        if (targetSec.attendance) {
+                            Object.keys(targetSec.attendance).forEach(stId => {
+                                if (targetSec.attendance[stId]) delete targetSec.attendance[stId][slotKey];
+                            });
+                        }
+                        if (Array.isArray(course.lessons)) {
+                            course.lessons = course.lessons.filter(l => !(l.slotKey === slotKey && (!l.sectionId || l.sectionId === targetSec.id)));
+                        }
+                        this.persist();
+                        this.renderAll();
+                        this.showToast("Lezione eliminata con successo", "info");
+                    }
+                });
             }
 
             /* =====================================================================================
@@ -14021,6 +13467,14 @@ Dettagli di Sistema:
                             }
                             const payerShare = 1.0 / Math.max(1, payers.length);
 
+                            const effBilling = this.getEffectiveModuleBilling(mod, course);
+                            const hasFixedModuleDiscount = effBilling.discountType === "fixed" && effBilling.discountValue > 0 && (!effBilling.lessonOverrides || Object.keys(effBilling.lessonOverrides).length === 0);
+                            let fixedModuleDiscountRatio = null;
+                            if (hasFixedModuleDiscount) {
+                                const totalModNet = (mod.dates || []).reduce((acc, sk) => acc + this.getLessonPricing(mod, sk, course).net, 0);
+                                fixedModuleDiscountRatio = totalModNet > 0 ? (this.getModuleTotalGross(mod, course) / totalModNet) : 0;
+                            }
+
                             (mod.dates || []).forEach(slotKey => {
                                 const dStr = this.extractDateFromSlotKey(slotKey);
                                 const parts = dStr.split("-").map(Number);
@@ -14034,16 +13488,8 @@ Dettagli di Sistema:
                                 const sTime = les?.time || mod.startTime || course.startTime || "19:00";
                                 const eTime = les?.endTime || mod.endTime || course.endTime || "20:30";
                                 const durH = this.computeSlotDurationHours(sTime, eTime);
-
-                                let grossPrice = 0;
-                                if (billing.lessonOverrides && billing.lessonOverrides[slotKey]?.grossPrice !== undefined) {
-                                    grossPrice = parseFloat(billing.lessonOverrides[slotKey].grossPrice) || 0;
-                                } else {
-                                    const netRate = parseFloat(billing.hourlyRateNet) || 10.0;
-                                    const vat = parseFloat(billing.vatPercent) || 0.0;
-                                    const netTotal = netRate * durH;
-                                    grossPrice = netTotal * (1.0 + vat / 100.0);
-                                }
+                                const pr = this.getLessonPricing(mod, slotKey, course);
+                                const grossPrice = fixedModuleDiscountRatio !== null ? (pr.net * fixedModuleDiscountRatio) : pr.gross;
 
                                 const mObj = months[mIdx];
                                 mObj.lessonsCount++;

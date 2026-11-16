@@ -430,7 +430,7 @@ public final class AppManager {
             let card = cards[app] ?? AppCard()
             let srvVer = AppVersion(av.version)
             let instVer = AppVersion(card.installedVersion ?? "")
-            if !card.isInstalled || installedVersion(of: app) == nil || srvVer >= instVer || !instVer.isValid {
+            if !card.isInstalled || installedVersion(of: app) == nil || srvVer > instVer || !instVer.isValid {
                 appsToUpdate.append(app)
                 if !Catalog.running(app).isEmpty {
                     runningApps.insert(app)
@@ -442,7 +442,7 @@ public final class AppManager {
         if let hubAv = availableMap[.hubdesk] {
             let srvVer = AppVersion(hubAv.version)
             let instVer = AppVersion(HubInfo.appVersion)
-            if srvVer >= instVer || !instVer.isValid {
+            if srvVer > instVer || !instVer.isValid {
                 updateHub = true
             }
         }

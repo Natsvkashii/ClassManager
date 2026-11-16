@@ -141,7 +141,7 @@ let fixtureManifest = """
     // 26.11.0-004+: one .pkg per release, every app is taken out of it
     let suiteRel = Data(#"[{"tag_name":"v26.11.0-004","prerelease":true,"draft":false,"body":"x","assets":[{"name":"ClassDesk-Suite-26.11.0-004-Installer.pkg","browser_download_url":"https://x/p.pkg"},{"name":"ClassDesk-Suite-26.11.0-004-Setup.exe","browser_download_url":"https://x/s.exe"}]}]"#.utf8)
     let sp = Catalog.parse(releases: suiteRel, includePrereleases: true)
-    check(sp.count == 3 && sp.values.allSatisfy { $0.assetName == "ClassDesk-Suite-26.11.0-004-Installer.pkg" && $0.version == "26.11.0-004" }, "catalog: suite .pkg for every app")
+    check(sp.count == SuiteApp.allCases.count && sp.values.allSatisfy { $0.assetName == "ClassDesk-Suite-26.11.0-004-Installer.pkg" && $0.version == "26.11.0-004" }, "catalog: suite .pkg for every app")
     let pkg = URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("../../../dist/26.11.0-003/ClassDesk-Suite-26.11.0-003-Installer.pkg").standardized
     if FileManager.default.fileExists(atPath: pkg.path) {
         let work = FileManager.default.temporaryDirectory.appendingPathComponent("hubdesk-pkgtest-\(UUID().uuidString)")

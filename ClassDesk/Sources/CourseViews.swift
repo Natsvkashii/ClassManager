@@ -1570,10 +1570,9 @@ public struct AttendanceView: View {
 
     @ViewBuilder
     private func paidHoursBadge(course: Course, mod: CourseModule) -> some View {
-        let b = mod.billing ?? ModuleBilling()
         let totalModH = store.moduleTotalHours(course: course, module: mod)
-        let paidH = b.paidHours
-        let missingH = b.missingHours(scheduledHours: totalModH)
+        let paidH = store.modulePaidHours(course: course, module: mod)
+        let missingH = max(0.0, paidH - totalModH)
         Group {
             if paidH > 0 {
                 Text("•").foregroundStyle(.secondary)
@@ -3039,10 +3038,9 @@ public struct ModuleCalendarView: View {
 
     @ViewBuilder
     private func calendarSummaryView(course: Course, mod: CourseModule, slotsCount: Int, weeksCount: Int) -> some View {
-        let b = mod.billing ?? ModuleBilling()
         let totalModH = store.moduleTotalHours(course: course, module: mod)
-        let paidH = b.paidHours
-        let missingH = b.missingHours(scheduledHours: totalModH)
+        let paidH = store.modulePaidHours(course: course, module: mod)
+        let missingH = max(0.0, paidH - totalModH)
         HStack(spacing: 8) {
             Label("\(store.t("totalLabel")): \(store.count(slotsCount, one: "lessonOneLower", many: "lessonsLower")) • \(weeksCount) \(weeksCount == 1 ? store.t("weekSingular") : store.t("weekPlural"))", systemImage: "calendar.badge.clock")
                 .font(.subheadline.bold())

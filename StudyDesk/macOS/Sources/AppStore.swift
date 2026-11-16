@@ -242,6 +242,7 @@ public final class AppStore {
         let kind: String
         if ["mp3", "m4a", "wav", "ogg", "aac"].contains(ext) { kind = "audio" }
         else if ["mp4", "mov", "m4v", "webm"].contains(ext) { kind = "video" }
+        else if ["vtt", "srt"].contains(ext) { kind = "subtitles" }
         else { kind = "img" }
         let rel = "assets/\(kind)/\(UUID().uuidString.prefix(8))-\(file.lastPathComponent.replacingOccurrences(of: " ", with: "_"))"
         let dest = moduleDir(moduleId).appendingPathComponent(rel)

@@ -6,6 +6,12 @@ Rilasciato sotto licenza **GNU General Public License v3.0 (GPL-3.0)**.
 
 ---
 
+## [26.11.2-015] – 2026-11-15 (Canale: BETA)
+
+### 🚀 Miglioramenti e Correzioni
+- **Stabilità avvio macOS**: risolto il blocco ricorsivo (`dispatch_once`) all'avvio tra `NotesDocumentStore` e `NoteDeskHubIntegration`.
+- **Windows WebView2 e Surface Pen**: risolto il caricamento delle risorse locali in WebView2, aggiunto supporto nativo per Surface Pen e sincronizzazione in tempo reale della scrittura tra Windows e macOS.
+
 ## [26.11.2-004] – 2026-11-10 (Canale: BETA)
 
 ### 🚀 Miglioramenti e Correzioni
