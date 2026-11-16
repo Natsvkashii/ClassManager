@@ -179,7 +179,7 @@ static std::wstring CmdLine(const std::wstring &file, const std::vector<std::str
 }
 static DWORD RunWait(const std::wstring &file, const std::vector<std::string> &args) {
     std::wstring cmd = CmdLine(file, args); STARTUPINFOW si = {sizeof(si)}; PROCESS_INFORMATION pi = {};
-    if (!CreateProcessW(NULL, &cmd[0], NULL, NULL, FALSE, CREATE_NO_WINDOW, NULL, NULL, &si, &pi)) {
+    if (!CreateProcessW(NULL, &cmd[0], NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi)) {
         DWORD err = GetLastError();
         if (err == ERROR_ELEVATION_REQUIRED) {
             std::wstring param;
@@ -193,7 +193,7 @@ static DWORD RunWait(const std::wstring &file, const std::vector<std::string> &a
             sei.lpVerb = L"runas";
             sei.lpFile = file.c_str();
             sei.lpParameters = param.empty() ? NULL : param.c_str();
-            sei.nShow = SW_HIDE;
+            sei.nShow = SW_SHOWNORMAL;
             if (ShellExecuteExW(&sei) && sei.hProcess) {
                 WaitForSingleObject(sei.hProcess, 15 * 60 * 1000);
                 DWORD code = 0;
@@ -209,7 +209,7 @@ static DWORD RunWait(const std::wstring &file, const std::vector<std::string> &a
 }
 static bool RunDetached(const std::wstring &file, const std::vector<std::string> &args) {
     std::wstring cmd = CmdLine(file, args); STARTUPINFOW si = {sizeof(si)}; PROCESS_INFORMATION pi = {};
-    if (!CreateProcessW(NULL, &cmd[0], NULL, NULL, FALSE, CREATE_NO_WINDOW | DETACHED_PROCESS, NULL, NULL, &si, &pi)) return false;
+    if (!CreateProcessW(NULL, &cmd[0], NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi)) return false;
     CloseHandle(pi.hThread); CloseHandle(pi.hProcess); return true;
 }
 static std::wstring RegString(HKEY root, const std::wstring &key, const wchar_t *name) {
@@ -837,8 +837,8 @@ static int Uninstall(bool silent) {
     RegDeleteTreeW(HKEY_CURRENT_USER, UNINSTALL_KEY);
     CleanLegacyUninstallKeys(L"HubDesk", L"HubDesk");
     DeleteTree(AppDir());
-    wchar_t sys[MAX_PATH]; GetSystemDirectoryW(sys, MAX_PATH); SetCurrentDirectoryW(sys);
-    RunDetached(std::wstring(sys) + L"\\cmd.exe", {"/c", "ping -n 4 127.0.0.1 >nul & rmdir /s /q \"" + U(InstallDir()) + "\""});
+    MoveFileExW(InstalledExe().c_str(), NULL, MOVEFILE_DELAY_UNTIL_REBOOT);
+    MoveFileExW(InstallDir().c_str(), NULL, MOVEFILE_DELAY_UNTIL_REBOOT);
     if (!silent) MessageBoxW(NULL, L"HubDesk è stato disinstallato. I dati sono stati conservati.", L"HubDesk", MB_OK | MB_ICONINFORMATION);
     return 0;
 }

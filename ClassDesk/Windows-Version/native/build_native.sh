@@ -48,9 +48,39 @@ echo "--> Using compiler: $ZIG_BIN ($("$ZIG_BIN" version))"
 echo "--> Preparing Windows resources (manifest with asInvoker and application icon)..."
 cp -f "$SCRIPT_DIR/../assets/AppIcon.ico" "$SCRIPT_DIR/app.ico"
 cp -f "$SCRIPT_DIR/../assets/app.manifest" "$SCRIPT_DIR/app.manifest"
-cat << 'EOF' > "$SCRIPT_DIR/app.rc"
+VT=$(python3 -c 'import re,sys; n=[int(x) for x in re.findall(r"\d+", sys.argv[1])]; n+=[0]*(4-len(n)); print(",".join(map(str,n[:4])))' "$VERSION")
+cat << EOF > "$SCRIPT_DIR/app.rc"
+#include <winver.h>
 1 ICON "app.ico"
 1 24 "app.manifest"
+1 VERSIONINFO
+FILEVERSION ${VT}
+PRODUCTVERSION ${VT}
+FILEFLAGSMASK 0x3fL
+FILEFLAGS 0x0L
+FILEOS 0x40004L
+FILETYPE 0x1L
+FILESUBTYPE 0x0L
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "040904b0"
+        BEGIN
+            VALUE "CompanyName", "Guaira Jaramillo Nitoglia\\0"
+            VALUE "FileDescription", "ClassDesk - Classroom Management Suite\\0"
+            VALUE "FileVersion", "${VERSION}\\0"
+            VALUE "InternalName", "ClassDesk\\0"
+            VALUE "LegalCopyright", "Copyright (C) 2026 Guaira Jaramillo Nitoglia (GPL-3.0)\\0"
+            VALUE "OriginalFilename", "ClassDesk.exe\\0"
+            VALUE "ProductName", "ClassDesk\\0"
+            VALUE "ProductVersion", "${VERSION}\\0"
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x0409, 1200
+    END
+END
 EOF
 
 # 3. Compile Native Executable (Optimized PE32+ GUI)

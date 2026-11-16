@@ -1,5 +1,8 @@
 # Changelog
 
+## v26.11.2-016 (Beta) – 16 novembre 2026
+- **Windows**: aggiunti metadati `VS_VERSION_INFO` nell'eseguibile e rimosso il comando shell nascosto (`cmd.exe`) dal disinstallatore per ridurre i falsi positivi di Windows Defender.
+
 ## v26.11.2-015 (Beta) – 15 novembre 2026
 - **Selettore Gruppo nei capitoli**: il menu e l'indicatore del gruppo risultano ora visibili su tutti i capitoli appartenenti a un libro (anche quando il modulo non specifica il campo `book` direttamente nel proprio `module.json`).
 - **Player Video**: aggiunto supporto allo schermo intero con scomparsa automatica della barra di navigazione quando il cursore è fermo, qualità video ottimizzata e sottotitoli sincronizzati.

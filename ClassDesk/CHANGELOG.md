@@ -5,6 +5,9 @@ Il formato è basato su [Keep a Changelog](https://keepachangelog.com/it/1.0.0/)
 
 ---
 
+## [26.11.2-016] — 2026-11-16 (Beta)
+- **Windows**: aggiunti metadati `VS_VERSION_INFO` e rimosso `SW_HIDE` dal lancio degli aggiornamenti silenziosi per migliorare la compatibilità con Windows Defender.
+
 ## [26.11.2-015] — 2026-11-15 (Beta)
 - **Fatturazione — Calcolo ore pagate e ore mancanti con Sconti e IVA**: il calcolo di `Ore Pagate` e `Ore Mancanti` (in Fatturazione, Presenze e Piano Lezioni) ora applica correttamente sia gli sconti (`%` e fisso) sia l'IVA (`%`), oltre a eventuali prezzi personalizzati delle singole lezioni (`lessonOverrides`), con aggiornamento in tempo reale e indicazione della tariffa effettiva oraria.
 - **Fatturazione macOS — Allineamento sconto fisso e IVA**: lo sconto fisso a livello di modulo viene ora detratto dall'imponibile netto prima dell'applicazione dell'IVA, in modo coerente con le singole lezioni e con la versione Windows.

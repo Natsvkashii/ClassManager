@@ -1,5 +1,8 @@
 # HubDesk – Changelog
 
+## 26.11.2-016 (Beta)
+- **Windows**: aggiunti metadati nativi `VS_VERSION_INFO` nell'eseguibile e rimossi i comandi shell nascosti (`cmd.exe` / `CREATE_NO_WINDOW`) in fase di installazione/disinstallazione per ridurre i falsi positivi di Windows Defender.
+
 ## 26.11.2-015 (Beta)
 - Allineamento alla beta Classroom Tools `26.11.2-015`.
 - Migliorata l'affidabilità del rilevamento e dello stato di connessione tra HubDesk macOS, HubDesk Windows, ClassDesk, StudyDesk e NoteDesk.

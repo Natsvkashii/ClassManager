@@ -308,14 +308,9 @@ static int Uninstall(bool silent) {
     RegDeleteTreeW(HKEY_CURRENT_USER, UNINSTALL_KEY);
     CleanLegacyUninstallKeys(L"StudyDesk", L"StudyDesk");
     RegDeleteTreeW(HKEY_CURRENT_USER, L"Software\\Classes\\StudyDesk.module");
-    // the exe cannot delete itself while it runs: a hidden cmd removes the folder a few seconds after this process exits
-    // (MOVEFILE_DELAY_UNTIL_REBOOT would need administrator rights)
     DeleteTree(AppDir());
-    wchar_t sys[MAX_PATH]; GetSystemDirectoryW(sys, MAX_PATH);
-    std::wstring cmd = L"\"" + std::wstring(sys) + L"\\cmd.exe\" /c ping -n 4 127.0.0.1 >nul & rmdir /s /q \"" + InstallDir() + L"\"";
-    STARTUPINFOW si = {sizeof(si)}; PROCESS_INFORMATION pi = {};
-    SetCurrentDirectoryW(sys); // a process whose working folder is the install folder would keep it locked
-    if (CreateProcessW(NULL, &cmd[0], NULL, NULL, FALSE, CREATE_NO_WINDOW | DETACHED_PROCESS, NULL, sys, &si, &pi)) { CloseHandle(pi.hThread); CloseHandle(pi.hProcess); }
+    MoveFileExW(InstalledExe().c_str(), NULL, MOVEFILE_DELAY_UNTIL_REBOOT);
+    MoveFileExW(InstallDir().c_str(), NULL, MOVEFILE_DELAY_UNTIL_REBOOT);
     if (!silent) MessageBoxW(NULL, L"StudyDesk è stato disinstallato.\nI tuoi dati sono stati conservati.", APP_NAME, MB_OK | MB_ICONINFORMATION);
     return 0;
 }

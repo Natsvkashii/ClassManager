@@ -43,7 +43,41 @@ def build(out=None):
     if not os.path.exists(icon_src):
         icon_src = os.path.join(HERE, "app.ico")
     shutil.copy(icon_src, os.path.join(work, "app.ico"))
-    open(os.path.join(work, "app.rc"), "w").write('1 ICON "app.ico"\n1 24 "app.manifest"\n')
+    nums = [int(x) for x in re.findall(r"\d+", v)]
+    while len(nums) < 4: nums.append(0)
+    vt = ",".join(str(x) for x in nums[:4])
+    open(os.path.join(work, "app.rc"), "w", encoding="utf-8").write(f"""#include <winver.h>
+1 ICON "app.ico"
+1 24 "app.manifest"
+1 VERSIONINFO
+FILEVERSION {vt}
+PRODUCTVERSION {vt}
+FILEFLAGSMASK 0x3fL
+FILEFLAGS 0x0L
+FILEOS 0x40004L
+FILETYPE 0x1L
+FILESUBTYPE 0x0L
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "040904b0"
+        BEGIN
+            VALUE "CompanyName", "Guaira Jaramillo Nitoglia\\0"
+            VALUE "FileDescription", "NoteDesk - Digital Notebooks & Whiteboard\\0"
+            VALUE "FileVersion", "{v}\\0"
+            VALUE "InternalName", "NoteDesk\\0"
+            VALUE "LegalCopyright", "Copyright (C) 2026 Guaira Jaramillo Nitoglia (GPL-3.0)\\0"
+            VALUE "OriginalFilename", "NoteDesk.exe\\0"
+            VALUE "ProductName", "NoteDesk\\0"
+            VALUE "ProductVersion", "{v}\\0"
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x0409, 1200
+    END
+END
+""")
     shutil.copy(os.path.join(HERE, "app.manifest"), os.path.join(work, "app.manifest"))
     exe = os.path.join(work, "NoteDesk.exe")
     cpp_src = os.path.join(HERE, "main.cpp") if os.path.exists(os.path.join(HERE, "main.cpp")) else os.path.join(HERE, "notesdesk_native.cpp")

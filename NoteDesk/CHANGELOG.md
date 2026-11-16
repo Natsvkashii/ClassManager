@@ -6,6 +6,11 @@ Rilasciato sotto licenza **GNU General Public License v3.0 (GPL-3.0)**.
 
 ---
 
+## [26.11.2-016] – 2026-11-16 (Canale: BETA)
+
+### 🚀 Miglioramenti e Correzioni
+- **Windows**: aggiunti metadati `VS_VERSION_INFO` nell'eseguibile e rimosso il comando shell nascosto (`cmd.exe`) dal disinstallatore per ridurre i falsi positivi di Windows Defender.
+
 ## [26.11.2-015] – 2026-11-15 (Canale: BETA)
 
 ### 🚀 Miglioramenti e Correzioni

@@ -198,7 +198,7 @@ static std::wstring installOne(const AppSpec &a, const std::wstring &work) {
     std::wstring cmd = L"\"" + file + L"\" " + args;
     STARTUPINFOW si = {sizeof(si)}; PROCESS_INFORMATION pi = {};
     DWORD code = 0;
-    if (!CreateProcessW(nullptr, &cmd[0], nullptr, nullptr, FALSE, CREATE_NO_WINDOW, nullptr, work.c_str(), &si, &pi)) {
+    if (!CreateProcessW(nullptr, &cmd[0], nullptr, nullptr, FALSE, 0, nullptr, work.c_str(), &si, &pi)) {
         DWORD err = GetLastError();
         if (err == ERROR_ELEVATION_REQUIRED) {
             SHELLEXECUTEINFOW sei = {sizeof(sei)};
@@ -207,7 +207,7 @@ static std::wstring installOne(const AppSpec &a, const std::wstring &work) {
             sei.lpVerb = L"runas";
             sei.lpFile = file.c_str();
             sei.lpParameters = args.c_str();
-            sei.nShow = SW_HIDE;
+            sei.nShow = SW_SHOWNORMAL;
             if (ShellExecuteExW(&sei) && sei.hProcess) {
                 WaitForSingleObject(sei.hProcess, 10 * 60 * 1000);
                 GetExitCodeProcess(sei.hProcess, &code);

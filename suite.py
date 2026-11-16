@@ -146,12 +146,45 @@ def build_win_setup(v):
     for k in ("hubdesk", "classdesk", "studydesk", "notedesk"):
         shutil.copyfile(found[k], os.path.join(work_dir, f"{k}.exe"))
 
-    rc_content = """1 ICON "suite.ico"
+    nums = [int(x) for x in re.findall(r"\d+", v)]
+    while len(nums) < 4:
+        nums.append(0)
+    vt = ",".join(str(x) for x in nums[:4])
+    rc_content = f"""#include <winver.h>
+1 ICON "suite.ico"
 1 24 "suite.manifest"
 101 RCDATA "hubdesk.exe"
 102 RCDATA "classdesk.exe"
 103 RCDATA "studydesk.exe"
 104 RCDATA "notedesk.exe"
+1 VERSIONINFO
+FILEVERSION {vt}
+PRODUCTVERSION {vt}
+FILEFLAGSMASK 0x3fL
+FILEFLAGS 0x0L
+FILEOS 0x40004L
+FILETYPE 0x1L
+FILESUBTYPE 0x0L
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "040904b0"
+        BEGIN
+            VALUE "CompanyName", "Guaira Jaramillo Nitoglia\\0"
+            VALUE "FileDescription", "Classroom Tools Suite Installer\\0"
+            VALUE "FileVersion", "{v}\\0"
+            VALUE "InternalName", "ClassroomToolsSetup\\0"
+            VALUE "LegalCopyright", "Copyright (C) 2026 Guaira Jaramillo Nitoglia (GPL-3.0)\\0"
+            VALUE "OriginalFilename", "Classroom-Tools-{v}-Windows-Setup.exe\\0"
+            VALUE "ProductName", "Classroom Tools Suite\\0"
+            VALUE "ProductVersion", "{v}\\0"
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x0409, 1200
+    END
+END
 """
     with open(rc_file, "w", encoding="utf-8") as f:
         f.write(rc_content)

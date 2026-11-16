@@ -999,7 +999,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
                 DeleteFileW(stagedSimFile.c_str());
                 AppendUpdaterLog(logsDir, std::string("$ [STARTUP-UPDATE] Rilevato aggiornamento pronto all'avvio: v") + stagedVer + (isSim ? " (Simulazione Beta)" : ""));
                 AppendUpdaterLog(logsDir, "$ [STARTUP-UPDATE] Esecuzione silenziosa di ClassDesk_Staged_Setup.exe --silent prima dell'apertura...");
-                ShellExecuteW(NULL, L"open", stagedExe.c_str(), L"--silent", stagedDir.c_str(), SW_HIDE);
+                ShellExecuteW(NULL, L"open", stagedExe.c_str(), L"--silent", stagedDir.c_str(), SW_SHOWNORMAL);
                 return 0;
             } else {
                 DeleteFileW(stagedVerFile.c_str());
@@ -1242,7 +1242,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
             DeleteFileW(dest.c_str());
             HRESULT hr = URLDownloadToFileW(NULL, Utf8ToWide(url).c_str(), dest.c_str(), 0, NULL);
             if (SUCCEEDED(hr)) {
-                HINSTANCE h = ShellExecuteW(NULL, L"open", dest.c_str(), L"--silent", NULL, SW_HIDE);
+                HINSTANCE h = ShellExecuteW(NULL, L"open", dest.c_str(), L"--silent", NULL, SW_SHOWNORMAL);
                 if ((INT_PTR)h > 32) {
                     w.resolve(seq, 0, "{\"success\":true}");
                     return;
