@@ -5,6 +5,9 @@ Il formato è basato su [Keep a Changelog](https://keepachangelog.com/it/1.0.0/)
 
 ---
 
+## [26.11.2-017] — 2026-11-18 (Beta)
+- **Windows — Integrità corsi archiviati**: corretta l'ispezione dei corsi archiviati su Windows mantenendo invariato `archived = true` durante la consultazione e rafforzata la protezione in sola lettura su calendario, presenze, voti, configurazione moduli, iscritti, piano lezione e fatturazione, impedendo che un corso archiviato venga rimosso dall'archivio al cambio di corso o vista.
+
 ## [26.11.2-016] — 2026-11-16 (Beta)
 - **Windows**: aggiunti metadati `VS_VERSION_INFO` e rimosso `SW_HIDE` dal lancio degli aggiornamenti silenziosi per migliorare la compatibilità con Windows Defender.
 

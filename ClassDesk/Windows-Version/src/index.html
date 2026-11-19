@@ -1587,7 +1587,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
         }
 
         const INITIAL_DATA = {
-            version: "26.11.2-016",
+            version: "26.11.2-017",
             channel: IS_UNSTABLE_BUILD === 1 ? "unstable" : "stable",
             buildType: BUILD_TYPE,
             deletedItems: [],
@@ -3142,8 +3142,24 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 }
             }
 
+            isCourseInspectable(course) {
+                return !!course && (!course.archived || course.id === this.temporarilyInspectedArchivedCourseId);
+            }
+
+            isCourseReadOnly(course) {
+                return !!(course && (course.archived || course.id === this.temporarilyInspectedArchivedCourseId));
+            }
+
+            guardNotReadOnly(course) {
+                if (this.isCourseReadOnly(course)) {
+                    this.showToast("Corso archiviato in sola lettura", "warning");
+                    return true;
+                }
+                return false;
+            }
+
             getActiveCourse() {
-                return (this.state.courses || []).find(c => c.id === this.state.activeCourseId && !c.archived) || null;
+                return (this.state.courses || []).find(c => c.id === this.state.activeCourseId && this.isCourseInspectable(c)) || null;
             }
 
             openArchivedCourse(courseId) {
@@ -3153,11 +3169,15 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 const course = (this.state.courses || []).find(c => c.id === courseId);
                 if (!course) return;
                 if (!this.previousActiveCourseIdBeforeInspection) {
-                    this.previousActiveCourseIdBeforeInspection = this.state.activeCourseId;
+                    const curActive = (this.state.courses || []).find(c => c.id === this.state.activeCourseId && !c.archived);
+                    this.previousActiveCourseIdBeforeInspection = curActive ? curActive.id : null;
                 }
                 this.temporarilyInspectedArchivedCourseId = course.id;
-                course.archived = false;
+                course.archived = true;
                 this.state.activeCourseId = course.id;
+                this.selectedBillingCourseId = null;
+                this.selectedBillingModuleId = null;
+                this.attendanceDateEditMode = false;
                 this.selectLatestLevelAndModule(course);
                 this.currentTab = "attendance";
                 this.renderAll();
@@ -3172,10 +3192,14 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 if (prev) {
                     prev.archived = true;
                 }
-                const fallback = this.previousActiveCourseIdBeforeInspection || (this.state.courses || []).find(c => !c.archived && c.id !== tempId)?.id || "";
+                const prevActive = (this.state.courses || []).find(c => c.id === this.previousActiveCourseIdBeforeInspection && !c.archived && c.id !== tempId);
+                const fallback = prevActive?.id || (this.state.courses || []).find(c => !c.archived && c.id !== tempId)?.id || "";
                 this.state.activeCourseId = fallback;
                 this.temporarilyInspectedArchivedCourseId = null;
                 this.previousActiveCourseIdBeforeInspection = null;
+                this.selectedBillingCourseId = null;
+                this.selectedBillingModuleId = null;
+                this.attendanceDateEditMode = false;
             }
 
             rearchiveAndRevertBeforeQuit() {
@@ -3185,7 +3209,8 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 if (prev) {
                     prev.archived = true;
                 }
-                const fallback = this.previousActiveCourseIdBeforeInspection || (this.state.courses || []).find(c => !c.archived && c.id !== tempId)?.id || "";
+                const prevActive = (this.state.courses || []).find(c => c.id === this.previousActiveCourseIdBeforeInspection && !c.archived && c.id !== tempId);
+                const fallback = prevActive?.id || (this.state.courses || []).find(c => !c.archived && c.id !== tempId)?.id || "";
                 this.state.activeCourseId = fallback;
                 this.temporarilyInspectedArchivedCourseId = null;
                 this.previousActiveCourseIdBeforeInspection = null;
@@ -4084,7 +4109,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 if (!navContainer) return;
 
                 const curCourse = this.getActiveCourse();
-                const hasActiveCourse = !!curCourse && !curCourse.archived;
+                const hasActiveCourse = this.isCourseInspectable(curCourse);
                 const isHomeActive = this.currentTab === "home";
                 const homeHtml = `
                     <div class="space-y-1 mb-2">
@@ -4150,7 +4175,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
             renderCourseContextHeaderBar() {
                 const bar = document.getElementById("headerCourseContextWrap");
                 if (!bar) return;
-                const activeCourses = (this.state.courses || []).filter(c => !c.archived);
+                const activeCourses = (this.state.courses || []).filter(c => this.isCourseInspectable(c));
                 const course = this.getActiveCourse();
 
                 if (activeCourses.length === 0 || !course) {
@@ -4162,8 +4187,8 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 const activeSection = this.getActiveSection(course);
                 const pal = this.getCourseColorObj(course.color);
                 const badge = this.formatLevelModuleBadge(course, activeLevel, activeSection);
-                // An archived course is shown read-only: no edit buttons for its level and module
-                const isInspectingArchived = !!course.archived;
+                // An archived course is shown read-only: no edit buttons for its course, level, or module
+                const isInspectingArchived = this.isCourseReadOnly(course);
 
                 bar.innerHTML = `
                     <div class="flex flex-nowrap items-center gap-2 w-max whitespace-nowrap">
@@ -4177,16 +4202,22 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                                 <select onchange="app.switchCourse(this.value)" aria-label="${this.t("navCourseSection")}" class="appearance-none bg-transparent text-slate-900 dark:text-white text-xs sm:text-sm font-extrabold pr-5 pl-1 py-0.5 rounded-lg cursor-pointer focus:outline-none">
                                     ${activeCourses.map(c => {
                                         const cBadge = this.formatLevelModuleBadge(c);
-                                        const isTemp = c.id === this.temporarilyInspectedArchivedCourseId;
+                                        const isTemp = c.id === this.temporarilyInspectedArchivedCourseId || !!c.archived;
                                         const tag = isTemp ? ` [${this.t("navArchived")}]` : "";
                                         return `<option value="${c.id}" ${c.id === course.id ? "selected" : ""} class="bg-white dark:bg-navy-900 text-slate-900 dark:text-white text-xs font-bold">${this.escapeHtml(c.name)} (${this.escapeHtml(cBadge)})${tag}</option>`;
                                     }).join("")}
                                 </select>
                                 <i class="fa-solid fa-chevron-down text-[10px] pointer-events-none absolute right-1.5 text-slate-400"></i>
                             </div>
-                            <button onclick="app.openCourseModal('${course.id}')" class="w-7 h-7 rounded-lg hover:bg-white dark:hover:bg-navy-900 flex items-center justify-center text-xs transition shrink-0" style="color:${pal.hex}" title="${this.t("editBtn")}">
-                                <i class="fa-solid fa-pen"></i>
-                            </button>
+                            ${!isInspectingArchived ? `
+                                <button onclick="app.openCourseModal('${course.id}')" class="w-7 h-7 rounded-lg hover:bg-white dark:hover:bg-navy-900 flex items-center justify-center text-xs transition shrink-0" style="color:${pal.hex}" title="${this.t("editBtn")}">
+                                    <i class="fa-solid fa-pen"></i>
+                                </button>
+                            ` : `
+                                <span class="px-2 py-0.5 rounded-md bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 text-[10px] font-extrabold flex items-center gap-1 shrink-0" title="Corso archiviato in sola lettura">
+                                    <i class="fa-solid fa-lock text-[9px]"></i> ${this.escapeHtml(this.t("navArchived"))}
+                                </span>
+                            `}
                         </div>
 
                         ${activeLevel && activeSection ? `
@@ -4270,7 +4301,14 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 this.rearchiveTemporarilyInspectedCourseIfNeeded(courseId);
                 const course = (this.state.courses || []).find(c => c.id === courseId);
                 if (!course) return;
+                if (course.archived && course.id !== this.temporarilyInspectedArchivedCourseId) {
+                    this.openArchivedCourse(course.id);
+                    return;
+                }
                 this.state.activeCourseId = course.id;
+                this.selectedBillingCourseId = null;
+                this.selectedBillingModuleId = null;
+                this.attendanceDateEditMode = false;
                 this.selectLatestLevelAndModule(course);
                 if (targetTab) this.currentTab = targetTab;
                 else if (this.currentTab === "home") this.currentTab = "attendance";
@@ -4717,11 +4755,11 @@ Removing, obfuscating, or altering these credits violates the author's attributi
              */
             renderAttendanceView(container) {
                 const course = this.getActiveCourse();
-                if (!course || course.archived) {
+                if (!this.isCourseInspectable(course)) {
                     this.renderHomeView(container);
                     return;
                 }
-                const isReadOnly = false;
+                const isReadOnly = this.isCourseReadOnly(course);
                 const activeLevel = this.getActiveLevel(course);
                 const activeSection = this.getActiveSection(course);
                 if (!activeLevel || !activeSection) return;
@@ -4988,7 +5026,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
             confirmBatchDeleteDates() {
                 const course = this.getActiveCourse();
                 const sec = this.getActiveSection(course);
-                if (!course || !sec) return;
+                if (!course || !sec || this.guardNotReadOnly(course)) return;
                 const toDelete = Array.from(this.selectedDatesForDelete).filter(d => (sec.dates || []).includes(d)).sort();
                 if (toDelete.length === 0) return;
 
@@ -5009,7 +5047,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
             executeBatchDeleteDates() {
                 const course = this.getActiveCourse();
                 const sec = this.getActiveSection(course);
-                if (!course || !sec) return;
+                if (!course || !sec || this.guardNotReadOnly(course)) return;
                 const toDeleteSet = new Set(this.selectedDatesForDelete);
                 const removedCount = (sec.dates || []).filter(d => toDeleteSet.has(d)).length;
 
@@ -5039,11 +5077,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
             cycleAttendance(studentId, dateStr, btnElement = null) {
                 const course = this.getActiveCourse();
                 const sec = this.getActiveSection(course);
-                if (!course || !sec) return;
-                if (course.archived) {
-                    this.showToast("Corso archiviato in sola lettura", "warning");
-                    return;
-                }
+                if (!course || !sec || this.guardNotReadOnly(course)) return;
                 if (!sec.attendance[studentId]) sec.attendance[studentId] = {};
                 const order = ["", "P", "A", "G"];
                 const curr = sec.attendance[studentId][dateStr] || "";
@@ -5199,7 +5233,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
             toggleCourseAttendanceEvaluation(isChecked) {
                 const course = this.getActiveCourse();
                 const mod = this.getActiveSection(course);
-                if (!course || course.archived) return;
+                if (!course || this.isCourseReadOnly(course)) return;
                 if (!course.gradeConfig) course.gradeConfig = { calcMethod: "average", minPass: 6, activities: [] };
                 course.gradeConfig.evaluateAttendance = !!isChecked;
                 if (course.gradeConfig.attendanceWeight === undefined) course.gradeConfig.attendanceWeight = 5;
@@ -5214,7 +5248,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
             updateCourseAttendanceWeight(val) {
                 const course = this.getActiveCourse();
                 const mod = this.getActiveSection(course);
-                if (!course || course.archived) return;
+                if (!course || this.isCourseReadOnly(course)) return;
                 const num = Math.min(100, Math.max(0, parseFloat(val) || 0));
                 if (!course.gradeConfig) course.gradeConfig = { calcMethod: "average", minPass: 6, activities: [] };
                 course.gradeConfig.attendanceWeight = num;
@@ -5226,7 +5260,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
             openAttendanceGradeConfigModal() {
                 const course = this.getActiveCourse();
                 const mod = this.getActiveSection(course);
-                if (!course || course.archived) return;
+                if (!course || this.isCourseReadOnly(course)) return;
                 const maxScore = this.getAttendanceMaxScore(course, mod);
                 const weight = this.getAttendanceWeight(course, mod);
                 this.openModal(`
@@ -5263,7 +5297,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 if (e) e.preventDefault();
                 const course = this.getActiveCourse();
                 const mod = this.getActiveSection(course);
-                if (!course || course.archived) return;
+                if (!course || this.isCourseReadOnly(course)) return;
                 const maxScore = Math.max(1, parseFloat(document.getElementById("attMaxScoreModalInput")?.value) || 10);
                 const weight = Math.min(100, Math.max(0, parseFloat(document.getElementById("attWeightModalInput")?.value) || 0));
                 if (!course.gradeConfig) course.gradeConfig = { calcMethod: "average", minPass: 6, activities: [] };
@@ -5291,7 +5325,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                     this.renderHomeView(container);
                     return;
                 }
-                const isReadOnly = !!course.archived;
+                const isReadOnly = this.isCourseReadOnly(course);
                 const activeSection = this.getActiveSection(course);
                 const modStudents = this.getModuleStudents(course, activeSection);
                 if (!course.gradeConfig) {
@@ -5489,7 +5523,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                     this.renderHomeView(container);
                     return;
                 }
-                const isReadOnly = !!course.archived;
+                const isReadOnly = this.isCourseReadOnly(course);
                 if (!course.gradeConfig) {
                     course.gradeConfig = { calcMethod: "average", minPass: 6, evaluateAttendance: false, attendanceWeight: 5, activities: [] };
                 }
@@ -5812,7 +5846,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
 
             openStudentRubricEvaluationModal(studentId, activityId) {
                 const course = this.getActiveCourse();
-                if (!course) return;
+                if (!course || this.guardNotReadOnly(course)) return;
                 const act = (course.gradeConfig?.activities || []).find(a => a.id === activityId);
                 if (!act) return;
                 const rubric = (this.state.rubrics || []).find(r => r.id === act.rubricId) || this.state.rubrics[0];
@@ -5894,7 +5928,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
 
             selectStudentRubricLevel(studentId, activityId, critId, levelId) {
                 const course = this.getActiveCourse();
-                if (!course) return;
+                if (!course || this.guardNotReadOnly(course)) return;
                 if (!course.rubricEvaluations) course.rubricEvaluations = {};
                 const key = `${studentId}_${activityId}`;
                 if (!course.rubricEvaluations[key]) {
@@ -5909,7 +5943,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
             saveStudentRubricEvaluation(e, studentId, activityId) {
                 if (e) e.preventDefault();
                 const course = this.getActiveCourse();
-                if (!course) return;
+                if (!course || this.guardNotReadOnly(course)) return;
                 const act = (course.gradeConfig?.activities || []).find(a => a.id === activityId);
                 if (!act) return;
                 const rubric = (this.state.rubrics || []).find(r => r.id === act.rubricId) || this.state.rubrics[0];
@@ -5945,7 +5979,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
 
             updateGradeConfigMethod(method) {
                 const course = this.getActiveCourse();
-                if (!course) return;
+                if (!course || this.guardNotReadOnly(course)) return;
                 if (!course.gradeConfig) course.gradeConfig = { calcMethod: "average", minPass: 6, activities: [] };
                 course.gradeConfig.calcMethod = method === "weighted" ? "weighted" : "average";
                 this.persist();
@@ -5954,7 +5988,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
 
             updateGradeMinPass(val) {
                 const course = this.getActiveCourse();
-                if (!course) return;
+                if (!course || this.guardNotReadOnly(course)) return;
                 const num = Math.min(10, Math.max(1, parseFloat(String(val).replace(",", ".")) || 6));
                 if (!course.gradeConfig) course.gradeConfig = { calcMethod: "average", minPass: 6, activities: [] };
                 course.gradeConfig.minPass = num;
@@ -5964,7 +5998,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
 
             updateStudentGrade(studentId, activityId, rawVal) {
                 const course = this.getActiveCourse();
-                if (!course) return;
+                if (!course || this.guardNotReadOnly(course)) return;
                 if (!course.grades) course.grades = {};
                 if (!course.grades[studentId]) course.grades[studentId] = {};
                 const str = String(rawVal ?? "").trim().replace(",", ".");
@@ -6040,6 +6074,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 }
                 const rubrics = this.state.rubrics || [];
                 const linkedRubric = act.useRubric ? rubrics.find(r => r.id === act.rubricId) : null;
+                const isReadOnly = this.isCourseReadOnly(course);
 
                 // Read-Only Card Mode (as in macOS contact/activity sheets)
                 this.openModal(`
@@ -6051,9 +6086,11 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                                 <p class="text-[11px] text-slate-400 font-semibold">${this.escapeHtml(course.name)} • ${this.formatLevelModuleBadge(course)}</p>
                             </div>
                             <div class="flex items-center gap-2">
-                                <button type="button" onclick="app.openActivityEditorModal('${act.id}')" class="px-3.5 py-1.5 rounded-xl border border-sky-200 dark:border-slate-700 bg-sky-50 dark:bg-navy-800 hover:bg-sky-100 dark:hover:bg-slate-800 text-sky-700 dark:text-sky-300 font-bold flex items-center gap-1.5 shadow-2xs transition">
-                                    <i class="fa-solid fa-pen-to-square"></i> ${this.t("editBtn")}
-                                </button>
+                                ${!isReadOnly ? `
+                                    <button type="button" onclick="app.openActivityEditorModal('${act.id}')" class="px-3.5 py-1.5 rounded-xl border border-sky-200 dark:border-slate-700 bg-sky-50 dark:bg-navy-800 hover:bg-sky-100 dark:hover:bg-slate-800 text-sky-700 dark:text-sky-300 font-bold flex items-center gap-1.5 shadow-2xs transition">
+                                        <i class="fa-solid fa-pen-to-square"></i> ${this.t("editBtn")}
+                                    </button>
+                                ` : ''}
                                 <button type="button" onclick="app.closeModal()" class="w-8 h-8 rounded-lg hover:bg-slate-100 dark:hover:bg-navy-800 flex items-center justify-center text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark"></i></button>
                             </div>
                         </div>
@@ -6114,9 +6151,11 @@ Removing, obfuscating, or altering these credits violates the author's attributi
 
                         <!-- Footer Actions -->
                         <div class="flex items-center justify-between pt-3 border-t border-sky-100 dark:border-slate-800">
-                            <button type="button" onclick="app.deleteActivity('${act.id}'); app.closeModal();" class="px-3 py-1.5 rounded-xl border border-rose-200 text-rose-600 font-bold hover:bg-rose-50 dark:hover:bg-rose-950/30 flex items-center gap-1.5 transition">
-                                <i class="fa-solid fa-trash-can"></i> ${this.t("deleteBtn")}
-                            </button>
+                            ${!isReadOnly ? `
+                                <button type="button" onclick="app.deleteActivity('${act.id}'); app.closeModal();" class="px-3 py-1.5 rounded-xl border border-rose-200 text-rose-600 font-bold hover:bg-rose-50 dark:hover:bg-rose-950/30 flex items-center gap-1.5 transition">
+                                    <i class="fa-solid fa-trash-can"></i> ${this.t("deleteBtn")}
+                                </button>
+                            ` : `<span></span>`}
                             <button type="button" onclick="app.closeModal()" class="px-4 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-bold shadow-2xs">${this.t("closeBtn")}</button>
                         </div>
                     </div>
@@ -6125,7 +6164,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
 
             openActivityEditorModal(activityId = null) {
                 const course = this.getActiveCourse();
-                if (!course) return;
+                if (!course || this.guardNotReadOnly(course)) return;
                 const acts = course.gradeConfig?.activities || [];
                 const act = activityId ? acts.find(a => a.id === activityId) : null;
                 const rubrics = this.state.rubrics || [];
@@ -6247,7 +6286,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
             saveActivity(e, activityId = null) {
                 if (e) e.preventDefault();
                 const course = this.getActiveCourse();
-                if (!course) return;
+                if (!course || this.guardNotReadOnly(course)) return;
                 if (!course.gradeConfig) course.gradeConfig = { calcMethod: "average", minPass: 6, activities: [] };
                 const name = document.getElementById("actNameInput")?.value.trim();
                 if (!name) return;
@@ -6310,6 +6349,12 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                     this.redoStack.push(JSON.stringify(this.state));
                     const prev = this.undoStack.pop();
                     this.state = JSON.parse(prev);
+                    this.temporarilyInspectedArchivedCourseId = null;
+                    this.previousActiveCourseIdBeforeInspection = null;
+                    if (!this.state.activeCourseId || !this.state.courses.some(c => c.id === this.state.activeCourseId && !c.archived)) {
+                        const firstActive = (this.state.courses || []).find(c => !c.archived);
+                        this.state.activeCourseId = firstActive ? firstActive.id : "";
+                    }
                     this.persist();
                     this.renderAll();
                     this.showToast("↩️ Modifica annullata con successo", "success");
@@ -6328,6 +6373,12 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                     this.undoStack.push(JSON.stringify(this.state));
                     const next = this.redoStack.pop();
                     this.state = JSON.parse(next);
+                    this.temporarilyInspectedArchivedCourseId = null;
+                    this.previousActiveCourseIdBeforeInspection = null;
+                    if (!this.state.activeCourseId || !this.state.courses.some(c => c.id === this.state.activeCourseId && !c.archived)) {
+                        const firstActive = (this.state.courses || []).find(c => !c.archived);
+                        this.state.activeCourseId = firstActive ? firstActive.id : "";
+                    }
                     this.persist();
                     this.renderAll();
                     this.showToast("↪️ Modifica ripristinata con successo", "success");
@@ -6494,7 +6545,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
 
             deleteActivity(activityId) {
                 const course = this.getActiveCourse();
-                if (!course || !course.gradeConfig) return;
+                if (!course || !course.gradeConfig || this.guardNotReadOnly(course)) return;
                 const act = (course.gradeConfig.activities || []).find(a => a.id === activityId);
                 if (act) {
                     this.moveToTrash("activity", act.name, course.name, act, course.id);
@@ -6685,6 +6736,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                     this.renderHomeView(container);
                     return;
                 }
+                const isReadOnly = this.isCourseReadOnly(course);
                 const activeLevel = this.getActiveLevel(course);
                 const activeSection = this.getActiveSection(course);
                 const pal = this.getCourseColorObj(course.color);
@@ -6699,14 +6751,20 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                                     ${course.type === "private" ? this.t("privateBadge") : this.t("groupBadge")}
                                 </span>
                             </div>
-                            <div class="flex flex-wrap items-center gap-2">
-                                <button onclick="app.openAddLevelModal()" class="px-3 py-1.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-bold">
-                                    ${this.t("addLevelBtn")}
-                                </button>
-                                <button onclick="app.openAddSectionModal()" class="px-3 py-1.5 rounded-xl border border-sky-200 dark:border-slate-700 font-bold hover:bg-sky-50 dark:hover:bg-navy-800">
-                                    ${this.t("addModuleBtn")}
-                                </button>
-                            </div>
+                            ${!isReadOnly ? `
+                                <div class="flex flex-wrap items-center gap-2">
+                                    <button onclick="app.openAddLevelModal()" class="px-3 py-1.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-bold">
+                                        ${this.t("addLevelBtn")}
+                                    </button>
+                                    <button onclick="app.openAddSectionModal()" class="px-3 py-1.5 rounded-xl border border-sky-200 dark:border-slate-700 font-bold hover:bg-sky-50 dark:hover:bg-navy-800">
+                                        ${this.t("addModuleBtn")}
+                                    </button>
+                                </div>
+                            ` : `
+                                <span class="px-2.5 py-1 rounded-lg bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 text-[11px] font-bold flex items-center gap-1.5">
+                                    <i class="fa-solid fa-lock"></i> Sola lettura
+                                </span>
+                            `}
                         </div>
 
                         <div class="space-y-4">
@@ -6721,14 +6779,16 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                                                 ${lvl.sublevel ? `<span class="text-xs font-bold text-slate-500">(${this.escapeHtml(lvl.sublevel)})</span>` : ''}
                                                 <span class="text-xs text-slate-400">${(lvl.modules || []).length} ${this.t("modulesLabel")}</span>
                                             </div>
-                                            <div class="flex items-center gap-2 text-xs">
-                                                <button onclick="app.openEditLevelModal('${lvl.id}')" class="px-3 py-1.5 rounded-xl border border-sky-200 dark:border-slate-700 font-bold hover:bg-sky-50 dark:hover:bg-navy-800">
-                                                    <i class="fa-solid fa-pen mr-1"></i>${this.t("editBtn")}
-                                                </button>
-                                                ${(course.levels || []).length > 1 ? this.moreMenuButtonHtml([
-                                                    { icon: "fa-solid fa-trash-can", label: this.t("deleteBtn"), js: `app.confirmDeleteLevelModal('${lvl.id}')`, danger: true }
-                                                ], { size: "w-8 h-8" }) : ''}
-                                            </div>
+                                            ${!isReadOnly ? `
+                                                <div class="flex items-center gap-2 text-xs">
+                                                    <button onclick="app.openEditLevelModal('${lvl.id}')" class="px-3 py-1.5 rounded-xl border border-sky-200 dark:border-slate-700 font-bold hover:bg-sky-50 dark:hover:bg-navy-800">
+                                                        <i class="fa-solid fa-pen mr-1"></i>${this.t("editBtn")}
+                                                    </button>
+                                                    ${(course.levels || []).length > 1 ? this.moreMenuButtonHtml([
+                                                        { icon: "fa-solid fa-trash-can", label: this.t("deleteBtn"), js: `app.confirmDeleteLevelModal('${lvl.id}')`, danger: true }
+                                                    ], { size: "w-8 h-8" }) : ''}
+                                                </div>
+                                            ` : ''}
                                         </div>
 
                                         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 text-xs">
@@ -6740,14 +6800,16 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                                                         <div class="space-y-1">
                                                             <div class="flex items-center justify-between gap-2">
                                                                 <h4 class="font-extrabold text-sm text-slate-900 dark:text-white">${this.escapeHtml(mod.name)}</h4>
-                                                                <div class="flex items-center gap-1.5">
-                                                                    <button type="button" onclick="event.stopPropagation(); app.openEditModuleModal('${lvl.id}', '${mod.id}')" class="px-2.5 py-1 rounded-lg border border-sky-200 dark:border-slate-700 font-bold text-[11px] hover:bg-sky-100 dark:hover:bg-navy-700 transition">
-                                                                        <i class="fa-solid fa-pen mr-1"></i>${this.t("editBtn")}
-                                                                    </button>
-                                                                    ${(lvl.modules || []).length > 1 ? this.moreMenuButtonHtml([
-                                                                        { icon: "fa-solid fa-trash-can", label: this.t("deleteBtn"), js: `app.confirmDeleteModuleModal('${lvl.id}', '${mod.id}')`, danger: true }
-                                                                    ], { size: "w-7 h-7" }) : ''}
-                                                                </div>
+                                                                ${!isReadOnly ? `
+                                                                    <div class="flex items-center gap-1.5">
+                                                                        <button type="button" onclick="event.stopPropagation(); app.openEditModuleModal('${lvl.id}', '${mod.id}')" class="px-2.5 py-1 rounded-lg border border-sky-200 dark:border-slate-700 font-bold text-[11px] hover:bg-sky-100 dark:hover:bg-navy-700 transition">
+                                                                            <i class="fa-solid fa-pen mr-1"></i>${this.t("editBtn")}
+                                                                        </button>
+                                                                        ${(lvl.modules || []).length > 1 ? this.moreMenuButtonHtml([
+                                                                            { icon: "fa-solid fa-trash-can", label: this.t("deleteBtn"), js: `app.confirmDeleteModuleModal('${lvl.id}', '${mod.id}')`, danger: true }
+                                                                        ], { size: "w-7 h-7" }) : ''}
+                                                                    </div>
+                                                                ` : ''}
                                                             </div>
                                                             ${mod.description ? `<p class="text-slate-500">${this.escapeHtml(mod.description)}</p>` : ''}
                                                             <p class="text-[11px] text-slate-400 pt-1">
@@ -6768,7 +6830,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
 
             confirmDeleteLevelModal(levelId) {
                 const course = this.getActiveCourse();
-                if (!course) return;
+                if (!course || this.guardNotReadOnly(course)) return;
                 const lvl = (course.levels || []).find(l => l.id === levelId);
                 if (!lvl || (course.levels || []).length <= 1) return;
                 const label = lvl.code === "Altro" ? (lvl.customName || this.t("otherLevelOpt")) : lvl.code;
@@ -6786,7 +6848,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
 
             executeDeleteLevel(levelId) {
                 const course = this.getActiveCourse();
-                if (!course || (course.levels || []).length <= 1) return;
+                if (!course || (course.levels || []).length <= 1 || this.guardNotReadOnly(course)) return;
                 this.recordUndoSnapshot();
                 course.levels = course.levels.filter(l => l.id !== levelId);
                 this.selectLatestLevelAndModule(course);
@@ -6798,7 +6860,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
 
             confirmDeleteModuleModal(levelId, modId) {
                 const course = this.getActiveCourse();
-                if (!course) return;
+                if (!course || this.guardNotReadOnly(course)) return;
                 const lvl = (course.levels || []).find(l => l.id === levelId);
                 if (!lvl) return;
                 const mod = (lvl.modules || []).find(m => m.id === modId);
@@ -6817,7 +6879,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
 
             executeDeleteModule(levelId, modId) {
                 const course = this.getActiveCourse();
-                if (!course) return;
+                if (!course || this.guardNotReadOnly(course)) return;
                 const lvl = (course.levels || []).find(l => l.id === levelId);
                 if (!lvl || (lvl.modules || []).length <= 1) return;
                 const mod = lvl.modules.find(m => m.id === modId);
@@ -6913,7 +6975,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
 
                 const course = this.getActiveCourse();
                 const sec = this.getActiveSection(course);
-                if (!course || !sec) return;
+                if (!course || !sec || this.guardNotReadOnly(course)) return;
 
                 const oldDate = this.extractDateFromSlotKey(slotKey);
                 if (oldDate === newDateStr) return;
@@ -6928,6 +6990,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
 
             startLessonMouseDrag(e, slotKey) {
                 if (e.button !== 0) return; // left click only
+                if (this.isCourseReadOnly(this.getActiveCourse())) return;
                 const startX = e.clientX;
                 const startY = e.clientY;
                 let isDragging = false;
@@ -7029,7 +7092,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
             moveLessonShiftingForward(slotKey, newDateStr) {
                 const course = this.getActiveCourse();
                 const sec = this.getActiveSection(course);
-                if (!course || !sec) return;
+                if (!course || !sec || this.guardNotReadOnly(course)) return;
 
                 const scrollEl = document.getElementById("calendarScrollContainer");
                 const savedCalendarScrollTop = scrollEl ? scrollEl.scrollTop : 0;
@@ -7150,7 +7213,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
             moveLesson(slotKey, newDateStr) {
                 const course = this.getActiveCourse();
                 const sec = this.getActiveSection(course);
-                if (!course || !sec) return;
+                if (!course || !sec || this.guardNotReadOnly(course)) return;
 
                 const oldDate = this.extractDateFromSlotKey(slotKey);
                 if (oldDate === newDateStr) return;
@@ -7717,6 +7780,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 }
                 const activeSection = this.getActiveSection(course);
                 if (!activeSection) return;
+                const isReadOnly = this.isCourseReadOnly(course);
                 const slots = [...this.sortModuleSlots(course, activeSection)];
                 const pal = this.getCourseColorObj(course.color);
 
@@ -7724,10 +7788,12 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                     container.innerHTML = `
                         <div class="bg-white dark:bg-navy-900 rounded-2xl border border-sky-100 dark:border-slate-800 p-10 text-center space-y-3 text-xs">
                             <p class="text-slate-400 font-bold">${this.t("noScheduledLessonsMsg")}</p>
-                            <div class="flex justify-center gap-2">
-                                <button onclick="app.openAddDateModal()" class="px-3.5 py-2 rounded-xl bg-sky-600 text-white font-bold">${this.t("addDateBtn")}</button>
-                                <button onclick="app.openRecurringGeneratorModal()" class="px-3.5 py-2 rounded-xl border border-sky-200 dark:border-slate-700 font-bold">${this.t("recurringBtn")}</button>
-                            </div>
+                            ${!isReadOnly ? `
+                                <div class="flex justify-center gap-2">
+                                    <button onclick="app.openAddDateModal()" class="px-3.5 py-2 rounded-xl bg-sky-600 text-white font-bold">${this.t("addDateBtn")}</button>
+                                    <button onclick="app.openRecurringGeneratorModal()" class="px-3.5 py-2 rounded-xl border border-sky-200 dark:border-slate-700 font-bold">${this.t("recurringBtn")}</button>
+                                </div>
+                            ` : ''}
                         </div>
                     `;
                     return;
@@ -7880,13 +7946,15 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                                         ${paidH > 0 ? ` • Ore Pagate: <strong class="text-emerald-600 dark:text-emerald-400">${paidH.toFixed(1)}h</strong> • <strong class="${missingH > 0 ? 'text-amber-500' : 'text-emerald-600'}">${missingH > 0 ? `Mancano da fare: ${missingH.toFixed(1)}h` : 'Ore Pagate Coperte'}</strong>` : ` • Ore Pagate: <strong class="text-slate-400">0.0h</strong>`}
                                     </span>
                                 </div>
-                                <p class="text-[11px] text-slate-400">${this.t("dragLessonHint")}</p>
+                                <p class="text-[11px] text-slate-400">${isReadOnly ? '<i class="fa-solid fa-lock text-amber-500 mr-1"></i>Corso archiviato in sola lettura' : this.t("dragLessonHint")}</p>
                             </div>
 
                             <div class="flex flex-wrap items-center gap-2">
-                                <button onclick="app.openLessonPlanModal('${course.id}', '${activeSection.id}')" class="px-3.5 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-bold flex items-center gap-1.5 shadow-2xs transition" title="Crea o aggiungi una nuova lezione">
-                                    <i class="fa-solid fa-plus-circle"></i> Nuova Lezione
-                                </button>
+                                ${!isReadOnly ? `
+                                    <button onclick="app.openLessonPlanModal('${course.id}', '${activeSection.id}')" class="px-3.5 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-bold flex items-center gap-1.5 shadow-2xs transition" title="Crea o aggiungi una nuova lezione">
+                                        <i class="fa-solid fa-plus-circle"></i> Nuova Lezione
+                                    </button>
+                                ` : ''}
                                 <button onclick="app.copyWhatsAppScheduleText()" class="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold flex items-center gap-1.5 shadow-2xs transition">
                                     <i class="fa-brands fa-whatsapp text-sm"></i> ${this.t("copyTextBtn")}
                                 </button>
@@ -7941,31 +8009,34 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                                                     const hasLessons = day.sessions.length > 0;
                                                     const hasOtherPast = day.otherPastSessions.length > 0;
                                                     return `
-                                                        <div ondragover="app.handleDayDragOver(event, '${day.iso}')"
+                                                        <div ${!isReadOnly ? `ondragover="app.handleDayDragOver(event, '${day.iso}')"
                                                              ondragleave="app.handleDayDragLeave(event, '${day.iso}')"
-                                                             ondrop="app.handleDayDrop(event, '${day.iso}')"
+                                                             ondrop="app.handleDayDrop(event, '${day.iso}')"` : ''}
                                                              data-day-iso="${day.iso}"
                                                              class="calendar-day-cell min-h-[96px] rounded-xl p-2 border transition flex flex-col justify-start gap-1.5 ${hasLessons ? 'border-sky-300 dark:border-sky-800 bg-sky-50/30 dark:bg-navy-800/40' : (hasOtherPast ? 'border-slate-200 dark:border-slate-800 bg-slate-50/40 dark:bg-navy-950/20' : 'border-sky-100 dark:border-slate-800 bg-white dark:bg-navy-900')}">
                                                             <div class="flex items-center justify-between">
                                                                 <span class="text-xs font-bold text-slate-700 dark:text-slate-300">${day.dayNum}</span>
-                                                                <button onclick="app.openLessonPlanModal('${course.id}', '${activeSection.id}', null, '${day.iso}')" class="w-5 h-5 rounded-md hover:bg-sky-100 dark:hover:bg-navy-800 text-slate-400 hover:text-sky-600 flex items-center justify-center text-[10px] transition" title="Aggiungi lezione il ${day.iso}">
-                                                                    <i class="fa-solid fa-plus"></i>
-                                                                </button>
+                                                                ${!isReadOnly ? `
+                                                                    <button onclick="app.openLessonPlanModal('${course.id}', '${activeSection.id}', null, '${day.iso}')" class="w-5 h-5 rounded-md hover:bg-sky-100 dark:hover:bg-navy-800 text-slate-400 hover:text-sky-600 flex items-center justify-center text-[10px] transition" title="Aggiungi lezione il ${day.iso}">
+                                                                        <i class="fa-solid fa-plus"></i>
+                                                                    </button>
+                                                                ` : ''}
                                                             </div>
                                                             <div class="space-y-1.5">
                                                                 ${day.sessions.map(sess => {
                                                                     const isPast = sess.iso < todayIso || (sess.iso === todayIso && (sess.endTime || "23:59") < nowTime);
                                                                     const hasAtt = this.hasAttendanceRecord(activeSection, sess.slotKey);
                                                                     const isOverdueUnrecorded = isPast && !hasAtt;
+                                                                    const cursorCls = isReadOnly ? "cursor-pointer" : "cursor-grab active:cursor-grabbing";
                                                                     const cardClass = isOverdueUnrecorded
-                                                                        ? "cursor-grab active:cursor-grabbing p-1.5 rounded-lg bg-slate-950 text-white dark:bg-white dark:text-slate-950 border-2 border-red-500 shadow-2xs transition hover:brightness-110 select-none text-[10px]"
-                                                                        : `cursor-grab active:cursor-grabbing p-1.5 rounded-lg text-white shadow-2xs transition hover:brightness-110 select-none text-[10px] ${hasAtt ? 'opacity-55' : ''}`;
+                                                                        ? `${cursorCls} p-1.5 rounded-lg bg-slate-950 text-white dark:bg-white dark:text-slate-950 border-2 border-red-500 shadow-2xs transition hover:brightness-110 select-none text-[10px]`
+                                                                        : `${cursorCls} p-1.5 rounded-lg text-white shadow-2xs transition hover:brightness-110 select-none text-[10px] ${hasAtt ? 'opacity-55' : ''}`;
                                                                     const cardStyle = isOverdueUnrecorded ? "" : `background-color: ${pal.hex || '#0284c7'}`;
                                                                     return `
-                                                                        <div draggable="true"
+                                                                        <div ${!isReadOnly ? `draggable="true"
                                                                              ondragstart="app.handleLessonDragStart(event, '${sess.slotKey}')"
                                                                              ondragend="app.handleLessonDragEnd(event)"
-                                                                             onmousedown="app.startLessonMouseDrag(event, '${sess.slotKey}')"
+                                                                             onmousedown="app.startLessonMouseDrag(event, '${sess.slotKey}')"` : ''}
                                                                              onclick="app.openQuickLessonActionModal('${course.id}', '${activeSection.id}', '${sess.slotKey}')"
                                                                              class="${cardClass}"
                                                                              style="${cardStyle}">
@@ -8033,6 +8104,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 }
                 const activeSection = this.getActiveSection(course);
                 if (!activeSection) return;
+                const isReadOnly = this.isCourseReadOnly(course);
 
                 const currentIds = activeSection.studentIds || [];
                 const formerIds = course.formerStudentIds || [];
@@ -8056,9 +8128,11 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                                     <i class="fa-solid ${this.showSensitiveGroupData ? 'fa-eye-slash text-amber-600' : 'fa-eye text-sky-600'}"></i>
                                     ${this.showSensitiveGroupData ? this.t("hideSensitiveBtn") : this.t("showSensitiveBtn")}
                                 </button>
-                                <button onclick="app.openManageModuleStudentsModal()" class="px-3 py-1.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-bold flex items-center gap-1.5">
-                                    <i class="fa-solid fa-user-plus"></i> ${this.t("addStudentToModBtn")}
-                                </button>
+                                ${!isReadOnly ? `
+                                    <button onclick="app.openManageModuleStudentsModal()" class="px-3 py-1.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-bold flex items-center gap-1.5">
+                                        <i class="fa-solid fa-user-plus"></i> ${this.t("addStudentToModBtn")}
+                                    </button>
+                                ` : ''}
                             </div>
                         </div>
 
@@ -8108,7 +8182,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                                                     <td class="px-4 py-3 text-right">
                                                         <div class="inline-flex items-center gap-2">
                                                             <button onclick="app.openStudentDetailModal('${st.id}')" class="px-2.5 py-1 rounded-lg border border-sky-200 dark:border-slate-700 font-bold">${this.t("profileCardBtn")}</button>
-                                                            ${this.showFormerGroupStudents ? `
+                                                            ${!isReadOnly ? (this.showFormerGroupStudents ? `
                                                                 ${this.moreMenuButtonHtml([
                                                                     { icon: "fa-solid fa-rotate-left", label: this.t("reinsertBtn"), js: `app.reinsertFormerStudent('${st.id}')` }
                                                                 ])}
@@ -8117,7 +8191,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                                                                     { icon: "fa-solid fa-box-archive", label: this.t("archiveToFormerBtn"), js: `app.excludeStudentToFormer('${st.id}')` },
                                                                     { icon: "fa-solid fa-xmark", label: this.t("removeFromGroupBtn"), js: `app.openExcludeOrRemoveStudentModal('${st.id}')`, danger: true }
                                                                 ])}
-                                                            `}
+                                                            `) : ''}
                                                         </div>
                                                     </td>
                                                 </tr>
@@ -8133,6 +8207,8 @@ Removing, obfuscating, or altering these credits violates the author's attributi
             }
 
             openExcludeOrRemoveStudentModal(studentId) {
+                const course = this.getActiveCourse();
+                if (!course || this.guardNotReadOnly(course)) return;
                 const st = (this.state.studentsDirectory || []).find(s => s.id === studentId);
                 const name = st ? `${st.firstName} ${st.lastName}`.trim() : "Studente";
                 this.openModal(`
@@ -8150,7 +8226,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
             excludeStudentToFormer(studentId) {
                 const course = this.getActiveCourse();
                 const sec = this.getActiveSection(course);
-                if (!course || !sec) return;
+                if (!course || !sec || this.guardNotReadOnly(course)) return;
                 sec.studentIds = (sec.studentIds || []).filter(id => id !== studentId);
                 if (!Array.isArray(course.formerStudentIds)) course.formerStudentIds = [];
                 if (!course.formerStudentIds.includes(studentId)) course.formerStudentIds.push(studentId);
@@ -8162,7 +8238,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
             removeStudentFromModuleCompletely(studentId) {
                 const course = this.getActiveCourse();
                 const sec = this.getActiveSection(course);
-                if (!course || !sec) return;
+                if (!course || !sec || this.guardNotReadOnly(course)) return;
                 sec.studentIds = (sec.studentIds || []).filter(id => id !== studentId);
                 if (Array.isArray(course.formerStudentIds)) {
                     course.formerStudentIds = course.formerStudentIds.filter(id => id !== studentId);
@@ -8175,7 +8251,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
             reinsertFormerStudent(studentId) {
                 const course = this.getActiveCourse();
                 const sec = this.getActiveSection(course);
-                if (!course || !sec) return;
+                if (!course || !sec || this.guardNotReadOnly(course)) return;
                 if (!sec.studentIds.includes(studentId)) sec.studentIds.push(studentId);
                 if (Array.isArray(course.formerStudentIds)) {
                     course.formerStudentIds = course.formerStudentIds.filter(id => id !== studentId);
@@ -9091,6 +9167,9 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 if (this.temporarilyInspectedArchivedCourseId === courseId) {
                     this.temporarilyInspectedArchivedCourseId = null;
                 }
+                this.previousActiveCourseIdBeforeInspection = null;
+                this.selectedBillingCourseId = null;
+                this.selectedBillingModuleId = null;
                 this.persist();
                 this.renderAll();
             }
@@ -9129,6 +9208,10 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 const c = (this.state.courses || []).find(x => x.id === courseId);
                 if (!c) return;
                 c.archived = true;
+                if (this.temporarilyInspectedArchivedCourseId === courseId) {
+                    this.temporarilyInspectedArchivedCourseId = null;
+                    this.previousActiveCourseIdBeforeInspection = null;
+                }
                 if (this.state.activeCourseId === courseId) {
                     const next = (this.state.courses || []).find(x => !x.archived);
                     this.state.activeCourseId = next ? next.id : "";
@@ -9894,10 +9977,12 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                     }
                 }
 
+                const isReadOnly = this.isCourseReadOnly(course);
+
                 container.innerHTML = `
                     <div class="space-y-5 text-xs">
                         ${topTabBarHtml}
-                        ${(course.archived || this.temporarilyInspectedArchivedCourseId === course.id) ? `
+                        ${isReadOnly ? `
                             <div class="p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-xl text-amber-800 dark:text-amber-200 text-xs font-bold flex items-center gap-2">
                                 <i class="fa-solid fa-lock text-amber-600"></i>
                                 <span>Corso archiviato in sola lettura. Ripristina il corso per modificare i dati di fatturazione.</span>
@@ -10033,51 +10118,60 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                                     <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3 items-end">
                                         <div>
                                             <label class="block font-bold text-[11px] text-slate-500 mb-1">Tariffa Oraria (${this.getCurrency()})</label>
-                                            <input type="number" step="0.01" id="batchHourlyRateNet" value="${curHourlyRate}"
+                                            <input type="number" ${isReadOnly ? 'disabled' : ''} step="0.01" id="batchHourlyRateNet" value="${curHourlyRate}"
                                                 oninput="app.updateBillingHoursPreview('${course.id}', '${currentModule.id}')"
-                                                class="w-full h-9 rounded-xl border border-sky-200 dark:border-slate-700 bg-white dark:bg-navy-900 px-3 font-bold text-slate-800 dark:text-slate-100">
+                                                class="w-full h-9 rounded-xl border border-sky-200 dark:border-slate-700 bg-white dark:bg-navy-900 px-3 font-bold text-slate-800 dark:text-slate-100 ${isReadOnly ? 'opacity-60 cursor-not-allowed' : ''}">
                                         </div>
                                         <div>
                                             <label class="block font-bold text-[11px] text-slate-500 mb-1">IVA (%)</label>
-                                            <input type="number" step="0.1" id="batchVatPercent" value="${curVat}"
+                                            <input type="number" ${isReadOnly ? 'disabled' : ''} step="0.1" id="batchVatPercent" value="${curVat}"
                                                 oninput="app.updateBillingHoursPreview('${course.id}', '${currentModule.id}')"
-                                                class="w-full h-9 rounded-xl border border-sky-200 dark:border-slate-700 bg-white dark:bg-navy-900 px-3 font-bold text-slate-800 dark:text-slate-100">
+                                                class="w-full h-9 rounded-xl border border-sky-200 dark:border-slate-700 bg-white dark:bg-navy-900 px-3 font-bold text-slate-800 dark:text-slate-100 ${isReadOnly ? 'opacity-60 cursor-not-allowed' : ''}">
                                         </div>
                                         <div>
                                             <label class="block font-bold text-[11px] text-slate-500 mb-1">Tipo Sconto</label>
-                                            <select id="batchDiscountType"
+                                            <select id="batchDiscountType" ${isReadOnly ? 'disabled' : ''}
                                                 onchange="app.updateBillingHoursPreview('${course.id}', '${currentModule.id}')"
-                                                class="w-full h-9 rounded-xl border border-sky-200 dark:border-slate-700 bg-white dark:bg-navy-900 px-2 font-bold text-slate-800 dark:text-slate-100">
+                                                class="w-full h-9 rounded-xl border border-sky-200 dark:border-slate-700 bg-white dark:bg-navy-900 px-2 font-bold text-slate-800 dark:text-slate-100 ${isReadOnly ? 'opacity-60 cursor-not-allowed' : ''}">
                                                 <option value="percent" ${curDiscType === 'percent' ? 'selected' : ''}>%</option>
                                                 <option value="fixed" ${curDiscType === 'fixed' ? 'selected' : ''}>${this.getCurrency()} (Fisso)</option>
                                             </select>
                                         </div>
                                         <div>
                                             <label class="block font-bold text-[11px] text-slate-500 mb-1">Valore Sconto</label>
-                                            <input type="number" step="0.01" id="batchDiscountValue" value="${curDiscVal}"
+                                            <input type="number" ${isReadOnly ? 'disabled' : ''} step="0.01" id="batchDiscountValue" value="${curDiscVal}"
                                                 oninput="app.updateBillingHoursPreview('${course.id}', '${currentModule.id}')"
-                                                class="w-full h-9 rounded-xl border border-sky-200 dark:border-slate-700 bg-white dark:bg-navy-900 px-3 font-bold text-slate-800 dark:text-slate-100">
+                                                class="w-full h-9 rounded-xl border border-sky-200 dark:border-slate-700 bg-white dark:bg-navy-900 px-3 font-bold text-slate-800 dark:text-slate-100 ${isReadOnly ? 'opacity-60 cursor-not-allowed' : ''}">
                                         </div>
                                         <div>
                                             <label class="block font-bold text-[11px] text-slate-500 mb-1">Importo Pagato (${this.getCurrency()})</label>
                                             <div class="flex items-center gap-1.5">
-                                                <input type="number" step="0.01" id="batchPaidAmount" value="${curPaidAmount}"
+                                                <input type="number" ${isReadOnly ? 'disabled' : ''} step="0.01" id="batchPaidAmount" value="${curPaidAmount}"
                                                     oninput="app.updateBillingHoursPreview('${course.id}', '${currentModule.id}')"
                                                     onchange="app.saveModuleStudentPaidAmount('${course.id}', '${currentModule.id}', this.value)"
-                                                    class="w-full h-9 rounded-xl border border-sky-200 dark:border-slate-700 bg-white dark:bg-navy-900 px-3 font-bold text-slate-800 dark:text-slate-100">
-                                                <button type="button" onclick="app.saveModuleStudentPaidAmount('${course.id}', '${currentModule.id}', document.getElementById('batchPaidAmount').value)"
-                                                    title="Salva importo pagato" class="h-9 px-2.5 rounded-xl border border-sky-300 dark:border-slate-700 hover:bg-sky-50 dark:hover:bg-navy-800 text-sky-600 dark:text-sky-300 transition">
-                                                    <i class="fa fa-check"></i>
-                                                </button>
+                                                    class="w-full h-9 rounded-xl border border-sky-200 dark:border-slate-700 bg-white dark:bg-navy-900 px-3 font-bold text-slate-800 dark:text-slate-100 ${isReadOnly ? 'opacity-60 cursor-not-allowed' : ''}">
+                                                ${!isReadOnly ? `
+                                                    <button type="button" onclick="app.saveModuleStudentPaidAmount('${course.id}', '${currentModule.id}', document.getElementById('batchPaidAmount').value)"
+                                                        title="Salva importo pagato" class="h-9 px-2.5 rounded-xl border border-sky-300 dark:border-slate-700 hover:bg-sky-50 dark:hover:bg-navy-800 text-sky-600 dark:text-sky-300 transition">
+                                                        <i class="fa fa-check"></i>
+                                                    </button>
+                                                ` : ''}
                                             </div>
                                         </div>
                                         <div>
-                                            <button type="button" onclick="app.applyBatchPricingToModule('${course.id}', '${currentModule.id}')"
-                                                class="w-full h-9 rounded-xl text-white font-extrabold flex items-center justify-center gap-1.5 shadow-2xs transition"
-                                                style="background-color: ${pal.hex};">
-                                                <i class="fa-solid fa-check text-xs"></i>
-                                                <span>${this.t("applyToAllLessonsBtn")}</span>
-                                            </button>
+                                            ${!isReadOnly ? `
+                                                <button type="button" onclick="app.applyBatchPricingToModule('${course.id}', '${currentModule.id}')"
+                                                    class="w-full h-9 rounded-xl text-white font-extrabold flex items-center justify-center gap-1.5 shadow-2xs transition"
+                                                    style="background-color: ${pal.hex};">
+                                                    <i class="fa-solid fa-check text-xs"></i>
+                                                    <span>${this.t("applyToAllLessonsBtn")}</span>
+                                                </button>
+                                            ` : `
+                                                <div class="w-full h-9 rounded-xl border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-300 font-extrabold flex items-center justify-center gap-1.5">
+                                                    <i class="fa-solid fa-lock text-xs"></i>
+                                                    <span>Sola lettura</span>
+                                                </div>
+                                            `}
                                         </div>
                                     </div>
 
@@ -10127,9 +10221,9 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                                                                             ${cell.lessons.map(lItem => {
                                                                                 const pr = lItem.pricing;
                                                                                 return `
-                                                                                    <button type="button" onclick="app.openEditLessonPriceModal('${course.id}', '${currentModule.id}', '${lItem.slotKey}')"
-                                                                                        title="${this.t('editLessonPricing')}"
-                                                                                        class="w-full text-left p-2 rounded-lg text-white font-extrabold shadow-2xs hover:opacity-90 transition cursor-pointer"
+                                                                                    <button type="button" ${isReadOnly ? 'disabled' : `onclick="app.openEditLessonPriceModal('${course.id}', '${currentModule.id}', '${lItem.slotKey}')"`}
+                                                                                        title="${isReadOnly ? 'Corso archiviato in sola lettura' : this.t('editLessonPricing')}"
+                                                                                        class="w-full text-left p-2 rounded-lg text-white font-extrabold shadow-2xs transition ${isReadOnly ? 'opacity-90 cursor-not-allowed' : 'hover:opacity-90 cursor-pointer'}"
                                                                                         style="background-color: ${pal.hex};">
                                                                                         <div class="flex items-center justify-between text-[10px] opacity-95">
                                                                                             <span class="bg-white/25 px-1 rounded text-[9px]">L${lItem.lessonNumber}</span>
@@ -10171,6 +10265,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
             openFiscalInfoModal(courseId, moduleId = null, clientIndex = 0) {
                 const course = (this.state.courses || []).find(c => c.id === courseId) || this.getActiveCourse();
                 if (!course) return;
+                const isReadOnly = this.isCourseReadOnly(course);
 
                 let mod = null;
                 const targetModId = moduleId || this.selectedBillingModuleId;
@@ -10184,17 +10279,19 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                     mod = course.levels[0].modules[0];
                 }
 
-                if (mod && !Array.isArray(mod.billingContactIds)) {
-                    mod.billingContactIds = [];
-                }
-                if (!course.billingConfig) {
-                    course.billingConfig = {};
-                }
-                if (!Array.isArray(course.billingConfig.billingContactIds)) {
-                    course.billingConfig.billingContactIds = [];
+                if (!isReadOnly) {
+                    if (mod && !Array.isArray(mod.billingContactIds)) {
+                        mod.billingContactIds = [];
+                    }
+                    if (!course.billingConfig) {
+                        course.billingConfig = {};
+                    }
+                    if (!Array.isArray(course.billingConfig.billingContactIds)) {
+                        course.billingConfig.billingContactIds = [];
+                    }
                 }
 
-                const associatedIds = mod ? mod.billingContactIds : course.billingConfig.billingContactIds;
+                const associatedIds = mod ? (mod.billingContactIds || []) : (course.billingConfig?.billingContactIds || []);
                 const safeIndex = associatedIds.length === 0 ? 0 : Math.min(Math.max(0, clientIndex), associatedIds.length - 1);
                 const activeContactId = associatedIds.length > 0 ? associatedIds[safeIndex] : null;
                 const activeContact = activeContactId ? (this.state.billingContacts || []).find(c => c.id === activeContactId) : null;
@@ -10224,11 +10321,13 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                                     <h4 class="font-extrabold text-slate-800 dark:text-slate-100">${this.t("noBillingAssociatedMsg")}</h4>
                                     <p class="text-[11px] text-slate-400">Associa profili di fatturazione a questo gruppo per gestire pagamenti e ricevute individuali.</p>
                                 </div>
-                                <button type="button" onclick="app.openAssociateBillingModal('${course.id}', '${modIdParam}')"
-                                    class="px-4 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-extrabold inline-flex items-center gap-2 shadow-2xs transition">
-                                    <i class="fa-solid fa-link"></i>
-                                    <span>${this.t("associateBillingDataBtn")}</span>
-                                </button>
+                                ${!isReadOnly ? `
+                                    <button type="button" onclick="app.openAssociateBillingModal('${course.id}', '${modIdParam}')"
+                                        class="px-4 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-extrabold inline-flex items-center gap-2 shadow-2xs transition">
+                                        <i class="fa-solid fa-link"></i>
+                                        <span>${this.t("associateBillingDataBtn")}</span>
+                                    </button>
+                                ` : ''}
                             </div>
                         ` : `
                             <div class="bg-white dark:bg-navy-900 rounded-2xl border border-sky-100 dark:border-slate-800 p-5 space-y-4 shadow-xs">
@@ -10246,11 +10345,13 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                                             ${this.escapeHtml(activeContact.fullName || '—')}
                                         </h3>
                                     </div>
-                                    <button type="button" onclick="app.dissociateBillingContact('${course.id}', '${modIdParam}', ${safeIndex})"
-                                        class="px-3 py-1.5 rounded-xl border border-rose-200 dark:border-rose-900/60 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 text-xs font-bold flex items-center gap-1.5 transition">
-                                        <i class="fa-solid fa-unlink text-[11px]"></i>
-                                        <span>${this.t("dissociateBillingBtn")}</span>
-                                    </button>
+                                    ${!isReadOnly ? `
+                                        <button type="button" onclick="app.dissociateBillingContact('${course.id}', '${modIdParam}', ${safeIndex})"
+                                            class="px-3 py-1.5 rounded-xl border border-rose-200 dark:border-rose-900/60 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 text-xs font-bold flex items-center gap-1.5 transition">
+                                            <i class="fa-solid fa-unlink text-[11px]"></i>
+                                            <span>${this.t("dissociateBillingBtn")}</span>
+                                        </button>
+                                    ` : ''}
                                 </div>
 
                                 <div class="border-t border-sky-100 dark:border-slate-800 pt-3 grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
@@ -10280,11 +10381,13 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                                         </span>
                                         <button type="button" ${safeIndex >= associatedIds.length - 1 ? 'disabled class="w-8 h-8 rounded-full bg-slate-100 dark:bg-navy-800 text-slate-300 dark:text-slate-600 cursor-not-allowed flex items-center justify-center font-bold text-sm"' : `onclick="app.openFiscalInfoModal('${course.id}', '${modIdParam}', ${safeIndex + 1})" class="w-8 h-8 rounded-full bg-slate-100 dark:bg-navy-800 text-slate-700 dark:text-slate-200 hover:bg-sky-100 dark:hover:bg-slate-700 flex items-center justify-center font-bold text-sm transition"`}>›</button>
                                     </div>
-                                    <button type="button" onclick="app.openAssociateBillingModal('${course.id}', '${modIdParam}')"
-                                        class="px-3.5 py-1.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-extrabold flex items-center gap-1.5 text-xs shadow-2xs transition">
-                                        <i class="fa-solid fa-plus"></i>
-                                        <span>${this.t("addBillingDataBtn")}</span>
-                                    </button>
+                                    ${!isReadOnly ? `
+                                        <button type="button" onclick="app.openAssociateBillingModal('${course.id}', '${modIdParam}')"
+                                            class="px-3.5 py-1.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-extrabold flex items-center gap-1.5 text-xs shadow-2xs transition">
+                                            <i class="fa-solid fa-plus"></i>
+                                            <span>${this.t("addBillingDataBtn")}</span>
+                                        </button>
+                                    ` : ''}
                                 </div>
                             </div>
                         `}
@@ -10298,7 +10401,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
 
             openAssociateBillingModal(courseId, moduleId = null) {
                 const course = (this.state.courses || []).find(c => c.id === courseId) || this.getActiveCourse();
-                if (!course) return;
+                if (!course || this.guardNotReadOnly(course)) return;
                 let mod = null;
                 const targetModId = moduleId || this.selectedBillingModuleId;
                 if (targetModId) {
@@ -10379,7 +10482,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
 
             linkBillingContact(courseId, moduleId, contactId) {
                 const course = (this.state.courses || []).find(c => c.id === courseId);
-                if (!course) return;
+                if (!course || this.guardNotReadOnly(course)) return;
                 let mod = null;
                 if (moduleId) {
                     for (const lvl of (course.levels || [])) {
@@ -10407,7 +10510,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
 
             dissociateBillingContact(courseId, moduleId, index) {
                 const course = (this.state.courses || []).find(c => c.id === courseId);
-                if (!course) return;
+                if (!course || this.guardNotReadOnly(course)) return;
                 let mod = null;
                 if (moduleId) {
                     for (const lvl of (course.levels || [])) {
@@ -10427,7 +10530,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
 
             openEditLessonPriceModal(courseId, moduleId, slotKey) {
                 const course = (this.state.courses || []).find(c => c.id === courseId);
-                if (!course) return;
+                if (!course || this.guardNotReadOnly(course)) return;
                 let mod = null;
                 for (const lvl of (course.levels || [])) {
                     const found = (lvl.modules || []).find(m => m.id === moduleId);
@@ -10492,7 +10595,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
             saveLessonPriceFromModal(courseId, moduleId, slotKey, e) {
                 if (e) e.preventDefault();
                 const course = (this.state.courses || []).find(c => c.id === courseId);
-                if (!course) return;
+                if (!course || this.guardNotReadOnly(course)) return;
                 let mod = null;
                 for (const lvl of (course.levels || [])) {
                     const found = (lvl.modules || []).find(m => m.id === moduleId);
@@ -10518,7 +10621,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
 
             resetLessonPriceFromModal(courseId, moduleId, slotKey) {
                 const course = (this.state.courses || []).find(c => c.id === courseId);
-                if (!course) return;
+                if (!course || this.guardNotReadOnly(course)) return;
                 let mod = null;
                 for (const lvl of (course.levels || [])) {
                     const found = (lvl.modules || []).find(m => m.id === moduleId);
@@ -10535,7 +10638,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
 
             saveModuleStudentPaidAmount(courseId, moduleId, amount) {
                 const course = (this.state.courses || []).find(c => c.id === courseId);
-                if (!course) return;
+                if (!course || this.guardNotReadOnly(course)) return;
                 let mod = null;
                 for (const lvl of (course.levels || [])) {
                     const found = (lvl.modules || []).find(m => m.id === moduleId);
@@ -10553,7 +10656,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
 
             applyBatchPricingToModule(courseId, moduleId) {
                 const course = (this.state.courses || []).find(c => c.id === courseId);
-                if (!course) return;
+                if (!course || this.guardNotReadOnly(course)) return;
                 let mod = null;
                 for (const lvl of (course.levels || [])) {
                     const found = (lvl.modules || []).find(m => m.id === moduleId);
@@ -11548,6 +11651,7 @@ Dettagli di Sistema:
              */
             openCourseModal(courseId = null) {
                 const existing = courseId ? (this.state.courses || []).find(c => c.id === courseId) : null;
+                if (existing && this.guardNotReadOnly(existing)) return;
                 const selColor = existing?.color || this.pickNextAvailableCourseColor();
                 const selLevel = existing ? this.normalizeCefrLevel(existing.level) : "A1";
 
@@ -11613,6 +11717,7 @@ Dettagli di Sistema:
 
                 if (courseId) {
                     const c = (this.state.courses || []).find(x => x.id === courseId);
+                    if (c && this.guardNotReadOnly(c)) return;
                     if (c) {
                         c.code = code;
                         c.name = name;
@@ -11674,7 +11779,7 @@ Dettagli di Sistema:
 
             openEditLevelModal(levelId = null) {
                 const course = this.getActiveCourse();
-                if (!course) return;
+                if (!course || this.guardNotReadOnly(course)) return;
                 const lvl = levelId ? (course.levels || []).find(l => l.id === levelId) : null;
                 const code = lvl?.code || "A1";
 
@@ -11707,7 +11812,7 @@ Dettagli di Sistema:
             saveLevelModal(e, levelId = null) {
                 if (e) e.preventDefault();
                 const course = this.getActiveCourse();
-                if (!course) return;
+                if (!course || this.guardNotReadOnly(course)) return;
                 const code = document.getElementById("lvlCodeInput")?.value || "A1";
                 const sublevel = document.getElementById("lvlSubInput")?.value.trim() || "";
 
@@ -11750,14 +11855,14 @@ Dettagli di Sistema:
             openAddSectionModal() {
                 const course = this.getActiveCourse();
                 const lvl = this.getActiveLevel(course);
-                if (!course || !lvl) return;
+                if (!course || !lvl || this.guardNotReadOnly(course)) return;
                 this.openEditModuleModal(lvl.id, null);
             }
 
             openEditModuleModal(levelId, modId = null) {
                 const course = this.getActiveCourse();
                 const lvl = (course?.levels || []).find(l => l.id === levelId);
-                if (!course || !lvl) return;
+                if (!course || !lvl || this.guardNotReadOnly(course)) return;
                 const mod = modId ? (lvl.modules || []).find(m => m.id === modId) : null;
                 const nextNum = (lvl.modules?.length || 0) + 1;
 
@@ -11817,7 +11922,7 @@ Dettagli di Sistema:
                 if (e) e.preventDefault();
                 const course = this.getActiveCourse();
                 const lvl = (course?.levels || []).find(l => l.id === levelId);
-                if (!course || !lvl) return;
+                if (!course || !lvl || this.guardNotReadOnly(course)) return;
                 const name = document.getElementById("modNameInput")?.value.trim() || "M1";
                 const description = document.getElementById("modDescInput")?.value.trim() || "";
                 const googleMeetUrl = document.getElementById("modGoogleMeetUrlInput")?.value.trim() || "";
@@ -11866,7 +11971,7 @@ Dettagli di Sistema:
             openManageModuleStudentsModal() {
                 const course = this.getActiveCourse();
                 const sec = this.getActiveSection(course);
-                if (!course || !sec) return;
+                if (!course || !sec || this.guardNotReadOnly(course)) return;
                 const allStudents = this.state.studentsDirectory || [];
                 const enrolledSet = new Set(sec.studentIds || []);
 
@@ -11905,7 +12010,7 @@ Dettagli di Sistema:
                 if (e) e.preventDefault();
                 const course = this.getActiveCourse();
                 const sec = this.getActiveSection(course);
-                if (!course || !sec) return;
+                if (!course || !sec || this.guardNotReadOnly(course)) return;
                 const selected = Array.from(document.querySelectorAll("input[name='modEnrollSt']:checked")).map(cb => cb.value);
                 sec.studentIds = selected;
                 this.persist();
@@ -11985,7 +12090,7 @@ Dettagli di Sistema:
             openAddDateModal() {
                 const course = this.getActiveCourse();
                 const sec = this.getActiveSection(course);
-                if (!course || !sec) return;
+                if (!course || !sec || this.guardNotReadOnly(course)) return;
                 this.openLessonPlanModal(course.id, sec.id, null);
             }
 
@@ -12002,6 +12107,8 @@ Dettagli di Sistema:
                 if (!targetSec) return;
 
                 const isNew = !slotKey;
+                const isReadOnly = this.isCourseReadOnly(course);
+                if (isNew && this.guardNotReadOnly(course)) return;
                 const dOnly = slotKey ? this.extractDateFromSlotKey(slotKey) : (defaultDate || new Date().toISOString().substring(0, 10));
                 const les = slotKey ? this.findLessonForSlot(course, targetSec.id, slotKey) : null;
                 const sTime = les?.time || targetSec.startTime || course.startTime || "19:00";
@@ -12016,22 +12123,29 @@ Dettagli di Sistema:
                             <button type="button" onclick="app.closeModal()" class="w-8 h-8 rounded-lg hover:bg-slate-100 dark:hover:bg-navy-800 flex items-center justify-center"><i class="fa-solid fa-xmark"></i></button>
                         </div>
 
+                        ${isReadOnly ? `
+                            <div class="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-700 text-amber-800 dark:text-amber-200 font-bold flex items-center gap-2">
+                                <i class="fa-solid fa-lock"></i>
+                                <span>Corso archiviato in sola lettura: puoi consultare il piano lezione ma non modificarlo.</span>
+                            </div>
+                        ` : ''}
+
                         <div class="grid grid-cols-1 sm:grid-cols-4 gap-3">
                             <div>
                                 <label class="block font-bold mb-1">Data *</label>
-                                <input type="date" id="lpDateInput" required value="${dOnly}" class="w-full rounded-xl border border-sky-200 dark:border-slate-700 bg-transparent px-3 py-2 font-bold">
+                                <input type="date" ${isReadOnly ? 'disabled' : ''} id="lpDateInput" required value="${dOnly}" class="w-full rounded-xl border border-sky-200 dark:border-slate-700 bg-transparent px-3 py-2 font-bold ${isReadOnly ? 'opacity-70 cursor-not-allowed' : ''}">
                             </div>
                             <div>
                                 <label class="block font-bold mb-1">${this.t("startLabel")} *</label>
-                                <input type="time" id="lpStartTimeInput" required value="${sTime}" oninput="app.handleLessonPlanStartTimeInput('${course.id}', '${targetSec.id}', ${slotKey ? `'${slotKey}'` : 'null'}, this.value)" class="w-full rounded-xl border border-sky-200 dark:border-slate-700 bg-transparent px-3 py-2 font-bold">
+                                <input type="time" ${isReadOnly ? 'disabled' : ''} id="lpStartTimeInput" required value="${sTime}" oninput="app.handleLessonPlanStartTimeInput('${course.id}', '${targetSec.id}', ${slotKey ? `'${slotKey}'` : 'null'}, this.value)" class="w-full rounded-xl border border-sky-200 dark:border-slate-700 bg-transparent px-3 py-2 font-bold ${isReadOnly ? 'opacity-70 cursor-not-allowed' : ''}">
                             </div>
                             <div>
                                 <label class="block font-bold mb-1">${this.t("endLabel")} *</label>
-                                <input type="time" id="lpEndTimeInput" required value="${eTime}" class="w-full rounded-xl border border-sky-200 dark:border-slate-700 bg-transparent px-3 py-2 font-bold">
+                                <input type="time" ${isReadOnly ? 'disabled' : ''} id="lpEndTimeInput" required value="${eTime}" class="w-full rounded-xl border border-sky-200 dark:border-slate-700 bg-transparent px-3 py-2 font-bold ${isReadOnly ? 'opacity-70 cursor-not-allowed' : ''}">
                             </div>
                             <div>
                                 <label class="block font-bold mb-1">${this.t("lessonUnitTitleLabel")}</label>
-                                <input type="text" id="lpTitleInput" value="${this.escapeHtml(les?.title || '')}" class="w-full rounded-xl border border-sky-200 dark:border-slate-700 bg-transparent px-3 py-2 font-bold">
+                                <input type="text" ${isReadOnly ? 'disabled' : ''} id="lpTitleInput" value="${this.escapeHtml(les?.title || '')}" class="w-full rounded-xl border border-sky-200 dark:border-slate-700 bg-transparent px-3 py-2 font-bold ${isReadOnly ? 'opacity-70 cursor-not-allowed' : ''}">
                             </div>
                         </div>
 
@@ -12060,10 +12174,12 @@ Dettagli di Sistema:
                                             <button type="button" onclick="navigator.clipboard.writeText('${this.escapeHtml(les?.googleMeetUrl || targetSec.googleMeetUrl)}'); app.showToast('Link riunione copiato!', 'success');" class="px-2 py-1 rounded-lg bg-blue-100 hover:bg-blue-200 text-blue-800 text-[10.5px] font-bold" title="Copia link"><i class="fa-solid fa-copy"></i> Copia</button>
                                             <button type="button" onclick="app.copyLessonStudentInvitation('${course.id}', '${targetSec.id}', '${slotKey || ''}')" class="px-2 py-1 rounded-lg bg-sky-100 hover:bg-sky-200 text-sky-800 dark:bg-sky-950 dark:text-sky-200 text-[10.5px] font-bold flex items-center gap-1" title="${this.t('copyLessonInviteBtn')}"><i class="fa-solid fa-share-nodes"></i> ${this.t('copyLessonInviteBtn')}</button>
                                             <button type="button" onclick="if(window.electronAPI){window.electronAPI.openExternal('${this.escapeHtml(les?.googleMeetUrl || targetSec.googleMeetUrl)}');}else{window.open('${this.escapeHtml(les?.googleMeetUrl || targetSec.googleMeetUrl)}','_blank');}" class="px-2.5 py-1 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-[10.5px] font-bold flex items-center gap-1"><i class="fa-solid fa-arrow-up-right-from-square"></i> Partecipa</button>
-                                            <button type="button" onclick="document.getElementById('lpGoogleMeetUrlInput').value = ''; document.getElementById('lpGoogleMeetCustomInput').value = ''; document.getElementById('lpMeetCardContainer').innerHTML = ''; app.showToast('Link riunione rimosso per questa lezione', 'info');" class="w-7 h-7 rounded-lg text-rose-500 hover:bg-rose-100 dark:hover:bg-rose-950/50 flex items-center justify-center text-xs" title="Rimuovi link riunione"><i class="fa-solid fa-trash"></i></button>
+                                            ${!isReadOnly ? `
+                                                <button type="button" onclick="document.getElementById('lpGoogleMeetUrlInput').value = ''; document.getElementById('lpGoogleMeetCustomInput').value = ''; document.getElementById('lpMeetCardContainer').innerHTML = ''; app.showToast('Link riunione rimosso per questa lezione', 'info');" class="w-7 h-7 rounded-lg text-rose-500 hover:bg-rose-100 dark:hover:bg-rose-950/50 flex items-center justify-center text-xs" title="Rimuovi link riunione"><i class="fa-solid fa-trash"></i></button>
+                                            ` : ''}
                                         </div>
                                     </div>
-                                ` : (targetSec.googleMeetUrl ? `
+                                ` : (targetSec.googleMeetUrl && !isReadOnly ? `
                                     <div class="p-3 rounded-xl bg-slate-50 dark:bg-navy-950/40 border border-slate-200 dark:border-slate-800 flex items-center justify-between gap-2.5">
                                         <div class="flex items-center gap-2 text-xs text-slate-500">
                                             <i class="fa-solid fa-link text-blue-500"></i>
@@ -12077,13 +12193,14 @@ Dettagli di Sistema:
                                 </div>
                                 <div>
                                     <label class="block text-[10.5px] font-bold text-slate-500 mb-1">Incolla link riunione:</label>
-                                    <input type="text" id="lpGoogleMeetCustomInput" oninput="document.getElementById('lpGoogleMeetUrlInput').value = this.value.trim();" value="${this.escapeHtml(les?.googleMeetUrl || (!slotKey && targetSec.googleMeetUrl) || '')}" placeholder="https://zoom.us/..., https://teams.microsoft.com/..., o qualsiasi link" class="w-full rounded-xl border border-blue-200 dark:border-slate-700 bg-white dark:bg-navy-900 px-3 py-1.5 font-mono text-xs">
+                                    <input type="text" ${isReadOnly ? 'disabled' : ''} id="lpGoogleMeetCustomInput" oninput="document.getElementById('lpGoogleMeetUrlInput').value = this.value.trim();" value="${this.escapeHtml(les?.googleMeetUrl || (!slotKey && targetSec.googleMeetUrl) || '')}" placeholder="https://zoom.us/..., https://teams.microsoft.com/..., o qualsiasi link" class="w-full rounded-xl border border-blue-200 dark:border-slate-700 bg-white dark:bg-navy-900 px-3 py-1.5 font-mono text-xs ${isReadOnly ? 'opacity-70 cursor-not-allowed' : ''}">
                                 </div>
 
                             <div>
                                 <div class="flex items-center justify-between mb-1">
                                     <label class="block font-bold"><i class="fa-solid fa-envelope text-sky-600 mr-1"></i> Inviti via Email (separati da virgola)</label>
                                     ${(() => {
+                                        if (isReadOnly) return '';
                                         const emails = [];
                                         (targetSec.studentIds || []).forEach(stId => {
                                             const st = (course.students || []).find(s => s.id === stId) || (this.state.studentsDirectory || []).find(s => s.id === stId);
@@ -12096,7 +12213,7 @@ Dettagli di Sistema:
                                         ` : '';
                                     })()}
                                 </div>
-                                <input type="text" id="lpInvitedEmailsInput" value="${this.escapeHtml(Array.isArray(les?.invitedEmails) ? les.invitedEmails.join(', ') : '')}" placeholder="studente1@email.com, studente2@email.com" class="w-full rounded-xl border border-blue-200 dark:border-slate-700 bg-white dark:bg-navy-900 px-3 py-2 text-xs">
+                                <input type="text" ${isReadOnly ? 'disabled' : ''} id="lpInvitedEmailsInput" value="${this.escapeHtml(Array.isArray(les?.invitedEmails) ? les.invitedEmails.join(', ') : '')}" placeholder="studente1@email.com, studente2@email.com" class="w-full rounded-xl border border-blue-200 dark:border-slate-700 bg-white dark:bg-navy-900 px-3 py-2 text-xs ${isReadOnly ? 'opacity-70 cursor-not-allowed' : ''}">
                                 <p class="text-[10px] text-slate-400 mt-0.5">Gli indirizzi email riceveranno i dettagli della lezione.</p>
                             </div>
                         </div>
@@ -12104,38 +12221,38 @@ Dettagli di Sistema:
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                             <div>
                                 <label class="block font-bold mb-1">${this.t("objectivesLabel")}</label>
-                                <textarea id="lpObjectivesInput" oninput="app.autoResizeTextarea(this)" class="auto-expand w-full rounded-xl border border-sky-200 dark:border-slate-700 bg-transparent p-2.5">${this.escapeHtml(les?.objectives || '')}</textarea>
+                                <textarea ${isReadOnly ? 'disabled' : ''} id="lpObjectivesInput" oninput="app.autoResizeTextarea(this)" class="auto-expand w-full rounded-xl border border-sky-200 dark:border-slate-700 bg-transparent p-2.5">${this.escapeHtml(les?.objectives || '')}</textarea>
                             </div>
                             <div>
                                 <label class="block font-bold mb-1">${this.t("topicsContentsLabel")}</label>
-                                <textarea id="lpTopicsInput" oninput="app.autoResizeTextarea(this)" class="auto-expand w-full rounded-xl border border-sky-200 dark:border-slate-700 bg-transparent p-2.5">${this.escapeHtml(les?.topics || '')}</textarea>
+                                <textarea ${isReadOnly ? 'disabled' : ''} id="lpTopicsInput" oninput="app.autoResizeTextarea(this)" class="auto-expand w-full rounded-xl border border-sky-200 dark:border-slate-700 bg-transparent p-2.5">${this.escapeHtml(les?.topics || '')}</textarea>
                             </div>
                             <div>
                                 <label class="block font-bold mb-1">${this.t("activitiesMethodLabel")}</label>
-                                <textarea id="lpMethodInput" oninput="app.autoResizeTextarea(this)" class="auto-expand w-full rounded-xl border border-sky-200 dark:border-slate-700 bg-transparent p-2.5">${this.escapeHtml(les?.methodology || '')}</textarea>
+                                <textarea ${isReadOnly ? 'disabled' : ''} id="lpMethodInput" oninput="app.autoResizeTextarea(this)" class="auto-expand w-full rounded-xl border border-sky-200 dark:border-slate-700 bg-transparent p-2.5">${this.escapeHtml(les?.methodology || '')}</textarea>
                             </div>
                             <div>
                                 <label class="block font-bold mb-1">${this.t("materialsResourcesLabel")}</label>
-                                <textarea id="lpMaterialsInput" oninput="app.autoResizeTextarea(this)" class="auto-expand w-full rounded-xl border border-sky-200 dark:border-slate-700 bg-transparent p-2.5">${this.escapeHtml(les?.materials || '')}</textarea>
+                                <textarea ${isReadOnly ? 'disabled' : ''} id="lpMaterialsInput" oninput="app.autoResizeTextarea(this)" class="auto-expand w-full rounded-xl border border-sky-200 dark:border-slate-700 bg-transparent p-2.5">${this.escapeHtml(les?.materials || '')}</textarea>
                             </div>
                             <div>
                                 <label class="block font-bold mb-1">${this.t("homeworkVerifyLabel")}</label>
-                                <textarea id="lpHomeworkInput" oninput="app.autoResizeTextarea(this)" class="auto-expand w-full rounded-xl border border-sky-200 dark:border-slate-700 bg-transparent p-2.5">${this.escapeHtml(les?.homework || '')}</textarea>
+                                <textarea ${isReadOnly ? 'disabled' : ''} id="lpHomeworkInput" oninput="app.autoResizeTextarea(this)" class="auto-expand w-full rounded-xl border border-sky-200 dark:border-slate-700 bg-transparent p-2.5">${this.escapeHtml(les?.homework || '')}</textarea>
                             </div>
                             <div>
                                 <label class="block font-bold mb-1">${this.t("notesLabel")}</label>
-                                <textarea id="lpNotesInput" oninput="app.autoResizeTextarea(this)" class="auto-expand w-full rounded-xl border border-sky-200 dark:border-slate-700 bg-transparent p-2.5">${this.escapeHtml(les?.notes || '')}</textarea>
+                                <textarea ${isReadOnly ? 'disabled' : ''} id="lpNotesInput" oninput="app.autoResizeTextarea(this)" class="auto-expand w-full rounded-xl border border-sky-200 dark:border-slate-700 bg-transparent p-2.5">${this.escapeHtml(les?.notes || '')}</textarea>
                             </div>
                         </div>
 
                         <div class="flex items-center justify-between gap-2 pt-2 border-t border-sky-100 dark:border-slate-800">
-                            ${!isNew ? `
+                            ${(!isNew && !isReadOnly) ? `
                                 <button type="button" onclick="app.confirmRemoveDateFromModule('${slotKey}')" class="px-3.5 py-2 rounded-xl border border-rose-200 text-rose-600 font-bold">${this.t("deleteBtn")}</button>
                             ` : `<div></div>`}
                             <div class="flex items-center gap-2">
                                 <button type="button" onclick="app.copyLessonStudentInvitation('${course.id}', '${targetSec.id}', '${slotKey || ''}')" class="px-3.5 py-2 rounded-xl border border-sky-300 dark:border-slate-700 font-bold text-sky-700 dark:text-sky-300 hover:bg-sky-50 dark:hover:bg-navy-800 transition flex items-center gap-1.5"><i class="fa-solid fa-share-nodes"></i> ${this.t("copyLessonInviteBtn")}</button>
-                                <button type="button" onclick="app.closeModal()" class="px-4 py-2 rounded-xl border border-slate-300 dark:border-slate-700 font-bold">${this.t("cancelBtn")}</button>
-                                <button type="submit" class="px-5 py-2 rounded-xl bg-sky-600 text-white font-extrabold">${this.t("saveBtn")}</button>
+                                <button type="button" onclick="app.closeModal()" class="px-4 py-2 rounded-xl border border-slate-300 dark:border-slate-700 font-bold">${isReadOnly ? (this.t("closeBtn") || "Chiudi") : this.t("cancelBtn")}</button>
+                                ${!isReadOnly ? `<button type="submit" class="px-5 py-2 rounded-xl bg-sky-600 text-white font-extrabold">${this.t("saveBtn")}</button>` : ''}
                             </div>
                         </div>
                     </form>
@@ -12147,7 +12264,7 @@ Dettagli di Sistema:
                 if (e) e.preventDefault();
                 try {
                     const course = (this.state.courses || []).find(c => c.id === courseId);
-                    if (!course) return;
+                    if (!course || this.guardNotReadOnly(course)) return;
                     let sec = null;
                     (course.levels || []).forEach(l => {
                         const m = (l.modules || []).find(x => x.id === sectionId);
@@ -12233,7 +12350,7 @@ Dettagli di Sistema:
             confirmRemoveDateFromModule(slotKey) {
                 const course = this.getActiveCourse();
                 const sec = this.getActiveSection(course);
-                if (!course || !sec) return;
+                if (!course || !sec || this.guardNotReadOnly(course)) return;
                 sec.dates = (sec.dates || []).filter(d => d !== slotKey);
                 if (sec.attendance) {
                     Object.keys(sec.attendance).forEach(stId => {
@@ -12252,7 +12369,7 @@ Dettagli di Sistema:
             openRecurringGeneratorModal() {
                 const course = this.getActiveCourse();
                 const sec = this.getActiveSection(course);
-                if (!course || !sec) return;
+                if (!course || !sec || this.guardNotReadOnly(course)) return;
                 const now = new Date();
                 const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
                 const daysMon = this.t("daysShortMon");
@@ -12305,7 +12422,7 @@ Dettagli di Sistema:
                 if (e) e.preventDefault();
                 const course = this.getActiveCourse();
                 const sec = this.getActiveSection(course);
-                if (!course || !sec) return;
+                if (!course || !sec || this.guardNotReadOnly(course)) return;
 
                 const startStr = document.getElementById("recStartDate")?.value;
                 const count = Math.min(200, Math.max(1, parseInt(document.getElementById("recCount")?.value, 10) || 10));
@@ -12602,7 +12719,7 @@ Dettagli di Sistema:
                 if (!targetSec) targetSec = this.getActiveSection(course);
                 if (!targetSec) return;
 
-                const isReadOnly = !!course.archived;
+                const isReadOnly = this.isCourseReadOnly(course);
                 const dOnly = this.extractDateFromSlotKey(slotKey);
                 const les = this.findLessonForSlot(course, targetSec.id, slotKey);
                 const sTime = les?.time || targetSec.startTime || course.startTime || "19:00";
@@ -12630,7 +12747,11 @@ Dettagli di Sistema:
                                 <i class="fa-solid fa-lock"></i>
                                 <span>Corso archiviato: modifiche disabilitate in sola lettura.</span>
                             </div>
-                            <div class="pt-2 flex justify-end">
+                            <div class="pt-2 flex items-center justify-between gap-2">
+                                <button type="button" onclick="app.closeModal(true); app.openLessonPlanModal('${course.id}', '${targetSec.id}', '${slotKey}');" class="px-3.5 py-2 rounded-xl border border-sky-300 dark:border-sky-700 bg-sky-50/70 dark:bg-navy-800 hover:bg-sky-100 text-sky-700 dark:text-sky-200 font-bold flex items-center gap-1.5">
+                                    <i class="fa-solid fa-eye text-xs"></i>
+                                    <span>Pianificazione (Sola lettura)</span>
+                                </button>
                                 <button type="button" onclick="app.closeModal()" class="px-4 py-2 rounded-xl border border-sky-200 dark:border-slate-700 font-bold hover:bg-sky-50 dark:hover:bg-navy-800">Chiudi</button>
                             </div>
                         ` : `
@@ -12676,7 +12797,7 @@ Dettagli di Sistema:
             saveQuickLessonAction(event, courseId, moduleId, oldSlotKey) {
                 if (event) event.preventDefault();
                 const course = (this.state.courses || []).find(c => c.id === courseId) || this.getActiveCourse();
-                if (!course || course.archived) return;
+                if (!course || this.guardNotReadOnly(course)) return;
                 let targetSec = null;
                 (course.levels || []).forEach(l => {
                     const m = (l.modules || []).find(x => x.id === moduleId);
@@ -12771,6 +12892,8 @@ Dettagli di Sistema:
             }
 
             confirmDeleteLesson(courseId, moduleId, slotKey) {
+                const cCheck = (this.state.courses || []).find(c => c.id === courseId) || this.getActiveCourse();
+                if (!cCheck || this.guardNotReadOnly(cCheck)) return;
                 this.openConfirmModal({
                     title: "Elimina Lezione",
                     message: "Sei sicuro di voler eliminare questa lezione? Questa azione non può essere annullata.",
@@ -12781,7 +12904,7 @@ Dettagli di Sistema:
                     },
                     onConfirm: () => {
                         const course = (this.state.courses || []).find(c => c.id === courseId) || this.getActiveCourse();
-                        if (!course || course.archived) return;
+                        if (!course || this.guardNotReadOnly(course)) return;
                         let targetSec = null;
                         (course.levels || []).forEach(l => {
                             const m = (l.modules || []).find(x => x.id === moduleId);

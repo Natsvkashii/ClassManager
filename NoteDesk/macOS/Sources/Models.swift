@@ -21,7 +21,7 @@ public struct AuthorAttribution {
     public static let authorName = "Guaira Jaramillo Nitoglia"
     public static let authorEmail = "guaira.jaramillo.nitoglia@gmail.com"
     public static let appName = "NoteDesk"
-    public static let appVersion = "26.11.2-016"
+    public static let appVersion = "26.11.2-017"
     public static let isUnstableBuild: Int = 1
     public static let buildType: String = "beta"
     public static let license = "GNU General Public License v3.0 (GPL-3.0)"
