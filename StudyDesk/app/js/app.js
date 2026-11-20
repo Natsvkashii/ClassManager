@@ -57,7 +57,8 @@ export const app = {
 let cleanup = null;
 function highlight() {
   const route = (location.hash.replace(/^#\//, '').split('/')[0]) || 'home';
-  document.querySelectorAll('.nav-btn').forEach((b) => b.classList.toggle('active', b.dataset.route === (route === 'module' ? 'library' : route)));
+  const activeRoute = (route === 'module' || route === 'library') ? 'home' : route;
+  document.querySelectorAll('.nav-btn').forEach((b) => b.classList.toggle('active', b.dataset.route === activeRoute));
 }
 
 async function route() {

@@ -164,6 +164,7 @@ export async function createShelf({ entries, app, urls, scroller, onChange }) {
       grid.querySelectorAll('.book-card').forEach((c) => c.classList.remove('drag-over'));
     });
     card.addEventListener('dragover', (e) => {
+      if (e.dataTransfer?.types && [...e.dataTransfer.types].includes('Files')) return;
       e.preventDefault();
       e.dataTransfer.dropEffect = 'move';
       card.classList.add('drag-over');
@@ -172,6 +173,7 @@ export async function createShelf({ entries, app, urls, scroller, onChange }) {
       card.classList.remove('drag-over');
     });
     card.addEventListener('drop', async (e) => {
+      if (e.dataTransfer?.types && [...e.dataTransfer.types].includes('Files')) return;
       e.preventDefault();
       card.classList.remove('drag-over');
       const srcId = e.dataTransfer.getData('text/plain');
@@ -446,7 +448,7 @@ export async function createShelf({ entries, app, urls, scroller, onChange }) {
     current = null; busy = false;
     clearContext();
     history.replaceState(null, '', '#/home');
-    app.setTitle('Home');
+    app.setTitle('Libreria');
     onChange && onChange(null);
   }
 

@@ -1,5 +1,8 @@
 # Changelog
 
+## v26.11.2-018 (Beta) – 19 novembre 2026
+- **Windows / Libreria — Importazione file**: aggiunto il pulsante **Importa** nella barra superiore della pagina principale (sempre visibile sia a libreria vuota sia con libri già importati) e la scorciatoia `Ctrl+O`; sostituita l'azione non funzionante nello stato vuoto con una dropzone cliccabile/trascinabile; ripristinata la visualizzazione dei moduli singoli `.sdmod`; reso asincrono il selettore file nativo WebView2 (`GetOpenFileNameW`/`GetSaveFileNameW`) con supporto `.sdgroup` e drag & drop non bloccato sulle copertine.
+
 ## v26.11.2-016 (Beta) – 16 novembre 2026
 - **Windows**: aggiunti metadati `VS_VERSION_INFO` nell'eseguibile e rimosso il comando shell nascosto (`cmd.exe`) dal disinstallatore per ridurre i falsi positivi di Windows Defender.
 

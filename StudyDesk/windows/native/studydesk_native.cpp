@@ -360,12 +360,13 @@ static int Install(const std::wstring &self, bool silent) {
         RegStr(k, L"BuildType", APP_BUILD_TYPE);
         RegCloseKey(k);
     }
-    // .sdmod / .sdbook open in StudyDesk
+    // .sdmod / .sdbook / .sdgroup open in StudyDesk
     RegDefault(L"Software\\Classes\\StudyDesk.module", L"Modulo o libro StudyDesk");
     RegDefault(L"Software\\Classes\\StudyDesk.module\\DefaultIcon", icon);
     RegDefault(L"Software\\Classes\\StudyDesk.module\\shell\\open\\command", L"\"" + InstalledExe() + L"\" \"%1\"");
     RegDefault(L"Software\\Classes\\.sdmod", L"StudyDesk.module");
     RegDefault(L"Software\\Classes\\.sdbook", L"StudyDesk.module");
+    RegDefault(L"Software\\Classes\\.sdgroup", L"StudyDesk.module");
     SHChangeNotify(SHCNE_ASSOCCHANGED, SHCNF_IDLIST, NULL, NULL);
     CoInitializeEx(NULL, COINIT_APARTMENTTHREADED);
     Shortcut(InstalledExe(), KnownFolder(CSIDL_DESKTOPDIRECTORY) + L"\\StudyDesk.lnk", icon);
@@ -402,7 +403,9 @@ static void SetFullScreen(bool on) {
 static std::wstring g_filesDir;
 static int g_fileSeq = 0;
 static std::string ServeFile(const std::wstring &path) {
-    std::wstring name = path.substr(path.find_last_of(L"\\/") + 1);
+    MakeDirs(g_filesDir);
+    size_t sep = path.find_last_of(L"\\/");
+    std::wstring name = (sep == std::wstring::npos) ? path : path.substr(sep + 1);
     std::wstring id = std::to_wstring(GetTickCount64()) + L"-" + std::to_wstring(++g_fileSeq);
     if (!CopyFileW(path.c_str(), (g_filesDir + L"\\" + id).c_str(), FALSE)) return "";
     return "{\"name\":\"" + JsonEscape(WideToUtf8(name)) + "\",\"url\":\"https://files.studydesk.app/" + WideToUtf8(id) + "\"}";
@@ -522,7 +525,11 @@ static DWORD WINAPI HubLinkThread(LPVOID) {
 static const char *BRIDGE_JS = R"JS(
 (function () {
   const toB64 = (buf) => { const b = new Uint8Array(buf); let s = ''; for (let i = 0; i < b.length; i += 0x8000) s += String.fromCharCode.apply(null, b.subarray(i, i + 0x8000)); return btoa(s); };
-  const fetchFiles = async (list) => Promise.all((list || []).map(async (f) => ({ name: f.name, data: await (await fetch(f.url)).arrayBuffer() })));
+  const fetchFiles = async (list) => Promise.all((list || []).map(async (f) => {
+    const res = await fetch(f.url);
+    if (!res.ok) throw new Error('Impossibile leggere il file ' + f.name + ' (HTTP ' + res.status + ')');
+    return { name: f.name, data: await res.arrayBuffer() };
+  }));
   const noop = () => () => {};
   const openCbs = [];
   window.__sd_hub_deliver = function(jsonStr) {
@@ -582,9 +589,13 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int) {
     bool installed = !_wcsicmp(self.c_str(), InstalledExe().c_str());
     if (!installed || silent || has(L"--install")) return Install(self, silent);
 
+    auto hasExt = [](const std::wstring &s, const wchar_t *ext) {
+        size_t n = wcslen(ext);
+        return s.size() > n && !_wcsicmp(s.c_str() + (s.size() - n), ext);
+    };
     for (int i = 1; i < argc; i++) {
-        std::wstring a = argv[i], low = a; std::transform(low.begin(), low.end(), low.begin(), ::towlower);
-        if (low.size() > 6 && (low.rfind(L".sdmod") == low.size() - 6 || low.rfind(L".sdbook") == low.size() - 7) && Exists(a)) g_pending.push_back(a);
+        std::wstring a = argv[i];
+        if ((hasExt(a, L".sdmod") || hasExt(a, L".sdbook") || hasExt(a, L".sdgroup")) && Exists(a)) g_pending.push_back(a);
     }
     HANDLE mutex = CreateMutexW(NULL, TRUE, L"Local\\ClassDeskSuite.StudyDesk");
     if (GetLastError() == ERROR_ALREADY_EXISTS) {
@@ -682,48 +693,55 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int) {
         handler->Release();
     }
 
-    w.bind("__sd_save_file", [](std::string req) -> std::string {
-        std::wstring name = Utf8ToWide(ParseJsonArg(req, 0));
-        std::string data = B64Decode(ParseJsonArg(req, 1));
-        wchar_t file[MAX_PATH] = {0}; wcsncpy(file, name.c_str(), MAX_PATH - 1);
-        std::wstring ext = name.find_last_of(L'.') != std::wstring::npos ? name.substr(name.find_last_of(L'.') + 1) : L"*";
-        std::wstring filter = ext + L" (*." + ext + L")" + std::wstring(1, L'\0') + L"*." + ext + std::wstring(1, L'\0') + L"Tutti i file" + std::wstring(1, L'\0') + L"*.*" + std::wstring(2, L'\0');
-        OPENFILENAMEW of = {sizeof(of)}; of.hwndOwner = g_hwnd; of.lpstrFile = file; of.nMaxFile = MAX_PATH; of.lpstrFilter = filter.c_str();
-        of.lpstrDefExt = ext.c_str(); of.Flags = OFN_OVERWRITEPROMPT | OFN_PATHMUSTEXIST;
-        if (!GetSaveFileNameW(&of)) return "{\"ok\":false,\"canceled\":true}";
-        HANDLE h = CreateFileW(file, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
-        if (h == INVALID_HANDLE_VALUE) return "{\"ok\":false,\"error\":\"Impossibile scrivere il file\"}";
-        DWORD wr = 0; WriteFile(h, data.data(), (DWORD)data.size(), &wr, NULL); CloseHandle(h);
-        return "{\"ok\":true,\"path\":\"" + JsonEscape(WideToUtf8(file)) + "\"}";
-    });
-    w.bind("__sd_open_files", [](std::string req) -> std::string {
-        std::string opts = ParseJsonArg(req, 0);
-        bool multiple = opts.find("\"multiple\":true") != std::string::npos;
-        std::wstring pattern; // *.sdmod;*.sdbook from "extensions":["sdmod","sdbook"]
-        size_t e = opts.find("\"extensions\"");
-        if (e != std::string::npos) {
-            size_t end = opts.find(']', e);
-            for (size_t q = opts.find('"', opts.find('[', e)); q != std::string::npos && q < end; ) {
-                size_t q2 = opts.find('"', q + 1); if (q2 == std::string::npos || q2 > end) break;
-                pattern += (pattern.empty() ? L"" : L";") + std::wstring(L"*.") + Utf8ToWide(opts.substr(q + 1, q2 - q - 1));
-                q = opts.find('"', q2 + 1);
+    w.bind("__sd_save_file", [&w](const std::string &seq, const std::string &req, void *) {
+        w.dispatch([&w, seq, req]() {
+            std::wstring name = Utf8ToWide(ParseJsonArg(req, 0));
+            std::string data = B64Decode(ParseJsonArg(req, 1));
+            wchar_t file[MAX_PATH] = {0}; wcsncpy(file, name.c_str(), MAX_PATH - 1);
+            std::wstring ext = name.find_last_of(L'.') != std::wstring::npos ? name.substr(name.find_last_of(L'.') + 1) : L"*";
+            std::wstring filter = ext + L" (*." + ext + L")" + std::wstring(1, L'\0') + L"*." + ext + std::wstring(1, L'\0') + L"Tutti i file" + std::wstring(1, L'\0') + L"*.*" + std::wstring(2, L'\0');
+            OPENFILENAMEW of = {sizeof(of)}; of.hwndOwner = g_hwnd; of.lpstrFile = file; of.nMaxFile = MAX_PATH; of.lpstrFilter = filter.c_str();
+            of.lpstrDefExt = ext.c_str(); of.Flags = OFN_OVERWRITEPROMPT | OFN_PATHMUSTEXIST | OFN_NOCHANGEDIR;
+            if (!GetSaveFileNameW(&of)) { w.resolve(seq, 0, "{\"ok\":false,\"canceled\":true}"); return; }
+            HANDLE h = CreateFileW(file, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+            if (h == INVALID_HANDLE_VALUE) { w.resolve(seq, 0, "{\"ok\":false,\"error\":\"Impossibile scrivere il file\"}"); return; }
+            DWORD wr = 0; WriteFile(h, data.data(), (DWORD)data.size(), &wr, NULL); CloseHandle(h);
+            w.resolve(seq, 0, "{\"ok\":true,\"path\":\"" + JsonEscape(WideToUtf8(file)) + "\"}");
+        });
+    }, nullptr);
+    w.bind("__sd_open_files", [&w](const std::string &seq, const std::string &req, void *) {
+        w.dispatch([&w, seq, req]() {
+            std::string opts = ParseJsonArg(req, 0);
+            bool multiple = opts.find("\"multiple\":true") != std::string::npos;
+            std::wstring pattern; // *.sdmod;*.sdbook from "extensions":["sdmod","sdbook"]
+            size_t e = opts.find("\"extensions\"");
+            if (e != std::string::npos) {
+                size_t end = opts.find(']', e);
+                for (size_t q = opts.find('"', opts.find('[', e)); q != std::string::npos && q < end; ) {
+                    size_t q2 = opts.find('"', q + 1); if (q2 == std::string::npos || q2 > end) break;
+                    pattern += (pattern.empty() ? L"" : L";") + std::wstring(L"*.") + Utf8ToWide(opts.substr(q + 1, q2 - q - 1));
+                    q = opts.find('"', q2 + 1);
+                }
             }
-        }
-        if (pattern.empty()) pattern = L"*.*";
-        std::wstring filter = L"File (" + pattern + L")" + std::wstring(1, L'\0') + pattern + std::wstring(1, L'\0') + L"Tutti i file" + std::wstring(1, L'\0') + L"*.*" + std::wstring(2, L'\0');
-        std::vector<wchar_t> buf(65536, 0);
-        OPENFILENAMEW of = {sizeof(of)}; of.hwndOwner = g_hwnd; of.lpstrFile = buf.data(); of.nMaxFile = (DWORD)buf.size(); of.lpstrFilter = filter.c_str();
-        of.Flags = OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST | OFN_EXPLORER | (multiple ? OFN_ALLOWMULTISELECT : 0);
-        if (!GetOpenFileNameW(&of)) return "[]";
-        std::vector<std::wstring> paths;
-        std::wstring first = buf.data();
-        const wchar_t *p = buf.data() + first.size() + 1;
-        if (!*p) paths.push_back(first);
-        else for (; *p; p += wcslen(p) + 1) paths.push_back(first + L"\\" + p);
-        std::string out = "[";
-        for (auto &f : paths) { std::string j = ServeFile(f); if (!j.empty()) out += (out.size() > 1 ? "," : "") + j; }
-        return out + "]";
-    });
+            if (pattern.empty()) pattern = L"*.*";
+            std::wstring filter = L"File (" + pattern + L")" + std::wstring(1, L'\0') + pattern + std::wstring(1, L'\0') + L"Tutti i file" + std::wstring(1, L'\0') + L"*.*" + std::wstring(2, L'\0');
+            std::vector<wchar_t> buf(65536, 0);
+            OPENFILENAMEW of = {sizeof(of)}; of.hwndOwner = g_hwnd; of.lpstrFile = buf.data(); of.nMaxFile = (DWORD)buf.size(); of.lpstrFilter = filter.c_str();
+            of.Flags = OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST | OFN_EXPLORER | OFN_NOCHANGEDIR | (multiple ? OFN_ALLOWMULTISELECT : 0);
+            if (!GetOpenFileNameW(&of)) { w.resolve(seq, 0, "[]"); return; }
+            std::vector<std::wstring> paths;
+            std::wstring first = buf.data();
+            const wchar_t *p = buf.data() + first.size() + 1;
+            if (!*p) paths.push_back(first);
+            else {
+                std::wstring dir = (!first.empty() && first.back() == L'\\') ? first : (first + L"\\");
+                for (; *p; p += wcslen(p) + 1) paths.push_back(dir + p);
+            }
+            std::string out = "[";
+            for (auto &f : paths) { std::string j = ServeFile(f); if (!j.empty()) out += (out.size() > 1 ? "," : "") + j; }
+            w.resolve(seq, 0, out + "]");
+        });
+    }, nullptr);
     w.bind("__sd_take_pending", [](std::string) -> std::string {
         std::string out = "[";
         for (auto &f : g_pending) { std::string j = ServeFile(f); if (!j.empty()) out += (out.size() > 1 ? "," : "") + j; }
