@@ -1587,7 +1587,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
         }
 
         const INITIAL_DATA = {
-            version: "26.11.2-018",
+            version: "26.11.2-019",
             channel: IS_UNSTABLE_BUILD === 1 ? "unstable" : "stable",
             buildType: BUILD_TYPE,
             deletedItems: [],
@@ -9306,27 +9306,70 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 }
             }
 
-            getLessonPricing(mod, slotKey, courseObj = null) {
-                if (!mod) return { net: 0, vatPct: 0, discType: 'percent', discVal: 0, discountAmount: 0, netAfterDiscount: 0, vatAmount: 0, gross: 0, durationHours: 1.5, hasOverride: false };
+            getLessonPricing(mod, slotKey, courseObj = null, billingOverride = null) {
+                if (!mod) {
+                    return {
+                        net: 0, vatPct: 0, discType: 'percent', discTarget: 'total', discVal: 0,
+                        discountAmount: 0, netAfterDiscount: 0, vatAmount: 0, gross: 0,
+                        durationHours: 1.5, hasOverride: false,
+                        hasCustomPrice: false, hasCustomVat: false, hasCustomDiscount: false
+                    };
+                }
                 const course = courseObj || this.findCourseForModule(mod);
-                const b = mod.billing || {};
-                const defaultHourly = parseFloat(this.state?.settings?.defaultHourlyRate) || 10.0;
-                const defaultVat = parseFloat(this.state?.settings?.defaultVatPercent) || 15.0;
+                const eff = billingOverride || this.getEffectiveModuleBilling(mod, course);
+                const overrides = eff.lessonOverrides || {};
 
-                const hourly = (b.hourlyRateNet !== undefined && b.hourlyRateNet !== null && b.hourlyRateNet !== "") ? parseFloat(b.hourlyRateNet) : defaultHourly;
+                const hourly = eff.hourlyRateNet;
                 const duration = this.getLessonDurationHoursForSlot(course, mod, slotKey);
                 const baseNet = hourly * duration;
 
-                const ov = (b.lessonOverrides && b.lessonOverrides[slotKey]) ? b.lessonOverrides[slotKey] : null;
+                const ov = overrides[slotKey] || null;
+                const hasCustomPrice = !!(ov && ov.price !== undefined && ov.price !== null && ov.price !== "");
+                const hasCustomVat = !!(ov && ov.vatPercent !== undefined && ov.vatPercent !== null && ov.vatPercent !== "");
+                const hasCustomDiscount = !!(ov && ov.discountValue !== undefined && ov.discountValue !== null && ov.discountValue !== "");
+                const hasOverride = hasCustomPrice || hasCustomVat || hasCustomDiscount;
 
-                const net = (ov && ov.price !== undefined && ov.price !== null && ov.price !== "") ? parseFloat(ov.price) : baseNet;
-                const vatPct = (ov && ov.vatPercent !== undefined && ov.vatPercent !== null && ov.vatPercent !== "") ? parseFloat(ov.vatPercent) : ((b.vatPercent !== undefined && b.vatPercent !== null && b.vatPercent !== "") ? parseFloat(b.vatPercent) : defaultVat);
-                const discType = (ov && ov.discountType) ? ov.discountType : (b.discountType || "percent");
-                const discVal = (ov && ov.discountValue !== undefined && ov.discountValue !== null && ov.discountValue !== "") ? parseFloat(ov.discountValue) : (parseFloat(b.discountValue) || 0);
+                const parsedPrice = hasCustomPrice ? parseFloat(ov.price) : NaN;
+                const parsedVat = hasCustomVat ? parseFloat(ov.vatPercent) : NaN;
+
+                const net = (hasCustomPrice && Number.isFinite(parsedPrice)) ? Math.max(0, parsedPrice) : baseNet;
+                const vatPct = (hasCustomVat && Number.isFinite(parsedVat)) ? Math.max(0, parsedVat) : eff.vatPercent;
+                const discType = (hasCustomDiscount && ov.discountType) ? ov.discountType : (eff.discountType || "percent");
+                const discTarget = eff.discountTarget || "total";
 
                 let discountAmount = 0;
-                if (discVal > 0) {
-                    discountAmount = discType === "percent" ? (net * (discVal / 100)) : discVal;
+                let effectiveDiscVal = 0;
+                if (hasCustomDiscount) {
+                    const parsedDisc = parseFloat(ov.discountValue);
+                    const rawV = Number.isFinite(parsedDisc) ? Math.max(0, parsedDisc) : 0;
+                    const rawDisc = discType === "percent" ? (net * (rawV / 100)) : rawV;
+                    discountAmount = Math.min(net, rawDisc);
+                    effectiveDiscVal = rawV;
+                } else {
+                    const modDiscVal = Math.max(0, parseFloat(eff.discountValue) || 0);
+                    if (modDiscVal > 0) {
+                        if (discType === "percent") {
+                            discountAmount = Math.min(net, net * (modDiscVal / 100));
+                            effectiveDiscVal = modDiscVal;
+                        } else if (discType === "fixed") {
+                            if (discTarget === "per_hour") {
+                                discountAmount = Math.min(net, modDiscVal * duration);
+                                effectiveDiscVal = Math.round(discountAmount * 100) / 100;
+                            } else if (Array.isArray(mod.dates) && mod.dates.length > 0) {
+                                const totalNet = mod.dates.reduce((acc, sk) => {
+                                    const skOv = overrides[sk];
+                                    const skHasPrice = !!(skOv && skOv.price !== undefined && skOv.price !== null && skOv.price !== "");
+                                    const skParsed = skHasPrice ? parseFloat(skOv.price) : NaN;
+                                    const skNet = (skHasPrice && Number.isFinite(skParsed))
+                                        ? Math.max(0, skParsed)
+                                        : (hourly * this.getLessonDurationHoursForSlot(course, mod, sk));
+                                    return acc + skNet;
+                                }, 0);
+                                discountAmount = totalNet > 0 ? Math.min(net, Math.min(totalNet, modDiscVal) * (net / totalNet)) : 0;
+                                effectiveDiscVal = Math.round(discountAmount * 100) / 100;
+                            }
+                        }
+                    }
                 }
                 const netAfterDiscount = Math.max(0, net - discountAmount);
                 const vatAmount = netAfterDiscount * (vatPct / 100);
@@ -9336,30 +9379,23 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                     net,
                     vatPct,
                     discType,
-                    discVal,
+                    discTarget,
+                    discVal: effectiveDiscVal,
                     discountAmount,
                     netAfterDiscount,
                     vatAmount,
                     gross,
                     durationHours: duration,
-                    hasOverride: !!ov
+                    hasOverride,
+                    hasCustomPrice,
+                    hasCustomVat,
+                    hasCustomDiscount
                 };
             }
 
             getModuleTotalGross(mod, courseObj = null) {
                 if (!mod || !Array.isArray(mod.dates)) return 0;
                 const course = courseObj || this.findCourseForModule(mod);
-                const b = mod.billing || {};
-                if ((!b.lessonOverrides || Object.keys(b.lessonOverrides).length === 0) && b.discountType === "fixed" && (parseFloat(b.discountValue) || 0) > 0) {
-                    const defaultHourly = parseFloat(this.state?.settings?.defaultHourlyRate) || 10.0;
-                    const defaultVat = parseFloat(this.state?.settings?.defaultVatPercent) || 15.0;
-                    const hourly = (b.hourlyRateNet !== undefined && b.hourlyRateNet !== null && b.hourlyRateNet !== "") ? parseFloat(b.hourlyRateNet) : defaultHourly;
-                    const vatPct = (b.vatPercent !== undefined && b.vatPercent !== null && b.vatPercent !== "") ? parseFloat(b.vatPercent) : defaultVat;
-                    const totalHours = this.getModuleTotalHours(course, mod);
-                    const totalNet = hourly * totalHours;
-                    const netAfter = Math.max(0, totalNet - (parseFloat(b.discountValue) || 0));
-                    return netAfter + (netAfter * (vatPct / 100));
-                }
                 return mod.dates.reduce((sum, sk) => sum + this.getLessonPricing(mod, sk, course).gross, 0);
             }
 
@@ -9379,6 +9415,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                     ? parseFloat(b.vatPercent)
                     : defaultVat;
                 const discountType = b.discountType || "percent";
+                const discountTarget = b.discountTarget || "total";
                 const discountValue = parseFloat(b.discountValue) || 0;
                 const studentPaidAmount = (b.studentPaidAmount !== undefined && b.studentPaidAmount !== null && !isNaN(parseFloat(b.studentPaidAmount)))
                     ? parseFloat(b.studentPaidAmount)
@@ -9387,6 +9424,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                     hourlyRateNet,
                     vatPercent,
                     discountType,
+                    discountTarget,
                     discountValue,
                     studentPaidAmount,
                     lessonOverrides: b.lessonOverrides || {}
@@ -9397,10 +9435,17 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 const rate = Math.max(0, parseFloat(billingLike?.hourlyRateNet) || 0);
                 if (rate <= 0) return 0;
                 const discType = billingLike?.discountType || "percent";
+                const discTarget = billingLike?.discountTarget || "total";
                 const discVal = Math.max(0, parseFloat(billingLike?.discountValue) || 0);
-                const discFactor = (discType === "percent" && discVal > 0) ? Math.max(0, 1 - discVal / 100) : 1;
                 const vatPct = Math.max(0, parseFloat(billingLike?.vatPercent) || 0);
-                return rate * discFactor * (1 + vatPct / 100);
+                const vatMultiplier = 1 + vatPct / 100;
+                if (discType === "percent" && discVal > 0) {
+                    return rate * Math.max(0, 1 - discVal / 100) * vatMultiplier;
+                }
+                if (discType === "fixed" && discTarget === "per_hour" && discVal > 0) {
+                    return Math.max(0, rate - discVal) * vatMultiplier;
+                }
+                return rate * vatMultiplier;
             }
 
             computePaidHoursFromBilling(billingLike) {
@@ -9410,8 +9455,13 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 const vatPct = Math.max(0, parseFloat(billingLike?.vatPercent) || 0);
                 const vatMultiplier = 1 + vatPct / 100;
                 const discType = billingLike?.discountType || "percent";
+                const discTarget = billingLike?.discountTarget || "total";
                 const discVal = Math.max(0, parseFloat(billingLike?.discountValue) || 0);
                 if (discType === "fixed") {
+                    if (discTarget === "per_hour") {
+                        const effGrossRate = this.getEffectiveGrossHourlyRate(billingLike);
+                        return effGrossRate > 0 ? (paidAmt / effGrossRate) : 0;
+                    }
                     const paidNetAfterDiscount = paidAmt / vatMultiplier;
                     return (paidNetAfterDiscount + discVal) / rate;
                 }
@@ -9433,7 +9483,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 let remaining = eff.studentPaidAmount;
                 let coveredHours = 0;
                 for (const sk of slots) {
-                    const pr = this.getLessonPricing(mod, sk, course);
+                    const pr = this.getLessonPricing(mod, sk, course, eff);
                     const dur = Math.max(0, pr.durationHours || 0);
                     const gross = pr.gross || 0;
                     if (gross <= 0) {
@@ -9462,10 +9512,13 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 const missingHours = Math.max(0, paidHours - totalModHours);
                 const effGrossRate = this.getEffectiveGrossHourlyRate(billingLike);
                 const discType = billingLike?.discountType || "percent";
+                const discTarget = billingLike?.discountTarget || "total";
                 const discVal = parseFloat(billingLike?.discountValue) || 0;
                 const rateHint = effGrossRate > 0
                     ? (discType === "fixed" && discVal > 0
-                        ? `<span class="text-[11px] text-slate-400">(${this.formatMoney(effGrossRate)}/h con IVA, -${this.formatMoney(discVal)} sul totale)</span>`
+                        ? (discTarget === "per_hour"
+                            ? `<span class="text-[11px] text-slate-400">(${this.formatMoney(effGrossRate)}/h con sconto -${this.formatMoney(discVal)}/h e IVA)</span>`
+                            : `<span class="text-[11px] text-slate-400">(${this.formatMoney(effGrossRate)}/h con IVA, -${this.formatMoney(discVal)} sul totale)</span>`)
                         : `<span class="text-[11px] text-slate-400">(${this.formatMoney(effGrossRate)}/h con sconto e IVA)</span>`)
                     : '';
                 return `
@@ -9505,21 +9558,17 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 const hourlyRateNet = parseFloat(document.getElementById("batchHourlyRateNet")?.value) || 0;
                 const vatPercent = parseFloat(document.getElementById("batchVatPercent")?.value) || 0;
                 const discountType = document.getElementById("batchDiscountType")?.value || "percent";
+                const discountTarget = document.getElementById("batchDiscountTarget")?.value || "total";
                 const discountValue = parseFloat(document.getElementById("batchDiscountValue")?.value) || 0;
                 const studentPaidAmount = parseFloat(document.getElementById("batchPaidAmount")?.value) || 0;
-                const sameGlobal = (
-                    hourlyRateNet === saved.hourlyRateNet &&
-                    vatPercent === saved.vatPercent &&
-                    discountType === saved.discountType &&
-                    discountValue === saved.discountValue
-                );
                 const preview = {
                     hourlyRateNet,
                     vatPercent,
                     discountType,
+                    discountTarget,
                     discountValue,
                     studentPaidAmount,
-                    lessonOverrides: sameGlobal ? saved.lessonOverrides : {}
+                    lessonOverrides: saved.lessonOverrides
                 };
                 const paidH = this.getModulePaidHours(mod, course, preview);
                 const totalModH = this.getModuleTotalHours(course, mod);
@@ -9875,10 +9924,11 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                     });
                 });
 
-                const curEffBilling = currentModule ? this.getEffectiveModuleBilling(currentModule, course) : { hourlyRateNet: curSettingHourly, vatPercent: curSettingVat, discountType: "percent", discountValue: 0, studentPaidAmount: 0, lessonOverrides: {} };
+                const curEffBilling = currentModule ? this.getEffectiveModuleBilling(currentModule, course) : { hourlyRateNet: curSettingHourly, vatPercent: curSettingVat, discountType: "percent", discountTarget: "total", discountValue: 0, studentPaidAmount: 0, lessonOverrides: {} };
                 const curHourlyRate = curEffBilling.hourlyRateNet;
                 const curVat = curEffBilling.vatPercent;
                 const curDiscType = curEffBilling.discountType;
+                const curDiscTarget = curEffBilling.discountTarget || "total";
                 const curDiscVal = curEffBilling.discountValue;
                 const curPaidAmount = curEffBilling.studentPaidAmount;
                 const curPaidHours = currentModule ? this.getModulePaidHours(currentModule, course, curEffBilling) : 0;
@@ -10115,7 +10165,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                                         <span class="text-[11px] text-slate-400">La durata di ogni lezione viene calcolata automaticamente dall'orario di inizio e fine nel Piano Lezioni</span>
                                     </div>
 
-                                    <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3 items-end">
+                                    <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 items-end">
                                         <div>
                                             <label class="block font-bold text-[11px] text-slate-500 mb-1">Tariffa Oraria (${this.getCurrency()})</label>
                                             <input type="number" ${isReadOnly ? 'disabled' : ''} step="0.01" id="batchHourlyRateNet" value="${curHourlyRate}"
@@ -10138,12 +10188,24 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                                             </select>
                                         </div>
                                         <div>
+                                            <label class="block font-bold text-[11px] text-slate-500 mb-1">Applica Sconto</label>
+                                            <select id="batchDiscountTarget" ${isReadOnly ? 'disabled' : ''}
+                                                onchange="app.updateBillingHoursPreview('${course.id}', '${currentModule.id}')"
+                                                class="w-full h-9 rounded-xl border border-sky-200 dark:border-slate-700 bg-white dark:bg-navy-900 px-2 font-bold text-slate-800 dark:text-slate-100 ${isReadOnly ? 'opacity-60 cursor-not-allowed' : ''}">
+                                                <option value="total" ${curDiscTarget !== 'per_hour' ? 'selected' : ''}>Sul totale</option>
+                                                <option value="per_hour" ${curDiscTarget === 'per_hour' ? 'selected' : ''}>Per ora</option>
+                                            </select>
+                                        </div>
+                                        <div>
                                             <label class="block font-bold text-[11px] text-slate-500 mb-1">Valore Sconto</label>
                                             <input type="number" ${isReadOnly ? 'disabled' : ''} step="0.01" id="batchDiscountValue" value="${curDiscVal}"
                                                 oninput="app.updateBillingHoursPreview('${course.id}', '${currentModule.id}')"
                                                 class="w-full h-9 rounded-xl border border-sky-200 dark:border-slate-700 bg-white dark:bg-navy-900 px-3 font-bold text-slate-800 dark:text-slate-100 ${isReadOnly ? 'opacity-60 cursor-not-allowed' : ''}">
                                         </div>
-                                        <div>
+                                    </div>
+
+                                    <div class="flex flex-wrap items-end justify-between gap-3 pt-1">
+                                        <div class="w-full sm:w-64">
                                             <label class="block font-bold text-[11px] text-slate-500 mb-1">Importo Pagato (${this.getCurrency()})</label>
                                             <div class="flex items-center gap-1.5">
                                                 <input type="number" ${isReadOnly ? 'disabled' : ''} step="0.01" id="batchPaidAmount" value="${curPaidAmount}"
@@ -10161,13 +10223,13 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                                         <div>
                                             ${!isReadOnly ? `
                                                 <button type="button" onclick="app.applyBatchPricingToModule('${course.id}', '${currentModule.id}')"
-                                                    class="w-full h-9 rounded-xl text-white font-extrabold flex items-center justify-center gap-1.5 shadow-2xs transition"
+                                                    class="h-9 px-4 rounded-xl text-white font-extrabold flex items-center justify-center gap-1.5 shadow-2xs transition"
                                                     style="background-color: ${pal.hex};">
                                                     <i class="fa-solid fa-check text-xs"></i>
                                                     <span>${this.t("applyToAllLessonsBtn")}</span>
                                                 </button>
                                             ` : `
-                                                <div class="w-full h-9 rounded-xl border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-300 font-extrabold flex items-center justify-center gap-1.5">
+                                                <div class="h-9 px-4 rounded-xl border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-300 font-extrabold flex items-center justify-center gap-1.5">
                                                     <i class="fa-solid fa-lock text-xs"></i>
                                                     <span>Sola lettura</span>
                                                 </div>
@@ -10226,7 +10288,10 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                                                                                         class="w-full text-left p-2 rounded-lg text-white font-extrabold shadow-2xs transition ${isReadOnly ? 'opacity-90 cursor-not-allowed' : 'hover:opacity-90 cursor-pointer'}"
                                                                                         style="background-color: ${pal.hex};">
                                                                                         <div class="flex items-center justify-between text-[10px] opacity-95">
-                                                                                            <span class="bg-white/25 px-1 rounded text-[9px]">L${lItem.lessonNumber}</span>
+                                                                                            <span class="flex items-center gap-1">
+                                                                                                <span class="bg-white/25 px-1 rounded text-[9px]">L${lItem.lessonNumber}</span>
+                                                                                                ${pr.hasOverride ? `<i class="fa-solid fa-pen text-[8px] opacity-90" title="Valore personalizzato"></i>` : ''}
+                                                                                            </span>
                                                                                             <span>${this.escapeHtml(lItem.time)}</span>
                                                                                         </div>
                                                                                         <div class="text-xs font-black mt-0.5">
@@ -10539,6 +10604,17 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 if (!mod) return;
 
                 const pricing = this.getLessonPricing(mod, slotKey);
+                this._editLessonInitial = {
+                    net: pricing.net,
+                    vatPct: pricing.vatPct,
+                    discType: pricing.discType,
+                    discVal: pricing.discVal
+                };
+                const customFields = [];
+                if (pricing.hasCustomPrice) customFields.push("Prezzo");
+                if (pricing.hasCustomVat) customFields.push("IVA");
+                if (pricing.hasCustomDiscount) customFields.push("Sconto");
+
                 const les = this.findLessonForSlot(course, moduleId, slotKey);
                 const titleOrTime = les?.title ? `${les.title} (${les.time || ''})` : (les?.time || slotKey);
 
@@ -10553,6 +10629,16 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                                 <i class="fa-solid fa-xmark"></i>
                             </button>
                         </div>
+
+                        ${pricing.hasOverride ? `
+                            <div class="p-2.5 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 text-[11px] space-y-0.5">
+                                <div class="font-extrabold text-amber-700 dark:text-amber-400 flex items-center gap-1.5">
+                                    <i class="fa-solid fa-pen"></i>
+                                    <span>Personalizzato: ${customFields.join(", ")}</span>
+                                </div>
+                                <div class="text-slate-500 dark:text-slate-400">I valori personalizzati rimangono invariati anche quando applichi modifiche al modulo.</div>
+                            </div>
+                        ` : ''}
 
                         <form onsubmit="app.saveLessonPriceFromModal('${course.id}', '${mod.id}', '${slotKey}', event)" class="space-y-4 text-xs">
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -10606,12 +10692,38 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 if (!mod.billing) mod.billing = {};
                 if (!mod.billing.lessonOverrides) mod.billing.lessonOverrides = {};
 
-                mod.billing.lessonOverrides[slotKey] = {
-                    price: parseFloat(document.getElementById("editLessonNetPrice")?.value) || 0,
-                    vatPercent: parseFloat(document.getElementById("editLessonVatPct")?.value) || 0,
-                    discountType: document.getElementById("editLessonDiscType")?.value || "percent",
-                    discountValue: parseFloat(document.getElementById("editLessonDiscVal")?.value) || 0
-                };
+                const existing = mod.billing.lessonOverrides[slotKey] || {};
+                const init = this._editLessonInitial || this.getLessonPricing(mod, slotKey, course);
+                const parsedNet = parseFloat(document.getElementById("editLessonNetPrice")?.value);
+                const parsedVat = parseFloat(document.getElementById("editLessonVatPct")?.value);
+                const newDiscType = document.getElementById("editLessonDiscType")?.value || "percent";
+                const parsedDisc = parseFloat(document.getElementById("editLessonDiscVal")?.value);
+
+                const newNet = Number.isFinite(parsedNet) ? Math.max(0, parsedNet) : init.net;
+                const newVat = Number.isFinite(parsedVat) ? Math.max(0, parsedVat) : init.vatPct;
+                const newDiscVal = Number.isFinite(parsedDisc) ? Math.max(0, parsedDisc) : init.discVal;
+
+                const priceChanged = Math.abs(newNet - init.net) > 0.0001;
+                const vatChanged = Math.abs(newVat - init.vatPct) > 0.0001;
+                const discChanged = (newDiscType !== init.discType) || Math.abs(newDiscVal - init.discVal) > 0.0001;
+
+                const hasExistingPrice = existing.price !== undefined && existing.price !== null && existing.price !== "";
+                const hasExistingVat = existing.vatPercent !== undefined && existing.vatPercent !== null && existing.vatPercent !== "";
+                const hasExistingDisc = existing.discountValue !== undefined && existing.discountValue !== null && existing.discountValue !== "";
+
+                const nextOv = {};
+                if (priceChanged || hasExistingPrice) nextOv.price = newNet;
+                if (vatChanged || hasExistingVat) nextOv.vatPercent = newVat;
+                if (discChanged || hasExistingDisc) {
+                    nextOv.discountType = newDiscType;
+                    nextOv.discountValue = newDiscVal;
+                }
+
+                if (Object.keys(nextOv).length === 0) {
+                    delete mod.billing.lessonOverrides[slotKey];
+                } else {
+                    mod.billing.lessonOverrides[slotKey] = nextOv;
+                }
 
                 this.persist();
                 this.closeModal(true);
@@ -10664,20 +10776,31 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 }
                 if (!mod) return;
 
+                const existingOverrides = mod.billing?.lessonOverrides ? { ...mod.billing.lessonOverrides } : {};
+
                 mod.billing = {
                     hourlyRateNet: parseFloat(document.getElementById("batchHourlyRateNet")?.value) || 0,
                     vatPercent: parseFloat(document.getElementById("batchVatPercent")?.value) || 0,
                     discountType: document.getElementById("batchDiscountType")?.value || "percent",
-                    discountTarget: "total",
+                    discountTarget: document.getElementById("batchDiscountTarget")?.value || "total",
                     discountValue: parseFloat(document.getElementById("batchDiscountValue")?.value) || 0,
                     studentPaidAmount: parseFloat(document.getElementById("batchPaidAmount")?.value) || 0,
                     paidAmount: parseFloat(document.getElementById("batchPaidAmount")?.value) || 0,
-                    lessonOverrides: {} // Reset individual overrides so all lessons adhere to batch settings
+                    lessonOverrides: existingOverrides
                 };
 
                 this.persist();
                 this.renderMainView();
-                this.showToast(this.t("appliedToAllLessonsToast"), "success");
+                const customCount = Object.values(existingOverrides).filter(o => o && (
+                    (o.price !== undefined && o.price !== null && o.price !== "") ||
+                    (o.vatPercent !== undefined && o.vatPercent !== null && o.vatPercent !== "") ||
+                    (o.discountValue !== undefined && o.discountValue !== null && o.discountValue !== "")
+                )).length;
+                if (customCount > 0) {
+                    this.showToast(`${this.t("appliedToAllLessonsToast")} (${customCount} personalizzate mantenute)`, "success");
+                } else {
+                    this.showToast(this.t("appliedToAllLessonsToast"), "success");
+                }
             }
 
             downloadModuleBillingCalendarPng(courseId, moduleId, lang = null, action = "download") {
@@ -10711,16 +10834,88 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 const totalCost = this.getModuleTotalGross(mod, course);
                 const fInfo = course.billingConfig?.billingInfo || {};
 
+                // Precompute row pricing & module totals
+                const rowData = slots.map(slotKey => {
+                    const d = this.extractDateFromSlotKey(slotKey);
+                    const les = this.findLessonForSlot(course, mod.id, slotKey);
+                    const st = les?.time || mod.startTime || course.startTime || "19:00";
+                    const et = les?.endTime || mod.endTime || course.endTime || "20:30";
+                    const pr = this.getLessonPricing(mod, slotKey, course);
+                    const durationStr = this.computeDurationText(st, et, pr.durationHours);
+                    return { slotKey, d, st, et, pr, durationStr };
+                });
+                const totalBaseNet = rowData.reduce((acc, r) => acc + r.pr.net, 0);
+                const totalDiscount = rowData.reduce((acc, r) => acc + Math.min(r.pr.net, r.pr.discountAmount), 0);
+                const totalVat = rowData.reduce((acc, r) => acc + r.pr.vatAmount, 0);
+
+                // Build Mini Month Calendars
+                const startMon = (this.state?.settings?.firstDayOfWeek || "monday") !== "sunday";
+                const monthNamesMap = {
+                    it: ["Gennaio", "Febbraio", "Marzo", "Aprile", "Maggio", "Giugno", "Luglio", "Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre"],
+                    en: ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"],
+                    es: ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]
+                };
+                const miniMonthNames = monthNamesMap[lang] || monthNamesMap.it;
+                const miniWdMap = {
+                    it: startMon ? ["L", "M", "M", "G", "V", "S", "D"] : ["D", "L", "M", "M", "G", "V", "S"],
+                    en: startMon ? ["M", "T", "W", "T", "F", "S", "S"] : ["S", "M", "T", "W", "T", "F", "S"],
+                    es: startMon ? ["L", "M", "X", "J", "V", "S", "D"] : ["D", "L", "M", "X", "J", "V", "S"]
+                };
+                const miniWdHeaders = miniWdMap[lang] || miniWdMap.it;
+                const ymMap = new Map();
+                rowData.forEach(({ d }) => {
+                    const p = String(d || "").split("-").map(Number);
+                    if (p.length !== 3 || isNaN(p[0]) || isNaN(p[1]) || isNaN(p[2])) return;
+                    const ym = p[0] * 100 + p[1];
+                    if (!ymMap.has(ym)) ymMap.set(ym, { year: p[0], month: p[1], lessonDays: new Set(), lessonCount: 0 });
+                    const entry = ymMap.get(ym);
+                    entry.lessonDays.add(p[2]);
+                    entry.lessonCount += 1;
+                });
+                const miniMonths = [...ymMap.keys()].sort((a, b) => a - b).map(ym => {
+                    const { year, month, lessonDays, lessonCount } = ymMap.get(ym);
+                    const firstDow = new Date(year, month - 1, 1).getDay(); // 0=Sun..6=Sat
+                    const leading = startMon ? (firstDow === 0 ? 6 : firstDow - 1) : firstDow;
+                    const daysInMonth = new Date(year, month, 0).getDate();
+                    const cells = Array(leading).fill(null);
+                    for (let day = 1; day <= daysInMonth; day++) cells.push(day);
+                    while (cells.length % 7 !== 0) cells.push(null);
+                    const weeks = [];
+                    for (let i = 0; i < cells.length; i += 7) weeks.push(cells.slice(i, i + 7));
+                    return {
+                        title: `${miniMonthNames[Math.max(0, Math.min(11, month - 1))]} ${year}`,
+                        lessonCount,
+                        lessonDays,
+                        weeks
+                    };
+                });
+                const miniCols = miniMonths.length === 1 ? 1 : ((miniMonths.length === 2 || miniMonths.length === 4) ? 2 : 3);
+                const miniRows = [];
+                for (let i = 0; i < miniMonths.length; i += miniCols) {
+                    miniRows.push(miniMonths.slice(i, i + miniCols));
+                }
+                const miniRowHeights = miniRows.map(r => 76 + Math.max(...r.map(m => m.weeks.length)) * 28);
+                const miniCalHeight = miniRows.length > 0
+                    ? (miniRowHeights.reduce((a, b) => a + b, 0) + Math.max(0, miniRows.length - 1) * 14)
+                    : 0;
+
                 // Dimensions
                 const width = 1200;
                 const bannerHeight = 130;
                 const fiscalHeight = (fInfo.fullName || fInfo.idNumber || fInfo.city) ? 65 : 0;
                 const tableHeaderHeight = 44;
                 const rowHeight = 36;
-                const tableHeight = tableHeaderHeight + (slots.length * rowHeight) + 15;
-                const summaryHeight = 65;
-                const footerHeight = 50;
-                const totalHeight = 40 + bannerHeight + (fiscalHeight ? fiscalHeight + 15 : 0) + 20 + tableHeight + summaryHeight + footerHeight + 20;
+                const tableBlockHeight = tableHeaderHeight + 6 + (slots.length * rowHeight) + 16;
+                const hasSummaryDisc = totalDiscount > 0.005;
+                const hasSummaryVat = totalVat > 0.005;
+                const summaryHeight = hasSummaryDisc ? (hasSummaryVat ? 148 : 122) : 56;
+                const totalHeight = 30
+                    + bannerHeight + 20
+                    + (fiscalHeight > 0 ? fiscalHeight + 20 : 0)
+                    + (miniCalHeight > 0 ? miniCalHeight + 20 : 0)
+                    + tableBlockHeight
+                    + summaryHeight + 28
+                    + 34;
 
                 const canvas = document.createElement("canvas");
                 const scale = 2; // Retina Crisp High DPI
@@ -10762,11 +10957,11 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 ctx.font = "bold 15px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
                 ctx.fillText(badgeTxt, 65 + nameWidth + 30, yCursor + 47);
 
-                // Banner Subtitle
+                // Banner Subtitle (lessons & total hours only)
                 const bannerSubMap = {
-                    it: `Dettaglio Fatturazione e Calendario Lezioni • ${slots.length} Lezioni (${totalHours} ore)`,
-                    en: `Billing Breakdown & Lessons Schedule • ${slots.length} Lessons (${totalHours} hrs)`,
-                    es: `Detalle de Facturación y Calendario de Clases • ${slots.length} Clases (${totalHours} hrs)`
+                    it: `${slots.length} ${slots.length === 1 ? "Lezione" : "Lezioni"} (${totalHours} ore)`,
+                    en: `${slots.length} ${slots.length === 1 ? "Lesson" : "Lessons"} (${totalHours} hrs)`,
+                    es: `${slots.length} ${slots.length === 1 ? "Clase" : "Clases"} (${totalHours} hrs)`
                 };
                 ctx.fillStyle = "rgba(255, 255, 255, 0.92)";
                 ctx.font = "600 16px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
@@ -10833,8 +11028,88 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                     yCursor += fiscalHeight + 20;
                 }
 
+                // 2b. Mini Month Calendars Overview
+                if (miniRows.length > 0) {
+                    const accentHex = pal.hex || "#0284c7";
+                    const gapX = 16;
+                    const cardW = miniCols === 1 ? 480 : ((width - 80 - gapX * (miniCols - 1)) / miniCols);
+                    const monthBadgeLabel = (n) => {
+                        if (lang === "en") return `${n} ${n === 1 ? "lesson" : "lessons"}`;
+                        if (lang === "es") return `${n} ${n === 1 ? "clase" : "clases"}`;
+                        return `${n} ${n === 1 ? "lezione" : "lezioni"}`;
+                    };
+
+                    miniRows.forEach((rowMonths, rIdx) => {
+                        const cardH = miniRowHeights[rIdx];
+                        rowMonths.forEach((mObj, cIdx) => {
+                            const cardX = miniCols === 1 ? ((width - cardW) / 2) : (40 + cIdx * (cardW + gapX));
+                            const cardY = yCursor;
+
+                            ctx.fillStyle = "#f8fafc";
+                            ctx.strokeStyle = "#e2e8f0";
+                            ctx.lineWidth = 1;
+                            ctx.beginPath();
+                            ctx.roundRect(cardX, cardY, cardW, cardH, 12);
+                            ctx.fill();
+                            ctx.stroke();
+
+                            // Header
+                            ctx.fillStyle = "#0f172a";
+                            ctx.font = "bold 14px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+                            ctx.textAlign = "left";
+                            ctx.fillText(mObj.title, cardX + 16, cardY + 26);
+
+                            const bLbl = monthBadgeLabel(mObj.lessonCount);
+                            ctx.font = "bold 11px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+                            const bW = ctx.measureText(bLbl).width + 16;
+                            ctx.fillStyle = accentHex + "22";
+                            ctx.beginPath();
+                            ctx.roundRect(cardX + cardW - 14 - bW, cardY + 11, bW, 20, 10);
+                            ctx.fill();
+                            ctx.fillStyle = accentHex;
+                            ctx.textAlign = "center";
+                            ctx.fillText(bLbl, cardX + cardW - 14 - bW / 2, cardY + 25);
+
+                            // Weekday initials
+                            const gridLeft = cardX + 14;
+                            const cellW = (cardW - 28) / 7;
+                            ctx.fillStyle = "#64748b";
+                            ctx.font = "bold 10px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+                            miniWdHeaders.forEach((wd, wi) => {
+                                ctx.fillText(wd, gridLeft + wi * cellW + cellW / 2, cardY + 50);
+                            });
+
+                            // Day numbers
+                            mObj.weeks.forEach((wk, wIdx) => {
+                                const wy = cardY + 62 + wIdx * 28;
+                                wk.forEach((day, di) => {
+                                    if (day === null) return;
+                                    const cx = gridLeft + di * cellW + cellW / 2;
+                                    const hasLesson = mObj.lessonDays.has(day);
+                                    if (hasLesson) {
+                                        const boxW = Math.min(cellW - 4, 38);
+                                        ctx.fillStyle = accentHex;
+                                        ctx.beginPath();
+                                        ctx.roundRect(cx - boxW / 2, wy, boxW, 23, 6);
+                                        ctx.fill();
+                                        ctx.fillStyle = "#ffffff";
+                                        ctx.font = "bold 12px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+                                    } else {
+                                        ctx.fillStyle = "#334155";
+                                        ctx.font = "500 12px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+                                    }
+                                    ctx.fillText(String(day), cx, wy + 16);
+                                });
+                            });
+                            ctx.textAlign = "left";
+                        });
+                        yCursor += cardH + (rIdx < miniRows.length - 1 ? 14 : 0);
+                    });
+                    yCursor += 20;
+                }
+
                 // 3. Lessons Table
-                ctx.fillStyle = pal.hex + "1a"; // 10% opacity tint
+                ctx.fillStyle = (pal.hex || "#0284c7") + "1a"; // 10% opacity tint
                 ctx.beginPath();
                 ctx.roundRect(40, yCursor, width - 80, tableHeaderHeight, 10);
                 ctx.fill();
@@ -10875,13 +11150,8 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                 yCursor += tableHeaderHeight + 6;
 
                 // Table Rows
-                slots.forEach((slotKey, idx) => {
-                    const d = this.extractDateFromSlotKey(slotKey);
-                    const les = this.findLessonForSlot(course, mod.id, slotKey);
-                    const st = les?.time || mod.startTime || course.startTime || "19:00";
-                    const et = les?.endTime || mod.endTime || course.endTime || "20:30";
-                    const pr = this.getLessonPricing(mod, slotKey);
-                    const durationStr = this.computeDurationText(st, et, dur);
+                rowData.forEach((row, idx) => {
+                    const { d, st, et, pr, durationStr } = row;
 
                     if (idx % 2 === 0) {
                         ctx.fillStyle = "rgba(241, 245, 249, 0.55)";
@@ -10917,7 +11187,7 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                     ctx.fillText(this.formatMoney(pr.net), cX.base + 110, yCursor + 23);
 
                     // Discount
-                    if (pr.discountAmount > 0) {
+                    if (pr.discountAmount > 0.005) {
                         ctx.fillStyle = "#ea580c";
                         ctx.fillText(`-${this.formatMoney(pr.discountAmount)}`, cX.disc + 80, yCursor + 23);
                     } else {
@@ -10946,19 +11216,79 @@ Removing, obfuscating, or altering these credits violates the author's attributi
                     en: "Total Due",
                     es: "Total a Pagar"
                 };
+                const subtotalMap = { it: "Subtotale:", en: "Subtotal:", es: "Subtotal:" };
+                const discTotalMap = { it: "Sconto Totale:", en: "Total Discount:", es: "Descuento Total:" };
+                const vatLabelMap = { it: "IVA:", en: "VAT:", es: "IVA:" };
                 const totalDueText = `${totalDueMap[lang] || totalDueMap.it}: ${this.formatMoney(totalCost)}`;
-                ctx.font = "bold 22px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
-                const totalDueW = ctx.measureText(totalDueText).width + 40;
 
-                ctx.fillStyle = "rgba(16, 185, 129, 0.12)";
-                ctx.beginPath();
-                ctx.roundRect(width - 40 - totalDueW, yCursor, totalDueW, 52, 14);
-                ctx.fill();
+                if (hasSummaryDisc) {
+                    ctx.font = "bold 22px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+                    const boxW = Math.max(330, ctx.measureText(totalDueText).width + 44);
+                    const boxX = width - 40 - boxW;
 
-                ctx.fillStyle = "#059669";
-                ctx.fillText(totalDueText, width - 20 - totalDueW, yCursor + 34);
+                    ctx.fillStyle = "rgba(16, 185, 129, 0.12)";
+                    ctx.beginPath();
+                    ctx.roundRect(boxX, yCursor, boxW, summaryHeight, 14);
+                    ctx.fill();
 
-                yCursor += 70;
+                    let sy = yCursor + 26;
+                    ctx.font = "600 14px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+                    ctx.textAlign = "left";
+                    ctx.fillStyle = "#475569";
+                    ctx.fillText(subtotalMap[lang] || subtotalMap.it, boxX + 20, sy);
+                    ctx.textAlign = "right";
+                    ctx.fillStyle = "#0f172a";
+                    ctx.font = "bold 14px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+                    ctx.fillText(this.formatMoney(totalBaseNet), width - 60, sy);
+
+                    sy += 24;
+                    ctx.textAlign = "left";
+                    ctx.fillStyle = "#ea580c";
+                    ctx.font = "600 14px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+                    ctx.fillText(discTotalMap[lang] || discTotalMap.it, boxX + 20, sy);
+                    ctx.textAlign = "right";
+                    ctx.font = "bold 14px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+                    ctx.fillText(`-${this.formatMoney(totalDiscount)}`, width - 60, sy);
+
+                    if (hasSummaryVat) {
+                        sy += 24;
+                        ctx.textAlign = "left";
+                        ctx.fillStyle = "#64748b";
+                        ctx.font = "600 14px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+                        ctx.fillText(vatLabelMap[lang] || vatLabelMap.it, boxX + 20, sy);
+                        ctx.textAlign = "right";
+                        ctx.font = "bold 14px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+                        ctx.fillText(`+${this.formatMoney(totalVat)}`, width - 60, sy);
+                    }
+
+                    sy += 12;
+                    ctx.strokeStyle = "rgba(5, 150, 105, 0.22)";
+                    ctx.lineWidth = 1;
+                    ctx.beginPath();
+                    ctx.moveTo(boxX + 20, sy);
+                    ctx.lineTo(width - 60, sy);
+                    ctx.stroke();
+
+                    sy += 30;
+                    ctx.textAlign = "right";
+                    ctx.fillStyle = "#059669";
+                    ctx.font = "bold 22px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+                    ctx.fillText(totalDueText, width - 60, sy);
+                    ctx.textAlign = "left";
+                } else {
+                    ctx.font = "bold 22px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+                    const totalDueW = ctx.measureText(totalDueText).width + 40;
+
+                    ctx.fillStyle = "rgba(16, 185, 129, 0.12)";
+                    ctx.beginPath();
+                    ctx.roundRect(width - 40 - totalDueW, yCursor, totalDueW, summaryHeight, 14);
+                    ctx.fill();
+
+                    ctx.fillStyle = "#059669";
+                    ctx.fillText(totalDueText, width - 20 - totalDueW, yCursor + 36);
+                }
+
+                yCursor += summaryHeight + 28;
 
                 // 5. Watermark attribution
                 const watermarkMap = {
@@ -13590,14 +13920,6 @@ Dettagli di Sistema:
                             }
                             const payerShare = 1.0 / Math.max(1, payers.length);
 
-                            const effBilling = this.getEffectiveModuleBilling(mod, course);
-                            const hasFixedModuleDiscount = effBilling.discountType === "fixed" && effBilling.discountValue > 0 && (!effBilling.lessonOverrides || Object.keys(effBilling.lessonOverrides).length === 0);
-                            let fixedModuleDiscountRatio = null;
-                            if (hasFixedModuleDiscount) {
-                                const totalModNet = (mod.dates || []).reduce((acc, sk) => acc + this.getLessonPricing(mod, sk, course).net, 0);
-                                fixedModuleDiscountRatio = totalModNet > 0 ? (this.getModuleTotalGross(mod, course) / totalModNet) : 0;
-                            }
-
                             (mod.dates || []).forEach(slotKey => {
                                 const dStr = this.extractDateFromSlotKey(slotKey);
                                 const parts = dStr.split("-").map(Number);
@@ -13612,7 +13934,7 @@ Dettagli di Sistema:
                                 const eTime = les?.endTime || mod.endTime || course.endTime || "20:30";
                                 const durH = this.computeSlotDurationHours(sTime, eTime);
                                 const pr = this.getLessonPricing(mod, slotKey, course);
-                                const grossPrice = fixedModuleDiscountRatio !== null ? (pr.net * fixedModuleDiscountRatio) : pr.gross;
+                                const grossPrice = pr.gross;
 
                                 const mObj = months[mIdx];
                                 mObj.lessonsCount++;

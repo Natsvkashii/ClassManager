@@ -1221,6 +1221,7 @@ public struct BillingView: View {
     @State private var batchHourlyRate: Double = 10.0
     @State private var batchVatPercent: Double = 15.0
     @State private var batchDiscountType: String = "percent"
+    @State private var batchDiscountTarget: String = "total"
     @State private var batchDiscountValue: Double = 0.0
     @State private var batchPaidAmount: Double = 0.0
 
@@ -1229,6 +1230,10 @@ public struct BillingView: View {
     @State private var editVatPercent: Double = 15.0
     @State private var editDiscountType: String = "percent"
     @State private var editDiscountValue: Double = 0.0
+    @State private var editInitialNetPrice: Double = 0.0
+    @State private var editInitialVatPercent: Double = 15.0
+    @State private var editInitialDiscountType: String = "percent"
+    @State private var editInitialDiscountValue: Double = 0.0
 
     /// Returns a human-readable list of Course / Level / Module tags associated with a BillingContact.
     private func managedModulesContext(for contact: BillingContact) -> [String] {
@@ -1634,71 +1639,88 @@ public struct BillingView: View {
                                 )
                             }
 
-                            HStack(spacing: 10) {
-                                VStack(alignment: .leading, spacing: 3) {
-                                    Text("Tariffa Oraria (\(store.state.settings.currency))")
-                                        .font(.caption.bold())
-                                        .lineLimit(1)
-                                        .minimumScaleFactor(0.8)
-                                    TextField("10", value: $batchHourlyRate, format: .number).textFieldStyle(.roundedBorder)
-                                }
-                                VStack(alignment: .leading, spacing: 3) {
-                                    Text("IVA (%)")
-                                        .font(.caption.bold())
-                                        .lineLimit(1)
-                                        .minimumScaleFactor(0.8)
-                                    TextField("15", value: $batchVatPercent, format: .number).textFieldStyle(.roundedBorder)
-                                }
-                                VStack(alignment: .leading, spacing: 3) {
-                                    Text("Tipo Sconto")
-                                        .font(.caption.bold())
-                                        .lineLimit(1)
-                                        .minimumScaleFactor(0.8)
-                                    Picker("", selection: $batchDiscountType) {
-                                        Text("Percentuale (%)").tag("percent")
-                                        Text("Fisso (\(store.state.settings.currency))").tag("fixed")
-                                    }
-                                    .labelsHidden()
-                                }
-                                VStack(alignment: .leading, spacing: 3) {
-                                    Text("Valore Sconto")
-                                        .font(.caption.bold())
-                                        .lineLimit(1)
-                                        .minimumScaleFactor(0.8)
-                                    TextField("0", value: $batchDiscountValue, format: .number).textFieldStyle(.roundedBorder)
-                                }
-                                VStack(alignment: .leading, spacing: 3) {
-                                    HStack(spacing: 4) {
-                                        Text("Importo Pagato (\(store.state.settings.currency))")
+                            VStack(alignment: .leading, spacing: 10) {
+                                HStack(spacing: 10) {
+                                    VStack(alignment: .leading, spacing: 3) {
+                                        Text("Tariffa Oraria (\(store.state.settings.currency))")
                                             .font(.caption.bold())
                                             .lineLimit(1)
                                             .minimumScaleFactor(0.8)
-                                        if currentModule.billing?.studentPaidAmount == batchPaidAmount && batchPaidAmount > 0 {
-                                            Image(systemName: "checkmark.circle.fill")
-                                                .font(.system(size: 10))
-                                                .foregroundStyle(.green)
-                                                .help("Valore salvato nel modulo")
-                                        }
+                                        TextField("10", value: $batchHourlyRate, format: .number).textFieldStyle(.roundedBorder)
                                     }
-                                    HStack(spacing: 4) {
-                                        TextField("0", value: $batchPaidAmount, format: .number)
-                                            .textFieldStyle(.roundedBorder)
-                                            .onSubmit {
-                                                savePaidAmountToModule(courseId: course.id, moduleId: currentModule.id, amount: batchPaidAmount)
-                                                store.showToast("Importo pagato salvato: \(String(format: "%.2f", batchPaidAmount)) \(store.state.settings.currency)")
-                                            }
-                                        Button {
-                                            savePaidAmountToModule(courseId: course.id, moduleId: currentModule.id, amount: batchPaidAmount)
-                                            store.showToast("Importo pagato salvato: \(String(format: "%.2f", batchPaidAmount)) \(store.state.settings.currency)")
-                                        } label: {
-                                            Image(systemName: "checkmark")
+                                    VStack(alignment: .leading, spacing: 3) {
+                                        Text("IVA (%)")
+                                            .font(.caption.bold())
+                                            .lineLimit(1)
+                                            .minimumScaleFactor(0.8)
+                                        TextField("15", value: $batchVatPercent, format: .number).textFieldStyle(.roundedBorder)
+                                    }
+                                    VStack(alignment: .leading, spacing: 3) {
+                                        Text("Tipo Sconto")
+                                            .font(.caption.bold())
+                                            .lineLimit(1)
+                                            .minimumScaleFactor(0.8)
+                                        Picker("", selection: $batchDiscountType) {
+                                            Text("Percentuale (%)").tag("percent")
+                                            Text("Fisso (\(store.state.settings.currency))").tag("fixed")
                                         }
-                                        .buttonStyle(.bordered)
-                                        .help("Salva subito l'importo pagato per questo modulo")
+                                        .labelsHidden()
+                                    }
+                                    VStack(alignment: .leading, spacing: 3) {
+                                        Text("Applica Sconto")
+                                            .font(.caption.bold())
+                                            .lineLimit(1)
+                                            .minimumScaleFactor(0.8)
+                                        Picker("", selection: $batchDiscountTarget) {
+                                            Text("Sul totale").tag("total")
+                                            Text("Per ora").tag("per_hour")
+                                        }
+                                        .labelsHidden()
+                                    }
+                                    VStack(alignment: .leading, spacing: 3) {
+                                        Text("Valore Sconto")
+                                            .font(.caption.bold())
+                                            .lineLimit(1)
+                                            .minimumScaleFactor(0.8)
+                                        TextField("0", value: $batchDiscountValue, format: .number).textFieldStyle(.roundedBorder)
                                     }
                                 }
-                                VStack {
+
+                                HStack(spacing: 12) {
+                                    VStack(alignment: .leading, spacing: 3) {
+                                        HStack(spacing: 4) {
+                                            Text("Importo Pagato (\(store.state.settings.currency))")
+                                                .font(.caption.bold())
+                                                .lineLimit(1)
+                                                .minimumScaleFactor(0.8)
+                                            if currentModule.billing?.studentPaidAmount == batchPaidAmount && batchPaidAmount > 0 {
+                                                Image(systemName: "checkmark.circle.fill")
+                                                    .font(.system(size: 10))
+                                                    .foregroundStyle(.green)
+                                                    .help("Valore salvato nel modulo")
+                                            }
+                                        }
+                                        HStack(spacing: 4) {
+                                            TextField("0", value: $batchPaidAmount, format: .number)
+                                                .textFieldStyle(.roundedBorder)
+                                                .onSubmit {
+                                                    savePaidAmountToModule(courseId: course.id, moduleId: currentModule.id, amount: batchPaidAmount)
+                                                    store.showToast("Importo pagato salvato: \(String(format: "%.2f", batchPaidAmount)) \(store.state.settings.currency)")
+                                                }
+                                            Button {
+                                                savePaidAmountToModule(courseId: course.id, moduleId: currentModule.id, amount: batchPaidAmount)
+                                                store.showToast("Importo pagato salvato: \(String(format: "%.2f", batchPaidAmount)) \(store.state.settings.currency)")
+                                            } label: {
+                                                Image(systemName: "checkmark")
+                                            }
+                                            .buttonStyle(.bordered)
+                                            .help("Salva subito l'importo pagato per questo modulo")
+                                        }
+                                    }
+                                    .frame(maxWidth: 230, alignment: .leading)
+
                                     Spacer()
+
                                     Button {
                                         applyBatchToModule(courseId: course.id, moduleId: currentModule.id)
                                     } label: {
@@ -1712,26 +1734,18 @@ public struct BillingView: View {
                                     .lineLimit(1)
                                     .fixedSize(horizontal: true, vertical: false)
                                 }
-                                .lineLimit(1)
-                                .fixedSize(horizontal: true, vertical: false)
                             }
 
                             // Dynamic hours calculation badge: paid hours vs scheduled hours (respecting discount & VAT)
-                            let sameGlobalRules = (
-                                batchHourlyRate == curBilling.hourlyRateNet &&
-                                batchVatPercent == curBilling.vatPercent &&
-                                batchDiscountType == curBilling.discountType &&
-                                batchDiscountValue == curBilling.discountValue
-                            )
                             let previewBilling = ModuleBilling(
                                 hourlyRateNet: batchHourlyRate,
                                 lessonDurationHours: curBilling.lessonDurationHours,
                                 vatPercent: batchVatPercent,
                                 discountType: batchDiscountType,
-                                discountTarget: curBilling.discountTarget,
+                                discountTarget: batchDiscountTarget,
                                 discountValue: batchDiscountValue,
                                 studentPaidAmount: batchPaidAmount,
-                                lessonOverrides: sameGlobalRules ? curBilling.lessonOverrides : [:]
+                                lessonOverrides: curBilling.lessonOverrides
                             )
                             let curPaidH = previewBilling.paidHours(for: curSortedSlots) { sk in
                                 store.lessonDurationHours(course: course, module: currentModule, slotKey: sk)
@@ -1771,9 +1785,17 @@ public struct BillingView: View {
                                     }
                                 }
                                 if curEffGrossRate > 0 {
-                                    Text(batchDiscountType == "fixed" && batchDiscountValue > 0
-                                         ? "(\(store.formatMoney(curEffGrossRate))/h con IVA, -\(store.formatMoney(batchDiscountValue)) sul totale)"
-                                         : "(\(store.formatMoney(curEffGrossRate))/h con sconto e IVA)")
+                                    let rateHintText: String = {
+                                        if batchDiscountType == "fixed" && batchDiscountValue > 0 {
+                                            if batchDiscountTarget == "per_hour" {
+                                                return "(\(store.formatMoney(curEffGrossRate))/h con sconto -\(store.formatMoney(batchDiscountValue))/h e IVA)"
+                                            } else {
+                                                return "(\(store.formatMoney(curEffGrossRate))/h con IVA, -\(store.formatMoney(batchDiscountValue)) sul totale)"
+                                            }
+                                        }
+                                        return "(\(store.formatMoney(curEffGrossRate))/h con sconto e IVA)"
+                                    }()
+                                    Text(rateHintText)
                                         .font(.caption2)
                                         .foregroundStyle(.secondary)
                                 }
@@ -1885,6 +1907,7 @@ public struct BillingView: View {
                     LessonPricingModalSheet(
                         slotKey: sk,
                         currency: store.state.settings.currency,
+                        existingOverride: curBilling.lessonOverrides[sk],
                         netPrice: $editNetPrice,
                         vatPercent: $editVatPercent,
                         discountType: $editDiscountType,
@@ -1943,16 +1966,20 @@ public struct BillingView: View {
         lItem: BillingLessonItem,
         pal: CourseColorInfo
     ) -> some View {
-        let durH = store.lessonDurationHours(course: course, module: module, slotKey: lItem.slotKey)
+        let durProvider: (String) -> Double = { sk in
+            store.lessonDurationHours(course: course, module: module, slotKey: sk)
+        }
+        let durH = durProvider(lItem.slotKey)
         let vatPct = billing.lessonVatPercent(for: lItem.slotKey)
-        let discAmt = billing.lessonDiscountAmount(for: lItem.slotKey, durationHours: durH)
-        let gross = billing.lessonGrossPrice(for: lItem.slotKey, durationHours: durH)
+        let discAmt = billing.lessonDiscountAmount(for: lItem.slotKey, durationHours: durH, in: module.dates, durationProvider: durProvider)
+        let gross = billing.lessonGrossPrice(for: lItem.slotKey, durationHours: durH, in: module.dates, durationProvider: durProvider)
+        let isCustomized = billing.lessonOverrides[lItem.slotKey]?.hasAnyOverride == true
 
         Button {
             openLessonPriceEditor(course: course, module: module, slotKey: lItem.slotKey, billing: billing)
         } label: {
             VStack(alignment: .leading, spacing: 2) {
-                HStack {
+                HStack(spacing: 3) {
                     Text("L\(lItem.lessonNum)")
                         .font(.system(size: 9, weight: .heavy))
                         .lineLimit(1)
@@ -1960,6 +1987,11 @@ public struct BillingView: View {
                         .padding(.horizontal, 4)
                         .padding(.vertical, 1)
                         .background(RoundedRectangle(cornerRadius: 3).fill(Color.white.opacity(0.25)))
+                    if isCustomized {
+                        Image(systemName: "pencil.circle.fill")
+                            .font(.system(size: 9))
+                            .foregroundStyle(.white.opacity(0.95))
+                    }
                     Spacer()
                     Text("\(store.formatTimeDisplay(lItem.time)) (\(String(format: "%.1f", durH))h)")
                         .font(.system(size: 8, weight: .bold))
@@ -1994,6 +2026,7 @@ public struct BillingView: View {
         batchHourlyRate = b.hourlyRateNet
         batchVatPercent = b.vatPercent
         batchDiscountType = b.discountType
+        batchDiscountTarget = b.discountTarget.isEmpty ? "total" : b.discountTarget
         batchDiscountValue = b.discountValue
         batchPaidAmount = b.studentPaidAmount
     }
@@ -2026,13 +2059,18 @@ public struct BillingView: View {
                     b.hourlyRateNet = batchHourlyRate
                     b.vatPercent = batchVatPercent
                     b.discountType = batchDiscountType
+                    b.discountTarget = batchDiscountTarget
                     b.discountValue = batchDiscountValue
                     b.studentPaidAmount = batchPaidAmount
-                    // Reset individual overrides so everything is harmonized to the global setting
-                    b.lessonOverrides = [:]
+                    // Preserve existing b.lessonOverrides so customized lessons keep their values
                     store.state.courses[cIdx].levels[li].modules[mi].billing = b
                     store.persist()
-                    store.showToast(store.t("appliedToAllLessonsToast"))
+                    let customCount = b.lessonOverrides.values.filter { $0.hasAnyOverride }.count
+                    if customCount > 0 {
+                        store.showToast("\(store.t("appliedToAllLessonsToast")) (\(customCount) personalizzate mantenute)")
+                    } else {
+                        store.showToast(store.t("appliedToAllLessonsToast"))
+                    }
                     return
                 }
             }
@@ -2041,18 +2079,31 @@ public struct BillingView: View {
 
     private func openLessonPriceEditor(course: Course, module: CourseModule, slotKey: String, billing: ModuleBilling) {
         editingSlotKey = slotKey
-        let durH = store.lessonDurationHours(course: course, module: module, slotKey: slotKey)
-        if let ov = billing.lessonOverrides[slotKey] {
-            editNetPrice = ov.price ?? (billing.hourlyRateNet * durH)
-            editVatPercent = ov.vatPercent ?? billing.vatPercent
-            editDiscountType = ov.discountType ?? billing.discountType
-            editDiscountValue = ov.discountValue ?? (billing.discountValue)
-        } else {
-            editNetPrice = billing.hourlyRateNet * durH
-            editVatPercent = billing.vatPercent
-            editDiscountType = billing.discountType
-            editDiscountValue = (billing.discountType == "percent") ? billing.discountValue : 0.0
+        let durProvider: (String) -> Double = { sk in
+            store.lessonDurationHours(course: course, module: module, slotKey: sk)
         }
+        let durH = durProvider(slotKey)
+        let defaultNet = billing.hourlyRateNet * durH
+        let defaultVat = billing.vatPercent
+        let defaultDiscType = billing.discountType
+        let defaultDiscVal: Double = (billing.discountType == "percent")
+            ? billing.discountValue
+            : ((billing.lessonDiscountAmount(for: slotKey, durationHours: durH, in: module.dates, durationProvider: durProvider) * 100.0).rounded() / 100.0)
+
+        let ov = billing.lessonOverrides[slotKey]
+        editNetPrice = ov?.price ?? defaultNet
+        editVatPercent = ov?.vatPercent ?? defaultVat
+        if let ovDisc = ov?.discountValue {
+            editDiscountType = ov?.discountType ?? "fixed"
+            editDiscountValue = ovDisc
+        } else {
+            editDiscountType = defaultDiscType
+            editDiscountValue = defaultDiscVal
+        }
+        editInitialNetPrice = editNetPrice
+        editInitialVatPercent = editVatPercent
+        editInitialDiscountType = editDiscountType
+        editInitialDiscountValue = editDiscountValue
     }
 
     private func saveLessonPrice(courseId: String, moduleId: String, slotKey: String) {
@@ -2062,12 +2113,26 @@ public struct BillingView: View {
                 if store.state.courses[cIdx].levels[li].modules[mi].id == moduleId {
                     store.recordUndoSnapshot()
                     var b = store.state.courses[cIdx].levels[li].modules[mi].billing ?? ModuleBilling()
-                    b.lessonOverrides[slotKey] = LessonBillingItem(
-                        price: editNetPrice,
-                        vatPercent: editVatPercent,
-                        discountType: editDiscountType,
-                        discountValue: editDiscountValue
-                    )
+                    let existing = b.lessonOverrides[slotKey]
+                    let priceChanged = abs(editNetPrice - editInitialNetPrice) > 0.0001
+                    let vatChanged = abs(editVatPercent - editInitialVatPercent) > 0.0001
+                    let discChanged = (editDiscountType != editInitialDiscountType) || abs(editDiscountValue - editInitialDiscountValue) > 0.0001
+
+                    let newPrice: Double? = (priceChanged || existing?.price != nil) ? editNetPrice : nil
+                    let newVat: Double? = (vatChanged || existing?.vatPercent != nil) ? editVatPercent : nil
+                    let newDiscType: String? = (discChanged || existing?.discountValue != nil) ? editDiscountType : nil
+                    let newDiscVal: Double? = (discChanged || existing?.discountValue != nil) ? editDiscountValue : nil
+
+                    if newPrice == nil && newVat == nil && newDiscVal == nil {
+                        b.lessonOverrides.removeValue(forKey: slotKey)
+                    } else {
+                        b.lessonOverrides[slotKey] = LessonBillingItem(
+                            price: newPrice,
+                            vatPercent: newVat,
+                            discountType: newDiscType,
+                            discountValue: newDiscVal
+                        )
+                    }
                     store.state.courses[cIdx].levels[li].modules[mi].billing = b
                     store.persist()
                     store.showToast(store.t("lessonPricingUpdatedToast"))
@@ -2268,6 +2333,7 @@ public struct BillingView: View {
 private struct LessonPricingModalSheet: View {
     let slotKey: String
     let currency: String
+    var existingOverride: LessonBillingItem? = nil
     @Binding var netPrice: Double
     @Binding var vatPercent: Double
     @Binding var discountType: String
@@ -2275,6 +2341,15 @@ private struct LessonPricingModalSheet: View {
     let onSave: () -> Void
     let onReset: () -> Void
     let onCancel: () -> Void
+
+    private var customizedFieldsLabel: String {
+        guard let ov = existingOverride else { return "" }
+        var parts: [String] = []
+        if ov.price != nil { parts.append("Prezzo") }
+        if ov.vatPercent != nil { parts.append("IVA") }
+        if ov.discountValue != nil { parts.append("Sconto") }
+        return parts.joined(separator: ", ")
+    }
 
     public var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -2293,6 +2368,25 @@ private struct LessonPricingModalSheet: View {
             Text("Data / Slot: \(slotKey)")
                 .font(.caption)
                 .foregroundStyle(.secondary)
+
+            if let ov = existingOverride, ov.hasAnyOverride {
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "pencil.circle.fill")
+                            .foregroundStyle(.orange)
+                        Text("Personalizzato: \(customizedFieldsLabel)")
+                            .font(.caption.bold())
+                            .foregroundStyle(.orange)
+                    }
+                    Text("I valori personalizzati rimangono invariati anche quando applichi modifiche al modulo.")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(RoundedRectangle(cornerRadius: 8).fill(Color.orange.opacity(0.10)))
+            }
 
             Divider()
 
@@ -3068,12 +3162,180 @@ private struct BillingCalendarPosterView: View {
         let hStr = String(format: "%.1f", totalHours)
         switch lang {
         case "en":
-            return "Billing Breakdown & Lessons Schedule • \(slots.count) Lessons (\(hStr) hrs)"
+            return "\(slots.count) \(slots.count == 1 ? "Lesson" : "Lessons") (\(hStr) hrs)"
         case "es":
-            return "Detalle de Facturación y Calendario de Clases • \(slots.count) Clases (\(hStr) hrs)"
+            return "\(slots.count) \(slots.count == 1 ? "Clase" : "Clases") (\(hStr) hrs)"
         default:
-            return "Dettaglio Fatturazione e Calendario Lezioni • \(slots.count) Lezioni (\(hStr) ore)"
+            return "\(slots.count) \(slots.count == 1 ? "Lezione" : "Lezioni") (\(hStr) ore)"
         }
+    }
+
+    private var subtotalLabel: String {
+        switch lang {
+        case "en": return "Subtotal"
+        case "es": return "Subtotal"
+        default: return "Subtotale"
+        }
+    }
+
+    private var totalDiscountLabel: String {
+        switch lang {
+        case "en": return "Total Discount"
+        case "es": return "Descuento Total"
+        default: return "Sconto Totale"
+        }
+    }
+
+    private var vatSummaryLabel: String {
+        switch lang {
+        case "en": return "VAT"
+        default: return "IVA"
+        }
+    }
+
+    private struct MiniCalendarMonth: Identifiable {
+        let id: String
+        let title: String
+        let lessonCount: Int
+        let weeks: [[Int?]]
+        let lessonDays: Set<Int>
+    }
+
+    private var miniWeekdayHeaders: [String] {
+        let startMon = store.state.settings.firstDayOfWeek != "sunday"
+        switch lang {
+        case "en":
+            return startMon ? ["M", "T", "W", "T", "F", "S", "S"] : ["S", "M", "T", "W", "T", "F", "S"]
+        case "es":
+            return startMon ? ["L", "M", "X", "J", "V", "S", "D"] : ["D", "L", "M", "X", "J", "V", "S"]
+        default:
+            return startMon ? ["L", "M", "M", "G", "V", "S", "D"] : ["D", "L", "M", "M", "G", "V", "S"]
+        }
+    }
+
+    private func localizedMonthName(_ month1To12: Int) -> String {
+        let idx = max(0, min(11, month1To12 - 1))
+        let it = ["Gennaio", "Febbraio", "Marzo", "Aprile", "Maggio", "Giugno", "Luglio", "Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre"]
+        let en = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
+        let es = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]
+        switch lang {
+        case "en": return en[idx]
+        case "es": return es[idx]
+        default: return it[idx]
+        }
+    }
+
+    private func monthLessonBadge(_ count: Int) -> String {
+        switch lang {
+        case "en": return "\(count) \(count == 1 ? "lesson" : "lessons")"
+        case "es": return "\(count) \(count == 1 ? "clase" : "clases")"
+        default: return "\(count) \(count == 1 ? "lezione" : "lezioni")"
+        }
+    }
+
+    private var miniCalendarMonths: [MiniCalendarMonth] {
+        let cal = Calendar.current
+        let startMon = store.state.settings.firstDayOfWeek != "sunday"
+        var ymSet = Set<Int>()
+        var daysByYM: [Int: Set<Int>] = [:]
+        var countByYM: [Int: Int] = [:]
+
+        for sk in slots {
+            let iso = store.extractDate(from: sk)
+            let parts = iso.split(separator: "-").compactMap { Int($0) }
+            guard parts.count == 3 else { continue }
+            let ym = parts[0] * 100 + parts[1]
+            ymSet.insert(ym)
+            daysByYM[ym, default: []].insert(parts[2])
+            countByYM[ym, default: 0] += 1
+        }
+
+        return ymSet.sorted().compactMap { ym in
+            let year = ym / 100
+            let month = ym % 100
+            guard let firstOfMonth = cal.date(from: DateComponents(year: year, month: month, day: 1)),
+                  let range = cal.range(of: .day, in: .month, for: firstOfMonth) else {
+                return nil
+            }
+            let daysInMonth = range.count
+            let weekday = cal.component(.weekday, from: firstOfMonth) // 1=Sun .. 7=Sat
+            let leading = startMon ? ((weekday + 5) % 7) : (weekday - 1)
+
+            var cells: [Int?] = Array(repeating: nil, count: leading)
+            for d in 1...daysInMonth {
+                cells.append(d)
+            }
+            while cells.count % 7 != 0 {
+                cells.append(nil)
+            }
+            var weeks: [[Int?]] = []
+            for idx in stride(from: 0, to: cells.count, by: 7) {
+                weeks.append(Array(cells[idx..<min(idx + 7, cells.count)]))
+            }
+            return MiniCalendarMonth(
+                id: "\(ym)",
+                title: "\(localizedMonthName(month)) \(year)",
+                lessonCount: countByYM[ym] ?? 0,
+                weeks: weeks,
+                lessonDays: daysByYM[ym] ?? []
+            )
+        }
+    }
+
+    @ViewBuilder
+    private func miniMonthCard(_ m: MiniCalendarMonth) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text(m.title)
+                    .font(.system(size: 12, weight: .heavy))
+                    .foregroundStyle(.primary)
+                Spacer(minLength: 4)
+                Text(monthLessonBadge(m.lessonCount))
+                    .font(.system(size: 10, weight: .bold))
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 2)
+                    .background(Capsule().fill(palette.color.opacity(0.14)))
+                    .foregroundStyle(palette.color)
+            }
+
+            HStack(spacing: 3) {
+                ForEach(Array(miniWeekdayHeaders.enumerated()), id: \.offset) { _, wd in
+                    Text(wd)
+                        .font(.system(size: 9.5, weight: .bold))
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity)
+                }
+            }
+
+            VStack(spacing: 3) {
+                ForEach(Array(m.weeks.enumerated()), id: \.offset) { _, week in
+                    HStack(spacing: 3) {
+                        ForEach(0..<7, id: \.self) { col in
+                            let dayOpt = week[col]
+                            if let day = dayOpt {
+                                let hasLesson = m.lessonDays.contains(day)
+                                Text("\(day)")
+                                    .font(.system(size: 10.5, weight: hasLesson ? .heavy : .medium))
+                                    .foregroundStyle(hasLesson ? Color.white : Color.primary)
+                                    .frame(maxWidth: .infinity)
+                                    .frame(height: 22)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 6)
+                                            .fill(hasLesson ? palette.color : Color.clear)
+                                    )
+                            } else {
+                                Color.clear
+                                    .frame(maxWidth: .infinity)
+                                    .frame(height: 22)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        .padding(12)
+        .background(RoundedRectangle(cornerRadius: 12).fill(Color.secondary.opacity(0.05)))
+        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color.secondary.opacity(0.14)))
     }
 
     private var moduleTotalLabel: String {
@@ -3168,9 +3430,21 @@ private struct BillingCalendarPosterView: View {
     }
 
     public var body: some View {
-        let b = module.billing ?? ModuleBilling()
+        let b = store.effectiveBilling(for: module, in: course)
+        let durProvider: (String) -> Double = { sk in
+            store.lessonDurationHours(course: course, module: module, slotKey: sk)
+        }
         let totalCost = store.moduleTotalGross(course: course, module: module)
+        let totalBaseNet = slots.reduce(0.0) { $0 + b.lessonNetPrice(for: $1, durationHours: durProvider($1)) }
+        let totalDiscount = b.totalDiscount(for: slots, durationProvider: durProvider)
+        let totalVat = slots.reduce(0.0) { acc, sk in
+            let dh = durProvider(sk)
+            let net = b.lessonNetPrice(for: sk, durationHours: dh)
+            let disc = b.lessonDiscountAmount(for: sk, durationHours: dh, in: slots, durationProvider: durProvider)
+            return acc + max(0.0, net - disc) * (b.lessonVatPercent(for: sk) / 100.0)
+        }
         let fInfo = course.billingConfig.billingInfo
+        let miniMonths = miniCalendarMonths
 
         VStack(alignment: .leading, spacing: 18) {
             // Header Banner
@@ -3239,6 +3513,36 @@ private struct BillingCalendarPosterView: View {
                 .background(RoundedRectangle(cornerRadius: 12).fill(Color.secondary.opacity(0.06)))
             }
 
+            // Mini Month Calendar Overview
+            if !miniMonths.isEmpty {
+                let cols = miniMonths.count == 1 ? 1 : ((miniMonths.count == 2 || miniMonths.count == 4) ? 2 : 3)
+                let rows = stride(from: 0, to: miniMonths.count, by: cols).map { idx in
+                    Array(miniMonths[idx..<min(idx + cols, miniMonths.count)])
+                }
+                VStack(spacing: 12) {
+                    ForEach(Array(rows.enumerated()), id: \.offset) { _, rowMonths in
+                        HStack(alignment: .top, spacing: 14) {
+                            if cols == 1, let m = rowMonths.first {
+                                Spacer(minLength: 0)
+                                miniMonthCard(m)
+                                    .frame(width: 400)
+                                Spacer(minLength: 0)
+                            } else {
+                                ForEach(rowMonths) { m in
+                                    miniMonthCard(m)
+                                        .frame(maxWidth: .infinity)
+                                }
+                                if rowMonths.count < cols {
+                                    ForEach(0..<(cols - rowMonths.count), id: \.self) { _ in
+                                        Spacer().frame(maxWidth: .infinity)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
             // Lessons List Table
             VStack(spacing: 6) {
                 // Table Header
@@ -3262,11 +3566,11 @@ private struct BillingCalendarPosterView: View {
                     let les = store.findLesson(in: course, sectionId: module.id, slotKey: slotKey)
                     let st = les?.time ?? module.startTime
                     let et = les?.endTime ?? module.endTime
-                    let durH = store.lessonDurationHours(course: course, module: module, slotKey: slotKey)
+                    let durH = durProvider(slotKey)
                     let net = b.lessonNetPrice(for: slotKey, durationHours: durH)
                     let vatPct = b.lessonVatPercent(for: slotKey)
-                    let disc = b.lessonDiscountAmount(for: slotKey, durationHours: durH)
-                    let gross = b.lessonGrossPrice(for: slotKey, durationHours: durH)
+                    let disc = b.lessonDiscountAmount(for: slotKey, durationHours: durH, in: slots, durationProvider: durProvider)
+                    let gross = b.lessonGrossPrice(for: slotKey, durationHours: durH, in: slots, durationProvider: durProvider)
 
                     HStack(spacing: 8) {
                         Text("\(idx + 1)")
@@ -3308,13 +3612,52 @@ private struct BillingCalendarPosterView: View {
             // Summary Totals
             HStack {
                 Spacer()
-                VStack(alignment: .trailing, spacing: 4) {
-                    Text("\(totalDueLabel): \(store.formatMoney(totalCost))")
-                        .font(.system(size: 18, weight: .heavy))
-                        .foregroundStyle(.green)
+                if totalDiscount > 0.005 {
+                    VStack(alignment: .trailing, spacing: 5) {
+                        HStack(spacing: 14) {
+                            Text(subtotalLabel)
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundStyle(.secondary)
+                            Text(store.formatMoney(totalBaseNet))
+                                .font(.system(size: 12, weight: .bold))
+                                .foregroundStyle(.primary)
+                        }
+                        HStack(spacing: 14) {
+                            Text(totalDiscountLabel)
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundStyle(.orange)
+                            Text("-\(store.formatMoney(totalDiscount))")
+                                .font(.system(size: 12, weight: .heavy))
+                                .foregroundStyle(.orange)
+                        }
+                        if totalVat > 0.005 {
+                            HStack(spacing: 14) {
+                                Text(vatSummaryLabel)
+                                    .font(.system(size: 12, weight: .semibold))
+                                    .foregroundStyle(.secondary)
+                                Text("+\(store.formatMoney(totalVat))")
+                                    .font(.system(size: 12, weight: .bold))
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                        Divider()
+                            .frame(width: 240)
+                        Text("\(totalDueLabel): \(store.formatMoney(totalCost))")
+                            .font(.system(size: 18, weight: .heavy))
+                            .foregroundStyle(.green)
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
+                    .background(RoundedRectangle(cornerRadius: 12).fill(Color.green.opacity(0.10)))
+                } else {
+                    VStack(alignment: .trailing, spacing: 4) {
+                        Text("\(totalDueLabel): \(store.formatMoney(totalCost))")
+                            .font(.system(size: 18, weight: .heavy))
+                            .foregroundStyle(.green)
+                    }
+                    .padding(14)
+                    .background(RoundedRectangle(cornerRadius: 12).fill(Color.green.opacity(0.10)))
                 }
-                .padding(14)
-                .background(RoundedRectangle(cornerRadius: 12).fill(Color.green.opacity(0.10)))
             }
 
             // Watermark attribution

@@ -18,7 +18,7 @@ public enum AuthorAttribution {
     public static let authorName = "Guaira Jaramillo Nitoglia"
     public static let authorEmail = "guaira.jaramillo.nitoglia@gmail.com"
     public static let appName = "ClassDesk"
-    public static let appVersion = "26.11.2-018"
+    public static let appVersion = "26.11.2-019"
 
     /// Centralized channel indicator: 0 = Stable, 1 = Unstable / Beta
     public static let isUnstableBuild: Int = 1
@@ -802,6 +802,10 @@ public struct LessonBillingItem: Codable, Equatable {
         discountType = JSONDictHelper.optStr(dict["discountType"])
         discountValue = JSONDictHelper.optDbl(dict["discountValue"])
     }
+
+    public var hasAnyOverride: Bool {
+        price != nil || vatPercent != nil || discountValue != nil
+    }
 }
 
 public struct ModuleBilling: Codable, Equatable {
@@ -884,15 +888,19 @@ public struct ModuleBilling: Codable, Equatable {
         lessonOverrides = ov
     }
 
-    /// Effective gross hourly rate after percentage discount and VAT.
+    /// Effective gross hourly rate after percentage or per-hour fixed discount and VAT.
     public var effectiveGrossHourlyRate: Double {
         let rate = max(0.0, hourlyRateNet)
         guard rate > 0 else { return 0.0 }
-        let discFactor: Double = (discountType == "percent" && discountValue > 0)
-            ? max(0.0, 1.0 - discountValue / 100.0)
-            : 1.0
         let vatMultiplier = 1.0 + max(0.0, vatPercent) / 100.0
-        return rate * discFactor * vatMultiplier
+        if discountType == "percent" && discountValue > 0 {
+            let discFactor = max(0.0, 1.0 - discountValue / 100.0)
+            return rate * discFactor * vatMultiplier
+        }
+        if discountType == "fixed" && discountTarget == "per_hour" && discountValue > 0 {
+            return max(0.0, rate - discountValue) * vatMultiplier
+        }
+        return rate * vatMultiplier
     }
 
     /// Computes paid hours from the gross paid amount, hourly net rate, VAT %, and discount (% or fixed).
@@ -901,12 +909,18 @@ public struct ModuleBilling: Codable, Equatable {
         hourlyRateNet: Double,
         vatPercent: Double,
         discountType: String,
-        discountValue: Double
+        discountValue: Double,
+        discountTarget: String = "total"
     ) -> Double {
         guard paidAmount > 0, hourlyRateNet > 0 else { return 0.0 }
         let vatMultiplier = 1.0 + max(0.0, vatPercent) / 100.0
         if discountType == "fixed" {
             let fixedDisc = max(0.0, discountValue)
+            if discountTarget == "per_hour" {
+                let effGrossRate = max(0.0, hourlyRateNet - fixedDisc) * vatMultiplier
+                guard effGrossRate > 0 else { return 0.0 }
+                return paidAmount / effGrossRate
+            }
             let paidNetAfterDiscount = paidAmount / vatMultiplier
             return (paidNetAfterDiscount + fixedDisc) / hourlyRateNet
         } else {
@@ -923,7 +937,8 @@ public struct ModuleBilling: Codable, Equatable {
             hourlyRateNet: hourlyRateNet,
             vatPercent: vatPercent,
             discountType: discountType,
-            discountValue: discountValue
+            discountValue: discountValue,
+            discountTarget: discountTarget
         )
     }
 
@@ -937,7 +952,7 @@ public struct ModuleBilling: Codable, Equatable {
         var coveredHours = 0.0
         for d in dates {
             let dur = max(0.0, durationProvider?(d) ?? lessonDurationHours)
-            let gross = lessonGrossPrice(for: d, durationHours: dur)
+            let gross = lessonGrossPrice(for: d, durationHours: dur, in: dates, durationProvider: durationProvider)
             if gross <= 0 {
                 coveredHours += dur
                 continue
@@ -990,12 +1005,53 @@ public struct ModuleBilling: Codable, Equatable {
 
     public func lessonDiscountAmount(for slotKey: String, durationHours: Double? = nil) -> Double {
         let net = lessonNetPrice(for: slotKey, durationHours: durationHours)
-        if let o = lessonOverrides[slotKey], let v = o.discountValue, v > 0 {
-            let t = o.discountType ?? "percent"
-            return t == "percent" ? (net * (v / 100.0)) : v
+        if let o = lessonOverrides[slotKey], let v = o.discountValue {
+            let cleanV = max(0.0, v)
+            let t = o.discountType ?? "fixed"
+            let raw = (t == "percent") ? (net * (cleanV / 100.0)) : cleanV
+            return min(net, raw)
         }
-        if discountValue > 0 && discountType == "percent" {
-            return net * (discountValue / 100.0)
+        guard discountValue > 0 else { return 0.0 }
+        if discountType == "percent" {
+            return min(net, net * (discountValue / 100.0))
+        }
+        if discountType == "fixed" && discountTarget == "per_hour" {
+            let effHours = max(0.0, durationHours ?? lessonDurationHours)
+            return min(net, discountValue * effHours)
+        }
+        return 0.0
+    }
+
+    public func lessonDiscountAmount(
+        for slotKey: String,
+        durationHours: Double? = nil,
+        in dates: [String],
+        durationProvider: ((String) -> Double)? = nil
+    ) -> Double {
+        let net = lessonNetPrice(for: slotKey, durationHours: durationHours)
+        if let o = lessonOverrides[slotKey], let v = o.discountValue {
+            let cleanV = max(0.0, v)
+            let t = o.discountType ?? "fixed"
+            let raw = (t == "percent") ? (net * (cleanV / 100.0)) : cleanV
+            return min(net, raw)
+        }
+        guard discountValue > 0 else { return 0.0 }
+        if discountType == "percent" {
+            return min(net, net * (discountValue / 100.0))
+        }
+        if discountType == "fixed" {
+            if discountTarget == "per_hour" {
+                let effHours = max(0.0, durationHours ?? lessonDurationHours)
+                return min(net, discountValue * effHours)
+            }
+            if !dates.isEmpty {
+                let totalNet = dates.reduce(0.0) { acc, d in
+                    acc + lessonNetPrice(for: d, durationHours: durationProvider?(d))
+                }
+                if totalNet > 0 {
+                    return min(net, min(totalNet, discountValue) * (net / totalNet))
+                }
+            }
         }
         return 0.0
     }
@@ -1008,21 +1064,33 @@ public struct ModuleBilling: Codable, Equatable {
         return afterDisc + vat
     }
 
+    public func lessonGrossPrice(
+        for slotKey: String,
+        durationHours: Double? = nil,
+        in dates: [String],
+        durationProvider: ((String) -> Double)? = nil
+    ) -> Double {
+        let net = lessonNetPrice(for: slotKey, durationHours: durationHours)
+        let disc = lessonDiscountAmount(for: slotKey, durationHours: durationHours, in: dates, durationProvider: durationProvider)
+        let afterDisc = max(0.0, net - disc)
+        let vat = afterDisc * (lessonVatPercent(for: slotKey) / 100.0)
+        return afterDisc + vat
+    }
+
+    public func totalDiscount(for dates: [String], durationProvider: ((String) -> Double)? = nil) -> Double {
+        dates.reduce(0.0) { acc, d in
+            let dh = durationProvider?(d)
+            let net = lessonNetPrice(for: d, durationHours: dh)
+            let disc = lessonDiscountAmount(for: d, durationHours: dh, in: dates, durationProvider: durationProvider)
+            return acc + min(net, disc)
+        }
+    }
+
     public func totalGross(for dates: [String], durationProvider: ((String) -> Double)? = nil) -> Double {
         if dates.isEmpty { return 0.0 }
-        if discountType == "fixed" && discountValue > 0 && lessonOverrides.isEmpty {
-            let totalNet = dates.reduce(0.0) { acc, d in
-                acc + lessonNetPrice(for: d, durationHours: durationProvider?(d))
-            }
-            let netAfter = max(0.0, totalNet - discountValue)
-            return netAfter * (1.0 + max(0.0, vatPercent) / 100.0)
+        return dates.reduce(0.0) { acc, d in
+            acc + lessonGrossPrice(for: d, durationHours: durationProvider?(d), in: dates, durationProvider: durationProvider)
         }
-        var sum = 0.0
-        for d in dates {
-            let dur = durationProvider?(d)
-            sum += lessonGrossPrice(for: d, durationHours: dur)
-        }
-        return sum
     }
 }
 

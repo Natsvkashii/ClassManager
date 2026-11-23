@@ -1908,16 +1908,9 @@ public struct BillingEarningsAnalyticsView: View {
             for lvl in course.levels {
                 for mod in lvl.modules {
                     let billing = store.effectiveBilling(for: mod, in: course)
-                    let fixedModuleDiscountRatio: Double? = {
-                        guard billing.discountType == "fixed", billing.discountValue > 0, billing.lessonOverrides.isEmpty else { return nil }
-                        let totalNet = mod.dates.reduce(0.0) { acc, sk in
-                            acc + billing.lessonNetPrice(for: sk, durationHours: store.lessonDurationHours(course: course, module: mod, slotKey: sk))
-                        }
-                        guard totalNet > 0 else { return 0.0 }
-                        return billing.totalGross(for: mod.dates) { sk in
-                            store.lessonDurationHours(course: course, module: mod, slotKey: sk)
-                        } / totalNet
-                    }()
+                    let durProvider: (String) -> Double = { sk in
+                        store.lessonDurationHours(course: course, module: mod, slotKey: sk)
+                    }
                     let payers = resolvePayers(for: course, module: mod)
                     let payerShare = 1.0 / Double(max(1, payers.count))
 
@@ -1930,13 +1923,8 @@ public struct BillingEarningsAnalyticsView: View {
                         let lDay = parts[2]
                         guard lYear == year, (1...12).contains(lMonth) else { continue }
 
-                        let durH = store.lessonDurationHours(course: course, module: mod, slotKey: slotKey)
-                        let gross: Double
-                        if let ratio = fixedModuleDiscountRatio {
-                            gross = billing.lessonNetPrice(for: slotKey, durationHours: durH) * ratio
-                        } else {
-                            gross = billing.lessonGrossPrice(for: slotKey, durationHours: durH)
-                        }
+                        let durH = durProvider(slotKey)
+                        let gross = billing.lessonGrossPrice(for: slotKey, durationHours: durH, in: mod.dates, durationProvider: durProvider)
 
                         let mIdx = lMonth - 1
                         monthsData[mIdx].lessonsCount += 1

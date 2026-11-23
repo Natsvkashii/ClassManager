@@ -10,6 +10,6 @@
 // Removing, obfuscating, or altering these credits violates the author's attribution rights.
 // =====================================================================================
 
-export const APP_VERSION = '26.11.2-018';
+export const APP_VERSION = '26.11.2-019';
 export const APP_CHANNEL = 'beta';
 export const APP_BUILD_TYPE = 'beta';

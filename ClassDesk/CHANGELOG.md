@@ -5,6 +5,11 @@ Il formato è basato su [Keep a Changelog](https://keepachangelog.com/it/1.0.0/)
 
 ---
 
+## [26.11.2-019] — 2026-11-23 (Beta)
+- **Fatturazione (macOS e Windows) — Sconti per ora o sul totale**: aggiunto il selettore **Applica Sconto** (`Sul totale` / `Per ora`) nella barra di configurazione del modulo, con distribuzione automatica degli sconti fissi totali su ogni lezione e calcolo coerente di ore pagate e report guadagni.
+- **Fatturazione — Valori personalizzati preservati**: modificando prezzo, IVA o sconto di una singola lezione, i soli campi modificati rimangono personalizzati (incluso uno sconto esplicito a `0`) e vengono mantenuti intatti anche riapplicando le impostazioni globali al modulo, con indicatore visivo sulle lezioni personalizzate.
+- **Esportazione PNG Fatturazione**: rimossa la dicitura *"Dettaglio Fatturazione e Calendario Lezioni"*, aggiunto il mini-calendario compatto dei mesi con i giorni di lezione evidenziati nel colore del corso e aggiunta la sezione di riepilogo con `Subtotale`, `Sconto Totale` (ed eventuale `IVA`) sopra `Totale da Saldare`.
+
 ## [26.11.2-017] — 2026-11-18 (Beta)
 - **Windows — Integrità corsi archiviati**: corretta l'ispezione dei corsi archiviati su Windows mantenendo invariato `archived = true` durante la consultazione e rafforzata la protezione in sola lettura su calendario, presenze, voti, configurazione moduli, iscritti, piano lezione e fatturazione, impedendo che un corso archiviato venga rimosso dall'archivio al cambio di corso o vista.
 
